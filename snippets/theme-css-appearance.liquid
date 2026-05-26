@@ -1,0 +1,66 @@
+<style>
+  :root {
+    --block-corner-radius: {{ settings.block_corner_radius }}px;
+    --block-sm-corner-radius: calc(min(var(--block-corner-radius), .5rem));
+    --block-xs-corner-radius: calc(min(var(--block-corner-radius), .25rem));
+
+    --button-corner-radius: {{ settings.button_corner_radius }}px;
+    --input-corner-radius: {{ settings.input_corner_radius }}px;
+    --dropdown-corner-radius: {{ settings.dropdown_corner_radius }}px;
+
+    --image-background-shade: {{ 100 | minus: settings.image_background_shade_intensity | divided_by: 100.0 }};
+
+    {% case settings.color_swatches_style %}
+      {% when 'circle' %}
+        --color-swatch-border-radius: 9999px;
+        --color-swatch-aspect-ratio: 1.0;
+      {% when 'square' %}
+        --color-swatch-border-radius: var(--block-xs-corner-radius);
+        --color-swatch-aspect-ratio: 1.0;
+      {% when 'rectangle' %}
+        --color-swatch-border-radius: var(--block-xs-corner-radius);
+        --color-swatch-aspect-ratio: 0.5;
+
+
+    {% endcase %}
+
+    {% case settings.product_card_thumbnail_proportions %}
+      {% when 'square' %}
+        --product-card-image-aspect: 1;
+      {% when 'wide' %}
+        --product-card-image-aspect: 1.333333;
+      {% when 'tall' %}
+        --product-card-image-aspect: 0.75;
+      {% when 'taller' %}
+        --product-card-image-aspect: 0.6666667;
+    {% endcase %}
+  }
+
+  {% if settings.image_background_shade_product_thumbnails %}
+    .product-thumbnail-shade {
+      filter: brightness(var(--image-background-shade));
+    }
+  {% endif %}
+
+
+  {% if settings.image_background_shade_product_gallery %}
+    .product-gallery-shade::after {
+      content: '';
+      display: block;
+      position: absolute;
+      inset: 0;
+      background: black;
+      opacity: calc(1.0 - var(--image-background-shade));
+    }
+
+    .pswp__img {
+      filter: brightness(var(--image-background-shade));
+    }
+  {% endif %}
+
+  {% if settings.image_background_shade_collection_images %}
+    .collection-image-shade {
+      filter: brightness(var(--image-background-shade));
+    }
+  {% endif %}
+</style>

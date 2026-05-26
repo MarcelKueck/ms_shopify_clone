@@ -1,0 +1,11 @@
+{% assign prefix = prefix | default: '--button' %}
+{% assign prefix_background = prefix | append: '-background' %}
+
+{% if background != blank and background.rgba != '0 0 0 / 0.0' %}
+  {{ prefix_background }}: {{ background.rgb }};
+  {% render 'button-hover-active-vars', var: prefix_background, color: background %}
+{% endif %}
+
+{% if text != blank and text.rgba != '0 0 0 / 0.0' %}
+  {{ prefix }}-foreground: {{ text.rgb }};
+{% endif %}

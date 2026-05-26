@@ -1,0 +1,252 @@
+{% liquid
+  case section.settings.text_position
+    when 'left'
+      assign section_class = 'grid lg:grid-cols-[1fr_2fr] gap-x-16'
+    when 'center'
+      assign header_class = 'text-center'
+    when 'right'
+      assign section_class = 'grid lg:grid-cols-[2fr_1fr] gap-x-16'
+      assign header_class = 'lg:order-2'
+  endcase
+%}
+
+<style>
+  #shopify-section-{{ section.id }} {
+    --image-comparison-handle-background: {{ section.settings.handle_color.rgb }};
+    --image-comparison-handle-foreground: {% render 'generate-foreground-color', background: section.settings.handle_color %};
+  }
+</style>
+
+{% render 'section-bg-number-vars' %}
+
+<div {% render 'section-attrs', class: section_class %}>
+  <div class="{{ header_class }}">
+    {% render 'section-header' %}
+  </div>
+
+  <div class="section-body">
+    <image-comparison
+      class="image-comparison max-w-5xl sm:mx-auto"
+      tabindex="0"
+      role="img"
+      aria-label="{{ 'accessibility.image_before_and_after_label' | t }}"
+      data-animation="block"
+      data-animation-group="{{ section.id }}"
+    >
+      {% if section.settings.before_image != blank %}
+        {{
+          section.settings.before_image
+          | image_url: width: 1920
+          | image_tag: class: 'image-comparison__before', sizes: 'min(1024px, 100vw)', loading: 'lazy'
+        }}
+      {% else %}
+        {% render 'placeholder',
+          type: 'lifestyle-1',
+          class: 'image-comparison__before placeholder--dark aspect-video',
+          cover: false
+        %}
+      {% endif %}
+
+      {% if section.settings.after_image != blank %}
+        {{
+          section.settings.after_image
+          | image_url: width: 1920
+          | image_tag: class: 'image-comparison__after', sizes: 'min(1024px, 100vw)', loading: 'lazy'
+        }}
+      {% else %}
+        {% render 'placeholder',
+          type: 'lifestyle-1',
+          class: 'image-comparison__after placeholder aspect-video',
+          cover: false
+        %}
+      {% endif %}
+
+      <div class="image-comparison__bar"></div>
+      <div class="image-comparison__handle"></div>
+    </image-comparison>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "t:sections.image-before-after.name",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:sections.all.full_width.label",
+      "default": true
+    },
+    {
+      "type": "image_picker",
+      "id": "before_image",
+      "label": "t:sections.image-before-after.settings.before_image.label"
+    },
+    {
+      "type": "image_picker",
+      "id": "after_image",
+      "label": "t:sections.image-before-after.settings.after_image.label"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.content"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:sections.all.subheading.label"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:sections.all.heading.label"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:sections.all.heading_size.label",
+      "options": [
+        {
+          "value": "h0",
+          "label": "t:sections.all.heading_size.options__0.label"
+        },
+        {
+          "value": "h1",
+          "label": "t:sections.all.heading_size.options__1.label"
+        },
+        {
+          "value": "h2",
+          "label": "t:sections.all.heading_size.options__2.label"
+        },
+        {
+          "value": "h3",
+          "label": "t:sections.all.heading_size.options__3.label"
+        },
+        {
+          "value": "h4",
+          "label": "t:sections.all.heading_size.options__4.label"
+        },
+        {
+          "value": "h5",
+          "label": "t:sections.all.heading_size.options__5.label"
+        },
+        {
+          "value": "h6",
+          "label": "t:sections.all.heading_size.options__6.label"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "richtext",
+      "id": "content",
+      "label": "t:sections.all.content.label"
+    },
+    {
+      "type": "select",
+      "id": "text_position",
+      "label": "t:sections.image-before-after.settings.text_position.label",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:sections.image-before-after.settings.text_position.options__0.label"
+        },
+        {
+          "value": "center",
+          "label": "t:sections.image-before-after.settings.text_position.options__1.label"
+        },
+        {
+          "value": "right",
+          "label": "t:sections.image-before-after.settings.text_position.options__2.label"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.heading_color.label",
+      "id": "heading_color"
+    },
+    {
+      "type": "color",
+      "id": "handle_color",
+      "label": "t:sections.image-before-after.settings.handle_color.label",
+      "default": "#ffffff"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.seo"
+    },
+    {
+      "type": "select",
+      "id": "heading_html_tag",
+      "label": "t:sections.all.heading_html_tag.label",
+      "options": [
+        {
+          "value": "h1",
+          "label": "h1"
+        },
+        {
+          "value": "h2",
+          "label": "h2"
+        },
+        {
+          "value": "h3",
+          "label": "h3"
+        },
+        {
+          "value": "h4",
+          "label": "h4"
+        },
+        {
+          "value": "h5",
+          "label": "h5"
+        },
+        {
+          "value": "h6",
+          "label": "h6"
+        },
+        {
+          "value": "p",
+          "label": "p"
+        },
+        {
+          "value": "span",
+          "label": "span"
+        },
+        {
+          "value": "div",
+          "label": "div"
+        }
+      ],
+      "default": "p",
+      "info": "t:sections.all.heading_html_tag.info"
+    }
+  ],
+  "disabled_on": {
+    "groups": [
+      "header",
+      "custom.overlay"
+    ]
+  },
+  "presets": [
+    {
+      "name": "t:sections.image-before-after.presets__0.name"
+    }
+  ]
+}
+{% endschema %}

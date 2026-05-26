@@ -1,0 +1,44 @@
+{%- liquid
+  assign page_width = page_width | default: settings.page_width
+  assign first = true
+-%}
+
+{%- if hd != null -%}
+  {%- assign max = page_width | divided_by: hd | round -%}
+  (min-width: 1400px) min({{ max }}px, calc((100vw - 64px) / {{ hd }}))
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if xl != null -%}
+  {%- if first == false -%},{%- endif -%}
+  {%- assign max = page_width | divided_by: xl | round -%}
+  (min-width: 1200px) min({{ max }}px, calc((100vw - 64px) / {{ xl }}))
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if lg != null -%}
+  {%- if first == false -%},{%- endif -%}
+  {%- assign max = page_width | divided_by: lg | round -%}
+  (min-width: 992px) min({{ max }}px, calc((100vw - 32px) / {{ lg }}))
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if md != null -%}
+  {%- if first == false -%},{%- endif -%}
+  {%- assign max = page_width | divided_by: md | round -%}
+  (min-width: 768px) min({{ max }}px, calc((100vw - 32px) / {{ md }}))
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if sm != null -%}
+  {%- if first == false -%},{%- endif -%}
+  {%- assign max = page_width | divided_by: sm | round -%}
+  (min-width: 576px) min({{ max }}px, calc((100vw - 20px) / {{ sm }}))
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if base != null -%}
+  {%- if first == false -%},{%- endif -%}
+  {%- assign max = page_width | divided_by: base | round -%}
+  min({{ max }}px, calc((100vw - 20px) / {{ base }}))
+{%- endif -%}

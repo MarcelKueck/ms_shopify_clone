@@ -1,0 +1,15 @@
+{% liquid
+  if background == null
+    assign background = settings.colors_background
+
+    if section.settings.background_color != blank and section.settings.background_color.rgba != '0 0 0 / 0.0'
+      assign background = section.settings.background_color
+    endif
+  endif
+
+  if item_color != blank and item_color.rgba != '0 0 0 / 0.0' and background.rgb != item_color.rgb
+    echo 'data-diff-bg="true"'
+  else
+    echo 'data-diff-bg="false"'
+  endif
+%}

@@ -1,0 +1,735 @@
+<section id="ms-product-inquiry">
+  <style>
+    #ms-product-inquiry .ms-section{padding:60px 20px}
+    #ms-product-inquiry .ms-container{max-width:1100px;margin:0 auto}
+    #ms-product-inquiry .ms-h2{margin:0 0 20px 0 !important;padding:0 !important;font-weight:700;font-size:28px;line-height:1.2}
+    #ms-product-inquiry .ms-lead{font-size:18px;max-width:760px}
+    #ms-product-inquiry .ms-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:22px}
+    #ms-product-inquiry .ms-steps{margin:0;padding:0;list-style:none;display:grid;gap:14px}
+    #ms-product-inquiry .ms-step{display:flex;align-items:flex-start;gap:12px}
+    #ms-product-inquiry .ms-step svg{flex:0 0 22px;margin-top:2px}
+    #ms-product-inquiry .ms-badges{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;padding:0;list-style:none}
+    #ms-product-inquiry .ms-badges li{padding:8px 12px;border:1px solid #e5e7eb;border-radius:999px;background:#fff}
+    #ms-product-inquiry .ms-products{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+    #ms-product-inquiry .ms-product{border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;background:#fff}
+    #ms-product-inquiry .ms-product a{text-decoration:none;color:inherit;display:block}
+    #ms-product-inquiry .ms-product-image{aspect-ratio:1/1;background:#f9fafb}
+    #ms-product-inquiry .ms-product-image img{width:100%;height:100%;object-fit:cover;display:block}
+    #ms-product-inquiry .ms-product-body{padding:14px}
+    #ms-product-inquiry .ms-product-title{font-weight:600;line-height:1.35;margin-bottom:6px}
+    #ms-product-inquiry .ms-product-price{color:#111827;font-weight:700}
+    #ms-product-inquiry .ms-form-wrap{max-width:760px}
+    #ms-product-inquiry label{display:block;margin-bottom:6px;font-weight:600}
+    #ms-product-inquiry input,
+    #ms-product-inquiry select,
+    #ms-product-inquiry textarea{
+      width:100%;
+      padding:12px;
+      border:1px solid #d1d5db;
+      border-radius:10px;
+      background:#fff;
+      font:inherit;
+      box-sizing:border-box;
+    }
+    #ms-product-inquiry textarea{min-height:130px;resize:vertical}
+    #ms-product-inquiry .ms-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    #ms-product-inquiry .ms-btn{
+      display:inline-block;background:#111827;color:#fff;padding:14px 24px;border:none;
+      border-radius:12px;text-decoration:none;font-weight:600;cursor:pointer
+    }
+    #ms-product-inquiry .ms-btn-secondary{
+      display:inline-block;border:1px solid #111827;color:#111827;padding:14px 24px;
+      border-radius:12px;text-decoration:none;font-weight:600
+    }
+    #ms-product-inquiry .ms-remove-btn{
+      border:1px solid #d1d5db;background:#fff;color:#111827;border-radius:10px;
+      padding:8px 12px;cursor:pointer;font:inherit
+    }
+    #ms-product-inquiry .ms-muted{color:#4b5563}
+    #ms-product-inquiry .ms-small{font-size:14px;line-height:1.5;color:#6b7280}
+    #ms-product-inquiry .ms-success{padding:16px;background:#d1fae5;border-radius:8px;margin-bottom:24px}
+    #ms-product-inquiry .ms-error{padding:16px;background:#fee2e2;border-radius:8px;margin-bottom:24px}
+
+    #ms-product-inquiry .ms-search-wrap{position:relative}
+    #ms-product-inquiry .ms-search-results{
+      position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:20;
+      background:#fff;border:1px solid #e5e7eb;border-radius:14px;
+      box-shadow:0 10px 30px rgba(0,0,0,.08);padding:8px;display:none;
+      max-height:320px;overflow:auto;
+    }
+    #ms-product-inquiry .ms-search-results.is-open{display:block}
+    #ms-product-inquiry .ms-search-item{
+      display:flex;gap:12px;align-items:center;padding:10px;border-radius:10px;cursor:pointer
+    }
+    #ms-product-inquiry .ms-search-item:hover,
+    #ms-product-inquiry .ms-search-item:focus{background:#f9fafb;outline:none}
+    #ms-product-inquiry .ms-search-thumb{
+      width:56px;height:56px;border-radius:10px;overflow:hidden;background:#f3f4f6;flex:0 0 56px
+    }
+    #ms-product-inquiry .ms-search-thumb img{
+      width:100%;height:100%;object-fit:cover;display:block
+    }
+    #ms-product-inquiry .ms-selected-product{
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      padding:18px;
+      background:#fff;
+      margin-top:14px;
+    }
+    #ms-product-inquiry .ms-selected-top{
+      display:flex;justify-content:space-between;gap:12px;align-items:flex-start
+    }
+    #ms-product-inquiry .ms-selected-title{font-weight:600}
+    #ms-product-inquiry .ms-selected-meta{font-size:14px;color:#6b7280;margin-top:4px}
+    #ms-product-inquiry .ms-empty-state{
+      padding:14px;border:1px dashed #d1d5db;border-radius:12px;color:#6b7280;background:#fafafa;margin-top:14px
+    }
+
+    @media (max-width: 900px){
+      #ms-product-inquiry .ms-products,
+      #ms-product-inquiry .ms-form-grid{grid-template-columns:1fr}
+      #ms-product-inquiry .ms-selected-top{flex-direction:column}
+    }
+
+    @media (prefers-reduced-motion: no-preference){
+      #ms-product-inquiry .reveal{opacity:0;transform:translateY(12px);will-change:opacity,transform;transition:opacity .5s ease, transform .6s cubic-bezier(.22,.61,.36,1)}
+      #ms-product-inquiry .reveal.fade-in{transform:none}
+      #ms-product-inquiry .reveal.is-visible{opacity:1;transform:none}
+      #ms-product-inquiry .stagger > *{opacity:0;transform:translateY(12px);transition:opacity .45s ease, transform .55s ease}
+      #ms-product-inquiry .stagger.is-visible > *{opacity:1;transform:none}
+      #ms-product-inquiry .stagger.is-visible > *:nth-child(1){transition-delay:.05s}
+      #ms-product-inquiry .stagger.is-visible > *:nth-child(2){transition-delay:.12s}
+      #ms-product-inquiry .stagger.is-visible > *:nth-child(3){transition-delay:.19s}
+      #ms-product-inquiry .stagger.is-visible > *:nth-child(4){transition-delay:.26s}
+      #ms-product-inquiry .stagger.is-visible > *:nth-child(5){transition-delay:.33s}
+      #ms-product-inquiry .stagger.is-visible > *:nth-child(6){transition-delay:.40s}
+    }
+  </style>
+
+  <div class="ms-section">
+    <div class="ms-container">
+      <p class="reveal fade-in" style="background:#f3f4f6; display:inline-block; padding:6px 12px; border-radius:999px; font-size:14px; margin-bottom:16px;">
+        motion sports Produktservice
+      </p>
+
+      <h1 class="reveal" style="font-size:36px; font-weight:700; margin-bottom:20px;">
+        Frage zu einem bestimmten Produkt?
+      </h1>
+
+      <p class="reveal ms-lead">
+        Du hast eine Frage zu einem bestimmten Produkt aus unserem Sortiment? Wähle den Artikel einfach über die Produktsuche aus,
+        gib bei Bedarf die passende Variante an und sende uns deine Frage. Unser Team meldet sich schnellstmöglich mit einer passenden Antwort.
+      </p>
+
+      <ul class="reveal fade-in ms-badges">
+        <li>Produkt direkt auswählen</li>
+        <li>Varianten auswählbar</li>
+        <li>Persönliche Rückmeldung</li>
+        <li>Unverbindliche Anfrage</li>
+      </ul>
+
+      <div class="reveal fade-in" style="margin-top:30px;">
+        <a href="#produktanfrage-form" class="ms-btn" style="margin-right:12px;">Produktfrage senden</a>
+        <a href="#empfehlungen" class="ms-btn-secondary">Produkte entdecken</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="ms-section" style="background:#f9fafb;">
+    <div class="ms-container">
+      <h2 class="ms-h2 reveal">So läuft deine Produktfrage ab</h2>
+
+      <ul class="ms-steps stagger">
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22a10 10 0 1 1 10-10"></path>
+            <path d="M22 12a10 10 0 0 1-10 10"></path>
+            <circle cx="12" cy="12" r="2"></circle>
+            <path d="M22 2 12 12"></path>
+          </svg>
+          <div>
+            <strong>Produkt suchen und auswählen</strong><br>
+            Suche den gewünschten Artikel aus unserem Sortiment und wähle bei Variantenartikeln die passende Ausführung aus.
+          </div>
+        </li>
+
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 16v-8a2 2 0 0 0-2-2h-5l-2-2H5a2 2 0 0 0-2 2v12"></path>
+            <rect x="3" y="8" width="18" height="13" rx="2"></rect>
+            <path d="m9 13 2 2 4-4"></path>
+          </svg>
+          <div>
+            <strong>Frage formulieren</strong><br>
+            Teile uns mit, was du zum Produkt wissen möchtest – zum Beispiel zu Verfügbarkeit, Maßen, Lieferung, Zubehör oder Einsatzbereich.
+          </div>
+        </li>
+
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 11a4 4 0 1 0-8 0"></path>
+            <path d="M12 15v6"></path>
+            <path d="M8 21h8"></path>
+            <path d="M7 8h10"></path>
+          </svg>
+          <div>
+            <strong>Antwort vom motion sports Team</strong><br>
+            Wir prüfen deine Anfrage und melden uns schnellstmöglich mit einer passenden Antwort bei dir.
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="produktanfrage-form" class="ms-section" style="background:#f9fafb;">
+    <div class="ms-container">
+      <div class="ms-form-wrap reveal fade-in">
+        <h2 class="ms-h2" style="margin-bottom:12px !important;">Produktfrage senden</h2>
+        <p class="ms-muted" style="margin-bottom:28px;">
+          Wähle bitte zuerst das Produkt aus, auf das sich deine Frage bezieht.
+        </p>
+
+        {% form 'contact', id: 'product-inquiry-form' %}
+          {% if form.posted_successfully? %}
+            <div class="ms-success">
+              <strong>Vielen Dank!</strong> Deine Produktfrage wurde erfolgreich gesendet. Wir melden uns zeitnah bei dir.
+            </div>
+          {% endif %}
+
+          {% if form.errors %}
+            <div class="ms-error">
+              <strong>Ups!</strong> Bitte überprüfe deine Angaben.
+              <ul style="margin-top:8px;">
+                {% for field in form.errors %}
+                  <li>{{ form.errors.messages[field] }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          <input type="hidden" name="contact[tags]" value="Produktanfrage">
+          <input type="hidden" name="contact[selected_product]" id="product-inquiry-selected-product-field">
+
+          <div style="display:flex; flex-direction:column; gap:16px;">
+
+            <div>
+              <label for="product-inquiry-search">Produkt suchen *</label>
+              <div class="ms-search-wrap">
+                <input
+                  type="search"
+                  id="product-inquiry-search"
+                  placeholder="Produktname eingeben und Produkt auswählen"
+                  autocomplete="off"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="product-inquiry-results"
+                >
+                <div id="product-inquiry-results" class="ms-search-results" role="listbox" aria-label="Produktsuche"></div>
+              </div>
+              <p class="ms-small" style="margin-top:8px;">
+                Tippe mindestens 2 Zeichen ein und wähle dann das passende Produkt aus der Vorschlagsliste.
+              </p>
+
+              <div id="product-inquiry-selected-product">
+                <div class="ms-empty-state">Noch kein Produkt ausgewählt.</div>
+              </div>
+            </div>
+
+            <div class="ms-form-grid">
+              <div>
+                <label for="product-inquiry-name">Name *</label>
+                <input type="text" id="product-inquiry-name" name="contact[name]" required>
+              </div>
+              <div>
+                <label for="product-inquiry-email">E-Mail *</label>
+                <input type="email" id="product-inquiry-email" name="contact[email]" required>
+              </div>
+            </div>
+
+            <div>
+              <label for="product-inquiry-phone">Telefon</label>
+              <input type="tel" id="product-inquiry-phone" name="contact[phone]">
+            </div>
+
+            <div>
+              <label for="product-inquiry-message">Deine Frage zum Produkt *</label>
+              <textarea id="product-inquiry-message" name="contact[body]" required placeholder="Bitte beschreibe kurz, was du zu diesem Produkt wissen möchtest."></textarea>
+            </div>
+
+            <div>
+              <button type="submit" class="ms-btn" style="width:100%;">Produktfrage senden</button>
+            </div>
+          </div>
+        {% endform %}
+      </div>
+    </div>
+  </div>
+
+  <div id="empfehlungen" class="ms-section">
+    <div class="ms-container">
+      <div class="reveal" style="margin-bottom:24px;">
+        <h2 class="ms-h2" style="margin-bottom:12px !important;">Ausgewählte Produkte</h2>
+        <p class="ms-muted">
+          Diese Produkte kannst du direkt ansehen. Für eine konkrete Frage nutze einfach das Formular und wähle den Artikel dort aus.
+        </p>
+      </div>
+
+      {% assign selected_collection = section.settings.product_collection %}
+
+      {% if selected_collection != blank and selected_collection.products_count > 0 %}
+        <div class="ms-products stagger">
+          {% for product in selected_collection.products limit: section.settings.products_to_show %}
+            <div class="ms-product">
+              <a href="{{ product.url }}">
+                <div class="ms-product-image">
+                  {% if product.featured_image %}
+                    <img
+                      src="{{ product.featured_image | image_url: width: 700 }}"
+                      alt="{{ product.title | escape }}"
+                      loading="lazy"
+                      width="700"
+                      height="700"
+                    >
+                  {% endif %}
+                </div>
+                <div class="ms-product-body">
+                  <div class="ms-product-title">{{ product.title }}</div>
+                  <div class="ms-product-price">{{ product.price | money }}</div>
+                </div>
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if section.settings.show_collection_link %}
+          <div class="reveal fade-in" style="margin-top:24px;">
+            <a href="{{ selected_collection.url }}" class="ms-btn-secondary">Alle Produkte ansehen</a>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="ms-card reveal fade-in">
+          <strong>Noch keine Produktkollektion ausgewählt.</strong><br>
+          Wähle im Theme-Editor eine Kollektion aus, damit hier Produkte aus dem Shopify-Katalog angezeigt werden.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="ms-section">
+    <div class="ms-container">
+      <div class="ms-card reveal fade-in">
+        <h2 class="ms-h2" style="margin-bottom:12px !important;">Beratung und Kontakt</h2>
+        <p>
+          <strong>Telefon:</strong> <a href="tel:+498142448666">08142 / 448666</a><br>
+          <strong>E-Mail:</strong> <a href="mailto:info@motionsports.de">info@motionsports.de</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var section = document.getElementById('ms-product-inquiry');
+      if (!section) return;
+
+      if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        var revealEls = document.querySelectorAll('#ms-product-inquiry .reveal, #ms-product-inquiry .stagger');
+        var io = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { root: null, rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+
+        revealEls.forEach(function(el) {
+          io.observe(el);
+        });
+      }
+
+      var searchInput = section.querySelector('#product-inquiry-search');
+      var resultsBox = section.querySelector('#product-inquiry-results');
+      var selectedBox = section.querySelector('#product-inquiry-selected-product');
+      var hiddenField = section.querySelector('#product-inquiry-selected-product-field');
+      var form = section.querySelector('#product-inquiry-form');
+
+      var selectedProduct = null;
+      var debounceTimer = null;
+      var currencyCode = {{ cart.currency.iso_code | default: shop.currency | json }};
+      var shopRoot = (window.Shopify && Shopify.routes && Shopify.routes.root) ? Shopify.routes.root : '/';
+      var searchResultsLimit = {{ section.settings.search_results_limit | json }};
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function extractHandleFromUrl(url) {
+        if (!url) return '';
+        var clean = url.split('?')[0].replace(/\/$/, '');
+        var parts = clean.split('/products/');
+        if (parts.length < 2) return '';
+        return parts[1].split('/')[0];
+      }
+
+      function moneyFromCents(cents) {
+        if (typeof cents !== 'number') return '';
+        try {
+          return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: currencyCode
+          }).format(cents / 100);
+        } catch (e) {
+          return (cents / 100).toFixed(2) + ' ' + currencyCode;
+        }
+      }
+
+      function syncHiddenField() {
+        if (!selectedProduct) {
+          hiddenField.value = '';
+          return;
+        }
+
+        hiddenField.value = [
+          'Produkt: ' + selectedProduct.title,
+          'Variante: ' + (selectedProduct.variantTitle || 'Standard'),
+          'Bild: ' + (selectedProduct.image || '-')
+        ].join('\n');
+      }
+
+      function renderSelectedProduct() {
+        if (!selectedProduct) {
+          selectedBox.innerHTML = '<div class="ms-empty-state">Noch kein Produkt ausgewählt.</div>';
+          syncHiddenField();
+          return;
+        }
+
+        var variantOptions = (selectedProduct.variants || []).map(function(variant) {
+          var selected = String(selectedProduct.variantId) === String(variant.id) ? ' selected' : '';
+          return '<option value="' + escapeHtml(String(variant.id)) + '"' + selected + '>' + escapeHtml(variant.title) + '</option>';
+        }).join('');
+
+        selectedBox.innerHTML = ''
+          + '<div class="ms-selected-product">'
+          +   '<div class="ms-selected-top">'
+          +     '<div style="display:flex; gap:12px; align-items:flex-start;">'
+          +       '<div class="ms-search-thumb" style="width:72px;height:72px;flex:0 0 72px;">'
+          +         (selectedProduct.image ? '<img src="' + escapeHtml(selectedProduct.image) + '" alt="' + escapeHtml(selectedProduct.title) + '">' : '')
+          +       '</div>'
+          +       '<div>'
+          +         '<div class="ms-selected-title">' + escapeHtml(selectedProduct.title) + '</div>'
+          +         '<div class="ms-selected-meta">' + escapeHtml(selectedProduct.vendor || '') + (selectedProduct.price ? ' · ' + escapeHtml(selectedProduct.price) : '') + '</div>'
+          +       '</div>'
+          +     '</div>'
+          +     '<button type="button" class="ms-remove-btn" id="product-inquiry-remove-product">Entfernen</button>'
+          +   '</div>'
+          +   '<div style="margin-top:14px;">'
+          +     '<label>Variante</label>'
+          +     '<select id="product-inquiry-variant-select">' + variantOptions + '</select>'
+          +   '</div>'
+          + '</div>';
+
+        syncHiddenField();
+      }
+
+      function closeResults() {
+        resultsBox.classList.remove('is-open');
+        resultsBox.innerHTML = '';
+        searchInput.setAttribute('aria-expanded', 'false');
+      }
+
+      function openResults() {
+        resultsBox.classList.add('is-open');
+        searchInput.setAttribute('aria-expanded', 'true');
+      }
+
+      function renderResults(products) {
+        if (!products.length) {
+          resultsBox.innerHTML = '<div class="ms-search-item"><div><div class="ms-selected-title">Keine passenden Produkte gefunden.</div></div></div>';
+          openResults();
+          return;
+        }
+
+        var html = products.map(function(product) {
+          return ''
+            + '<div class="ms-search-item" role="option" tabindex="0"'
+            +      ' data-title="' + escapeHtml(product.title) + '"'
+            +      ' data-url="' + escapeHtml(product.url) + '"'
+            +      ' data-handle="' + escapeHtml(product.handle) + '"'
+            +      ' data-vendor="' + escapeHtml(product.vendor || '') + '"'
+            +      ' data-price="' + escapeHtml(product.price || '') + '"'
+            +      ' data-image="' + escapeHtml(product.image || '') + '">'
+            +   '<div class="ms-search-thumb">'
+            +     (product.image ? '<img src="' + escapeHtml(product.image) + '" alt="' + escapeHtml(product.title) + '">' : '')
+            +   '</div>'
+            +   '<div>'
+            +     '<div class="ms-selected-title">' + escapeHtml(product.title) + '</div>'
+            +     '<div class="ms-selected-meta">' + escapeHtml(product.vendor || '') + (product.price ? ' · ' + escapeHtml(product.price) : '') + '</div>'
+            +   '</div>'
+            + '</div>';
+        }).join('');
+
+        resultsBox.innerHTML = html;
+        openResults();
+      }
+
+      function fetchProducts(query) {
+        var url = shopRoot + 'search/suggest.json?q=' + encodeURIComponent(query)
+          + '&resources[type]=product'
+          + '&resources[limit]=' + encodeURIComponent(searchResultsLimit)
+          + '&resources[options][unavailable_products]=hide'
+          + '&resources[options][fields]=title,product_type,variants.title,vendor';
+
+        fetch(url, {
+          headers: { 'Accept': 'application/json' }
+        })
+        .then(function(response) {
+          return response.json();
+        })
+        .then(function(data) {
+          var products = (((data || {}).resources || {}).results || {}).products || [];
+          var mapped = products.map(function(product) {
+            return {
+              title: product.title,
+              url: product.url,
+              handle: product.handle || extractHandleFromUrl(product.url),
+              vendor: product.vendor || '',
+              image: product.featured_image ? product.featured_image.url : '',
+              price: typeof product.price === 'number' ? moneyFromCents(product.price) : ''
+            };
+          });
+          renderResults(mapped);
+        })
+        .catch(function() {
+          resultsBox.innerHTML = '<div class="ms-search-item"><div><div class="ms-selected-title">Die Produktsuche ist aktuell nicht verfügbar.</div></div></div>';
+          openResults();
+        });
+      }
+
+      function fetchProductDetails(handle) {
+        if (!handle) return Promise.reject(new Error('Missing handle'));
+        return fetch(shopRoot + 'products/' + encodeURIComponent(handle) + '.js', {
+          headers: { 'Accept': 'application/json' }
+        }).then(function(response) {
+          return response.json();
+        });
+      }
+
+      function selectProduct(product) {
+        fetchProductDetails(product.handle)
+          .then(function(productData) {
+            var fallbackImage = productData.featured_image || product.image || '';
+
+            var variants = (productData.variants || []).map(function(variant) {
+              var variantImage = '';
+
+              if (variant.featured_image && variant.featured_image.src) {
+                variantImage = variant.featured_image.src;
+              } else if (variant.featured_media && variant.featured_media.preview_image && variant.featured_media.preview_image.src) {
+                variantImage = variant.featured_media.preview_image.src;
+              } else {
+                variantImage = fallbackImage;
+              }
+
+              return {
+                id: variant.id,
+                title: variant.public_title || variant.title || 'Standard',
+                image: variantImage
+              };
+            });
+
+            if (!variants.length) {
+              variants = [{
+                id: 'default',
+                title: 'Standard',
+                image: fallbackImage
+              }];
+            }
+
+            var firstVariant = variants[0];
+
+            selectedProduct = {
+              handle: product.handle,
+              title: product.title,
+              vendor: product.vendor || '',
+              price: product.price || '',
+              variants: variants,
+              variantId: firstVariant.id,
+              variantTitle: firstVariant.title,
+              image: firstVariant.image || fallbackImage
+            };
+
+            renderSelectedProduct();
+          })
+          .catch(function() {
+            selectedProduct = {
+              handle: product.handle,
+              title: product.title,
+              vendor: product.vendor || '',
+              price: product.price || '',
+              variants: [{
+                id: 'default',
+                title: 'Standard',
+                image: product.image || ''
+              }],
+              variantId: 'default',
+              variantTitle: 'Standard',
+              image: product.image || ''
+            };
+
+            renderSelectedProduct();
+          });
+      }
+
+      searchInput.addEventListener('input', function() {
+        var query = searchInput.value.trim();
+
+        if (debounceTimer) clearTimeout(debounceTimer);
+
+        if (query.length < 2) {
+          closeResults();
+          return;
+        }
+
+        debounceTimer = setTimeout(function() {
+          fetchProducts(query);
+        }, 220);
+      });
+
+      searchInput.addEventListener('focus', function() {
+        var query = searchInput.value.trim();
+        if (query.length >= 2 && resultsBox.innerHTML.trim() !== '') {
+          openResults();
+        }
+      });
+
+      document.addEventListener('click', function(event) {
+        if (!section.contains(event.target)) {
+          closeResults();
+        }
+      });
+
+      resultsBox.addEventListener('click', function(event) {
+        var item = event.target.closest('.ms-search-item');
+        if (!item) return;
+
+        selectProduct({
+          title: item.getAttribute('data-title'),
+          url: item.getAttribute('data-url'),
+          handle: item.getAttribute('data-handle'),
+          vendor: item.getAttribute('data-vendor'),
+          price: item.getAttribute('data-price'),
+          image: item.getAttribute('data-image')
+        });
+
+        searchInput.value = '';
+        closeResults();
+      });
+
+      resultsBox.addEventListener('keydown', function(event) {
+        if (event.key !== 'Enter') return;
+        var item = event.target.closest('.ms-search-item');
+        if (!item) return;
+
+        event.preventDefault();
+
+        selectProduct({
+          title: item.getAttribute('data-title'),
+          url: item.getAttribute('data-url'),
+          handle: item.getAttribute('data-handle'),
+          vendor: item.getAttribute('data-vendor'),
+          price: item.getAttribute('data-price'),
+          image: item.getAttribute('data-image')
+        });
+
+        searchInput.value = '';
+        closeResults();
+      });
+
+      selectedBox.addEventListener('click', function(event) {
+        if (event.target.closest('#product-inquiry-remove-product')) {
+          selectedProduct = null;
+          renderSelectedProduct();
+        }
+      });
+
+      selectedBox.addEventListener('change', function(event) {
+        var variantSelect = event.target.closest('#product-inquiry-variant-select');
+        if (!variantSelect || !selectedProduct) return;
+
+        var selectedVariant = (selectedProduct.variants || []).find(function(variant) {
+          return String(variant.id) === String(variantSelect.value);
+        });
+
+        if (selectedVariant) {
+          selectedProduct.variantId = selectedVariant.id;
+          selectedProduct.variantTitle = selectedVariant.title || 'Standard';
+          if (selectedVariant.image) {
+            selectedProduct.image = selectedVariant.image;
+          }
+          renderSelectedProduct();
+        }
+      });
+
+      form.addEventListener('submit', function(event) {
+        if (!selectedProduct) {
+          event.preventDefault();
+          alert('Bitte wähle ein Produkt aus.');
+          searchInput.focus();
+          return;
+        }
+
+        syncHiddenField();
+      });
+
+      renderSelectedProduct();
+    })();
+  </script>
+
+  {% schema %}
+  {
+    "name": "Produktanfrage",
+    "settings": [
+      {
+        "type": "range",
+        "id": "search_results_limit",
+        "min": 3,
+        "max": 10,
+        "step": 1,
+        "default": 6,
+        "label": "Anzahl Suchtreffer"
+      },
+      {
+        "type": "collection",
+        "id": "product_collection",
+        "label": "Kollektion für Produktvorschau"
+      },
+      {
+        "type": "range",
+        "id": "products_to_show",
+        "min": 3,
+        "max": 12,
+        "step": 1,
+        "default": 6,
+        "label": "Anzahl Produkte"
+      },
+      {
+        "type": "checkbox",
+        "id": "show_collection_link",
+        "default": true,
+        "label": "Link zur Kollektion anzeigen"
+      }
+    ],
+    "presets": [
+      {
+        "name": "Produktanfrage"
+      }
+    ]
+  }
+  {% endschema %}
+</section>

@@ -1,0 +1,111 @@
+{% schema %}
+{
+  "name": "TARGO Finanzierung",
+  "tag": "section",
+  "class": "targo-response-section",
+  "settings": []
+}
+{% endschema %}
+
+<style>
+  @media (min-width: 1024px) {
+    .ml-50-desktop {
+      margin-left: 50px;
+    }
+  }
+
+  .targo-box {
+    max-width: 800px;
+    margin: 0 auto;
+    padding-left:20px;
+    padding-right:20px;
+  }
+
+    h1 {
+    font-size: 1.75rem;
+  }
+
+  .targo-button {
+    background-color: #0F9ED5;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 14px 24px;
+    font-size: 1.125rem;
+    font-weight: 600;
+    display: inline-block;
+    width: 100%;
+    max-width: 500px;
+    transition: background 0.2s ease-in-out;
+  }
+
+  .targo-button:hover {
+    background-color: #0b89b7;
+  }
+</style>
+
+<div class="page-width page-content py-12 text-left ml-50-desktop">
+  <div class="targo-box">
+    <img src="https://cdn.shopify.com/s/files/1/0823/4896/6217/files/targobank-nopadding.png?v=1745487001" alt="TARGOBANK Logo" style="max-width: 100%; margin: 0 0 2rem;">
+
+    <h1 class="text-5xl lg:text-6xl font-bold mb-6 text-gray-800">Gerne verarbeiten wir deine Finanzierungsanfrage</h1>
+
+    <p class="mb-4 text-lg text-gray-700">
+      Du hast <strong>Finanzierung mit TARGOBANK</strong> als Zahlungsmethode gewählt.
+    </p>
+
+    <p class="mb-6 text-base text-gray-600">
+      Damit wir deine Bestellung weiter bearbeiten können, kannst du jetzt deine Finanzierungsanfrage bei unserem Partner TARGOBANK stellen.
+    </p>
+
+    <p id="targo-amount-hint" class="mb-6 text-base font-semibold text-blue-800"></p>
+
+    <form id="targo-finance-form" method="POST" action="https://www.targobank.de/de/app/indirectloanrequest.html" target="_blank">
+      <input type="hidden" name="koop_id" value="4motionsports1">
+      <input type="hidden" name="dealerID" value="806562">
+      <input type="hidden" name="dealerText" value="https://motionsports.de/pages/targo-response">
+      <input type="hidden" name="sessionID" id="sessionID" value="">
+      <input type="hidden" name="amount" id="amount" value="">
+      <input type="hidden" name="documentno" id="documentno" value="">
+      <button type="submit" class="targo-button">
+        ➤ Finanzierungsanfrage starten
+      </button>
+    </form>
+
+    <p class="mt-4 text-sm text-gray-600">
+      Hinweis: Bitte halte deinen Personalausweis sowie aktuelle Gehaltsnachweise bereit.
+    </p>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("targo-finance-form");
+    const sessionField = document.getElementById("sessionID");
+    const amountField = document.getElementById("amount");
+    const documentField = document.getElementById("documentno");
+    const hint = document.getElementById("targo-amount-hint");
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const amount = parseFloat(urlParams.get("amount"));
+    const token = "checkout-token";
+
+    if (!amount || isNaN(amount)) {
+      hint.textContent = "❌ Kein gültiger Finanzierungsbetrag übergeben.";
+      form.style.display = "none";
+      return;
+    }
+
+    sessionField.value = token;
+    amountField.value = amount.toFixed(2);
+    documentField.value = token;
+    hint.textContent = `Finanzierungssumme: ${amount.toFixed(2)} €`;
+
+    form.addEventListener("submit", function () {
+      setTimeout(() => {
+        localStorage.removeItem("targo_backup");
+        console.log("[TARGO] localStorage gelöscht nach Submit.");
+      }, 2000);
+    });
+  });
+</script>

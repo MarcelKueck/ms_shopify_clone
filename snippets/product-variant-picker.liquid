@@ -1,0 +1,172 @@
+{% comment %}
+  Renders product variant-picker
+
+  Accepts:
+  - product: {Object} product object.
+  - block: {Object} passing the block information.
+  - product_form_id: {String} Id of the product form to which the variant picker is associated.
+  - update_url: {Boolean} whether or not to update url when changing variants. If false, the url isn't updated. Default: true (optional).
+  Usage:
+  {% render 'product-variant-picker', product: product, block: block, product_form_id: product_form_id %}
+{% endcomment %}
+
+{% liquid
+  assign color_names = settings.color_swatch_option_names | newline_to_br | strip_newlines | split: '<br />'
+%}
+
+{% unless product.has_only_default_variant %}
+  <variant-picker
+    id="variant-picker-{{ section.id }}"
+    class="no-js-hidden max-md:text-sm {% if block.settings.hide_sold_out_variants %} hide-sold-out-variants {% endif %}"
+    data-section="{{ section.id }}"
+    data-url="{{ product.url }}"
+    data-variant-info="variant-picker"
+    {% if update_url == false %}
+      data-update-url="false"
+    {% endif %}
+  >
+    {% for option in product.options_with_values %}
+      {% liquid
+        assign type = block.settings.type
+
+        if color_names contains option.name
+          assign type = block.settings.color_picker_type
+        endif
+      %}
+
+      {% if block.settings.size_chart_page != blank and block.settings.size_chart_option_name == option.name %}
+        {% capture size_chart_link %}
+          {% render 'size-chart-modal', block: block, product: product %}
+        {% endcapture %}
+      {% else %}
+        {% assign size_chart_link = null %}
+      {% endif %}
+
+      {% if type == 'radio' or type == 'radio-image' or type == 'radio-swatch' %}
+        <fieldset class="mb-6" data-option-group>
+          {% if type == 'radio-image' or type == 'radio-swatch' %}
+            <div class="flex items-center mb-3 md:mb-4">
+              <div class="flex items-center gap-2">
+                <div class="label label-product-info m-0">
+                  {{ option.name -}}
+                  <span>:</span>
+                </div>
+                <div class="text-xs md:text-sm" data-option-group-selected-value-label>{{ option.selected_value }}</div>
+              </div>
+              {{ size_chart_link }}
+            </div>
+          {% else %}
+            <div class="flex items-center mb-3 md:mb-4">
+              <legend class="label label-product-info">{{ option.name }}</legend>
+              {{ size_chart_link }}
+            </div>
+          {% endif %}
+
+          <div
+            class="
+              variant-radios variant-radios--{{ block.settings.block_style }}
+              {% if block.settings.block_style_rounded %} variant-radios--rounded {% endif %}
+              {% if type == 'radio-swatch' %} gap-4 m-1 {% endif %}
+            "
+          >
+            {% render 'product-variant-options', product: product, option: option, block: block, type: type %}
+          </div>
+        </fieldset>
+      {% elsif type == 'dropdown' %}
+        <div class="mb-6">
+          <div class="flex items-center mb-3 md:mb-4">
+            <label class="label label-product-info">
+              {{ option.name }}
+            </label>
+
+            {{ size_chart_link }}
+          </div>
+
+          <dropdown-list list-title="{{ option.name }}" data-option-group>
+            <details>
+              <summary tabindex="-1">
+                <button data-dropdown-activator class="input select">
+                  {{ option.selected_value | escape }}
+                </button>
+              </summary>
+
+              <div class="dropdown-menu py-2">
+                <div class="dropdown-list">
+                  {% render 'product-variant-options',
+                    product: product,
+                    option: option,
+                    block: block,
+                    type: 'dropdown'
+                  %}
+                </div>
+              </div>
+            </details>
+
+            <input
+              data-list-value
+              type="hidden"
+              name="options[{{ option.name | escape }}]"
+              form="{{ product_form_id }}"
+              value="{{ option.selected_value | escape }}"
+            >
+          </dropdown-list>
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    <script type="application/json">
+      {{ product.variants | json }}
+    </script>
+  </variant-picker>
+{% endunless %}
+
+<noscript class="product-form__noscript-wrapper-{{ section.id }}">
+  <div class="product-form__input{% if product.has_only_default_variant %} hidden{% endif %}">
+    <label class="label" for="Variants-{{ section.id }}">
+      {{- 'products.product.product_variants' | t -}}
+    </label>
+    <div class="form-select">
+      <select
+        name="id"
+        id="Variants-{{ section.id }}"
+        class="input"
+        form="{{ product_form_id }}"
+      >
+        {% for variant in product.variants %}
+          <option
+            {% if variant == product.selected_or_first_available_variant %}
+              selected="selected"
+            {% endif %}
+            {% if variant.available == false %}
+              disabled
+            {% endif %}
+            value="{{ variant.id }}"
+          >
+            {% liquid
+              echo variant.title
+              echo variant.price | money | strip_html | prepend: ' - '
+              if variant.available == false
+                echo 'products.product.sold_out' | t | prepend: ' - '
+              endif
+              if variant.quantity_rule.increment > 1
+                echo 'products.product.quantity.multiples_of' | t: quantity: variant.quantity_rule.increment | prepend: ' - '
+              endif
+              if variant.quantity_rule.min > 1
+                echo 'products.product.quantity.minimum_of' | t: quantity: variant.quantity_rule.min | prepend: ' - '
+              endif
+              if variant.quantity_rule.max != null
+                echo 'products.product.quantity.maximum_of' | t: quantity: variant.quantity_rule.max | prepend: ' - '
+              endif
+
+              assign cart_quantity = cart | item_count_for_variant: variant.id
+
+              if cart_quantity > 0
+                echo 'products.product.quantity.in_cart_html' | t: quantity: cart_quantity | prepend: ' - '
+              endif
+            %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</noscript>

@@ -1,0 +1,22 @@
+{%- liquid
+  assign base_class = base_class | default: 'section'
+
+  assign full_width = full_width | default: section.settings.full_width
+
+  unless type
+    if full_width == false
+      assign type = base_class | append: '--block'
+    else
+      assign type = base_class | append: '--full-width'
+    endif
+  endunless
+
+  assign class = base_class | append: ' ' | append: type | append: ' ' | append: class
+
+  capture color_vars
+    render 'apply-color-vars', background: section.settings.background_color, text: section.settings.text_color, heading: section.settings.heading_color
+  endcapture
+
+  assign style = style | append: ' ' | append: color_vars
+-%}
+class="{{ class }}" style="{{ style }}"

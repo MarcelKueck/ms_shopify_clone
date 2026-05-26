@@ -1,0 +1,36 @@
+{% liquid
+  assign icon_width = icon_width | default: 48
+
+  case icon_background
+    when 'square'
+      assign icon_wrapper_class = 'rounded-block p-[.25em] bg-[--icon-background]'
+    when 'circle'
+      assign icon_wrapper_class = 'rounded-full p-[.375em] bg-[--icon-background]'
+  endcase
+%}
+
+{%- capture style -%}
+  {%- if icon_background_color != blank and icon_background_color.rgba != '0 0 0 / 0.0' -%}
+    --icon-background: {{ icon_background_color }};
+  {%- else -%}
+    --icon-background: rgb(var(--color-foreground) / 4%);
+  {%- endif -%}
+
+  {%- if icon_color != blank and icon_color.rgba != '0 0 0 / 0.0' -%}
+    --icon-foreground: {{ icon_color }};
+  {%- else -%}
+    --icon-foreground: rgb(var(--color-foreground));
+  {%- endif -%}
+
+  font-size: {% render 'rfs', value: icon_width, base_value: 32 %};
+{%- endcapture -%}
+
+<div class="inline-block {{ icon_wrapper_class }} text-[--icon-foreground]" style="{{ style }}" {{ attrs }}>
+  {% if custom_icon %}
+    {{ custom_icon | image_url: width: 128 | image_tag: loading: 'lazy', class: 'w-[1em] h-[1em] object-contain' }}
+  {% else %}
+    <div class="w-[1em]" style="--icon-stroke-width: {{ stroke_width | default: '1.25' }};">
+      {% render 'icon-section', icon: icon %}
+    </div>
+  {% endif %}
+</div>

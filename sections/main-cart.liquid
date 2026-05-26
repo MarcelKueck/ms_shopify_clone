@@ -1,0 +1,291 @@
+{% render 'section-bg-number-vars' %}
+
+<style>
+  #shopify-section-{{ section.id }} .cart-side {
+    --color-background: var(--color-foreground) / 2.5%;
+
+    {% render 'apply-color-vars',
+      background: section.settings.summary_background_color,
+      text: section.settings.summary_text_color,
+      heading: section.settings.summary_heading_color
+    %}
+  }
+</style>
+
+<div {% render 'section-attrs' %}>
+  {% if cart == empty %}
+    <div class="text-center py-8">
+      <p class="text-h4">{{ 'sections.cart.empty' | t }}</p>
+      <a class="button button-primary mt-8" href="{{ settings.cart_empty_button_link }}">
+        {{ 'general.continue_shopping' | t }}
+      </a>
+    </div>
+
+  {% else %}
+    <h1 class="h2 mb-12 md:mb-16 {{ section.settings.text_alignment }}">{{ 'sections.cart.title' | t }}</h1>
+
+    <cart-form class="cart-form">
+      <form action="{{ routes.cart_url }}" method="post" id="Cart" data-id="{{ section.id }}" data-form-button-loading>
+        <div class="main-cart-grid js-contents">
+          <div class="cart-main">
+            {% render 'cart-table' %}
+          </div>
+
+          <div
+            class="cart-side color p-6 sm:p-8 cart-side--sticky rounded-block border data-[has-diff-bg]:border-0"
+            {% if section.settings.summary_background_color == blank
+              or section.settings.summary_background_color.rgba == '0 0 0 / 0.0'
+            %}
+              data-has-diff-bg
+            {% else %}
+              {% render 'has-diff-bg-class',
+                class: 'data-has-diff-bg',
+                item_color: section.settings.summary_background_color
+              %}
+            {% endif %}
+          >
+            {% render 'cart-side-inner' %}
+          </div>
+        </div>
+
+        <p class="visually-hidden" id="Cart-LiveRegionText" aria-live="polite" role="status"></p>
+        <p class="visually-hidden" id="Cart-LineItemStatus" aria-live="polite" aria-hidden="true" role="status">
+          {{ 'accessibility.loading' | t }}
+        </p>
+      </form>
+    </cart-form>
+  {% endif %}
+</div>
+
+<x-modal class="modal bottom-modal shipping-estimator-modal" position="center-center">
+  <div slot="content" class="p-8 md:p-12" tabindex="-1">
+    <div class="flex justify-between mb-6">
+      <h3 class="h5">
+        {{ 'sections.shipping_estimator.title' | t }}
+      </h3>
+
+      <button class="modal-close -mt-1" data-button-close aria-label="{{ 'accessibility.close_modal' | t }}">
+        {% render 'icon-times' %}
+      </button>
+    </div>
+
+    {% render 'shipping-estimator' %}
+  </div>
+</x-modal>
+
+{% schema %}
+{
+  "name": "t:sections.main-cart.name",
+  "class": "section-main-cart",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_vendor",
+      "label": "t:sections.main-cart.settings.show_vendor.label",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:sections.all.heading_alignment.label",
+      "options": [
+        {
+          "value": "text-left",
+          "label": "t:sections.all.heading_alignment.options.text_left.label"
+        },
+        {
+          "value": "text-center",
+          "label": "t:sections.all.heading_alignment.options.text_center.label"
+        },
+        {
+          "value": "text-right",
+          "label": "t:sections.all.heading_alignment.options.text_right.label"
+        }
+      ],
+      "default": "text-center"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.heading_color.label",
+      "id": "heading_color"
+    },
+    {
+      "type": "color",
+      "id": "summary_background_color",
+      "label": "t:sections.main-cart.settings.summary_background_color.label"
+    },
+    {
+      "type": "color",
+      "id": "summary_text_color",
+      "label": "t:sections.main-cart.settings.summary_text_color.label"
+    },
+    {
+      "type": "color",
+      "id": "summary_heading_color",
+      "label": "t:sections.main-cart.settings.summary_heading_color.label"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "@app"
+    },
+    {
+      "type": "heading",
+      "name": "t:sections.main-cart.blocks.heading.name",
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "t:sections.all.heading.label",
+          "default": "Heading"
+        },
+        {
+          "type": "select",
+          "id": "heading_size",
+          "label": "t:sections.all.heading_size.label",
+          "options": [
+            {
+              "value": "h0",
+              "label": "t:sections.all.heading_size.options__0.label"
+            },
+            {
+              "value": "h1",
+              "label": "t:sections.all.heading_size.options__1.label"
+            },
+            {
+              "value": "h2",
+              "label": "t:sections.all.heading_size.options__2.label"
+            },
+            {
+              "value": "h3",
+              "label": "t:sections.all.heading_size.options__3.label"
+            },
+            {
+              "value": "h4",
+              "label": "t:sections.all.heading_size.options__4.label"
+            },
+            {
+              "value": "h5",
+              "label": "t:sections.all.heading_size.options__5.label"
+            },
+            {
+              "value": "h6",
+              "label": "t:sections.all.heading_size.options__6.label"
+            }
+          ],
+          "default": "h5"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "t:sections.main-cart.blocks.text.name",
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "t:sections.all.content.label"
+        }
+      ]
+    },
+    {
+      "type": "free_shipping_bar",
+      "name": "t:sections.main-cart.blocks.free_shipping_bar.name",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "t:sections.main-cart.paragraph__0.content"
+        }
+      ]
+    },
+    {
+      "type": "totals",
+      "name": "t:sections.main-cart.blocks.totals.name",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_shipping_taxes_message",
+          "label": "t:sections.main-cart.blocks.totals.settings.show_shipping_taxes_message.label",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_order_weight",
+          "label": "t:sections.main-cart.blocks.totals.settings.show_order_weight.label",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "shipping_estimator",
+      "name": "t:sections.main-cart.blocks.shipping_estimator.name",
+      "limit": 1
+    },
+    {
+      "type": "cart_note",
+      "name": "t:sections.main-cart.blocks.cart_note.name",
+      "limit": 1
+    },
+    {
+      "type": "checkout_button",
+      "name": "t:sections.main-cart.blocks.checkout_button.name",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_dynamic_checkout_buttons",
+          "label": "t:sections.all.show_dynamic_checkout_buttons.label",
+          "default": true,
+          "info": "t:sections.all.show_dynamic_checkout_buttons.info"
+        },
+        {
+          "type": "select",
+          "id": "button_style",
+          "label": "t:sections.all.button_style.label",
+          "options": [
+            {
+              "value": "",
+              "label": "t:sections.all.button_style.options.filled"
+            },
+            {
+              "value": "button-outline",
+              "label": "t:sections.all.button_style.options.outline"
+            }
+          ],
+          "default": ""
+        },
+        {
+          "type": "header",
+          "content": "t:sections.all.headers.colors"
+        },
+        {
+          "type": "color",
+          "label": "t:sections.all.button_background_color.label",
+          "id": "button_background_color"
+        },
+        {
+          "type": "color",
+          "label": "t:sections.all.button_text_color.label",
+          "id": "button_text_color"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

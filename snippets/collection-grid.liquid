@@ -1,0 +1,71 @@
+{% liquid
+  assign products_per_page = products_per_page | default: section.settings.products_per_page
+  assign filter_type = filter_type | default: section.settings.filter_type
+
+  assign enable_sticky_sidebar = true
+
+  case filter_type
+    when 'horizontal'
+      assign filter_type_class = 'horizontal-filters'
+    when 'vertical'
+      assign filter_type_class = 'vertical-filters'
+    when 'drawer'
+      assign filter_type_class = 'desktop-drawer'
+  endcase
+%}
+
+<div class="collection-grid {{ filter_type_class }}">
+  {% if section.settings.show_filters %}
+    <div class="collection-grid__facets">
+      {% if filter_type != 'drawer' %}
+        {% if filter_type == 'vertical' and enable_sticky_sidebar %}
+          {% echo '<sticky-sidebar id="CollectionGrid-StickySidebar" class="max-lg:hidden" disable-below="992" bottom-offset="0" data-preserve-state>' %}
+        {% endif %}
+
+        <div class="max-lg:hidden self-start w-full">
+          {% render 'facets', results: results, filter_type: filter_type %}
+        </div>
+
+        {% if filter_type == 'vertical' and enable_sticky_sidebar %}
+          {% echo '</sticky-sidebar> ' %}
+        {% endif %}
+      {% endif %}
+
+      <div class="{% if filter_type != "drawer" %}lg:hidden{% endif %}">
+        {% render 'facets-drawer', results: results %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if section.settings.show_sort_by %}
+    <div class="collection-grid__sort">
+      {% render 'collection-sort', results: results %}
+    </div>
+  {% endif %}
+
+  <div class="collection-grid__facets-active">
+    {% render 'collection-facets-active', results: results, results_url: results_url %}
+  </div>
+
+  {% if section.settings.show_results_count %}
+    <div class="collection-grid__results-count">
+      <div class="text-sm">
+        {{ 'products.facets.results_count' | t: count: results_count }}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="collection-grid__products">
+    {% liquid
+      if search.results
+        paginate search.results by products_per_page
+          render 'collection-grid-page', current_results: search.results, paginate: paginate, results_url: results_url
+        endpaginate
+      elsif results.products
+        paginate results.products by products_per_page
+          render 'collection-grid-page', current_results: results.products, paginate: paginate, results_url: results_url
+        endpaginate
+      endif
+    %}
+  </div>
+</div>

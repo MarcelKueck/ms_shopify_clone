@@ -1,0 +1,15 @@
+{% liquid
+  unless item_color == blank or item_color.rgba == '0 0 0 / 0.0'
+    if background == null
+      assign background = settings.colors_background
+
+      if section.settings.background_color != blank and section.settings.background_color.rgba != '0 0 0 / 0.0'
+        assign background = section.settings.background_color
+      endif
+    endif
+
+    if background.rgb != item_color.rgb
+      echo class | default: 'has-diff-bg'
+    endif
+  endunless
+%}

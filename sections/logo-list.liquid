@@ -1,0 +1,276 @@
+{% render 'section-bg-number-vars' %}
+
+<style>
+  #shopify-section-{{ section.id }} {
+    --logo-opacity: {{ section.settings.logo_opacity }}%;
+  }
+</style>
+
+<div {% render 'section-attrs' %}>
+  {% render 'section-header' %}
+
+  <div class="section-body flex flex-wrap rfs:gap-12 items-center justify-center">
+    {% for block in section.blocks %}
+      <div
+        class="shrink-0 grow-0 w-[--logo-width]"
+        style="--logo-width: {% render 'rfs', value: block.settings.width, base_value: 60 %};"
+        data-animation="block"
+        data-animation-group="{{ section.id }}"
+        {{ block.shopify_attributes }}
+      >
+        {% if block.settings.link != blank %}
+          {% assign tag = 'a' %}
+        {% else %}
+          {% assign tag = 'div' %}
+        {% endif %}
+
+        <{{ tag }}
+          {% if block.settings.link != blank %}
+            href="{{ block.settings.link }}"
+          {% endif %}
+          class="block opacity-[--logo-opacity] hover:opacity-100 transition-opacity duration-300"
+        >
+          {% if block.settings.image != blank %}
+            {{
+              block.settings.image
+              | image_url: width: 256
+              | image_tag: class: 'w-full select-none pointer-events-none'
+            }}
+          {% else %}
+            <svg
+              class="select-none pointer-events-none"
+              viewBox="0 0 221 95"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M34.912 61.552H49.248V70H23.968V25.072H34.912V61.552Z" fill="black"/>
+              <path d="M75.7161 70.448C71.4921 70.448 67.6095 69.4667 64.0681 67.504C60.5695 65.5413 57.7748 62.8107 55.6841 59.312C53.6361 55.7707 52.6121 51.8027 52.6121 47.408C52.6121 43.0133 53.6361 39.0667 55.6841 35.568C57.7748 32.0693 60.5695 29.3387 64.0681 27.376C67.6095 25.4133 71.4921 24.432 75.7161 24.432C79.9401 24.432 83.8015 25.4133 87.3001 27.376C90.8415 29.3387 93.6148 32.0693 95.6201 35.568C97.6681 39.0667 98.6921 43.0133 98.6921 47.408C98.6921 51.8027 97.6681 55.7707 95.6201 59.312C93.5721 62.8107 90.7988 65.5413 87.3001 67.504C83.8015 69.4667 79.9401 70.448 75.7161 70.448ZM75.7161 60.464C79.3001 60.464 82.1588 59.2693 84.2921 56.88C86.4681 54.4907 87.5561 51.3333 87.5561 47.408C87.5561 43.44 86.4681 40.2827 84.2921 37.936C82.1588 35.5467 79.3001 34.352 75.7161 34.352C72.0895 34.352 69.1881 35.5253 67.0121 37.872C64.8788 40.2187 63.8121 43.3973 63.8121 47.408C63.8121 51.376 64.8788 54.5547 67.0121 56.944C69.1881 59.2907 72.0895 60.464 75.7161 60.464Z" fill="black"/>
+              <path d="M134.605 39.2801C133.794 37.7868 132.621 36.6561 131.085 35.8881C129.591 35.0774 127.821 34.6721 125.773 34.6721C122.231 34.6721 119.394 35.8454 117.261 38.1921C115.127 40.4961 114.061 43.5894 114.061 47.4721C114.061 51.6108 115.17 54.8534 117.389 57.2001C119.65 59.5041 122.743 60.6561 126.669 60.6561C129.357 60.6561 131.618 59.9734 133.453 58.6081C135.33 57.2428 136.695 55.2801 137.549 52.7201H123.661V44.6561H147.469V54.8321C146.658 57.5628 145.271 60.1014 143.309 62.4481C141.389 64.7948 138.935 66.6934 135.949 68.1441C132.962 69.5948 129.591 70.3201 125.837 70.3201C121.399 70.3201 117.431 69.3601 113.933 67.4401C110.477 65.4774 107.767 62.7681 105.805 59.3121C103.885 55.8561 102.925 51.9094 102.925 47.4721C102.925 43.0348 103.885 39.0881 105.805 35.6321C107.767 32.1334 110.477 29.4241 113.933 27.5041C117.389 25.5414 121.335 24.5601 125.773 24.5601C131.149 24.5601 135.671 25.8614 139.341 28.4641C143.053 31.0667 145.506 34.6721 146.701 39.2801H134.605Z" fill="black"/>
+              <path d="M174.779 70.448C170.555 70.448 166.672 69.4667 163.131 67.504C159.632 65.5413 156.837 62.8107 154.747 59.312C152.699 55.7707 151.675 51.8027 151.675 47.408C151.675 43.0133 152.699 39.0667 154.747 35.568C156.837 32.0693 159.632 29.3387 163.131 27.376C166.672 25.4133 170.555 24.432 174.779 24.432C179.003 24.432 182.864 25.4133 186.363 27.376C189.904 29.3387 192.677 32.0693 194.683 35.568C196.731 39.0667 197.755 43.0133 197.755 47.408C197.755 51.8027 196.731 55.7707 194.683 59.312C192.635 62.8107 189.861 65.5413 186.363 67.504C182.864 69.4667 179.003 70.448 174.779 70.448ZM174.779 60.464C178.363 60.464 181.221 59.2693 183.355 56.88C185.531 54.4907 186.619 51.3333 186.619 47.408C186.619 43.44 185.531 40.2827 183.355 37.936C181.221 35.5467 178.363 34.352 174.779 34.352C171.152 34.352 168.251 35.5253 166.075 37.872C163.941 40.2187 162.875 43.3973 162.875 47.408C162.875 51.376 163.941 54.5547 166.075 56.944C168.251 59.2907 171.152 60.464 174.779 60.464Z" fill="black"/>
+            </svg>
+          {% endif %}
+        </{{ tag }}>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "t:sections.logo-list.name",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:sections.all.full_width.label",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "logo_opacity",
+      "min": 10,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "label": "t:sections.logo-list.settings.logo_opacity.label",
+      "default": 50
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.content"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:sections.all.subheading.label"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:sections.all.heading.label"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:sections.all.heading_size.label",
+      "options": [
+        {
+          "value": "h0",
+          "label": "t:sections.all.heading_size.options__0.label"
+        },
+        {
+          "value": "h1",
+          "label": "t:sections.all.heading_size.options__1.label"
+        },
+        {
+          "value": "h2",
+          "label": "t:sections.all.heading_size.options__2.label"
+        },
+        {
+          "value": "h3",
+          "label": "t:sections.all.heading_size.options__3.label"
+        },
+        {
+          "value": "h4",
+          "label": "t:sections.all.heading_size.options__4.label"
+        },
+        {
+          "value": "h5",
+          "label": "t:sections.all.heading_size.options__5.label"
+        },
+        {
+          "value": "h6",
+          "label": "t:sections.all.heading_size.options__6.label"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "richtext",
+      "id": "content",
+      "label": "t:sections.all.content.label"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:sections.all.heading_alignment.label",
+      "options": [
+        {
+          "value": "text-left",
+          "label": "t:sections.all.heading_alignment.options.text_left.label"
+        },
+        {
+          "value": "text-center",
+          "label": "t:sections.all.heading_alignment.options.text_center.label"
+        },
+        {
+          "value": "text-right",
+          "label": "t:sections.all.heading_alignment.options.text_right.label"
+        }
+      ],
+      "default": "text-center"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.heading_color.label",
+      "id": "heading_color"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.seo"
+    },
+    {
+      "type": "select",
+      "id": "heading_html_tag",
+      "label": "t:sections.all.heading_html_tag.label",
+      "options": [
+        {
+          "value": "h1",
+          "label": "h1"
+        },
+        {
+          "value": "h2",
+          "label": "h2"
+        },
+        {
+          "value": "h3",
+          "label": "h3"
+        },
+        {
+          "value": "h4",
+          "label": "h4"
+        },
+        {
+          "value": "h5",
+          "label": "h5"
+        },
+        {
+          "value": "h6",
+          "label": "h6"
+        },
+        {
+          "value": "p",
+          "label": "p"
+        },
+        {
+          "value": "span",
+          "label": "span"
+        },
+        {
+          "value": "div",
+          "label": "div"
+        }
+      ],
+      "default": "p",
+      "info": "t:sections.all.heading_html_tag.info"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "logo",
+      "name": "t:sections.logo-list.blocks.logo.name",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "t:sections.logo-list.blocks.logo.settings.image.label"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "t:sections.logo-list.blocks.logo.settings.link.label"
+        },
+        {
+          "type": "range",
+          "id": "width",
+          "min": 40,
+          "max": 480,
+          "step": 10,
+          "unit": "px",
+          "label": "t:sections.logo-list.blocks.logo.settings.width.label",
+          "default": 160
+        }
+      ]
+    }
+  ],
+  "disabled_on": {
+    "groups": [
+      "header",
+      "custom.overlay"
+    ]
+  },
+  "presets": [
+    {
+      "name": "t:sections.logo-list.presets__0.name",
+      "blocks": [
+        {
+          "type": "logo"
+        },
+        {
+          "type": "logo"
+        },
+        {
+          "type": "logo"
+        },
+        {
+          "type": "logo"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

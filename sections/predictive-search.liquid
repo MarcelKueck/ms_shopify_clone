@@ -1,0 +1,12 @@
+{% assign results_size = predictive_search.resources.queries.size
+  | plus: predictive_search.resources.products.size
+  | plus: predictive_search.resources.collections.size
+  | plus: predictive_search.resources.pages.size
+  | plus: predictive_search.resources.articles.size
+%}
+
+{% if results_size == 0 %}
+  <div class="max-md:text-sm">{{ 'templates.search.no_results' | t: terms: predictive_search.terms }}</div>
+{% else %}
+  {% render 'predictive-search-results' %}
+{% endif %}

@@ -1,0 +1,150 @@
+<div class="trim-margins">
+  {% for block in section.blocks %}
+    {% case block.type %}
+      {% when '@app' %}
+        {% render block %}
+      {% when 'heading' %}
+        {% comment %} Heading {% endcomment %}
+        <div class="{{ block.settings.heading_size }} my-6" {{ block.shopify_attributes }}>
+          {{ block.settings.heading }}
+        </div>
+      {% when 'text' %}
+        <div class="prose  my-6" {{ block.shopify_attributes }}>
+          {{ block.settings.content }}
+        </div>
+      {% when 'free_shipping_bar' %}
+        {% comment %} Free shipping bar {% endcomment %}
+        {% render 'free-shipping-indicator', class: 'my-6', attrs: block.shopify_attributes %}
+
+      {% when 'totals' %}
+        {% comment %} Totals {% endcomment %}
+        <div class="cart-totals my-6 md:my-8" {{ block.shopify_attributes }}>
+          {%- if block.settings.show_order_weight -%}
+            <div class="flex justify-between text-foreground/75 mb-4">
+              <div>{{ 'sections.cart.weight' | t }}</div>
+              <div>{{ cart.total_weight | weight_with_unit }}</div>
+            </div>
+          {%- endif -%}
+
+          <div class="flex justify-between">
+            <div>{{ 'sections.cart.subtotal' | t }}</div>
+            <div class="cart-subtotal">{{ cart.items_subtotal_price | money }}</div>
+          </div>
+
+          {%- if cart.cart_level_discount_applications.size > 0 -%}
+            <div class="mt-4">
+              {%- comment -%}
+                Cart level discounts can be applied by merchants, and must be shown to the buyer
+              {%- endcomment -%}
+              <ul class="list-unstyled" role="list" aria-label="{{ 'customer.order.discount' | t }}">
+                {%- for discount in cart.cart_level_discount_applications -%}
+                  <li class="flex items-center">
+                    <div class="icon-xs md:icon-sm mr-3 shrink-0" style="--icon-stroke-width: 1.75">
+                      {% render 'icon-discount' %}
+                    </div>
+                    <div class="font-bold pr-3">{{ discount.title }}</div>
+                    <div class="ml-auto whitespace-nowrap">-{{ discount.total_allocated_amount | money }}</div>
+                  </li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endif -%}
+
+          <hr class="my-4">
+
+          <div class="flex items-center justify-between heading font-bold text-lg md:text-h5">
+            <div>{{ 'sections.cart.total' | t }}</div>
+            <div class="cart-total">{{ cart.total_price | money_with_currency }}</div>
+          </div>
+
+          {% if block.settings.show_shipping_taxes_message %}
+            <div class="text-sm text-foreground/75 mt-4">
+              {% render 'cart-policy-text' %}
+            </div>
+          {% endif %}
+        </div>
+
+      {% when 'shipping_estimator' %}
+        {% comment %} Shipping estimator {% endcomment %}
+        <modal-trigger
+          target=".shipping-estimator-modal"
+          class="block my-4 md:my-6 no-js:hidden max-md:text-sm"
+          {{ block.shopify_attributes }}
+        >
+          <button class="flex items-center gap-4 hover:underline underline-offset-4">
+            <div class="icon-xs md:icon-sm">
+              {%- render 'icon-truck' -%}
+            </div>
+            <span>{{ 'sections.cart.estimate_shipping' | t }}</span>
+          </button>
+        </modal-trigger>
+
+      {% when 'cart_note' %}
+        {% comment %} Cart note {% endcomment %}
+        <div class="my-4 md:my-6 max-md:text-sm" {{ block.shopify_attributes }}>
+          {%- if cart.note == blank -%}
+            <add-order-note target-input="#Cart-Note-Wrapper" class="no-js:hidden">
+              <button class="flex items-center gap-4 hover:underline underline-offset-4">
+                <div class="icon-xs md:icon-sm">
+                  {%- render 'icon-pencil' -%}
+                </div>
+                {{ 'sections.cart.add_note' | t }}
+              </button>
+            </add-order-note>
+          {%- endif -%}
+
+          <div
+            id="Cart-Note-Wrapper"
+            class="form-floating mt-6 no-js:!block"
+            {%- if cart.note == blank -%}
+              style="display: none"
+            {%- endif -%}
+          >
+            <textarea
+              class="input"
+              name="note"
+              id="Cart-Note"
+              placeholder="{{ 'sections.cart.note' | t }}"
+              rows="4"
+            >{{ cart.note }}</textarea>
+            <label for="Cart-Note">{{ 'sections.cart.note' | t }}</label>
+          </div>
+        </div>
+
+      {% when 'checkout_button' %}
+        {% comment %} Checkout button {% endcomment %}
+        <div class="my-8" {{ block.shopify_attributes }}>
+          <noscript>
+            <button class="button button-secondary w-full mb-2">
+              {{ 'sections.cart.update_quantities' | t }}
+            </button>
+          </noscript>
+
+          <button
+            class="button w-full py-5 {{ block.settings.button_style }}"
+            style="
+              {% render 'button-vars',
+              background: block.settings.button_background_color,
+              text: block.settings.button_text_color %}
+            "
+            name="checkout"
+            type="submit"
+          >
+            {{ 'sections.cart.checkout' | t }}
+          </button>
+
+          {% comment %} Additional checkout buttons {% endcomment %}
+          {% if additional_checkout_buttons and block.settings.show_dynamic_checkout_buttons %}
+            <div
+              class="additional-checkout-buttons additional-checkout-buttons--vertical"
+              id="additional-checkout-buttons"
+            >
+              {{ content_for_additional_checkout_buttons }}
+            </div>
+          {% endif %}
+        </div>
+    {% endcase %}
+  {% endfor %}
+</div>
+
+<div id="Cart-Errors" role="alert" class="message message-danger text-danger mt-6"></div>

@@ -1,0 +1,17 @@
+{%- for badge in product.metafields.custom.badges.value -%}
+  {%- if badge.label.value -%}
+    <div
+      class="info-badge custom-badge"
+      {% if badge.color.value %}
+        style="
+          background: {{ badge.color.value }};
+          color: rgb({% render 'generate-foreground-color', background: badge.color.value %})
+        "
+      {% endif %}
+    >
+      {{ badge.label.value }}
+    </div>
+  {%- else -%}
+    <div class="info-badge custom-badge">{{ badge }}</div>
+  {%- endif -%}
+{%- endfor -%}

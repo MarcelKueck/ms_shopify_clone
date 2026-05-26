@@ -1,0 +1,70 @@
+{% liquid
+  assign position = 'bottom'
+  assign modal_class = 'modal-drawer--bottom modal-mobile-menu--bottom'
+
+  if localization.available_countries.size <= 1
+    assign country_selector = false
+  endif
+
+  if localization.available_languages.size <= 1
+    assign language_selector = false
+  endif
+%}
+
+<mobile-menu
+  append-to-body
+  class="modal modal-drawer modal-mobile-menu {{ modal_class }}"
+  position="{{ position }}"
+  md:position="left"
+  data-mobile-menu
+>
+  <div class="mobile-menu mobile-menu-content flex flex-col relative" slot="content" tabindex="-1">
+    <div class="flex px-8 pt-8 pb-4 md:pb-6 shrink-0" data-menu-anim-in>
+      <button data-button-close aria-label="{{ 'accessibility.close_modal' | t }}" class="icon-sm -ml-0.5">
+        {% render 'icon-times' %}
+      </button>
+    </div>
+
+    <div class="mobile-menu-inner flex flex-col grow overflow-y-auto">
+      {% for link in links %}
+        {% if link.links != blank %}
+          <div data-menu-anim-in>
+            {% render 'mobile-menu-page', link: link, level: 1 %}
+          </div>
+        {% else %}
+          <a href="{{ link.url }}" class="side-menu-item" data-menu-anim-in>
+            {{ link.title }}
+          </a>
+        {% endif %}
+      {% endfor %}
+
+      {% if country_selector or language_selector or shop.customer_accounts_enabled %}
+        <div class="grow"></div>
+        <hr class="mt-4 mx-8">
+        <div class="px-8 pb-6 md:pb-8 flex flex-wrap gap-6 md:gap-8 mt-6 md:mt-8 max-md:text-sm" data-menu-anim-in>
+          {% if country_selector %}
+            {% render 'country-selector-dropdown',
+              flag: section.settings.country_selector_show_country_flag,
+              name: section.settings.country_selector_show_country_name,
+              currency: section.settings.country_selector_show_currency,
+              text_size_class: 'text-sm md:text-base'
+            %}
+          {% endif %}
+
+          {% if language_selector %}
+            {% render 'language-selector-dropdown', text_size_class: 'text-sm md:text-base' %}
+          {% endif %}
+
+          {% if shop.customer_accounts_enabled %}
+            <a
+              href="{{ routes.account_url }}"
+              class="font-bold ml-auto"
+            >
+              {{ 'sections.header.account' | t }}
+            </a>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</mobile-menu>

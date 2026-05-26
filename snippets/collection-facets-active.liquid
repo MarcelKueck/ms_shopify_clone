@@ -1,0 +1,60 @@
+{% liquid
+  assign total_active_facets = 0
+
+  for filter in results.filters
+    for value in filter.active_values
+      assign total_active_facets = total_active_facets | plus: 1
+    endfor
+
+    if filter.type == 'price_range'
+      if filter.min_value.value != null or filter.max_value.value != null
+        assign total_active_facets = total_active_facets | plus: 1
+      endif
+    endif
+  endfor
+%}
+
+<section-dynamic-links>
+  <div class="active-facets flex flex-wrap items-center gap-2 {% if total_active_facets > 0 %}active-facets--not-empty{% endif %}">
+    {% for filter in results.filters %}
+      {% for value in filter.active_values %}
+        <a href="{{ value.url_to_remove }}" class="active-facets__button icon-xs-stroke">
+          {%- if section.settings.show_selected_filter_type -%}
+            {{ filter.label }}:&nbsp;
+          {%- endif -%}
+          {{- value.label | escape -}}
+          {% render 'icon-times' %}
+          <span class="visually-hidden">{{ 'products.facets.clear_filter' | t }}</span>
+        </a>
+      {% endfor %}
+      {% if filter.type == 'price_range' %}
+        {% if filter.min_value.value != null or filter.max_value.value != null %}
+          <a href="{{ filter.url_to_remove }}" class="active-facets__button icon-xs-stroke">
+            {%- if section.settings.show_selected_filter_type -%}
+              {{ filter.label }}:&nbsp;
+            {%- endif -%}
+            {%- if filter.min_value.value -%}
+              {{- filter.min_value.value | money_without_trailing_zeros -}}
+            {%- else -%}
+              {{- 0 | money_without_trailing_zeros -}}
+            {%- endif %}
+            -
+            {% if filter.max_value.value -%}
+              {{- filter.max_value.value | money_without_trailing_zeros -}}
+            {%- else -%}
+              {{- filter.range_max | divided_by: 100.0 | ceil | times: 100 | money_without_trailing_zeros -}}
+            {%- endif -%}
+            {%- render 'icon-times' -%}
+            <span class="visually-hidden">{{ 'products.facets.clear_filter' | t }}</span>
+          </a>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+
+    {% if total_active_facets > 0 %}
+      <a href="{{ results_url }}" class="active-facets__button-remove py-2 ml-3 sm:ml-4 underlined-link">
+        <span>{{ 'products.facets.clear_all' | t }}</span>
+      </a>
+    {% endif %}
+  </div>
+</section-dynamic-links>

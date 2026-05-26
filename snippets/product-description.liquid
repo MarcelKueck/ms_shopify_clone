@@ -1,0 +1,9 @@
+{% if product.description != blank %}
+  {% capture inner %}
+    <div class="prose  max-w-none">
+      {{ product.description }}
+    </div>
+  {% endcapture %}
+
+  {% render 'product-content-block', inner: inner, block: block %}
+{% endif %}

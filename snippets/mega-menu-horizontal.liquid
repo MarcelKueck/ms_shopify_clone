@@ -1,0 +1,68 @@
+<mega-menu-horizontal
+  interaction-handler="{{ interaction_handler | default: "click" }}"
+  style="--promo-image-width: {{ block.settings.promo_image_width }}px;"
+  {{ block.shopify_attributes }}
+  data-block-id="{{ block.id }}"
+>
+  <details>
+    <summary>
+      <a href="{{ link.url }}" class="menu-item pb-4 -mb-4">
+        {{ link.title }}
+
+        <div class="collapse-chevron w-3 ml-2">
+          {% render 'icon-chevron' %}
+        </div>
+      </a>
+    </summary>
+    <div
+      class="mega-menu-horizontal absolute left-0 right-0 top-full overflow-hidden"
+    >
+      <div
+        class="mega-menu-horizontal__inner overflow-y-auto overscroll-y-contain border-t bg-background min-h-[400px]"
+      >
+        <div class="container flex gap-12 xl:gap-16 pt-8 pb-16 hd:pt-12">
+          <div class="grow leading-tight auto-rows-min grid grid-cols-mega-menu-horizontal-items gap-x-6 gap-y-12 styled-links break-anywhere">
+            {% for link in link.links %}
+              <div class="flex flex-col items-start">
+                <a data-instant href="{{ link.url }}" class="font-navigation inline-block">
+                  {{ link.title }}
+                </a>
+                {% if link.links != blank %}
+                  <div class="flex flex-col mt-6">
+                    {% for link in link.links %}
+                      <a data-instant href="{{ link.url }}" class="py-2 first:pt-0 last:pb-0">
+                        {{ link.title }}
+                      </a>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+
+          {% if block.settings.image1 or block.settings.image2 %}
+            <div class="mega-menu-horizontal__promo max-w-[50%] flex items-start gap-4">
+              {% if block.settings.image1 %}
+                {% render 'mega-menu-image',
+                  image: block.settings.image1,
+                  url: block.settings.image1_url,
+                  heading: block.settings.image1_heading,
+                  width: block.settings.promo_image_width
+                %}
+              {% endif %}
+
+              {% if block.settings.image2 %}
+                {% render 'mega-menu-image',
+                  image: block.settings.image2,
+                  url: block.settings.image2_url,
+                  heading: block.settings.image2_heading,
+                  width: block.settings.promo_image_width
+                %}
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </details>
+</mega-menu-horizontal>

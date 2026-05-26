@@ -1,0 +1,64 @@
+{% assign form_id = 'NewsletterForm--' | append: section.id %}
+
+{% form 'customer', id: form_id, class: 'w-full max-w-xl', data-form-button-loading: true %}
+  {% unless form.posted_successfully? %}
+    <div class="flex flex-wrap gap-y-4 gap-x-3">
+      <input
+        id="NewsletterEmail--{{ section.id }}"
+        type="email"
+        name="contact[email]"
+        value="{{ form.email }}"
+        class="input grow basis-64"
+        aria-required="true"
+        autocorrect="off"
+        autocapitalize="off"
+        autocomplete="email"
+        aria-label="{{ 'newsletter.email' | t }}"
+        placeholder="{{ 'newsletter.email' | t }}"
+        required
+        {% if form.errors %}
+          autofocus
+          aria-invalid="true"
+          aria-describedby="NewsletterError--{{ section.id }}"
+        {% elsif form.posted_successfully? %}
+          aria-describedby="NewsletterSuccess--{{ section.id }}"
+        {% endif %}
+      >
+
+      <button
+        type="submit"
+        class="button {{ button_style }} {{ button_class }} min-w-fit grow basis-20"
+        style="{% render 'button-vars', background: button_background_color, text: button_text_color %}"
+      >
+        {% if button_text %}
+          {{ button_text }}
+        {% else %}
+          {{ 'newsletter.button_label' | t }}
+        {% endif %}
+      </button>
+    </div>
+  {% endunless %}
+
+  {% if form.errors %}
+    <div class="mt-8">
+      <div id="NewsletterError--{{ section.id }}" class="message message-danger text-danger inline-flex">
+        {{ form.errors.translated_fields.email | capitalize }}
+        {{ form.errors.messages.email }}
+      </div>
+    </div>
+  {% elsif form.posted_successfully? %}
+    <div
+      id="NewsletterSuccess--{{ section.id }}"
+      class=""
+    >
+      <div class="message message-success text-success inline-flex">
+        {{ 'newsletter.success' | t }}
+      </div>
+    </div>
+
+    <script>
+      localStorage.setItem('essence:newsletter-subscribed', true);
+    </script>
+  {% endif %}
+  <input type="hidden" name="contact[tags]" value="newsletter">
+{% endform %}

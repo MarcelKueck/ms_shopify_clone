@@ -1,0 +1,19 @@
+<style>
+  :root {
+    --container-max-inner-width-const: {{ settings.page_width }}px;
+  }
+
+  {% if settings.product_card_show_dynamic_checkout_in_quick_add == false %}
+    .quick-add-modal .shopify-payment-button {
+      display: none;
+    }
+  {% endif %}
+
+  .text-center .button-group-inner {
+    justify-content: center;
+  }
+
+  .text-right .button-group-inner {
+    justify-content: flex-end;
+  }
+</style>

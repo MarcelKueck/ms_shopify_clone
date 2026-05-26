@@ -1,0 +1,41 @@
+<script>
+  class HeightObserver extends HTMLElement {
+    constructor() {
+      super();
+
+      this.resizeObserver = new ResizeObserver((entries) => {
+        const variable = this.getAttribute('variable');
+        if (variable && entries.length > 0) {
+          document.documentElement.style.setProperty(
+            `--${variable}`,
+            entries[0].borderBoxSize?.length > 0
+              ? `${entries[0].borderBoxSize[0].blockSize}px`
+              : `${this.firstElementChild.offsetHeight}px`
+          );
+        }
+      });
+
+      this.mutationObserver = new MutationObserver((_, observer) => {
+        if (this.firstElementChild) {
+          this.resizeObserver.observe(this.firstElementChild);
+          observer.disconnect();
+        }
+      });
+    }
+
+    connectedCallback() {
+      if (this.firstElementChild) {
+        this.resizeObserver.observe(this.firstElementChild);
+      } else {
+        this.mutationObserver.observe(this, { childList: true });
+      }
+    }
+
+    disconnectedCallback() {
+      this.mutationObserver.disconnect();
+      this.resizeObserver.disconnect();
+    }
+  }
+
+  customElements.define('height-observer', HeightObserver);
+</script>

@@ -1,0 +1,55 @@
+<shipping-estimator>
+  <ul data-shipping-rates-container class="list-disc list-inside mb-8 empty:hidden"></ul>
+
+  <form id="shipping-estimator-form" class="flex flex-col gap-6">
+    <province-selector>
+      <div class="form-floating form-select">
+        <select
+          data-country-select
+          name="country"
+          class="input"
+          id="{{ section.id }}-shipping-estimator-country-select"
+        >
+          {{ country_option_tags }}
+        </select>
+        <label for="{{ section.id }}-shipping-estimator-country-select">
+          {{- 'sections.shipping_estimator.country' | t -}}
+        </label>
+      </div>
+
+      <div class="form-floating form-select province-select-wrapper hidden mt-6">
+        <select
+          data-province-select
+          name="province"
+          class="input"
+          id="{{ section.id }}-shipping-estimator-province-select"
+        ></select>
+        <label for="{{ section.id }}-shipping-estimator-province-select">
+          {{- 'sections.shipping_estimator.province' | t -}}
+        </label>
+      </div>
+    </province-selector>
+
+    <div class="form-floating">
+      <input
+        name="zipcode"
+        class="input"
+        type="text"
+        id="{{ section.id }}-shipping-estimator-zipcode"
+        placeholder="{{ 'sections.shipping_estimator.zipcode' | t }}"
+        required
+      >
+      <label for="{{ section.id }}-shipping-estimator-zipcode">{{ 'sections.shipping_estimator.zipcode' | t }}</label>
+    </div>
+
+    <template>
+      <div class="message message-danger text-danger">
+        {{ 'sections.shipping_estimator.error' | t }}
+      </div>
+    </template>
+
+    <button class="button button-primary mt-2" type="submit">
+      {{ 'sections.shipping_estimator.get_estimate' | t }}
+    </button>
+  </form>
+</shipping-estimator>

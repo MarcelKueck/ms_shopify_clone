@@ -1,0 +1,162 @@
+{% liquid
+  case section.settings.heading_size
+    when 'h0', 'h1'
+      assign heading_margin = 'rfs:mb-12'
+    when 'h2'
+      assign heading_margin = 'rfs:mb-10'
+    when 'h3', 'h4'
+      assign heading_margin = 'rfs:mb-8'
+    when 'h5', 'h6'
+      assign heading_margin = 'mb-6'
+  endcase
+%}
+
+{% render 'section-bg-number-vars' %}
+
+<style>
+  #shopify-section-{{ section.id }} {
+    --container-max-inner-width: {% render 'get-content-width', type: section.settings.content_width %};
+  }
+</style>
+
+<div {% render 'section-attrs' %}>
+  <h1 class="{{ section.settings.heading_size }} {{ section.settings.heading_alignment }} {{ heading_margin }}">
+    {{ page.title | escape }}
+  </h1>
+  <div class="{{ section.settings.content_text_size }} !max-w-none">
+    {{ page.content }}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "t:sections.main-page.name",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:sections.all.full_width.label",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "content_width",
+      "label": "t:sections.main-page.settings.content_width.label",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:sections.main-page.settings.content_width.options__0.label"
+        },
+        {
+          "value": "normal",
+          "label": "t:sections.main-page.settings.content_width.options__1.label"
+        },
+        {
+          "value": "large",
+          "label": "t:sections.main-page.settings.content_width.options__2.label"
+        },
+        {
+          "value": "extra-large",
+          "label": "t:sections.main-page.settings.content_width.options__3.label"
+        },
+        {
+          "value": "full-width",
+          "label": "t:sections.main-page.settings.content_width.options__4.label"
+        }
+      ],
+      "default": "normal"
+    },
+    {
+      "type": "select",
+      "id": "content_text_size",
+      "label": "t:sections.main-page.settings.content_text_size.label",
+      "options": [
+        {
+          "value": "prose ",
+          "label": "t:sections.main-page.settings.content_text_size.options__0.label"
+        },
+        {
+          "value": "prose md:prose-lg",
+          "label": "t:sections.main-page.settings.content_text_size.options__1.label"
+        }
+      ],
+      "default": "prose md:prose-lg"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:sections.all.heading_size.label",
+      "options": [
+        {
+          "value": "h0",
+          "label": "t:sections.all.heading_size.options__0.label"
+        },
+        {
+          "value": "h1",
+          "label": "t:sections.all.heading_size.options__1.label"
+        },
+        {
+          "value": "h2",
+          "label": "t:sections.all.heading_size.options__2.label"
+        },
+        {
+          "value": "h3",
+          "label": "t:sections.all.heading_size.options__3.label"
+        },
+        {
+          "value": "h4",
+          "label": "t:sections.all.heading_size.options__4.label"
+        },
+        {
+          "value": "h5",
+          "label": "t:sections.all.heading_size.options__5.label"
+        },
+        {
+          "value": "h6",
+          "label": "t:sections.all.heading_size.options__6.label"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "select",
+      "id": "heading_alignment",
+      "label": "t:sections.all.heading_alignment.label",
+      "options": [
+        {
+          "value": "text-left",
+          "label": "t:sections.all.heading_alignment.options.text_left.label"
+        },
+        {
+          "value": "text-center",
+          "label": "t:sections.all.heading_alignment.options.text_center.label"
+        },
+        {
+          "value": "text-right",
+          "label": "t:sections.all.heading_alignment.options.text_right.label"
+        }
+      ],
+      "default": "text-center"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.heading_color.label",
+      "id": "heading_color"
+    }
+  ]
+}
+{% endschema %}

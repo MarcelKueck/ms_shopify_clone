@@ -1,0 +1,887 @@
+<section id="ms-offer-request">
+  <style>
+    #ms-offer-request .ms-section{padding:60px 20px}
+    #ms-offer-request .ms-container{max-width:1100px;margin:0 auto}
+    #ms-offer-request .ms-h2{margin:0 0 20px 0 !important;padding:0 !important;font-weight:700;font-size:28px;line-height:1.2}
+    #ms-offer-request .ms-lead{font-size:18px;max-width:760px}
+    #ms-offer-request .ms-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:22px}
+    #ms-offer-request .ms-steps{margin:0;padding:0;list-style:none;display:grid;gap:14px}
+    #ms-offer-request .ms-step{display:flex;align-items:flex-start;gap:12px}
+    #ms-offer-request .ms-step svg{flex:0 0 22px;margin-top:2px}
+    #ms-offer-request .ms-badges{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;padding:0;list-style:none}
+    #ms-offer-request .ms-badges li{padding:8px 12px;border:1px solid #e5e7eb;border-radius:999px;background:#fff}
+    #ms-offer-request .ms-form-wrap{max-width:920px}
+    #ms-offer-request label{display:block;margin-bottom:6px;font-weight:600}
+    #ms-offer-request input,
+    #ms-offer-request select,
+    #ms-offer-request textarea{
+      width:100%;
+      padding:12px;
+      border:1px solid #d1d5db;
+      border-radius:10px;
+      background:#fff;
+      font:inherit;
+      box-sizing:border-box;
+    }
+    #ms-offer-request input[type="checkbox"]{
+      width:auto;
+      padding:0;
+      border:none;
+      border-radius:0;
+      margin:0;
+    }
+    #ms-offer-request textarea{min-height:130px;resize:vertical}
+    #ms-offer-request .ms-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    #ms-offer-request .ms-form-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+    #ms-offer-request .ms-btn{
+      display:inline-block;background:#111827;color:#fff;padding:14px 24px;border:none;
+      border-radius:12px;text-decoration:none;font-weight:600;cursor:pointer
+    }
+    #ms-offer-request .ms-btn-secondary{
+      display:inline-block;border:1px solid #111827;color:#111827;padding:14px 24px;
+      border-radius:12px;text-decoration:none;font-weight:600
+    }
+    #ms-offer-request .ms-muted{color:#4b5563}
+    #ms-offer-request .ms-small{font-size:14px;line-height:1.5;color:#6b7280}
+    #ms-offer-request .ms-success{padding:16px;background:#d1fae5;border-radius:8px;margin-bottom:24px}
+    #ms-offer-request .ms-error{padding:16px;background:#fee2e2;border-radius:8px;margin-bottom:24px}
+    #ms-offer-request .ms-checkbox-list{display:grid;gap:12px}
+    #ms-offer-request .ms-checkbox-row{display:flex;align-items:flex-start;gap:10px}
+    #ms-offer-request .ms-checkbox-row label{margin:0;font-weight:400;line-height:1.5}
+    #ms-offer-request .ms-divider{margin:12px 0 4px 0;padding-top:18px;border-top:1px solid #e5e7eb}
+
+    #ms-offer-request .ms-search-wrap{position:relative}
+    #ms-offer-request .ms-search-results{
+      position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:20;
+      background:#fff;border:1px solid #e5e7eb;border-radius:14px;
+      box-shadow:0 10px 30px rgba(0,0,0,.08);padding:8px;display:none;
+      max-height:320px;overflow:auto;
+    }
+    #ms-offer-request .ms-search-results.is-open{display:block}
+    #ms-offer-request .ms-search-item{
+      display:flex;gap:12px;align-items:center;padding:10px;border-radius:10px;cursor:pointer
+    }
+    #ms-offer-request .ms-search-item:hover,
+    #ms-offer-request .ms-search-item:focus{background:#f9fafb;outline:none}
+    #ms-offer-request .ms-search-thumb{
+      width:56px;height:56px;border-radius:10px;overflow:hidden;background:#f3f4f6;flex:0 0 56px
+    }
+    #ms-offer-request .ms-search-thumb img{
+      width:100%;height:100%;object-fit:cover;display:block
+    }
+
+    #ms-offer-request .ms-selected-items{
+      display:grid;
+      gap:18px;
+      margin-top:14px;
+    }
+
+    #ms-offer-request .ms-selected-item{
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      padding:18px;
+      background:#fff
+    }
+
+    #ms-offer-request .ms-selected-top{
+      display:flex;justify-content:space-between;gap:12px;align-items:flex-start
+    }
+    #ms-offer-request .ms-selected-title{font-weight:600}
+    #ms-offer-request .ms-selected-meta{font-size:14px;color:#6b7280;margin-top:4px}
+    #ms-offer-request .ms-remove-btn{
+      border:1px solid #d1d5db;background:#fff;color:#111827;border-radius:10px;
+      padding:8px 12px;cursor:pointer;font:inherit
+    }
+    #ms-offer-request .ms-empty-state{
+      padding:14px;border:1px dashed #d1d5db;border-radius:12px;color:#6b7280;background:#fafafa
+    }
+
+    @media (max-width: 900px){
+      #ms-offer-request .ms-form-grid,
+      #ms-offer-request .ms-form-grid-3{grid-template-columns:1fr}
+    }
+
+    @media (prefers-reduced-motion: no-preference){
+      #ms-offer-request .reveal{opacity:0;transform:translateY(12px);will-change:opacity,transform;transition:opacity .5s ease, transform .6s cubic-bezier(.22,.61,.36,1)}
+      #ms-offer-request .reveal.fade-in{transform:none}
+      #ms-offer-request .reveal.is-visible{opacity:1;transform:none}
+      #ms-offer-request .stagger > *{opacity:0;transform:translateY(12px);transition:opacity .45s ease, transform .55s ease}
+      #ms-offer-request .stagger.is-visible > *{opacity:1;transform:none}
+      #ms-offer-request .stagger.is-visible > *:nth-child(1){transition-delay:.05s}
+      #ms-offer-request .stagger.is-visible > *:nth-child(2){transition-delay:.12s}
+      #ms-offer-request .stagger.is-visible > *:nth-child(3){transition-delay:.19s}
+      #ms-offer-request .stagger.is-visible > *:nth-child(4){transition-delay:.26s}
+      #ms-offer-request .stagger.is-visible > *:nth-child(5){transition-delay:.33s}
+      #ms-offer-request .stagger.is-visible > *:nth-child(6){transition-delay:.40s}
+    }
+  </style>
+
+  <div class="ms-section">
+    <div class="ms-container">
+      <p class="reveal fade-in" style="background:#f3f4f6; display:inline-block; padding:6px 12px; border-radius:999px; font-size:14px; margin-bottom:16px;">
+        motion sports Angebotsservice
+      </p>
+
+      <h1 class="reveal" style="font-size:36px; font-weight:700; margin-bottom:20px;">
+        Individuelle Angebotsanfrage für Fitnessgeräte, Ausstattung und Services
+      </h1>
+
+      <p class="reveal ms-lead">
+        Sende uns deine Angebotsanfrage mit allen relevanten Daten zu Kunde, Lieferadresse,
+        Rechnungsadresse, Artikeln und gewünschten Zusatzleistungen. Wir erstellen dir ein passendes,
+        unverbindliches Angebot.
+      </p>
+
+      <ul class="reveal fade-in ms-badges">
+        <li>Für Privat, B2B und öffentliche Einrichtungen</li>
+        <li>Artikel frei suchbar</li>
+        <li>Varianten auswählbar</li>
+        <li>Zusätzliche Services direkt auswählbar</li>
+      </ul>
+
+      <div class="reveal fade-in" style="margin-top:30px;">
+        <a href="#angebotsanfrage-form" class="ms-btn" style="margin-right:12px;">Angebot anfragen</a>
+        <a href="#angebotsanfrage-info" class="ms-btn-secondary">Ablauf ansehen</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="angebotsanfrage-info" class="ms-section" style="background:#f9fafb;">
+    <div class="ms-container">
+      <h2 class="ms-h2 reveal">So läuft deine Angebotsanfrage ab</h2>
+
+      <ul class="ms-steps stagger">
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22a10 10 0 1 1 10-10"></path>
+            <path d="M22 12a10 10 0 0 1-10 10"></path>
+            <circle cx="12" cy="12" r="2"></circle>
+            <path d="M22 2 12 12"></path>
+          </svg>
+          <div>
+            <strong>Bedarf & Artikel erfassen</strong><br>
+            Du übermittelst Kundendaten, Adressen, Kundentyp, frei gesuchte Artikel und optionale Zusatzservices.
+          </div>
+        </li>
+
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 16v-8a2 2 0 0 0-2-2h-5l-2-2H5a2 2 0 0 0-2 2v12"></path>
+            <rect x="3" y="8" width="18" height="13" rx="2"></rect>
+            <path d="m9 13 2 2 4-4"></path>
+          </svg>
+          <div>
+            <strong>Prüfung durch unser Team</strong><br>
+            Wir prüfen Verfügbarkeit, Lieferoptionen, Kundentyp und die gewünschte Service-Kombination.
+          </div>
+        </li>
+
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 11a4 4 0 1 0-8 0"></path>
+            <path d="M12 15v6"></path>
+            <path d="M8 21h8"></path>
+            <path d="M7 8h10"></path>
+          </svg>
+          <div>
+            <strong>Individuelles Angebot</strong><br>
+            Du erhältst ein unverbindliches Angebot mit den ausgewählten Artikeln und den gewünschten Zusatzleistungen.
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="angebotsanfrage-form" class="ms-section">
+    <div class="ms-container">
+      <div class="ms-form-wrap reveal fade-in">
+        <h2 class="ms-h2" style="margin-bottom:12px !important;">Angebotsanfrage senden</h2>
+        <p class="ms-muted" style="margin-bottom:28px;">
+          Bitte fülle die Felder möglichst vollständig aus, damit wir dein Angebot schnell und passend erstellen können.
+        </p>
+
+        {% form 'contact', id: 'offer-request-form' %}
+          {% if form.posted_successfully? %}
+            <div class="ms-success">
+              <strong>Vielen Dank!</strong> Deine Angebotsanfrage wurde erfolgreich gesendet. Wir melden uns zeitnah bei dir.
+            </div>
+          {% endif %}
+
+          {% if form.errors %}
+            <div class="ms-error">
+              <strong>Ups!</strong> Bitte überprüfe deine Angaben.
+              <ul style="margin-top:8px;">
+                {% for field in form.errors %}
+                  <li>{{ form.errors.messages[field] }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          <input type="hidden" name="contact[tags]" value="Angebotsanfrage">
+          <input type="hidden" name="contact[selected_items]" id="offer-selected-items-field">
+
+          <div style="display:flex; flex-direction:column; gap:16px;">
+
+            <div class="ms-divider">
+              <h3 style="margin:0 0 12px 0;">Kundendaten</h3>
+            </div>
+
+            <div class="ms-form-grid">
+              <div>
+                <label for="offer-first-name">Vorname *</label>
+                <input type="text" id="offer-first-name" name="contact[first_name]" required>
+              </div>
+              <div>
+                <label for="offer-last-name">Name *</label>
+                <input type="text" id="offer-last-name" name="contact[last_name]" required>
+              </div>
+            </div>
+
+            <div class="ms-form-grid">
+              <div>
+                <label for="offer-company">Firma</label>
+                <input type="text" id="offer-company" name="contact[company]">
+              </div>
+              <div>
+                <label for="offer-vat-id">USt.-ID (optional, wenn Firmenkunde)</label>
+                <input type="text" id="offer-vat-id" name="contact[vat_id]">
+              </div>
+            </div>
+
+            <div class="ms-form-grid">
+              <div>
+                <label for="offer-email">E-Mail *</label>
+                <input type="email" id="offer-email" name="contact[email]" required>
+              </div>
+              <div>
+                <label for="offer-phone">Telefon (optional)</label>
+                <input type="tel" id="offer-phone" name="contact[phone]">
+              </div>
+            </div>
+
+            <div>
+              <label for="offer-customer-type">Kundentyp *</label>
+              <select id="offer-customer-type" name="contact[customer_type]" required>
+                <option value="">Bitte wählen</option>
+                <option value="Endkunde / Verbraucher">Endkunde / Verbraucher</option>
+                <option value="Geschäftskunde / B2B">Geschäftskunde / B2B</option>
+                <option value="Behörde oder Öffentliche Einrichtung">Behörde oder Öffentliche Einrichtung</option>
+              </select>
+            </div>
+
+            <div class="ms-divider">
+              <h3 style="margin:0 0 12px 0;">Lieferadresse</h3>
+            </div>
+
+            <div class="ms-form-grid">
+              <div>
+                <label for="offer-shipping-street">Straße und Hausnummer *</label>
+                <input type="text" id="offer-shipping-street" name="contact[shipping_street]" required>
+              </div>
+              <div>
+                <label for="offer-shipping-address2">Adresszusatz</label>
+                <input type="text" id="offer-shipping-address2" name="contact[shipping_address2]">
+              </div>
+            </div>
+
+            <div class="ms-form-grid-3">
+              <div>
+                <label for="offer-shipping-zip">PLZ *</label>
+                <input type="text" id="offer-shipping-zip" name="contact[shipping_zip]" required>
+              </div>
+              <div>
+                <label for="offer-shipping-city">Ort *</label>
+                <input type="text" id="offer-shipping-city" name="contact[shipping_city]" required>
+              </div>
+              <div>
+                <label for="offer-shipping-country">Land *</label>
+                <input type="text" id="offer-shipping-country" name="contact[shipping_country]" required>
+              </div>
+            </div>
+
+            <div class="ms-divider">
+              <h3 style="margin:0 0 12px 0;">Rechnungsadresse</h3>
+            </div>
+
+            <div class="ms-checkbox-row">
+              <input type="checkbox" id="offer-billing-same" name="contact[billing_same_as_shipping]" value="Ja">
+              <label for="offer-billing-same">Rechnungsadresse ist identisch mit der Lieferadresse</label>
+            </div>
+
+            <div id="offer-billing-fields">
+              <div class="ms-form-grid">
+                <div>
+                  <label for="offer-billing-street">Straße und Hausnummer *</label>
+                  <input type="text" id="offer-billing-street" name="contact[billing_street]" required>
+                </div>
+                <div>
+                  <label for="offer-billing-address2">Adresszusatz</label>
+                  <input type="text" id="offer-billing-address2" name="contact[billing_address2]">
+                </div>
+              </div>
+
+              <div class="ms-form-grid-3" style="margin-top:16px;">
+                <div>
+                  <label for="offer-billing-zip">PLZ *</label>
+                  <input type="text" id="offer-billing-zip" name="contact[billing_zip]" required>
+                </div>
+                <div>
+                  <label for="offer-billing-city">Ort *</label>
+                  <input type="text" id="offer-billing-city" name="contact[billing_city]" required>
+                </div>
+                <div>
+                  <label for="offer-billing-country">Land *</label>
+                  <input type="text" id="offer-billing-country" name="contact[billing_country]" required>
+                </div>
+              </div>
+            </div>
+
+            <div class="ms-divider">
+              <h3 style="margin:0 0 12px 0;">Artikel auswählen</h3>
+            </div>
+
+            <div>
+              <label for="offer-product-search">Artikel suchen *</label>
+              <div class="ms-search-wrap">
+                <input
+                  type="search"
+                  id="offer-product-search"
+                  placeholder="Produktname eingeben und Artikel auswählen"
+                  autocomplete="off"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="offer-product-results"
+                >
+                <div id="offer-product-results" class="ms-search-results" role="listbox" aria-label="Produktsuche"></div>
+              </div>
+              <p class="ms-small" style="margin-top:8px;">
+                Tippe mindestens 2 Zeichen ein und wähle dann passende Artikel aus der Vorschlagsliste.
+              </p>
+            </div>
+
+            <div>
+              <label>Ausgewählte Artikel *</label>
+              <div id="offer-selected-items" class="ms-selected-items">
+                <div class="ms-empty-state">Noch keine Artikel ausgewählt.</div>
+              </div>
+            </div>
+
+            <div>
+              <label for="offer-free-text-items">Weitere gewünschte Artikel / Hinweise</label>
+              <textarea id="offer-free-text-items" name="contact[item_notes]" placeholder="z. B. Varianten, Farben, Ausführungen oder zusätzliche Artikelwünsche"></textarea>
+            </div>
+
+            <div class="ms-divider">
+              <h3 style="margin:0 0 12px 0;">Zusätzliche Services</h3>
+            </div>
+
+            <div class="ms-checkbox-list">
+              <div class="ms-checkbox-row">
+                <input type="checkbox" id="offer-service-delivery" name="contact[service_delivery]" value="Ja">
+                <label for="offer-service-delivery">Lieferung</label>
+              </div>
+
+              <div class="ms-checkbox-row">
+                <input type="checkbox" id="offer-service-installation" name="contact[service_installation]" value="Ja">
+                <label for="offer-service-installation">Montage / Aufbau</label>
+              </div>
+
+              <div class="ms-checkbox-row">
+                <input type="checkbox" id="offer-service-placement" name="contact[service_placement]" value="Ja">
+                <label for="offer-service-placement">Einbringung / Verbringung</label>
+              </div>
+
+              <div class="ms-checkbox-row">
+                <input type="checkbox" id="offer-service-training" name="contact[service_training]" value="Ja">
+                <label for="offer-service-training">Einweisung / Beratung</label>
+              </div>
+
+              <div class="ms-checkbox-row">
+                <input type="checkbox" id="offer-service-maintenance" name="contact[service_maintenance]" value="Ja">
+                <label for="offer-service-maintenance">Wartung / Servicevertrag</label>
+              </div>
+
+              <div class="ms-checkbox-row">
+                <input type="checkbox" id="offer-service-leasing" name="contact[service_leasing]" value="Ja">
+                <label for="offer-service-leasing">Leasing / Finanzierung anfragen</label>
+              </div>
+            </div>
+
+            <div>
+              <label for="offer-message">Zusätzliche Nachricht</label>
+              <textarea id="offer-message" name="contact[body]" placeholder="Hier kannst du weitere Informationen zu deinem Vorhaben, Zeitrahmen oder besonderen Anforderungen ergänzen."></textarea>
+            </div>
+
+            <div class="ms-checkbox-row">
+              <input type="checkbox" id="offer-consent" name="contact[data_privacy_accepted]" value="Ja" required>
+              <label for="offer-consent">Datenschutz / AGB akzeptiert *</label>
+            </div>
+
+            <div>
+              <button type="submit" class="ms-btn" style="width:100%;">Angebotsanfrage senden</button>
+            </div>
+          </div>
+        {% endform %}
+      </div>
+    </div>
+  </div>
+
+  <div class="ms-section" style="background:#f9fafb;">
+    <div class="ms-container">
+      <div class="ms-card reveal fade-in">
+        <h2 class="ms-h2" style="margin-bottom:12px !important;">Beratung & Kontakt</h2>
+        <p>
+          <strong>Telefon:</strong> <a href="tel:+498142448666">08142 / 448666</a><br>
+          <strong>E-Mail:</strong> <a href="mailto:info@motionsports.de">info@motionsports.de</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      var revealEls = document.querySelectorAll('#ms-offer-request .reveal, #ms-offer-request .stagger');
+      var io = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { root: null, rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+
+      revealEls.forEach(function(el) {
+        io.observe(el);
+      });
+
+      var section = document.getElementById('ms-offer-request');
+      if (!section) return;
+
+      var searchInput = section.querySelector('#offer-product-search');
+      var resultsBox = section.querySelector('#offer-product-results');
+      var selectedItemsBox = section.querySelector('#offer-selected-items');
+      var hiddenField = section.querySelector('#offer-selected-items-field');
+      var form = section.querySelector('#offer-request-form');
+      var billingSameCheckbox = section.querySelector('#offer-billing-same');
+      var billingFields = section.querySelector('#offer-billing-fields');
+      var billingInputs = billingFields ? billingFields.querySelectorAll('input') : [];
+
+      var selectedItems = [];
+      var debounceTimer = null;
+      var currencyCode = {{ cart.currency.iso_code | default: shop.currency | json }};
+      var shopRoot = (window.Shopify && Shopify.routes && Shopify.routes.root) ? Shopify.routes.root : '/';
+      var searchResultsLimit = {{ section.settings.search_results_limit | json }};
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function extractHandleFromUrl(url) {
+        if (!url) return '';
+        var clean = url.split('?')[0].replace(/\/$/, '');
+        var parts = clean.split('/products/');
+        if (parts.length < 2) return '';
+        return parts[1].split('/')[0];
+      }
+
+      function moneyFromCents(cents) {
+        if (typeof cents !== 'number') return '';
+        try {
+          return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: currencyCode
+          }).format(cents / 100);
+        } catch (e) {
+          return (cents / 100).toFixed(2) + ' ' + currencyCode;
+        }
+      }
+
+      function updateBillingState() {
+        if (!billingSameCheckbox || !billingFields) return;
+        var same = billingSameCheckbox.checked;
+        billingFields.style.display = same ? 'none' : '';
+
+        billingInputs.forEach(function(input) {
+          if (same) {
+            input.dataset.wasRequired = input.required ? 'true' : 'false';
+            input.required = false;
+          } else if (input.dataset.wasRequired === 'true') {
+            input.required = true;
+          }
+        });
+      }
+
+      function syncHiddenField() {
+        var payload = selectedItems.map(function(item, idx) {
+          return [
+            'Artikel ' + (idx + 1),
+            'Name: ' + item.title,
+            'Variante: ' + (item.variantTitle || 'Standard'),
+            'Menge: ' + item.quantity,
+            'Bild: ' + (item.image || '-')
+          ].join('\n');
+        }).join('\n\n------------------------\n\n');
+
+        hiddenField.value = payload;
+      }
+
+      function renderSelectedItems() {
+        if (!selectedItemsBox) return;
+
+        if (!selectedItems.length) {
+          selectedItemsBox.innerHTML = '<div class="ms-empty-state">Noch keine Artikel ausgewählt.</div>';
+          syncHiddenField();
+          return;
+        }
+
+        var html = selectedItems.map(function(item, index) {
+          var variantOptions = (item.variants || []).map(function(variant) {
+            var selected = String(item.variantId) === String(variant.id) ? ' selected' : '';
+            return '<option value="' + escapeHtml(String(variant.id)) + '"' + selected + '>' + escapeHtml(variant.title) + '</option>';
+          }).join('');
+
+          return ''
+            + '<div class="ms-selected-item" data-index="' + index + '">'
+            +   '<div class="ms-selected-top">'
+            +     '<div style="display:flex; gap:12px; align-items:flex-start;">'
+            +       '<div class="ms-search-thumb" style="width:72px;height:72px;flex:0 0 72px;">'
+            +         (item.image ? '<img src="' + escapeHtml(item.image) + '" alt="' + escapeHtml(item.title) + '">' : '')
+            +       '</div>'
+            +       '<div>'
+            +         '<div class="ms-selected-title">' + escapeHtml(item.title) + '</div>'
+            +         '<div class="ms-selected-meta">' + escapeHtml(item.vendor || '') + (item.price ? ' · ' + escapeHtml(item.price) : '') + '</div>'
+            +       '</div>'
+            +     '</div>'
+            +     '<button type="button" class="ms-remove-btn" data-remove-index="' + index + '">Entfernen</button>'
+            +   '</div>'
+            +   '<div class="ms-form-grid" style="margin-top:14px;">'
+            +     '<div>'
+            +       '<label>Variante</label>'
+            +       '<select data-variant-index="' + index + '">' + variantOptions + '</select>'
+            +     '</div>'
+            +     '<div>'
+            +       '<label>Menge</label>'
+            +       '<input type="number" min="1" step="1" value="' + item.quantity + '" data-quantity-index="' + index + '">'
+            +     '</div>'
+            +   '</div>'
+            + '</div>';
+        }).join('');
+
+        selectedItemsBox.innerHTML = html;
+        syncHiddenField();
+      }
+
+      function closeResults() {
+        resultsBox.classList.remove('is-open');
+        resultsBox.innerHTML = '';
+        searchInput.setAttribute('aria-expanded', 'false');
+      }
+
+      function openResults() {
+        resultsBox.classList.add('is-open');
+        searchInput.setAttribute('aria-expanded', 'true');
+      }
+
+      function renderResults(products) {
+        if (!products.length) {
+          resultsBox.innerHTML = '<div class="ms-search-item"><div><div class="ms-selected-title">Keine passenden Produkte gefunden.</div></div></div>';
+          openResults();
+          return;
+        }
+
+        var html = products.map(function(product) {
+          return ''
+            + '<div class="ms-search-item" role="option" tabindex="0"'
+            +      ' data-title="' + escapeHtml(product.title) + '"'
+            +      ' data-url="' + escapeHtml(product.url) + '"'
+            +      ' data-handle="' + escapeHtml(product.handle) + '"'
+            +      ' data-vendor="' + escapeHtml(product.vendor || '') + '"'
+            +      ' data-price="' + escapeHtml(product.price || '') + '"'
+            +      ' data-image="' + escapeHtml(product.image || '') + '">'
+            +   '<div class="ms-search-thumb">'
+            +     (product.image ? '<img src="' + escapeHtml(product.image) + '" alt="' + escapeHtml(product.title) + '">' : '')
+            +   '</div>'
+            +   '<div>'
+            +     '<div class="ms-selected-title">' + escapeHtml(product.title) + '</div>'
+            +     '<div class="ms-selected-meta">' + escapeHtml(product.vendor || '') + (product.price ? ' · ' + escapeHtml(product.price) : '') + '</div>'
+            +   '</div>'
+            + '</div>';
+        }).join('');
+
+        resultsBox.innerHTML = html;
+        openResults();
+      }
+
+      function fetchProducts(query) {
+        var url = shopRoot + 'search/suggest.json?q=' + encodeURIComponent(query)
+          + '&resources[type]=product'
+          + '&resources[limit]=' + encodeURIComponent(searchResultsLimit)
+          + '&resources[options][unavailable_products]=hide'
+          + '&resources[options][fields]=title,product_type,variants.title,vendor';
+
+        fetch(url, {
+          headers: { 'Accept': 'application/json' }
+        })
+        .then(function(response) {
+          return response.json();
+        })
+        .then(function(data) {
+          var products = (((data || {}).resources || {}).results || {}).products || [];
+          var mapped = products.map(function(product) {
+            return {
+              title: product.title,
+              url: product.url,
+              handle: product.handle || extractHandleFromUrl(product.url),
+              vendor: product.vendor || '',
+              image: product.featured_image ? product.featured_image.url : '',
+              price: typeof product.price === 'number' ? moneyFromCents(product.price) : ''
+            };
+          });
+          renderResults(mapped);
+        })
+        .catch(function() {
+          resultsBox.innerHTML = '<div class="ms-search-item"><div><div class="ms-selected-title">Die Produktsuche ist aktuell nicht verfügbar.</div></div></div>';
+          openResults();
+        });
+      }
+
+      function fetchProductDetails(handle) {
+        if (!handle) return Promise.reject(new Error('Missing handle'));
+        return fetch(shopRoot + 'products/' + encodeURIComponent(handle) + '.js', {
+          headers: { 'Accept': 'application/json' }
+        }).then(function(response) {
+          return response.json();
+        });
+      }
+
+      function addItem(product) {
+        var exists = selectedItems.some(function(item) {
+          return item.handle === product.handle;
+        });
+
+        if (exists) return;
+
+        fetchProductDetails(product.handle)
+          .then(function(productData) {
+            var fallbackImage = productData.featured_image || product.image || '';
+            var variants = (productData.variants || []).map(function(variant) {
+              var variantImage = '';
+              if (variant.featured_image && variant.featured_image.src) {
+                variantImage = variant.featured_image.src;
+              } else if (variant.featured_media && variant.featured_media.preview_image && variant.featured_media.preview_image.src) {
+                variantImage = variant.featured_media.preview_image.src;
+              } else {
+                variantImage = fallbackImage;
+              }
+
+              return {
+                id: variant.id,
+                title: variant.public_title || variant.title || 'Standard',
+                image: variantImage
+              };
+            });
+
+            if (!variants.length) {
+              variants = [{
+                id: 'default',
+                title: 'Standard',
+                image: fallbackImage
+              }];
+            }
+
+            var firstVariant = variants[0];
+
+            selectedItems.push({
+              handle: product.handle,
+              title: product.title,
+              vendor: product.vendor || '',
+              price: product.price || '',
+              quantity: 1,
+              variants: variants,
+              variantId: firstVariant.id,
+              variantTitle: firstVariant.title,
+              image: firstVariant.image || fallbackImage
+            });
+
+            renderSelectedItems();
+          })
+          .catch(function() {
+            selectedItems.push({
+              handle: product.handle,
+              title: product.title,
+              vendor: product.vendor || '',
+              price: product.price || '',
+              quantity: 1,
+              variants: [{
+                id: 'default',
+                title: 'Standard',
+                image: product.image || ''
+              }],
+              variantId: 'default',
+              variantTitle: 'Standard',
+              image: product.image || ''
+            });
+
+            renderSelectedItems();
+          });
+      }
+
+      if (billingSameCheckbox) {
+        billingSameCheckbox.addEventListener('change', updateBillingState);
+        updateBillingState();
+      }
+
+      searchInput.addEventListener('input', function() {
+        var query = searchInput.value.trim();
+
+        if (debounceTimer) clearTimeout(debounceTimer);
+
+        if (query.length < 2) {
+          closeResults();
+          return;
+        }
+
+        debounceTimer = setTimeout(function() {
+          fetchProducts(query);
+        }, 220);
+      });
+
+      searchInput.addEventListener('focus', function() {
+        var query = searchInput.value.trim();
+        if (query.length >= 2 && resultsBox.innerHTML.trim() !== '') {
+          openResults();
+        }
+      });
+
+      document.addEventListener('click', function(event) {
+        if (!section.contains(event.target)) {
+          closeResults();
+        }
+      });
+
+      resultsBox.addEventListener('click', function(event) {
+        var item = event.target.closest('.ms-search-item');
+        if (!item) return;
+
+        addItem({
+          title: item.getAttribute('data-title'),
+          url: item.getAttribute('data-url'),
+          handle: item.getAttribute('data-handle'),
+          vendor: item.getAttribute('data-vendor'),
+          price: item.getAttribute('data-price'),
+          image: item.getAttribute('data-image')
+        });
+
+        searchInput.value = '';
+        closeResults();
+      });
+
+      resultsBox.addEventListener('keydown', function(event) {
+        if (event.key !== 'Enter') return;
+        var item = event.target.closest('.ms-search-item');
+        if (!item) return;
+
+        event.preventDefault();
+
+        addItem({
+          title: item.getAttribute('data-title'),
+          url: item.getAttribute('data-url'),
+          handle: item.getAttribute('data-handle'),
+          vendor: item.getAttribute('data-vendor'),
+          price: item.getAttribute('data-price'),
+          image: item.getAttribute('data-image')
+        });
+
+        searchInput.value = '';
+        closeResults();
+      });
+
+      selectedItemsBox.addEventListener('click', function(event) {
+        var removeBtn = event.target.closest('[data-remove-index]');
+        if (!removeBtn) return;
+
+        var index = parseInt(removeBtn.getAttribute('data-remove-index'), 10);
+        if (isNaN(index)) return;
+
+        selectedItems.splice(index, 1);
+        renderSelectedItems();
+      });
+
+      selectedItemsBox.addEventListener('input', function(event) {
+        var qtyInput = event.target.closest('[data-quantity-index]');
+        if (qtyInput) {
+          var qtyIndex = parseInt(qtyInput.getAttribute('data-quantity-index'), 10);
+          var qtyValue = parseInt(qtyInput.value, 10);
+
+          if (!isNaN(qtyIndex) && selectedItems[qtyIndex]) {
+            selectedItems[qtyIndex].quantity = (!isNaN(qtyValue) && qtyValue > 0) ? qtyValue : 1;
+            syncHiddenField();
+          }
+        }
+
+        var variantSelect = event.target.closest('[data-variant-index]');
+        if (variantSelect) {
+          var variantIndex = parseInt(variantSelect.getAttribute('data-variant-index'), 10);
+
+          if (!isNaN(variantIndex) && selectedItems[variantIndex]) {
+            var item = selectedItems[variantIndex];
+            var selectedVariant = (item.variants || []).find(function(variant) {
+              return String(variant.id) === String(variantSelect.value);
+            });
+
+            if (selectedVariant) {
+              item.variantId = selectedVariant.id;
+              item.variantTitle = selectedVariant.title || 'Standard';
+              if (selectedVariant.image) {
+                item.image = selectedVariant.image;
+              }
+              renderSelectedItems();
+            }
+          }
+        }
+      });
+
+      form.addEventListener('submit', function(event) {
+        if (!selectedItems.length) {
+          event.preventDefault();
+          alert('Bitte wähle mindestens einen Artikel aus.');
+          searchInput.focus();
+          return;
+        }
+        syncHiddenField();
+      });
+
+      renderSelectedItems();
+    })();
+  </script>
+
+  {% schema %}
+  {
+    "name": "Angebotsanfrage",
+    "settings": [
+      {
+        "type": "range",
+        "id": "search_results_limit",
+        "min": 3,
+        "max": 10,
+        "step": 1,
+        "default": 6,
+        "label": "Anzahl Suchtreffer"
+      }
+    ],
+    "presets": [
+      {
+        "name": "Angebotsanfrage"
+      }
+    ]
+  }
+  {% endschema %}
+</section>

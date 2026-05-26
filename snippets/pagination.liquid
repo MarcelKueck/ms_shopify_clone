@@ -1,0 +1,6 @@
+{% case pagination_type %}
+  {% when 'load-more' %}
+    {% render 'pagination-load-more', paginate: paginate %}
+  {% else %}
+    {% render 'pagination-classic', paginate: paginate, scroll_to_target: scroll_to_target %}
+{% endcase %}

@@ -1,0 +1,111 @@
+{% liquid
+  if image != null
+    assign collection_image = image
+  elsif collection.featured_image != null
+    assign collection_image = collection.featured_image
+  endif
+
+  if sizes == null
+    capture sizes
+      assign columns_base = section.settings.grid_columns_mobile | plus: 0.1 | at_most: section.settings.grid_columns
+      assign columns_sm = 2.1 | at_most: section.settings.grid_columns
+      assign columns_md = 3.1 | at_most: section.settings.grid_columns
+      assign columns_lg = 4.1 | at_most: section.settings.grid_columns
+      assign columns_xl = 5 | at_most: section.settings.grid_columns
+      assign columns_hd = 6 | at_most: section.settings.grid_columns
+      render 'image-sizes-columns', base: columns_base, sm: columns_sm, md: columns_md, lg: columns_lg, xl: columns_xl, hd: columns_hd
+    endcapture
+  endif
+
+  assign heading_size = heading_size | default: section.settings.title_size | default: 'text-h4/h4'
+  assign content_alignment = content_alignment | default: section.settings.content_alignment | default: 'content-middle-center'
+  assign columns_mobile = columns_mobile | default: section.settings.grid_columns_mobile
+  assign aspect_ratio = aspect_ratio | default: section.settings.image_size
+
+  if aspect_ratio == null
+    assign aspect_ratio = 'media--ratio-1-1'
+  endif
+
+  if type == 'label'
+    case content_alignment
+      when 'content-top-left', 'content-middle-left', 'content-bottom-left'
+        assign content_alignment = 'text-left'
+
+      when 'content-top-center', 'content-middle-center', 'content-bottom-center'
+        assign content_alignment = 'text-center'
+
+      when 'content-top-right', 'content-middle-right', 'content-bottom-right'
+        assign content_alignment = 'text-right'
+    endcase
+  endif
+%}
+
+{% if type == 'overlay' %}
+  <a
+    data-instant
+    href="{{ collection.url }}"
+    class="collection-block collection-block--overlay rounded-block relative group overflow-hidden"
+    {{ block.shopify_attributes }}
+    {{ attrs }}
+  >
+    <lqip-element
+      class="image-loader media {{ aspect_ratio }} image-hover-zoom"
+    >
+      {% if collection_image != null %}
+        {{
+          collection_image
+          | image_url: width: 1920
+          | image_tag: widths: '360, 480, 640, 800, 1080, 1360, 1920', sizes: sizes, loading: 'lazy'
+        }}
+        {{ collection_image | image_url: width: 20 | image_tag: class: 'media-lq-placeholder', fetchpriority: 'low' }}
+      {% elsif collection == null %}
+        {% capture placeholder_type %}collection-{{ index | modulo: 6 | plus: 1 }}{% endcapture %}
+        {% render 'placeholder', type: placeholder_type %}
+      {% endif %}
+    </lqip-element>
+
+    <div class="collection-block__overlay">
+      <div
+        class="
+          heading z-10 break-anywhere {{ heading_size }} {{ content_alignment }}
+          {% if columns_mobile == '2' %} max-sm:text-sm {% endif %}
+        "
+      >
+        {{ title | default: collection.title | default: 'Collection' }}
+      </div>
+    </div>
+  </a>
+
+{% elsif type == 'label' %}
+  <a
+    data-instant
+    href="{{ collection.url }}"
+    class="collection-block group trim-margins"
+    {{ block.shopify_attributes }}
+    {{ attrs }}
+  >
+    <lqip-element class="image-loader media {{ aspect_ratio }} rounded-block">
+      {% if collection_image != null %}
+        {{
+          collection_image
+          | image_url: width: 1920
+          | image_tag:
+            sizes: sizes,
+            widths: '360, 480, 640, 800, 1080, 1360, 1920',
+            loading: 'lazy',
+            class: 'collection-image-shade image-hover-zoom'
+        }}
+        {{ collection_image | image_url: width: 20 | image_tag: class: 'media-lq-placeholder', fetchpriority: 'low' }}
+      {% elsif collection == null %}
+        {% capture placeholder_type %}collection-{{ index | modulo: 6 | plus: 1 }}{% endcapture %}
+        {% render 'placeholder', type: placeholder_type, class: 'placeholder image-hover-zoom' %}
+      {% endif %}
+    </lqip-element>
+
+    <div
+      class="collection-block__label heading mt-6 md:mt-8 {{ heading_size }} {{ content_alignment }}"
+    >
+      {{ title | default: collection.title | default: 'Collection' }}
+    </div>
+  </a>
+{% endif %}

@@ -1,0 +1,59 @@
+{% liquid
+  assign image_class = 'rounded-block-sm w-full'
+
+  if item_product
+    assign item = item_product
+    assign image = item_product.featured_image
+    assign image_class = image_class | append: ' product-thumbnail-shade'
+  elsif item_collection
+    assign item = item_collection
+    assign image = item_collection.featured_image
+    assign image_class = image_class | append: ' collection-image-shade'
+  elsif item_article
+    assign item = item_article
+    assign image = item_article.image
+  endif
+%}
+
+<a data-instant href="{{ item.url }}" class="flex gap-4 md:gap-6 max-md:text-sm">
+  <div class="w-16 md:w-24 shrink-0 media">
+    {% if skeleton %}
+      <div class="skeleton w-full h-full aspect-[--product-card-image-aspect,1]"></div>
+    {% elsif image %}
+      <lqip-element class="image-loader">
+        {{
+          image
+          | image_url: width: 192
+          | image_tag:
+            widths: '96, 128, 192',
+            class: 'product-thumbnail-shade rounded-block-sm w-full',
+            sizes: '(min-width: 768px) 96px, 64px',
+            loading: 'lazy'
+        }}
+      </lqip-element>
+    {% else %}
+      {% render 'placeholder', type: 'image', class: 'w-full placeholder rounded-block-sm' %}
+    {% endif %}
+  </div>
+
+  <div class="self-center grow">
+    {% if skeleton %}
+      <div class="skeleton w-3/4 h-4 mb-2 md:mb-4"></div>
+      <div class="skeleton w-1/3 h-4"></div>
+    {% else %}
+      {% if item_article and item_article.tags[0] %}
+        <div class="info-badge article-badge mb-1 sm:mb-2">
+          {{ item_article.tags[0] }}
+        </div>
+      {% endif %}
+
+      <div class="font-bold">
+        {{ item.title }}
+      </div>
+
+      {% if item_product %}
+        <div class="mt-1 sm:mt-2">{% render 'price', product: item_product %}</div>
+      {% endif %}
+    {% endif %}
+  </div>
+</a>

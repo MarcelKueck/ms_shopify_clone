@@ -1,0 +1,117 @@
+{% comment %}
+  Renders product price info
+
+  Accepts:
+  - product: {Object} Product Liquid object (optional)
+  - use_variant: {Boolean} Renders selected or first variant price instead of overall product pricing (optional)
+  - show_badges: {Boolean} Renders 'Sale' and 'Sold Out' tags if the product matches the condition (optional)
+
+  Usage:
+  {% render 'price', product: product %}
+{% endcomment %}
+{%- liquid
+  assign target = product
+  assign target_variant = product.selected_or_first_available_variant
+
+  if use_variant
+    assign target = use_variant
+    assign target_variant = use_variant
+  endif
+
+  assign compare_at_price = target.compare_at_price
+  assign price = target.price
+  assign available = target.available | default: false
+
+  assign onsale = false
+  if compare_at_price > price
+    assign onsale = true
+    assign discount_amount = target.compare_at_price | minus: target.price
+    assign percent_discount = discount_amount | times: 100 | divided_by: target.compare_at_price
+
+    if settings.product_card_show_discount_as == 'saving'
+      assign discount_badge_value = discount_amount | money | strip_html
+    else
+      assign discount_badge_value = percent_discount | append: '%'
+    endif
+  endif
+
+  assign money_price = price | money
+  if settings.currency_code_enabled
+    assign money_price = price | money_with_currency
+  endif
+
+  if target == product and product.price_varies
+    assign money_price = 'products.product.price.from_price_html' | t: price: money_price
+  endif
+-%}
+
+<div class="price-wrapper relative">
+  <div class="flex items-center gap-4">
+    <div class="price flex flex-wrap flex-row-reverse justify-end whitespace-nowrap gap-x-2">
+      {%- if onsale %}
+        {% comment %} On sale - Sale price {% endcomment %}
+        <span class="visually-hidden order-2">
+          {{ 'products.product.price.sale_price' | t }}
+        </span>
+        <span class="sale-price order-2">
+          {{ money_price }}
+        </span>
+
+        {% comment %} On sale - Regular price {% endcomment %}
+        <span class="visually-hidden">
+          {{ 'products.product.price.regular_price' | t }}
+        </span>
+        <s class="regular-price opacity-60">
+          {% if settings.currency_code_enabled %}
+            {{ compare_at_price | money_with_currency }}
+          {% else %}
+            {{ compare_at_price | money }}
+          {% endif %}
+        </s>
+
+      {%- else -%}
+        {% comment %} Regular price {% endcomment %}
+        <span class="visually-hidden">
+          {{ 'products.product.price.regular_price' | t }}
+        </span>
+        <span class="regular-price">
+          {{ money_price }}
+        </span>
+      {%- endif -%}
+    </div>
+    {%- if available == false and show_badges -%}
+      <span
+        class="info-badge sold-out-badge bg-foreground"
+      >
+        {{ 'products.product.sold_out' | t }}
+      </span>
+    {%- elsif onsale and show_badges -%}
+      <span
+        class="info-badge sale-badge"
+      >
+        {{ 'products.save_badge' | t: value: discount_badge_value }}
+      </span>
+    {%- endif -%}
+  </div>
+  {% unless target_variant.unit_price_measurement == null %}
+    <div class="text-xs text-foreground/75 mt-1">
+      <span class="visually-hidden">
+        {{ 'products.product.price.unit_price' | t }}
+      </span>
+      <span class="unit-price">
+        {% comment %} Price {% endcomment %}
+        <span>{{- target_variant.unit_price | money -}}</span>
+        {% comment %} Separator {% endcomment %}
+        <span aria-hidden="true">/</span>
+        <span class="visually-hidden">&nbsp;{{ 'accessibility.unit_price_separator' | t }}&nbsp;</span>
+        {% comment %} Unit {% endcomment %}
+        <span>
+          {%- if target_variant.unit_price_measurement.reference_value != 1 -%}
+            {{- target_variant.unit_price_measurement.reference_value -}}
+          {%- endif -%}
+          {{ target_variant.unit_price_measurement.reference_unit }}
+        </span>
+      </span>
+    </div>
+  {%- endunless -%}
+</div>

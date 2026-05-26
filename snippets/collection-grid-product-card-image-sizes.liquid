@@ -1,0 +1,26 @@
+{%- liquid
+  assign container_width = 'min(' | append: settings.page_width | append: 'px, 100vw)'
+
+  if section.settings.filter_type == 'vertical'
+    assign container_width = '( ' | append: container_width | append: ' - 324px )'
+  endif
+
+  assign columns = section.settings.products_per_row
+-%}
+
+{%- capture max_width -%}
+calc( {{ container_width }} / {{ columns }} )
+{%- endcapture -%}
+
+{%- capture desktop_target_size -%}
+max(360px, {{ max_width }})
+{%- endcapture -%}
+
+(min-width: 992px) {{ desktop_target_size }}, (min-width: 576px) 336px,
+
+{%- case section.settings.products_per_row_mobile -%}
+  {%- when 'products-collection-grid--mobile-two-col' -%}
+    50vw
+  {%- when 'products-collection-grid--mobile-one-col' -%}
+    100vw
+{%- endcase -%}

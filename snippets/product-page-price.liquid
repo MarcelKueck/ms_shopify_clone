@@ -1,0 +1,19 @@
+<div
+  id="Price-{{ section.id }}"
+  class="no-js-hidden"
+  role="status"
+>
+  <div class="variant-price">
+    {% render 'price', product: product, use_variant: product.selected_or_first_available_variant, show_badges: true %}
+  </div>
+</div>
+
+{% if block.settings.show_taxes_notice %}
+  <div class="text-sm text-foreground/60 mt-1">
+    {%- if cart.taxes_included -%}
+      {{ 'products.product.include_taxes' | t }}
+    {%- else -%}
+      {{ 'products.product.exclude_taxes' | t }}
+    {%- endif -%}
+  </div>
+{% endif %}

@@ -1,0 +1,82 @@
+<!-- /snippets/targo-financing.liquid -->
+<div id="targo-financing" style="display:none; margin-top: 1em;">
+  <button id="targo-finance-button" class="button button-primary w-full" style="display: none;">
+    Finanzierung mit TARGOBANK
+  </button>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const observer = new MutationObserver(() => {
+      console.log("[TARGO] DOM verändert – aktualisiere Button");
+      observer.disconnect();
+      renderTargoButton();
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    });
+
+    function renderTargoButton() {
+      const container = document.getElementById("targo-financing");
+      const button = document.getElementById("targo-finance-button");
+
+      fetch('/cart.js')
+        .then(res => res.json())
+        .then(data => {
+          const amount = (data.total_price / 100).toFixed(2);
+          const value = parseFloat(amount);
+          console.log("[TARGO] Betrag aus /cart.js:", amount);
+
+          if (container && button) {
+            container.style.display = "block";
+            button.style.display = "inline-block";
+
+            if (!value || value < 99 || value > 20000) {
+              console.log("[TARGO] Betrag außerhalb des erlaubten Bereichs:", value);
+              button.disabled = true;
+              button.textContent = "Finanzierung nicht verfügbar";
+              return;
+            } else {
+              button.disabled = false;
+              button.textContent = "Finanzierung mit TARGOBANK";
+            }
+
+            button.onclick = function () {
+              const form = document.createElement("form");
+              form.method = "POST";
+              form.action = "https://www.targobank.de/de/app/indirectloanrequest.html";
+              form.target = "_blank";
+
+              const fields = {
+                koop_id: "4motionsports1",
+                dealerID: "806562",
+                dealerText: "https://motionsports.de/pages/targo-response",
+                sessionID: Shopify.cart_token,
+                amount: amount,
+                documentno: Shopify.cart_token
+              };
+
+              for (const key in fields) {
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+              }
+
+              document.body.appendChild(form);
+              form.submit();
+              document.body.removeChild(form);
+            };
+          }
+        });
+    }
+
+    renderTargoButton();
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+</script>

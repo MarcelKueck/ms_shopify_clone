@@ -1,0 +1,8 @@
+{%- if color != blank and color.rgba != '0 0 0 / 0.0' -%}
+  {{ var }}: {{ color.rgb }};
+  {%- if opacity != null -%}
+    {{ var }}-opacity: {{ opacity }};
+  {%- endif -%}
+{%- elsif default != null -%}
+  {{ var }}: {{ default }};
+{%- endif -%}

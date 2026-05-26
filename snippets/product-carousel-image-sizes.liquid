@@ -1,0 +1,24 @@
+{% liquid
+  assign hd = 5 | at_most: grid_columns
+  assign xl = 4 | at_most: grid_columns
+  assign lg = 3.2 | at_most: grid_columns
+  assign md = 2.4 | at_most: grid_columns
+  assign sm = 2.2 | at_most: grid_columns
+
+  if enabled
+    if grid_columns_mobile == '1'
+      assign base = 1.15
+    else
+      assign base = 1.6
+    endif
+  else
+    assign hd = hd | round
+    assign xl = xl | round
+    assign lg = lg | round
+    assign md = md | round
+    assign sm = sm | round
+    assign base = grid_columns_mobile
+  endif
+
+  render 'image-sizes-columns', base: base, sm: sm, md: md, lg: lg, xl: xl, hd: hd
+%}

@@ -1,0 +1,67 @@
+{% liquid
+  assign products_collection_grid_class = section.settings.space_between_products | append: ' ' | append: section.settings.products_per_row_mobile
+  capture image_sizes
+    render 'collection-grid-product-card-image-sizes'
+  endcapture
+
+  assign promo_tiles = section.blocks | where: 'type', 'promo_tile'
+
+  assign has_active_filters = false
+  assign filters = collection.filters | default: search.filters
+
+  for filter in filters
+    if filter.type == 'price_range' and filter.min_value.value != null or filter.max_value.value != null
+      assign has_active_filters = true
+    elsif filter.active_values.size > 0
+      assign has_active_filters = true
+    endif
+  endfor
+%}
+
+{% if current_results.size == 0 %}
+  <section-dynamic-links class="styled-links">
+    {{ 'products.facets.use_fewer_filters_html' | t: link: results_url }}
+  </section-dynamic-links>
+{% else %}
+  <ul
+    class="
+      products-collection-grid list-unstyled {{ products_collection_grid_class }}
+      {% render 'has-diff-bg-class', item_color: settings.colors_product_card_background, class: 'product-card-container--diff-bg' %}
+    "
+    data-container-load-more
+  >
+    {% for item in current_results %}
+      {% if item.object_type == 'product' and item.metafields.custom.hide_from_search == true %}
+        {% continue %}
+      {% endif %}
+
+      {% liquid
+        if paginate.current_page == 1
+          assign product_index = forloop.index
+          for promo in promo_tiles
+            if promo.settings.hide_when_filtering == true and has_active_filters
+              continue
+            endif
+            if promo.settings.position == product_index
+              render 'promo-tile', block: promo, sizes: image_sizes
+            endif
+          endfor
+        endif
+      %}
+
+      <li>
+        {% case item.object_type %}
+          {% when 'article', 'page' %}
+            {% render 'article-card', card_article: item, excerpt: false, date: false, comments: false %}
+          {% else %}
+            {% render 'product-card', card_product: item, sizes: image_sizes %}
+        {% endcase %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% render 'pagination',
+    paginate: paginate,
+    pagination_type: section.settings.pagination_type,
+    scroll_to_target: '.products-collection-grid'
+  %}
+{% endif %}

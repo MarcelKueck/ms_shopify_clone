@@ -1,0 +1,35 @@
+{% liquid
+  if full_width == null
+    assign full_width = section.settings.full_width
+  endif
+
+  if bg_number == null
+    if bg
+      #
+    elsif section.settings.background_color != blank and section.settings.background_color.rgba != '0 0 0 / 0.0'
+      assign bg = section.settings.background_color
+    else
+      assign bg = settings.colors_background
+    endif
+
+    assign red = bg.red | times: 65025
+    assign green = bg.green | times: 255
+    assign blue = bg.blue
+
+    assign bg_number = red | plus: green | plus: blue
+  endif
+%}
+
+<style>
+  #shopify-section-{{ section.id }} {
+    --section-bg-number: {{ bg_number }};
+  }
+
+  #shopify-section-{{ section.id }} + * {
+    {% if full_width == false %}
+      --previous-section-bg-number: var(--main-bg-number);
+    {% else %}
+      --previous-section-bg-number: {{ bg_number }};
+    {% endif %}
+  }
+</style>

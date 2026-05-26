@@ -1,0 +1,38 @@
+<localization-form class="leading-none">
+  {%- form 'localization', id: 'FooterCountryForm', class: 'localization-form' -%}
+    {% unless label == false %}
+      <h2 class="label text-xs text-foreground/75 mb-5" id="FooterCountryLabel">
+        {{ 'localization.country_label' | t }}
+      </h2>
+    {% endunless %}
+
+    <ul role="list">
+      {%- for country in localization.available_countries -%}
+        <li tabindex="-1">
+          <button
+            tabindex="-1"
+            class="
+              dropdown-list-item w-full items-center flex gap-4
+              {% if country.iso_code == localization.country.iso_code %}active{% endif %}
+            "
+            {% if country.iso_code == localization.country.iso_code %}
+              aria-current="true"
+            {% endif %}
+            data-value="{{ country.iso_code }}"
+          >
+            {% render 'country-flag', country: country, class: "shrink-0" %}
+
+            {{
+              'localization.country_option'
+              | t:
+                name: country.name,
+                currency_iso_code: country.currency.iso_code,
+                currency_symbol: country.currency.symbol
+            }}
+          </button>
+        </li>
+      {%- endfor -%}
+    </ul>
+    <input data-list-value type="hidden" name="country_code" value="{{ localization.country.iso_code }}">
+  {%- endform -%}
+</localization-form>

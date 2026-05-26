@@ -1,0 +1,63 @@
+<div class="article-card flex flex-col {{ class }}" {{ attrs }}>
+  <a href="{{ card_article.url }}" class="flex flex-col group" data-instant>
+    <div class="overflow-hidden relative">
+      <lqip-element class="image-loader media {{ aspect | default: settings.article_card_image_ratio }} rounded-block">
+        {% if card_article.image != blank %}
+          {{
+            card_article
+            | image_url: width: 1920
+            | image_tag:
+              class: 'image-hover-zoom',
+              sizes: sizes,
+              loading: 'lazy',
+              widths: '360, 480, 640, 800, 1080, 1360, 1920'
+          }}
+          {{ card_article | image_url: width: 20 | image_tag: class: 'media-lq-placeholder', fetchpriority: 'low' }}
+
+        {% else %}
+          {% render 'placeholder', type: 'image', class: 'placeholder image-hover-zoom' %}
+        {% endif %}
+      </lqip-element>
+
+      {% if card_article.tags != blank and tag != false %}
+        <div class="info-badge article-badge absolute left-[--media-badge-offset] top-[--media-badge-offset] z-10">
+          {{ card_article.tags[0] }}
+        </div>
+      {% endif %}
+    </div>
+
+    {% if carousel %}
+      <h2 class="article-card__title !normal-case max-sm:text-sm max-md:font-bold md:heading md:text-h5/h5 mt-4 md:mt-6">
+        {{ card_article.title | default: 'Blog post' }}
+      </h2>
+    {% else %}
+      <h2 class="article-card__title h5 !normal-case mt-6">
+        {{ card_article.title | default: 'Blog post' }}
+      </h2>
+    {% endif %}
+
+    {% if excerpt != false %}
+      <div class="mt-2 md:mt-4 leading-relaxed max-md:text-sm">
+        {{ card_article.excerpt_or_content | strip_html | truncatewords: 30 }}
+      </div>
+    {% endif %}
+  </a>
+
+  <div class="grow"></div>
+
+  {% if details != false and card_article != null %}
+    <div class="article-card__details flex mt-6 justify-between text-xs md:text-sm">
+      {% if date != false %}
+        <div class="text-foreground/75">
+          {{ card_article.published_at | time_tag: format: 'date' }}
+        </div>
+      {% endif %}
+
+      {% if comments != false %}
+        <a href="{{ card_article.url | append: '#comments' }}" class="text-foreground/75 styled-link" data-instant>
+          {{ 'blogs.article.comments' | t: count: card_article.comments_count }}
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>

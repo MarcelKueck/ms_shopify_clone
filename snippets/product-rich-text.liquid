@@ -1,0 +1,63 @@
+{% if block.settings.heading != blank
+  or block.settings.subheading != blank
+  or block.settings.content != blank
+  or block.settings.button_text != blank
+%}
+  <div
+    {% render 'has-diff-bg-class', item_color: block.settings.background_color, class: 'data-has-diff-bg' %}
+    class="
+      product-rich-text color my-6 md:my-8 trim-margins
+      {{ block.settings.text_alignment }}
+      data-[has-diff-bg]:p-5
+      data-[has-diff-bg]:md:p-6
+      data-[has-diff-bg]:rounded-block
+      flex gap-4
+    "
+    style="
+      {% render 'apply-color-var', var: '--color-background', color: block.settings.background_color %}
+      {% render 'apply-color-var', var: '--color-foreground', color: block.settings.text_color %}
+      {% render 'apply-color-var', var: '--color-headings', color: block.settings.heading_color %}
+    "
+    {{ block.shopify_attributes }}
+  >
+    {% if block.settings.icon != blank or block.settings.custom_icon != blank %}
+      {% render 'section-full-icon',
+        icon: block.settings.icon,
+        custom_icon: block.settings.custom_icon,
+        icon_width: block.settings.icon_width,
+        stroke_width: 1.75
+      %}
+    {% endif %}
+
+    <div class="trim-margins">
+      {% if block.settings.heading != blank or block.settings.icon != blank or block.settings.custom_icon != blank %}
+        <div class="mb-2">
+          <div class="{{ block.settings.heading_size }}">
+            {{ block.settings.heading }}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if block.settings.content != blank %}
+        <div class="mb-6">
+          <div class="prose inline-block max-md:text-sm">
+            {{ block.settings.content }}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if block.settings.button_text != blank %}
+        <div class="mt-4 md:mt-6">
+          <a
+            href="{{ block.settings.button_url | default: '#' }}"
+            class="button {{ block.settings.button_style }} text-xs md:text-sm"
+            style="{% render 'button-vars', background: block.settings.button_background_color, text: block.settings.button_text_color %}"
+          >
+            {{ block.settings.button_text }}
+          </a>
+        </div>
+
+      {% endif %}
+    </div>
+  </div>
+{% endif %}

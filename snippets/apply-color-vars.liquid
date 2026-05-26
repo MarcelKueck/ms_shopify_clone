@@ -1,0 +1,11 @@
+{% if background != blank and background.rgba != '0 0 0 / 0.0' %}
+  --color-background: {{ background.rgb }};
+{% endif %}
+
+{% if text != blank and text.rgba != '0 0 0 / 0.0' %}
+  --color-foreground: {{ text.rgb }};
+{% endif %}
+
+{% if heading != blank and heading.rgba != '0 0 0 / 0.0' %}
+  --color-headings: {{ heading.rgb }};
+{% endif %}

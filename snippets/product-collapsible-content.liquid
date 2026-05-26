@@ -1,0 +1,25 @@
+{% if block.settings.content != blank %}
+  <smooth-collapse
+    {{ block.shopify_attributes }}
+    class="product-collapse-wrapper block"
+    {% if block.settings.collapse_open %}
+      default-open
+    {% endif %}
+  >
+    <details
+      class="product-collapse"
+      {% if block.settings.collapse_open %}
+        open
+      {% endif %}
+    >
+      <summary>
+        <div class="font-accordion product-info-heading">{{ block.settings.heading }}</div>
+        {% render 'icon-chevron' %}
+      </summary>
+
+      <div class="prose  max-w-none">
+        {{ block.settings.content }}
+      </div>
+    </details>
+  </smooth-collapse>
+{% endif %}

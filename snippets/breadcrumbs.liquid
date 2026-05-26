@@ -1,0 +1,74 @@
+{% capture separator %}
+<span aria-hidden="true" class="em:w-3 block" style="--icon-stroke-width:1.25">{% render 'icon-chevron' %}</span>
+{% endcapture %}
+
+{% unless template == 'index' or template == 'cart' or template == 'list-collections' %}
+  <nav
+    class="breadcrumb flex flex-wrap items-center gap-y-1 gap-x-2 text-xs md:text-sm styled-links"
+    role="navigation"
+    aria-label="{{ 'accessibility.breadcrumbs' | t }}"
+  >
+    <a href="{{ routes.root_url }}" title="Home">{{ 'general.breadcrumbs.home' | t }}</a>
+
+    {% if template contains 'page' %}
+      {{ separator }}
+
+      <span>{{ page.title }}</span>
+
+    {% elsif template contains 'product' %}
+      {% if collection.url %}
+        {{ separator }}
+
+        {{ collection.title | link_to: collection.url }}
+      {% endif %}
+
+      {{ separator }}
+
+      <span class="text-foreground/75">{{ product.title }}</span>
+
+    {% elsif template contains 'collection' and collection.handle %}
+      {{ separator }}
+
+      {% if current_tags %}
+        {% capture url %}/collections/{{ collection.handle }}{% endcapture %}
+
+        {{ collection.title | link_to: url }}
+
+        {{ separator }}
+
+        <span>{{ current_tags | join: ' + ' }}</span>
+
+      {% else %}
+        <span>{{ collection.title }}</span>
+      {% endif %}
+
+    {% elsif template == 'blog' %}
+      {{ separator }}
+
+      {% if current_tags %}
+        {{ blog.title | link_to: blog.url }}
+
+        {{ separator }}
+
+        <span>{{ current_tags | join: ' + ' }}</span>
+
+      {% else %}
+        <span>{{ blog.title }}</span>
+      {% endif %}
+
+    {% elsif template == 'article' %}
+      {{ separator }}
+
+      {{ blog.title | link_to: blog.url }}
+
+      {{ separator }}
+
+      <span>{{ article.title }}</span>
+
+    {% else %}
+      {{ separator }}
+
+      <span>{{ page_title }}</span>
+    {% endif %}
+  </nav>
+{% endunless %}

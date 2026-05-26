@@ -1,0 +1,91 @@
+{% render 'section-bg-number-vars' %}
+
+<div class="section section--full-width">
+  {% render 'account-header' %}
+
+  {%- paginate customer.addresses by 8 -%}
+    <div class="customer">
+      <modal-drawer class="modal modal-scrollable modal-drawer modal-drawer--lg">
+        <button class="button button-primary max-sm:w-full" type="button" slot="activator">
+          {{ 'customer.addresses.add_new' | t }}
+        </button>
+        <div slot="content" tabindex="-1" class="p-6 sm:p-12">
+          <h2 class="h4 mb-8">{{ 'customer.addresses.add_new' | t }}</h2>
+          {% render 'address-form', address: customer.new_address %}
+        </div>
+      </modal-drawer>
+
+      <div class="loading-target mt-6 md:mt-8">
+        <ul role="list" class="list-unstyled grid sm:grid-cols-2 xl:grid-cols-4 gap-6">
+          {%- for address in customer.addresses -%}
+            <li class="border rounded-block p-6 md:p-8 flex flex-col relative">
+              {{ address | format_address }}
+
+              {%- if address == customer.default_address -%}
+                <div class="info-badge absolute top-0 right-0">{{ 'customer.addresses.default' | t }}</div>
+              {%- endif -%}
+
+              <div class="grow"></div>
+
+              <div class="flex gap-6 mt-6">
+                <modal-drawer class="modal modal-scrollable modal-drawer modal-drawer--lg">
+                  <a class="styled-link opacity-75" slot="activator">
+                    {{ 'customer.addresses.edit' | t }}
+                  </a>
+                  <div slot="content" tabindex="-1" class="p-6 sm:p-12">
+                    <h2 class="h4 mb-8">{{ 'customer.addresses.edit_address' | t }}</h2>
+                    {% render 'address-form', address: address, edit: true %}
+                  </div>
+                </modal-drawer>
+
+                <x-modal class="modal bottom-modal" position="center-center">
+                  <a
+                    class="styled-link opacity-75"
+                    slot="activator"
+                    aria-label="{{ 'customer.addresses.delete' | t }} {{ forloop.index }}"
+                  >
+                    {{ 'customer.addresses.delete' | t }}
+                  </a>
+                  <div slot="content" tabindex="-1" class="p-8 sm:p-12 w-[512px] max-w-full">
+                    <h3 class="h4 mb-4 md:mb-6">{{ 'general.dialog.confirm' | t }}</h3>
+                    <p class="mb-8 md:mb-12">{{ 'customer.addresses.delete_confirm' | t }}</p>
+                    <form
+                      method="post"
+                      action="/account/addresses/{{ address.id }}"
+                      class="grid grid-cols-2 gap-2 md:gap-4"
+                      data-form-button-loading
+                    >
+                      <input type="hidden" name="_method" value="delete">
+                      <button
+                        class="button button-primary"
+                        type="submit"
+                      >
+                        {{ 'general.dialog.yes' | t }}
+                      </button>
+                      <button type="button" data-button-close aria-label="{{ 'accessibility.close_modal' | t }}" class="button button-secondary">
+                        {{ 'general.dialog.no' | t }}
+                      </button>
+                    </form>
+                  </div>
+                </x-modal>
+              </div>
+            </li>
+          {%- endfor -%}
+        </ul>
+
+        {%- if paginate.pages > 1 -%}
+          {% render 'pagination', paginate: paginate, scroll_to_target: '.loading-target' %}
+        {%- endif -%}
+      </div>
+    </div>
+  {%- endpaginate -%}
+</div>
+
+{% schema %}
+{
+  "name": "t:sections.main-addresses.name",
+  "settings": [
+
+  ]
+}
+{% endschema %}

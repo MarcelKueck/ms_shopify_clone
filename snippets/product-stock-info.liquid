@@ -1,0 +1,26 @@
+{% assign current_variant = current_variant | default: product.selected_or_first_available_variant %}
+
+<div
+  data-variant-id="{{ current_variant.id }}"
+  class="max-md:text-sm"
+>
+  {%- if current_variant.inventory_quantity > 0 %}
+    {% if block.settings.enable_low_stock_message
+      and current_variant.inventory_quantity <= block.settings.low_stock_threshold
+    %}
+      <div class="message message-danger text-low-stock-text font-normal">
+        {{ 'products.product.low_stock' | t: count: current_variant.inventory_quantity }}
+      </div>
+    {% else %}
+      <div class="message message-success text-in-stock-text font-normal">
+        {{ 'products.product.in_stock' | t }}
+      </div>
+    {% endif %}
+  {%- else -%}
+    {% if block.settings.enable_backorder_message and current_variant.inventory_policy == 'continue' %}
+      <div class="message message-danger backorder-message text-low-stock-text font-normal">
+        {{ 'products.product.on_backorder' | t }}
+      </div>
+    {% endif %}
+  {% endif -%}
+</div>

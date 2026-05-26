@@ -1,0 +1,70 @@
+{% liquid
+  case section.settings.banner_position
+    when 'bottom_left'
+      assign modal_class = 'privacy-banner-modal--left'
+    when 'bottom_right'
+      assign modal_class = 'privacy-banner-modal--right'
+  endcase
+%}
+
+<privacy-banner class="modal privacy-banner-modal {{ modal_class }}">
+  <div slot="content" tabindex="-1" class="focus:outline-none">
+    <div
+      class="
+        flex flex-col items-stretch gap-x-6 gap-y-6
+        {% if section.settings.banner_position == 'bottom_center' %}
+          sm:items-center sm:flex-row
+        {% endif %}
+      "
+    >
+      <div class="prose prose-sm max-w-none">{{ section.settings.content }}</div>
+
+      <div class="flex gap-2 md:gap-3">
+        <button class="button-accept button button-primary text-sm grow">
+          {{ 'sections.privacy_banner.accept' | t }}
+        </button>
+        <button class="button-decline button button-light text-sm grow">
+          {{ 'sections.privacy_banner.decline' | t }}
+        </button>
+      </div>
+    </div>
+  </div>
+</privacy-banner>
+
+{% schema %}
+{
+  "name": "t:sections.privacy-banner.name",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:sections.privacy-banner.paragraph__0.content"
+    },
+    {
+      "type": "select",
+      "id": "banner_position",
+      "label": "t:sections.privacy-banner.settings.banner_position.label",
+      "options": [
+        {
+          "value": "bottom_left",
+          "label": "t:sections.privacy-banner.settings.banner_position.options__0.label"
+        },
+        {
+          "value": "bottom_center",
+          "label": "t:sections.privacy-banner.settings.banner_position.options__1.label"
+        },
+        {
+          "value": "bottom_right",
+          "label": "t:sections.privacy-banner.settings.banner_position.options__2.label"
+        }
+      ],
+      "default": "bottom_center"
+    },
+    {
+      "type": "richtext",
+      "id": "content",
+      "label": "t:sections.all.content.label",
+      "default": "<p>We use cookies and similar technologies to provide the best online shopping experience. <a href=\"/policies/privacy-policy\" title=\"Privacy Policy\">Privacy Policy</a></p>"
+    }
+  ]
+}
+{% endschema %}

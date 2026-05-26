@@ -1,0 +1,148 @@
+{% liquid
+  if request.page_type != 'product'
+    assign lazy = true
+    assign preload = false
+  endif
+
+  if lazy
+    assign loading = 'lazy'
+  else
+    assign loading = 'eager'
+  endif
+%}
+
+{% capture loader %}
+  {% unless loader == false %}
+    <div class="product-gallery__loader" data-loader>
+      {% render 'spinner' %}
+    </div>
+  {% endunless %}
+{% endcapture %}
+
+{% case media.media_type %}
+  {% when 'image' %}
+    {% liquid
+      if media.height > media.width
+        assign image_class = 'img--portrait'
+      else
+        assign image_class = 'img--landscape'
+      endif
+    %}
+    <div
+      class="product-media-item"
+      style="
+        --ratio: {{ section.settings.media_size | default: media.aspect_ratio }};
+        --real-ratio: {{ media.aspect_ratio }};
+      "
+      data-media-id="{{ media.id }}"
+      data-media-type="image"
+      data-media-width="{{ media.width }}"
+      data-media-height="{{ media.height }}"
+      data-media-position="{{ media.position }}"
+    >
+      <div class="product-gallery-shade">
+        <lqip-element class="image-loader">
+          {{
+            media
+            | image_url: width: 2048
+            | image_tag:
+              widths: '512, 768, 1024, 1280, 1536, 1792, 2048',
+              class: image_class,
+              sizes: sizes,
+              loading: loading,
+              preload: preload
+          }}
+        </lqip-element>
+      </div>
+
+      <div class="button-zoom-in">{% render 'icon-zoom-in' %}</div>
+    </div>
+  {% when 'external_video' %}
+    <video-player
+      class="product-media-item"
+      style="
+        --ratio: {{ section.settings.media_size | default: media.aspect_ratio }};
+        --real-ratio: {{ media.aspect_ratio }};
+      "
+      data-media-id="{{ media.id }}"
+      data-media-type="external_video"
+      data-media-position="{{ media.position }}"
+      host="{{ media.host }}"
+      video-id="{{ media.external_id }}"
+      controls
+      {% if section.settings.media_enable_video_looping %}
+        loop
+      {% endif %}
+    >
+      <button class="deferred-media-poster" data-poster aria-label="{{ 'accessibility.play_video' | t }}">
+        <div class="media rounded-block" style="--aspect-ratio: {{ media.aspect_ratio }};">
+          {{ media | image_url: width: 1600 | image_tag: sizes: sizes, loading: loading, preload: preload }}
+        </div>
+
+        {% render 'video-play-button' %}
+      </button>
+
+      {{ loader }}
+    </video-player>
+  {% when 'video' %}
+    <video-player
+      class="product-media-item"
+      style="
+        --ratio: {{ section.settings.media_size | default: media.aspect_ratio }};
+        --real-ratio: {{ media.aspect_ratio }};
+      "
+      data-media-id="{{ media.id }}"
+      data-media-type="video"
+      data-media-position="{{ media.position }}"
+      controls
+      {% if section.settings.media_enable_video_looping %}
+        loop
+      {% endif %}
+    >
+      <button class="deferred-media-poster" data-poster aria-label="{{ 'accessibility.play_video' | t }}">
+        <div class="media rounded-block" style="--aspect-ratio: {{ media.aspect_ratio }};">
+          {{ media | image_url: width: 1600 | image_tag: sizes: sizes, loading: loading, preload: preload }}
+        </div>
+
+        {% render 'video-play-button' %}
+      </button>
+
+      <template>
+        {{ media | video_tag: image_size: '480x' }}
+      </template>
+
+      {{ loader }}
+    </video-player>
+  {% when 'model' %}
+    <product-model
+      class="product-media-item"
+      data-media-id="{{ media.id }}"
+      data-media-type="model"
+      data-media-position="{{ media.position }}"
+    >
+      <button class="deferred-media-poster" data-poster aria-label="{{ 'accessibility.view_3d_model' | t }}">
+        {{ media | image_url: width: 1600 | image_tag: sizes: sizes, loading: loading, preload: preload }}
+
+        <div class="play-icon">
+          {% render 'icon-3d-model-button' %}
+        </div>
+      </button>
+
+      <template>
+        {{ media | model_viewer_tag }}
+      </template>
+
+      {{ loader }}
+    </product-model>
+  {% else %}
+    <div
+      class="product-media-item"
+      data-media-id="{{ media.id }}"
+      data-media-type="media"
+      data-media-position="{{ media.position }}"
+    >
+      {{ media | media_tag }}
+
+      {{ loader }}
+    </div>
+{% endcase %}

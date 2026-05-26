@@ -1,0 +1,48 @@
+{% comment %}
+  Renders product variant options
+
+  Accepts:
+  - product: {Object} product object.
+  - option: {Object} current product_option object.
+  - block: {Object} block object.
+  - type
+
+
+  Usage:
+  {% render 'product-variant-options',
+    product: product,
+    option: option,
+    block: block
+  %}
+{% endcomment %}
+{% liquid
+  assign product_form_id = 'product-form-' | append: section.id
+%}
+
+{% for option_value in option.values %}
+  {% case type %}
+    {% when 'radio' %}
+      {% render 'product-variant-option-radio',
+        option_value: option_value,
+        option: option,
+        product_form_id: product_form_id,
+        index: forloop.index0
+      %}
+    {% when 'radio-swatch' %}
+      {% render 'product-variant-option-radio-swatch',
+        option_value: option_value,
+        option: option,
+        product_form_id: product_form_id,
+        index: forloop.index0
+      %}
+    {% when 'radio-image' %}
+      {% render 'product-variant-option-radio-image',
+        option_value: option_value,
+        option: option,
+        product_form_id: product_form_id,
+        index: forloop.index0
+      %}
+    {% when 'dropdown' %}
+      {% render 'product-variant-option-dropdown-item', option_value: option_value %}
+  {% endcase %}
+{% endfor %}

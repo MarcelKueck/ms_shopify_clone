@@ -1,0 +1,10 @@
+{%- liquid
+  assign target = target | default: section
+  assign heading_tag = 'p'
+
+  if target.settings.heading_html_tag != blank
+    assign heading_tag = target.settings.heading_html_tag
+  endif
+
+  echo heading_tag
+-%}

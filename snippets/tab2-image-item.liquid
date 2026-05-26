@@ -1,0 +1,32 @@
+{%- comment -%} Erwartet: file (FileReference), product {%- endcomment -%}
+
+{%- if file and file.media_type == 'image' -%}
+  <div class="tab2-image">
+    {{ file | image_url: width: 1400 | image_tag:
+        loading: 'lazy',
+        sizes: '(min-width: 900px) 520px, 100vw',
+        alt: product.title | escape }}
+  </div>
+
+{%- elsif file and file.mime_type contains 'image' -%}
+  <div class="tab2-image">
+    {{ file | image_url: width: 1400 | image_tag:
+        loading: 'lazy',
+        sizes: '(min-width: 900px) 520px, 100vw',
+        alt: product.title | escape }}
+  </div>
+
+{%- elsif file and file.preview_image -%}
+  <div class="tab2-image">
+    {{ file.preview_image | image_url: width: 1400 | image_tag:
+        loading: 'lazy',
+        sizes: '(min-width: 900px) 520px, 100vw',
+        alt: product.title | escape }}
+  </div>
+
+{%- elsif file -%}
+  {%- comment -%} Fallback für Nicht-Bilddateien (z.B. PDF) {%- endcomment -%}
+  <p><a href="{{ file | file_url }}" target="_blank" rel="nofollow">
+    {{ file.filename | default: 'Datei öffnen' }}
+  </a></p>
+{%- endif -%}

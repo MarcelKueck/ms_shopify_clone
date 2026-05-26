@@ -1,0 +1,142 @@
+{% liquid
+  assign section_class = 'section--no-padding overflow-hidden relative rfs:[--section-vertical-spacing:2.5rem] grid'
+
+  assign has_text_color = false
+  assign has_heading_color = false
+
+  if text_color != blank and text_color.rgba != '0 0 0 / 0.0'
+    assign has_text_color = true
+  endif
+
+  if heading_color != blank and heading_color.rgba != '0 0 0 / 0.0'
+    assign has_heading_color = true
+  endif
+
+  assign has_diff_bg = false
+
+  if show_image and image
+    assign has_diff_bg = true
+  else
+    if background_color != blank and background_color.rgba != '0 0 0 / 0.0' and background_color.rgb != settings.color_background.rgb
+      assign has_diff_bg = true
+    endif
+
+    # assign text_alignment = ''
+    # assign text_alignment_mobile = 'justify-center items-center text-center'
+  endif
+
+  if has_diff_bg == false
+    assign full_width = true
+  endif
+
+  capture image_sizes
+    render 'image-sizes-full-width', full_width: full_width
+  endcapture
+
+  assign overlay_opacity = overlay_opacity | divided_by: 100.0
+%}
+
+<style>
+  {% if has_diff_bg %}
+    #shopify-section-{{ section.id }} .section {
+      min-height: calc({% render 'rfs', value: banner_spacing, base_value: 200, breakpoint: 1600 %});
+    }
+  {% endif %}
+
+  #shopify-section-{{ section.id }} {
+    {% render 'media-overlay-vars',
+      type: overlay_type,
+      content_position: text_alignment,
+      color: overlay_color,
+      opacity: overlay_opacity
+    %}
+  }
+
+  @media not all and (min-width: 768px) {
+    #shopify-section-{{ section.id }} {
+      {% render 'media-overlay-vars',
+        type: overlay_type,
+        content_position: text_alignment_mobile,
+        color: overlay_color,
+        opacity: overlay_opacity
+      %}
+    }
+  }
+</style>
+
+{% capture image_class %}
+  image-loader media media--overlay select-none pointer-events-none
+  {% if use_original_media_size %}
+    row-start-1 col-start-1 {% if full_width %} bleed-margin {% endif %}
+  {% else %}
+    absolute inset-0
+  {% endif %}
+{% endcapture %}
+
+<div
+  {% render 'section-attrs', class: section_class, full_width: full_width %}
+  {% if full_width and enable_transparent_header and show_image and image %}
+    enable-transparent-header
+  {% endif %}
+>
+  {% if show_image and image %}
+    <lqip-element class="{{ image_class }} {% if image_mobile %} max-md:hidden {% endif %}">
+      {{
+        image
+        | image_url: width: 3840
+        | image_tag: widths: '512, 768, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3840', sizes: image_sizes
+      }}
+    </lqip-element>
+  {% endif %}
+
+  {% if show_image and image_mobile %}
+    <lqip-element class="{{ image_class }} md:hidden">
+      {{ image_mobile | image_url: width: 1536 | image_tag: widths: '512, 768, 1024, 1280, 1536', sizes: image_sizes }}
+    </lqip-element>
+  {% endif %}
+
+  <div
+    class="
+      page-banner__content z-10 relative trim-margins section-content-spacing
+      {{ text_alignment_mobile }} {{ text_alignment }}
+      py-8 md:py-12 xl:py-16
+      {% if full_width == false %}
+        px-co sm:px-16
+      {% endif %}
+      {% if use_original_media_size %}
+        row-start-1 col-start-1
+      {% endif %}
+    "
+  >
+    {% if show_heading and heading != blank %}
+      {% capture heading_tag %}{% render 'get-heading-tag' %}{% endcapture %}
+      <{{ heading_tag }}
+        class="
+          {{ heading_size }}
+          {% if show_image and image and has_text_color == false and has_heading_color == false %}
+            text-white
+          {% endif %}
+        "
+        data-animation="heading"
+        data-animation-group="{{ animation_group | default: section.id }}"
+      >
+        {{ heading | escape }}
+      </{{ heading_tag }}>
+    {% endif %}
+
+    {% if show_content and content != blank %}
+      <div
+        class="
+           prose inline-block
+          {% if show_image and image and has_text_color == false %}
+            text-white
+          {% endif %}
+        "
+        data-animation="heading"
+        data-animation-group="{{ animation_group | default: section.id }}"
+      >
+        {{ content }}
+      </div>
+    {% endif %}
+  </div>
+</div>

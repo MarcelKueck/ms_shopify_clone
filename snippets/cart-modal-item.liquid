@@ -1,0 +1,102 @@
+<div
+  class="cart-modal-item grid grid-cols-[4rem_auto] sm:grid-cols-[5rem_auto] gap-4 sm:gap-6 {{ class }}"
+  data-cart-item-index="{{ index }}"
+>
+  <div class="row-span-2">
+    <a data-instant href="{{ item.url }}" tabindex="-1">
+      {% if item.image %}
+        <lqip-element class="image-loader">
+          {{
+            item.image
+            | image_url: width: 192
+            | image_tag:
+              widths: '96, 128, 192',
+              class: 'rounded-block-xs product-thumbnail-shade',
+              sizes: '(min-width: 576px) 96px, 64px',
+              loading: 'lazy'
+          }}
+        </lqip-element>
+      {% else %}
+        {% render 'placeholder', type: 'image', class: 'placeholder rounded-block-xs' %}
+      {% endif %}
+    </a>
+  </div>
+
+  <div class="flex items-start">
+    <div class="grow pr-4">
+      <a data-instant href="{{ item.url }}">
+        <h2 class="product-name max-md:text-sm">
+          {{ item.product.title }}
+        </h2>
+      </a>
+
+      {% unless item.product.has_only_default_variant %}
+        <div class="text-xs md:text-sm mt-2 text-foreground/75">
+          {{ item.variant.title }}
+        </div>
+      {% endunless %}
+
+      {% unless item.properties == empty %}
+        <div class="styled-links text-xs md:text-sm mt-1 text-foreground/75">
+          {% for property in item.properties %}
+            <div>
+              {% assign property_first_char = property.first | slice: 0 %}
+              {% if property.last != blank and property_first_char != '_' %}
+                <span>{{ property.first }}:</span>
+                {% if property.last contains '/uploads/' %}
+                  <a href="{{ property.last }}" target="_blank">
+                    {{ property.last | split: '/' | last }}
+                  </a>
+                {% else %}
+                  <span>{{ property.last }}</span>
+                {% endif %}
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endunless %}
+    </div>
+
+    <a
+      class="block icon-sm md:icon-md shrink-0 p-2.5 -m-2.5 box-content"
+      role="button"
+      href="{{ item.url_to_remove }}"
+      data-button-remove
+      data-index="{{ index }}"
+      aria-label="{{ 'accessibility.cart_remove_item' | t: item: item.product.title }}"
+    >
+      {% render 'icon-trash' %}
+    </a>
+
+    {% comment %}
+      {% unless item.product.has_only_default_variant %}
+        <div class="text-sm trim-margins">
+          {% for item in item.options_with_values %}
+            <div class="mb-1">
+              <div class="font-bold">{{ item.name }}</div>
+              <div class="opacity-75">{{ item.value }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endunless %}
+    {% endcomment %}
+  </div>
+
+  <div class="flex items-end styled-links mt-2 max-md:text-sm">
+    {% render 'line-item-price', item: item %}
+
+    <div class="ml-auto">
+      {% render 'qty-selector', item: item %}
+    </div>
+  </div>
+
+  {% comment %}
+    {% if item.line_level_discount_allocations.size > 0 %}
+      <div class="col-start-2 -mt-2">
+        {% render 'line-level-discount-allocations', item: item %}
+      </div>
+    {% endif %}
+  {% endcomment %}
+
+  <div class="message message-danger text-danger text-xs md:text-sm col-start-2"></div>
+</div>

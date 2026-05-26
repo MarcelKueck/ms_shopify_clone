@@ -1,0 +1,1264 @@
+{% liquid
+assign cart_drawer = true
+
+if request.page_type == 'cart' or settings.cart_type == 'page'
+assign cart_drawer = false
+endif
+
+assign logo_header_transparent = section.settings.logo_header_transparent | default: section.settings.logo
+
+if section.settings.enable_country_selector and localization.available_countries.size > 1
+assign show_country_selector = true
+endif
+
+if section.settings.enable_language_selector and localization.available_languages.size > 1
+assign show_language_selector = true
+endif
+
+assign localization_font = 'font-bold'
+
+if settings.type_navigation_font == 'body'
+assign localization_font = 'font-normal'
+endif
+
+assign mobile_menu = section.settings.menu_mobile | default: section.settings.menu
+%}
+
+<style>
+#shopify-section-{{ section.id }} {
+--header-logo-width: {{ section.settings.logo_width }}px;
+--header-logo-width-mobile: {{ section.settings.logo_width_mobile }}px;
+--header-transparent-text-color: {{ section.settings.text_color_header_transparent.rgb }};
+--topbar-bg: {{ section.settings.topbar_bg }};
+--topbar-text: {{ section.settings.topbar_text_color }};
+--topbar-button-bg: {{ section.settings.topbar_button_bg }};
+--topbar-button-text: {{ section.settings.topbar_button_text }};
+}
+
+.header-topbar {
+background: var(--topbar-bg);
+color: var(--topbar-text);
+font-size: 13px;
+line-height: 1.2;
+position: relative;
+z-index: 30;
+overflow: visible;
+}
+
+.header-topbar__left,
+.header-topbar__country-selector,
+.header-topbar dropdown-list,
+.header-topbar details {
+position: relative;
+z-index: 31;
+overflow: visible;
+}
+
+.header-topbar .dropdown-menu,
+.header-topbar .locale-selector-dropdown {
+z-index: 999;
+}
+
+.header-topbar a {
+color: inherit;
+text-decoration: none;
+}
+
+.header-topbar__container {
+min-height: 46px;
+display: grid;
+grid-template-columns: 1fr auto 1fr;
+align-items: center;
+gap: 16px;
+}
+
+.header-topbar__left {
+justify-self: start;
+display: flex;
+align-items: center;
+gap: 8px;
+white-space: nowrap;
+}
+
+.header-topbar__center {
+justify-self: center;
+text-align: center;
+font-weight: 300;
+white-space: nowrap;
+}
+
+.header-topbar__right {
+justify-self: end;
+display: flex;
+align-items: center;
+gap: 18px;
+white-space: nowrap;
+}
+
+.header-topbar__button {
+background: var(--topbar-button-bg);
+color: var(--topbar-button-text) !important;
+padding: 12px 18px;
+font-weight: 700;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+line-height: 1;
+}
+
+.header-topbar__language-selector,
+.header-topbar__language-selector summary,
+.header-topbar__language-selector .header-icon-btn,
+.header-topbar__language-selector .collapse-chevron,
+.header-topbar__language-selector svg {
+color: #fff;
+}
+
+.header-topbar__language-selector .header-icon-btn {
+margin: 0;
+padding: 0;
+}
+
+.header-topbar__language-selector .collapse-chevron {
+margin-left: 6px;
+}
+
+.header-topbar__support-dropdown {
+position: relative;
+display: inline-flex;
+}
+
+.header-topbar__support-toggle {
+border: 0;
+cursor: pointer;
+font: inherit;
+}
+
+.header-topbar__support-menu {
+position: absolute;
+right: 0;
+top: calc(100% + 10px);
+min-width: 240px;
+background: #fff;
+color: #111827;
+border: 1px solid #e5e7eb;
+border-radius: 12px;
+box-shadow: 0 10px 30px rgba(0,0,0,.12);
+padding: 8px;
+z-index: 1000;
+}
+
+.header-topbar__support-menu[hidden] {
+display: none;
+}
+
+.header-topbar__support-menu a {
+display: block;
+padding: 10px 12px;
+border-radius: 8px;
+color: #111827;
+text-decoration: none;
+font-size: 14px;
+line-height: 1.3;
+}
+
+.header-topbar__support-menu a:hover,
+.header-topbar__support-menu a:focus {
+background: #f3f4f6;
+}
+
+.header__nav .menu > li > .menu-item,
+.header__nav .menu > li > a.menu-item,
+.header__nav .menu > li > details > summary .menu-item,
+.header__nav .menu > li > dropdown-element > details > summary .menu-item,
+.header__nav .menu > li > mega-menu-horizontal > details > summary .menu-item {
+white-space: nowrap;
+}
+
+@media screen and (max-width: 999px) {
+.header-topbar__container {
+grid-template-columns: 1fr;
+gap: 8px;
+padding-top: 8px;
+padding-bottom: 8px;
+}
+
+.header-topbar__left,
+.header-topbar__center,
+.header-topbar__right {
+justify-self: center;
+text-align: center;
+white-space: normal;
+}
+
+.header-topbar__right {
+gap: 12px;
+flex-wrap: wrap;
+justify-content: center;
+}
+}
+
+@media screen and (max-width: 749px) {
+.header-topbar {
+font-size: 12px;
+}
+
+.header-topbar__button {
+padding: 10px 14px;
+}
+}
+
+@media screen and (max-width: 1399px) {
+.header__nav .menu {
+gap: 1.25rem;
+}
+
+.header__nav .menu > li > .menu-item,
+.header__nav .menu > li > a.menu-item,
+.header__nav .menu > li > details > summary .menu-item,
+.header__nav .menu > li > dropdown-element > details > summary .menu-item,
+.header__nav .menu > li > mega-menu-horizontal > details > summary .menu-item {
+font-size: 0.95rem;
+}
+
+.header__nav .collapse-chevron {
+width: 0.65rem;
+margin-left: 0.35rem;
+}
+}
+
+@media screen and (max-width: 1240px) {
+.header__nav .menu {
+gap: 0.9rem;
+}
+
+.header__nav .menu > li > .menu-item,
+.header__nav .menu > li > a.menu-item,
+.header__nav .menu > li > details > summary .menu-item,
+.header__nav .menu > li > dropdown-element > details > summary .menu-item,
+.header__nav .menu > li > mega-menu-horizontal > details > summary .menu-item {
+font-size: 0.88rem;
+letter-spacing: -0.01em;
+}
+
+.header__nav .collapse-chevron {
+width: 0.6rem;
+margin-left: 0.25rem;
+}
+}
+
+@media screen and (max-width: 1140px) {
+.header__nav .menu {
+gap: 0.65rem;
+}
+
+.header__nav .menu > li > .menu-item,
+.header__nav .menu > li > a.menu-item,
+.header__nav .menu > li > details > summary .menu-item,
+.header__nav .menu > li > dropdown-element > details > summary .menu-item,
+.header__nav .menu > li > mega-menu-horizontal > details > summary .menu-item {
+font-size: 0.82rem;
+}
+
+.header__nav .collapse-chevron {
+width: 0.55rem;
+margin-left: 0.2rem;
+}
+}
+
+main > .shopify-section:first-child {
+{% liquid
+assign red = settings.colors_header_background.red | times: 65025
+assign green = settings.colors_header_background.green | times: 255
+assign blue = settings.colors_header_background.blue
+
+assign bg_number = red | plus: green | plus: blue
+%}
+--previous-section-bg-number: {{ bg_number }}
+}
+
+{% if section.settings.sticky_header_mode != "disabled" %}
+html {
+scroll-padding-top: var(--header-height, 0px);
+}
+{% endif %}
+.fh-header-search {
+  position: relative;
+  z-index: 5;
+}
+
+.fh-header-search__input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: #fff;
+  color: #111;
+  padding: 0 14px 0 38px;
+  font-size: 15px;
+  line-height: 1;
+  outline: none;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23b5b5b5' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z'/%3E%3C/svg%3E");
+
+  background-repeat: no-repeat;
+  background-size: 15px 15px;
+  background-position: 14px center;
+}
+
+.fh-header-search__input:focus {
+  border-color: #111;
+}
+
+.fh-header-search--desktop {
+  width: 210px;
+  display: block;
+}
+
+.fh-header-search--mobile {
+  display: none;
+}
+
+
+@media screen and (max-width: 749px) {
+  {% if section.settings.topbar_hide_mobile %}
+    .header-topbar {
+      display: none !important;
+    }
+  {% endif %}
+
+sticky-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 99999 !important;
+  display: block !important;
+  background: #fff;
+}
+
+body {
+  padding-top: var(--header-height, 120px);
+}
+  .fh-header-search--desktop {
+    display: none;
+  }
+
+  .fh-header-search--mobile {
+    display: block;
+    grid-column: 1 / -1;
+    width: min(270px, calc(100vw - 120px));
+    margin: 6px auto 8px;
+  }
+
+  .fh-header-search--mobile .fh-header-search__input {
+    height: 32px;
+    text-align: center;
+    font-size: 15px;
+    border-radius: 7px;
+    padding: 0 10px;
+  }
+}
+@media screen and (max-width: 749px) {
+  sticky-header,
+  height-observer,
+  .header,
+  .header__container,
+  .section-site-header,
+  #shopify-section-{{ section.id }} {
+    overflow: visible !important;
+  }
+
+  .fh-header-search,
+  .fh-header-search--mobile {
+    position: relative;
+    z-index: 9999;
+  }
+
+  .snize-ac-results,
+  .snize-ac-results-mobile,
+  .snize-autocomplete,
+  .snize-search-results {
+    z-index: 999999 !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+  }
+}
+
+@media screen and (max-width: 749px) {
+  sticky-header,
+  height-observer,
+  .header,
+  .header__container,
+  #shopify-section-{{ section.id }} {
+    overflow: visible !important;
+  }
+
+  .fh-header-search--mobile {
+    position: relative;
+    z-index: 9999;
+  }
+
+  .snize-ac-results,
+  .snize-ac-results-mobile {
+    width: min(360px, calc(100vw - 96px)) !important;
+    max-height: 62vh !important;
+    overflow-y: auto !important;
+    z-index: 999999 !important;
+    background: #fff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 30px rgba(0,0,0,.14) !important;
+  }
+
+  .snize-ac-results input[type="search"],
+  .snize-ac-results-mobile input[type="search"],
+  .snize-ac-results .snize-searchbox,
+  .snize-ac-results-mobile .snize-searchbox {
+    display: none !important;
+  }
+}
+@media screen and (max-width: 749px) {
+  .header__logo img,
+  .header__logo .header__logo-img,
+  .header__logo .header__logo-img--header-transparent {
+    max-width: 140px !important;
+    width: 140px !important;
+    height: auto !important;
+  }
+}
+@media screen and (max-width: 749px) {
+
+  .fh-mobile-trustbar {
+    height: 28px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-bottom: 1px solid #f1f1f1;
+    position: relative;
+    z-index: 999999;
+  }
+
+  .fh-mobile-trustbar etrusted-widget {
+    transform: scale(0.82);
+    transform-origin: center;
+    white-space: nowrap;
+  }
+
+}
+
+/* DESKTOP TRUSTBAR */
+.fh-desktop-trustbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* eTrusted dynamisch behalten */
+.fh-desktop-trustbar etrusted-widget {
+  transform: scale(0.92);
+  transform-origin: center;
+}
+
+/* Versuch: Text weiß, falls eTrusted kein Shadow DOM blockiert */
+.fh-desktop-trustbar etrusted-widget,
+.fh-desktop-trustbar etrusted-widget * {
+  color: #fff !important;
+}
+
+/* Sterne orange lassen, falls direkt erreichbar */
+.fh-desktop-trustbar etrusted-widget svg,
+.fh-desktop-trustbar etrusted-widget [class*="star"],
+.fh-desktop-trustbar etrusted-widget [class*="rating"] svg {
+  color: #f59e0b !important;
+  fill: #f59e0b !important;
+}
+
+/* MOBILE */
+.fh-mobile-topbar-text {
+  display: none;
+}
+
+@media screen and (max-width: 749px) {
+
+  .fh-desktop-trustbar {
+    display: none;
+  }
+
+  .fh-mobile-topbar-text {
+    display: inline;
+  }
+
+}
+</style>
+
+<style data-transparent-header-style>
+.js main > .shopify-section:first-child [enable-transparent-header] {
+margin-top: calc(var(--header-height) * -1);
+--allow-transparent-header-padding: calc(var(--header-height) + 1rem);
+}
+</style>
+
+<sticky-header mode="{{ section.settings.sticky_header_mode }}">
+
+{% if section.settings.topbar_enable %}
+<div class="header-topbar">
+<div class="container header-topbar__container">
+<div class="header-topbar__left">
+{% if show_country_selector %}
+{% render 'country-selector-dropdown',
+class: 'header-topbar__country-selector max-lg:hidden',
+font_class: localization_font,
+flag: section.settings.country_selector_show_country_flag,
+name: section.settings.country_selector_show_country_name,
+currency: section.settings.country_selector_show_currency
+%}
+{% elsif section.settings.topbar_left_text != blank %}
+{% if section.settings.topbar_left_link != blank %}
+<a href="{{ section.settings.topbar_left_link }}">{{ section.settings.topbar_left_text }}</a>
+{% else %}
+<span>{{ section.settings.topbar_left_text }}</span>
+{% endif %}
+{% endif %}
+
+{% if show_language_selector %}
+{% render 'language-selector-dropdown',
+class: 'header-topbar__language-selector max-lg:hidden',
+font_class: localization_font
+%}
+{% endif %}
+</div>
+
+<div class="header-topbar__center">
+
+  <div class="fh-desktop-trustbar">
+    <etrusted-widget
+  data-etrusted-widget-id="wdg-b2459965-a58d-4af2-aeea-97b0f30667e4"
+  data-theme="dark">
+</etrusted-widget>
+  </div>
+
+  {% if section.settings.topbar_center_text != blank %}
+    {% if section.settings.topbar_center_link != blank %}
+      <a href="{{ section.settings.topbar_center_link }}" class="fh-mobile-topbar-text">
+        {{ section.settings.topbar_center_text }}
+      </a>
+    {% else %}
+      <span class="fh-mobile-topbar-text">
+        {{ section.settings.topbar_center_text }}
+      </span>
+    {% endif %}
+  {% endif %}
+
+</div>
+
+<div class="header-topbar__right">
+{% if section.settings.topbar_right_link_1_label != blank %}
+<a href="{{ section.settings.topbar_right_link_1_url }}">
+{{ section.settings.topbar_right_link_1_label }}
+</a>
+{% endif %}
+
+{% if section.settings.topbar_right_link_2_label != blank %}
+<div class="header-topbar__support-dropdown">
+<button type="button" class="header-topbar__button header-topbar__support-toggle" aria-expanded="false" aria-controls="HeaderSupportMenu-{{ section.id }}">
+{{ section.settings.topbar_right_link_2_label }}
+</button>
+
+<div id="HeaderSupportMenu-{{ section.id }}" class="header-topbar__support-menu" hidden>
+{% if linklists['support-menu'].links.size > 0 %}
+{% for support_link in linklists['support-menu'].links %}
+<a href="{{ support_link.url }}">{{ support_link.title }}</a>
+{% endfor %}
+{% elsif section.settings.topbar_right_link_2_url != blank %}
+<a href="{{ section.settings.topbar_right_link_2_url }}">{{ section.settings.topbar_right_link_2_label }}</a>
+{% endif %}
+</div>
+</div>
+{% endif %}
+</div>
+</div>
+</div>
+{% endif %}
+
+<height-observer variable="header-height">
+<div
+class="
+header
+header--desktop-{{ section.settings.desktop_layout }}
+header--mobile-{{ section.settings.mobile_layout }}
+header--transparent
+no-scroll-expand
+prevent-transition-on-load
+"
+>
+<div class="container header__container">
+<div class="header__logo">
+{%- if request.page_type == 'index' and section.settings.enable_h1_on_index -%}
+{% echo '<h1>' %}
+{%- endif -%}
+
+<a data-instant href="{{ routes.root_url }}">
+{%- if section.settings.logo != blank -%}
+<span class="visually-hidden">{{ shop.name }}</span>
+{% assign logo_width_2x = section.settings.logo_width | times: 2 %}
+{% assign logo_width_mobile_2x = section.settings.logo_width_mobile | times: 2 %}
+{%- capture logo_widths -%}
+{{ section.settings.logo_width_mobile }}, {{ logo_width_mobile_2x }}, {{ section.settings.logo_width }}, {{ logo_width_2x }}
+{%- endcapture -%}
+{%- capture logo_sizes -%}
+(min-width: 768px) {{ section.settings.logo_width }}px, {{ section.settings.logo_width_mobile }}px
+{%- endcapture -%}
+<div class="grid">
+{{
+section.settings.logo
+| image_url: width: logo_width_2x
+| image_tag: widths: logo_widths, sizes: logo_sizes, class: 'header__logo-img col-start-1 row-start-1'
+}}
+{{
+logo_header_transparent
+| image_url: width: logo_width_2x
+| image_tag:
+widths: logo_widths,
+sizes: logo_sizes,
+class: 'header__logo-img--header-transparent col-start-1 row-start-1'
+}}
+</div>
+{%- else -%}
+<span class="heading text-h6/h6 md:text-h4/h4 !normal-case">{{ shop.name }}</span>
+{%- endif -%}
+</a>
+
+{%- if request.page_type == 'index' and section.settings.enable_h1_on_index -%}
+{% echo '</h1>' %}
+{%- endif -%}
+</div>
+
+<div class="header__nav">
+<button is="menu-hamburger" class="hamburger" aria-label="{{ 'accessibility.open_menu' | t }}">
+<div class="icon-sm md:icon-md">
+{% render 'icon-hamburger' %}
+</div>
+</button>
+
+<ul class="menu list-unstyled" role="list">
+{% for link in section.settings.menu.links %}
+{% liquid
+assign mega_menu = false
+
+for block in section.blocks
+assign block_menu_item = block.settings.menu_item | downcase
+assign link_title = link.title | downcase
+
+if block.type == 'mega_menu' and block_menu_item == link_title
+assign mega_menu = block
+endif
+endfor
+%}
+
+<li>
+{% if mega_menu %}
+{% liquid
+if mega_menu.settings.type == 'horizontal'
+render 'mega-menu-horizontal', link: link, interaction_handler: section.settings.open_dropdowns_on, block: mega_menu
+elsif mega_menu.settings.type == 'drawer'
+render 'mega-menu-drawer', link: link, interaction_handler: section.settings.open_dropdowns_on, block: mega_menu
+endif
+%}
+{% else %}
+{% if link.links == blank %}
+<a
+data-instant
+class="menu-item{% if link.current or link.child_active %} is-active{% endif %}"
+href="{{ link.url }}"
+{% if link.current %}aria-current="page"{% endif %}
+>
+<span>{{ link.title }}</span>
+</a>
+{% else %}
+{% assign menu_dropdown_id = 'menu-dropdown-' | append: forloop.index %}
+{% render 'menu-dropdown',
+link: link,
+interaction_handler: section.settings.open_dropdowns_on,
+id: menu_dropdown_id,
+is_active: link.current or link.child_active
+%}
+{% endif %}
+{% endif %}
+</li>
+{% endfor %}
+</ul>
+</div>
+
+<div class="header__actions">
+<div class="flex gap-3 md:gap-4">
+{% if section.settings.enable_search %}
+<form class="fh-header-search fh-header-search--desktop" action="{{ routes.search_url }}" method="get" role="search">
+  <input
+    type="search"
+    name="q"
+    class="fh-header-search__input"
+    placeholder="Wonach suchst Du?"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    spellcheck="false"
+  >
+
+  <input type="hidden" name="type" value="product">
+  <input type="hidden" name="options[prefix]" value="last">
+</form>
+{% endif %}
+{% if shop.customer_accounts_enabled %}
+<a
+href="{{ routes.account_url }}"
+class="header-icon-btn header-auth-btn max-lg:hidden"
+>
+<span class="sr-only">{{ 'sections.header.account' | t }}</span>
+{% render 'icon-user' %}
+</a>
+{% endif %}
+
+<modal-trigger
+class="contents"
+target="#cart-modal"
+{% if cart_drawer == false %}
+enabled="false"
+{% endif %}
+>
+<a href="{{ routes.cart_url }}" class="header-icon-btn">
+<span class="sr-only">{{ 'sections.header.cart' | t }}</span>
+
+<div class="relative">
+{% render 'icon-cart' %}
+
+<div class="cart-badge {% if cart == empty %}hidden{% endif %}" id="CartBubble">
+{{ cart.item_count }}
+</div>
+</div>
+</a>
+</modal-trigger>
+</div>
+</div>
+
+{% if section.settings.enable_search %}
+<form class="fh-header-search fh-header-search--mobile" action="{{ routes.search_url }}" method="get" role="search">
+  <input
+    type="search"
+    name="q"
+    class="fh-header-search__input"
+    placeholder="Wonach suchst Du?"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    spellcheck="false"
+  >
+  <input type="hidden" name="type" value="product">
+  <input type="hidden" name="options[prefix]" value="last">
+</form>
+{% endif %}
+
+</div>
+</div>
+</height-observer>
+
+<div class="header-overlay"></div>
+</sticky-header>
+
+<script>
+(function() {
+var header = document.getElementById('shopify-section-{{ section.id }}');
+if (!header) return;
+
+var dropdown = header.querySelector('.header-topbar__support-dropdown');
+if (!dropdown) return;
+
+var toggle = dropdown.querySelector('.header-topbar__support-toggle');
+var menu = dropdown.querySelector('.header-topbar__support-menu');
+if (!toggle || !menu) return;
+
+function closeMenu() {
+menu.hidden = true;
+toggle.setAttribute('aria-expanded', 'false');
+}
+
+function openMenu() {
+menu.hidden = false;
+toggle.setAttribute('aria-expanded', 'true');
+}
+
+toggle.addEventListener('click', function(event) {
+event.preventDefault();
+event.stopPropagation();
+if (menu.hidden) {
+openMenu();
+} else {
+closeMenu();
+}
+});
+
+document.addEventListener('click', function(event) {
+if (!dropdown.contains(event.target)) {
+closeMenu();
+}
+});
+
+document.addEventListener('keydown', function(event) {
+if (event.key === 'Escape') {
+closeMenu();
+toggle.focus();
+}
+});
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  function setEtrustedDarkTheme() {
+
+    document
+      .querySelectorAll('etrusted-widget, etrusted-trusted-stars-service-widget')
+      .forEach(function(widget) {
+
+        widget.setAttribute('data-theme', 'dark');
+
+        widget.style.setProperty('--accent-color', '#DB6B22');
+
+      });
+
+  }
+
+  setEtrustedDarkTheme();
+
+  var observer = new MutationObserver(setEtrustedDarkTheme);
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+});
+</script>
+{% render 'mobile-menu',
+links: mobile_menu.links,
+country_selector: section.settings.enable_country_selector,
+language_selector: section.settings.enable_language_selector
+%}
+
+<script type="application/ld+json">
+{
+"@context": "http://schema.org",
+"@type": "Organization",
+"name": {{ shop.name | json }},
+{% if settings.logo %}
+"logo": {{ settings.logo | image_url: width: 500 | prepend: "https:" | json }},
+{% endif %}
+"sameAs": [
+{{ settings.social_twitter_link | json }},
+{{ settings.social_facebook_link | json }},
+{{ settings.social_pinterest_link | json }},
+{{ settings.social_instagram_link | json }},
+{{ settings.social_tiktok_link | json }},
+{{ settings.social_tumblr_link | json }},
+{{ settings.social_snapchat_link | json }},
+{{ settings.social_youtube_link | json }},
+{{ settings.social_vimeo_link | json }}
+],
+"url": {{ request.origin | append: page.url | json }}
+}
+</script>
+
+{%- if request.page_type == 'index' -%}
+{% assign potential_action_target = request.origin | append: routes.search_url | append: '?q={search_term_string}' %}
+<script type="application/ld+json">
+{
+"@context": "http://schema.org",
+"@type": "WebSite",
+"name": {{ shop.name | json }},
+"potentialAction": {
+"@type": "SearchAction",
+"target": {{ potential_action_target | json }},
+"query-input": "required name=search_term_string"
+},
+"url": {{ request.origin | append: page.url | json }}
+}
+</script>
+{%- endif -%}
+
+{% schema %}
+{
+"name": "t:sections.header.name",
+"tag": "div",
+"class": "section-site-header",
+"settings": [
+{
+"type": "select",
+"id": "sticky_header_mode",
+"label": "t:sections.header.settings.sticky_header_mode.label",
+"options": [
+{
+"label": "t:sections.header.settings.sticky_header_mode.options__0.label",
+"value": "disabled"
+},
+{
+"label": "t:sections.header.settings.sticky_header_mode.options__1.label",
+"value": "scroll-up"
+},
+{
+"label": "t:sections.header.settings.sticky_header_mode.options__2.label",
+"value": "always-visible"
+}
+],
+"default": "scroll-up"
+},
+{
+"type": "header",
+"content": "Top Bar"
+},
+{
+"type": "checkbox",
+"id": "topbar_enable",
+"label": "Top Bar anzeigen",
+"default": true
+},
+{
+"type": "checkbox",
+"id": "topbar_hide_mobile",
+"label": "Top Bar mobil ausblenden",
+"default": false
+},
+{
+"type": "text",
+"id": "topbar_left_text",
+"label": "Linker Text",
+"default": "€ 🇩🇪 Deutsch"
+},
+{
+"type": "url",
+"id": "topbar_left_link",
+"label": "Linker Link"
+},
+{
+"type": "text",
+"id": "topbar_center_text",
+"label": "Mittlerer Text",
+"default": "100 Tage Testen | Lebenslange Stahlgarantie | Kostenlose Training App"
+},
+{
+"type": "url",
+"id": "topbar_center_link",
+"label": "Mittlerer Link"
+},
+{
+"type": "text",
+"id": "topbar_right_link_1_label",
+"label": "Rechter Link Text",
+"default": "Anmelden"
+},
+{
+"type": "url",
+"id": "topbar_right_link_1_url",
+"label": "Rechter Link URL"
+},
+{
+"type": "text",
+"id": "topbar_right_link_2_label",
+"label": "Button Text",
+"default": "Live Chat"
+},
+{
+"type": "url",
+"id": "topbar_right_link_2_url",
+"label": "Button URL"
+},
+{
+"type": "color",
+"id": "topbar_bg",
+"label": "Top Bar Hintergrund",
+"default": "#111111"
+},
+{
+"type": "color",
+"id": "topbar_text_color",
+"label": "Top Bar Textfarbe",
+"default": "#FFFFFF"
+},
+{
+"type": "color",
+"id": "topbar_button_bg",
+"label": "Button Hintergrund",
+"default": "#ff4d5a"
+},
+{
+"type": "color",
+"id": "topbar_button_text",
+"label": "Button Textfarbe",
+"default": "#FFFFFF"
+},
+{
+"type": "header",
+"content": "t:sections.header.headers.logo"
+},
+{
+"type": "image_picker",
+"id": "logo",
+"label": "t:sections.header.settings.logo.label"
+},
+{
+"type": "range",
+"id": "logo_width",
+"label": "t:sections.header.settings.logo_width.label",
+"min": 64,
+"max": 320,
+"step": 4,
+"default": 160,
+"unit": "px"
+},
+{
+"type": "range",
+"id": "logo_width_mobile",
+"label": "t:sections.header.settings.logo_width_mobile.label",
+"min": 48,
+"max": 160,
+"step": 4,
+"default": 96,
+"unit": "px"
+},
+{
+"type": "header",
+"content": "t:sections.header.headers.navigation"
+},
+{
+"type": "link_list",
+"id": "menu",
+"label": "t:sections.header.settings.menu.label",
+"default": "main-menu"
+},
+{
+"type": "link_list",
+"id": "menu_mobile",
+"label": "t:sections.header.settings.menu_mobile.label",
+"info": "t:sections.header.settings.menu_mobile.info"
+},
+{
+"type": "select",
+"id": "desktop_layout",
+"label": "t:sections.header.settings.desktop_layout.label",
+"options": [
+{
+"label": "t:sections.header.settings.desktop_layout.options__0.label",
+"value": "logo-left-nav-left"
+},
+{
+"label": "t:sections.header.settings.desktop_layout.options__1.label",
+"value": "logo-left-nav-center"
+},
+{
+"label": "t:sections.header.settings.desktop_layout.options__2.label",
+"value": "logo-center-nav-left"
+}
+],
+"default": "logo-center-nav-left"
+},
+{
+"type": "select",
+"id": "mobile_layout",
+"label": "t:sections.header.settings.mobile_layout.label",
+"options": [
+{
+"label": "t:sections.header.settings.mobile_layout.options__0.label",
+"value": "logo-left"
+},
+{
+"label": "t:sections.header.settings.mobile_layout.options__1.label",
+"value": "logo-center"
+}
+],
+"default": "logo-center"
+},
+{
+"type": "select",
+"id": "open_dropdowns_on",
+"label": "t:sections.header.settings.open_dropdowns_on.label",
+"options": [
+{
+"label": "t:sections.header.settings.open_dropdowns_on.options__0.label",
+"value": "click"
+},
+{
+"label": "t:sections.header.settings.open_dropdowns_on.options__1.label",
+"value": "hover"
+}
+],
+"default": "click"
+},
+{
+"type": "header",
+"content": "t:sections.header.headers.transparent_header"
+},
+{
+"type": "paragraph",
+"content": "t:sections.header.paragraph__0.content"
+},
+{
+"type": "color",
+"id": "text_color_header_transparent",
+"label": "t:sections.header.settings.text_color_header_transparent.label",
+"default": "#FFFFFF"
+},
+{
+"type": "image_picker",
+"id": "logo_header_transparent",
+"label": "t:sections.header.settings.logo_header_transparent.label"
+},
+{
+"type": "header",
+"content": "t:sections.header.headers.country_region_selector",
+"info": "To add a country/region, go to your [market settings.](/admin/settings/markets)"
+},
+{
+"type": "checkbox",
+"id": "enable_country_selector",
+"default": true,
+"label": "t:sections.header.settings.enable_country_selector.label"
+},
+{
+"type": "checkbox",
+"id": "country_selector_show_country_flag",
+"label": "t:sections.header.settings.country_selector_show_country_flag.label",
+"default": true
+},
+{
+"type": "checkbox",
+"id": "country_selector_show_country_name",
+"label": "t:sections.header.settings.country_selector_show_country_name.label",
+"default": false
+},
+{
+"type": "checkbox",
+"id": "country_selector_show_currency",
+"label": "t:sections.header.settings.country_selector_show_currency.label",
+"default": true
+},
+{
+"type": "header",
+"content": "t:sections.header.headers.language_selector",
+"info": "To add a language, go to your [language settings.](/admin/settings/languages)"
+},
+{
+"type": "checkbox",
+"id": "enable_language_selector",
+"default": true,
+"label": "t:sections.header.settings.enable_language_selector.label"
+},
+{
+"type": "header",
+"content": "t:sections.header.headers.search"
+},
+{
+"type": "checkbox",
+"id": "enable_search",
+"default": true,
+"label": "t:sections.header.settings.enable_search.label"
+},
+{
+"type": "header",
+"content": "t:sections.all.headers.seo"
+},
+{
+"type": "checkbox",
+"id": "enable_h1_on_index",
+"label": "t:sections.header.settings.enable_h1_on_index.label",
+"default": true,
+"info": "t:sections.header.settings.enable_h1_on_index.info"
+}
+],
+"blocks": [
+{
+"type": "mega_menu",
+"name": "t:sections.header.blocks.mega_menu.name",
+"settings": [
+{
+"type": "checkbox",
+"id": "show_promo_images_on_mobile",
+"label": "t:sections.header.blocks.mega_menu.settings.show_promo_images_on_mobile.label",
+"default": true
+},
+{
+"type": "text",
+"id": "menu_item",
+"label": "t:sections.header.blocks.mega_menu.settings.menu_item.label",
+"info": "t:sections.header.blocks.mega_menu.settings.menu_item.info"
+},
+{
+"type": "select",
+"id": "type",
+"label": "t:sections.header.blocks.mega_menu.settings.type.label",
+"options": [
+{
+"value": "drawer",
+"label": "t:sections.header.blocks.mega_menu.settings.type.options__0.label"
+},
+{
+"value": "horizontal",
+"label": "t:sections.header.blocks.mega_menu.settings.type.options__1.label"
+}
+],
+"default": "horizontal"
+},
+{
+"type": "range",
+"id": "promo_image_width",
+"min": 160,
+"max": 480,
+"step": 10,
+"unit": "px",
+"label": "t:sections.header.blocks.mega_menu.settings.promo_image_width.label",
+"default": 320
+},
+{
+"type": "header",
+"content": "t:sections.header.headers.promo_image_1"
+},
+{
+"type": "image_picker",
+"id": "image1",
+"label": "t:sections.header.blocks.mega_menu.settings.image1.label"
+},
+{
+"type": "text",
+"id": "image1_heading",
+"label": "t:sections.header.blocks.mega_menu.settings.image1_heading.label"
+},
+{
+"type": "url",
+"id": "image1_url",
+"label": "t:sections.header.blocks.mega_menu.settings.image1_url.label"
+},
+{
+"type": "header",
+"content": "t:sections.header.headers.promo_image_2"
+},
+{
+"type": "image_picker",
+"id": "image2",
+"label": "t:sections.header.blocks.mega_menu.settings.image2.label"
+},
+{
+"type": "text",
+"id": "image2_heading",
+"label": "t:sections.header.blocks.mega_menu.settings.image2_heading.label"
+},
+{
+"type": "url",
+"id": "image2_url",
+"label": "t:sections.header.blocks.mega_menu.settings.image2_url.label"
+}
+]
+}
+]
+}
+{% endschema %}

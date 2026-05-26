@@ -1,0 +1,42 @@
+{% liquid
+  assign variant_image = option_value.variant.featured_image
+
+  if option_value.product_url != blank and variant_image == blank
+    assign variant_image = option_value.variant.product.featured_image
+  endif
+
+  if variant_image == blank
+    render 'product-variant-option-radio', option_value: option_value, option: option, product_form_id: product_form_id, index: index
+    break
+  endif
+%}
+
+<div class="variant-radio-image w-16 hd:w-20">
+  <input
+    type="radio"
+    id="{{ section.id }}-{{ option.position }}-{{ index }}"
+    name="{{ section.id }}-{{ option.name }}"
+    value="{{ option_value | escape }}"
+    form="{{ product_form_id }}"
+    {% if option_value.selected %}
+      checked
+    {% endif %}
+    class="peer visually-hidden {% unless option_value.available %} option-unavailable {% endunless %}"
+    data-variant-id="{{ option_value.variant.id }}"
+    data-product-url="{{ option_value.product_url }}"
+    data-option-value-id="{{ option_value.id }}"
+  >
+  <label
+    class="media w-full"
+    title="{{ option_value | escape }}"
+    for="{{ section.id }}-{{ option.position }}-{{ index }}"
+  >
+    <lqip-element class="image-loader">
+      {{-
+        variant_image
+        | image_url: width: 160
+        | image_tag: sizes: '(min-width: 1400px) 80px, 64px', loading: 'lazy'
+      -}}
+    </lqip-element>
+  </label>
+</div>

@@ -1,0 +1,43 @@
+{%- liquid
+  assign base_value = base_value | default: 20
+  assign rem_value = 16
+  assign breakpoint = breakpoint | default: 1200
+  assign factor = factor | default: 10.0
+  assign unit_precision = 5
+  assign unit = 'rem'
+
+  if value <= base_value
+    if unit == 'rem'
+      echo value | divided_by: 16.0
+    else
+      echo value
+    endif
+    echo unit
+    break
+  endif
+
+  assign value_minus_base_value = value | minus: base_value
+  assign divided = value_minus_base_value | divided_by: factor
+  assign base_value = base_value | plus: divided
+  assign diff = value | minus: base_value
+
+  assign multiplied = diff | times: 100
+  assign viewport_unit_value = multiplied | divided_by: breakpoint
+
+  if unit == 'rem'
+    assign base_value = base_value | divided_by: rem_value
+  endif
+  assign base_value = base_value | round: unit_precision
+  assign viewport_unit_value = viewport_unit_value | round: unit_precision
+-%}
+
+{% comment %} Output start {% endcomment %}
+min({{ value }}px,
+
+{%- if value > 0 -%}
+  calc({{ base_value }}{{ unit }} + {{ viewport_unit_value }}vw)
+{%- else -%}
+  calc(-{{ base_value }}{{ unit }} - {{ viewport_unit_value }}vw)
+{%- endif -%}
+
+)

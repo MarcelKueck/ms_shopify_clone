@@ -1,0 +1,51 @@
+{% if cart != empty %}
+  {% for item in cart.items %}
+    {% if item.variant_id != product_variant.id %}
+      {% continue %}
+    {% endif %}
+
+    <div class="flex items-start gap-4 md:gap-6 max-md:text-sm" data-cart-key="{{ item.key }}">
+      <div class="w-16 md:w-24 shrink-0">
+        {% if item.image %}
+          <lqip-element class="image-loader">
+            {{
+              item.image
+              | image_url: width: 192
+              | image_tag:
+                widths: '96, 128, 192',
+                class: 'product-thumbnail-shade rounded-block-xs w-full',
+                sizes: '(min-width: 768px) 96px, 64px',
+                loading: 'lazy'
+            }}
+          </lqip-element>
+        {% else %}
+          {% render 'placeholder', type: 'image', class: 'w-full placeholder rounded-block-sm' %}
+        {% endif %}
+      </div>
+
+      <div class="self-center">
+        <h2 class="product-name">
+          {{ item.product.title }}
+        </h2>
+
+        {% unless item.product.has_only_default_variant %}
+          <div class="text-sm text-foreground/75 mt-2">
+            {{ item.variant.title }}
+          </div>
+        {% endunless %}
+
+        {% render 'line-item-properties', item: item %}
+
+        <div class="mt-4">
+          {% render 'line-item-price', item: item %}
+        </div>
+
+        {% if item.line_level_discount_allocations.size > 0 %}
+          <div class="mt-4">
+            {% render 'line-level-discount-allocations', item: item %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+{% endif %}

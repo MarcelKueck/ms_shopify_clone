@@ -1,0 +1,83 @@
+{% assign button_group_start = '
+  <div class="button-group">
+    <div class="button-group-inner">
+' %}
+
+{% assign button_group_end = '
+    </div>
+  </div>
+' %}
+
+{% for block in section.blocks %}
+  {% if last_type == 'button' and block.type != 'button' %}
+    {{ button_group_end }}
+  {% endif %}
+
+  {% case block.type %}
+    {% when 'subheading' %}
+      <div
+        data-animation="subheading"
+        data-animation-group="{{ section.id }}"
+        class="subheading my-2"
+        {{ block.shopify_attributes }}
+      >
+        {{ block.settings.text }}
+      </div>
+    {% when 'heading' %}
+      {% capture heading_tag %}{% render 'get-heading-tag', target: block %}{% endcapture %}
+      <{{ heading_tag }}
+        data-animation="heading"
+        data-animation-group="{{ section.id }}"
+        class="{{ block.settings.heading_size }} my-2"
+        {{ block.shopify_attributes }}
+      >
+        {{ block.settings.heading | escape }}
+      </{{ heading_tag }}>
+    {% when 'text' %}
+      <div
+        data-animation="paragraph"
+        data-animation-group="{{ section.id }}"
+        class="my-4 {{ prose_class | default: ' prose' }} max-w-none"
+        {{ block.shopify_attributes }}
+      >
+        {{ block.settings.text }}
+      </div>
+    {% when 'button' %}
+      {% if last_type != 'button' %}
+        {{ button_group_start }}
+      {% endif %}
+
+      {% capture attrs %}
+          data-animation="button"
+          data-animation-group="{{ section.id }}"
+          {{ block.shopify_attributes }}
+        {% endcapture %}
+
+      {% render 'button', target: block, attrs: attrs %}
+
+      {% if forloop.last %}
+        {{ button_group_end }}
+      {% endif %}
+    {% when 'custom_liquid' %}
+      {{ block.settings.custom_liquid }}
+    {% when 'icon' %}
+      {% capture attrs %}
+        data-animation="icon"
+        data-animation-group="{{ section.id }}"
+        {{ block.shopify_attributes }}
+      {% endcapture %}
+
+      <div class="my-6">
+        {% render 'section-full-icon',
+          custom_icon: block.settings.custom_icon,
+          icon: block.settings.icon,
+          icon_background: block.settings.icon_background,
+          icon_background_color: block.settings.icon_background_color,
+          icon_color: block.settings.icon_color,
+          icon_width: block.settings.icon_width,
+          attrs: attrs
+        %}
+      </div>
+  {% endcase %}
+  {% assign last_type = block.type %}
+{% endfor %}

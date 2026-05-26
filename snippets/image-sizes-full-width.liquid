@@ -1,0 +1,9 @@
+{%- liquid
+  if full_width
+    echo '100vw'
+  else
+    echo 'min('
+    echo settings.page_width
+    echo 'px, 100vw)'
+  endif
+-%}

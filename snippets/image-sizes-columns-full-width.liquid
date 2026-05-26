@@ -1,0 +1,37 @@
+{%- liquid
+  assign first = true
+-%}
+
+{%- if hd != null -%}
+  (min-width: 1400px) {{ 100.0 | divided_by: hd | round: 2 }}vw
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if xl != null -%}
+  {%- if first == false -%},{%- endif -%}
+  (min-width: 1200px) {{ 100.0 | divided_by: xl | round: 2 }}vw
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if lg != null -%}
+  {%- if first == false -%},{%- endif -%}
+  (min-width: 992px) {{ 100.0 | divided_by: lg | round: 2 }}vw
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if md != null -%}
+  {%- if first == false -%},{%- endif -%}
+  (min-width: 768px) {{ 100.0 | divided_by: md | round: 2 }}vw
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if sm != null -%}
+  {%- if first == false -%},{%- endif -%}
+  (min-width: 576px) {{ 100.0 | divided_by: sm | round: 2 }}vw
+  {%- assign first = false -%}
+{%- endif -%}
+
+{%- if base != null -%}
+  {%- if first == false -%},{%- endif -%}
+  {{ 100.0 | divided_by: base | round: 2 }}vw
+{%- endif -%}

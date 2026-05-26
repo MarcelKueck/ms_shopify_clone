@@ -1,0 +1,38 @@
+{% liquid
+  if header_mb == null
+    case section.settings.heading_size
+      when 'h0', 'h1'
+        assign header_mb = 'rfs:mb-12'
+      when 'h2', 'h3', 'h4'
+        assign header_mb = 'rfs:mb-10'
+      when 'h5', 'h6'
+        assign header_mb = 'rfs:mb-8'
+    endcase
+
+    if section.settings.content != blank
+      assign header_mb = 'rfs:mb-12'
+    endif
+  endif
+%}
+
+{% if link_url and link_text %}
+  {% render 'section-header-with-link', link_url: link_url, link_text: link_text, header_mb: header_mb %}
+{% else %}
+  {% unless section.settings.heading == blank
+    and section.settings.subheading == blank
+    and section.settings.content == blank
+  %}
+    <div
+      class="
+        section-header
+        section-content-spacing
+        {{ header_mb }}
+        {{ class }}
+        prose-align
+        {{ section.settings.text_alignment }}
+      "
+    >
+      {% render 'section-content', button: button %}
+    </div>
+  {% endunless %}
+{% endif %}

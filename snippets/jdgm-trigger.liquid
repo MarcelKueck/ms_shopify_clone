@@ -1,0 +1,111 @@
+{%- comment -%}
+Judge.me Trigger – stabil, browserübergreifend
+Einbau: {% render 'jdgm-trigger', product: product %}
+{%- endcomment -%}
+
+{% if product %}
+<div class="jdgm-triggerbar" id="jdgm-trigger-{{ product.id }}">
+  <button type="button"
+          class="jdgm-trigger"
+          aria-label="Bewertungen anzeigen">
+    <span class="jdgm-stars" aria-hidden="true"></span>
+    <span class="jdgm-trigger__count">(0)</span>
+  </button>
+</div>
+
+<style>
+#jdgm-trigger-{{ product.id }} .jdgm-trigger {
+  display:inline-flex;
+  align-items:center;
+  gap:.4rem;
+  background:none;
+  border:0;
+  padding:0;
+  cursor:pointer;
+  font:inherit;
+  color:inherit;
+}
+
+/* Sterne kommen direkt von Judge.me */
+#jdgm-trigger-{{ product.id }} .jdgm-stars .jdgm-star {
+  color:#FFD700;
+  font-size:16px;
+  margin-right:1px;
+}
+
+#jdgm-trigger-{{ product.id }} .jdgm-trigger__count {
+  font-size:.9em;
+  opacity:.85;
+}
+</style>
+
+<script>
+(function(){
+  const host = document.getElementById('jdgm-trigger-{{ product.id }}');
+  if (!host) return;
+
+  const starWrap = host.querySelector('.jdgm-stars');
+  const countEl  = host.querySelector('.jdgm-trigger__count');
+
+  function hydrateFromJudgeMe(){
+  const badge =
+    document.querySelector('.jdgm-star-rating[data-score]') ||
+    document.querySelector('[data-average-rating]');
+
+  let avg = 0;
+  let count = 0;
+
+  if (badge) {
+    avg = parseFloat(
+      badge.dataset.score ||
+      badge.dataset.averageRating ||
+      0
+    );
+    count = parseInt(
+      badge.dataset.numberOfReviews ||
+      badge.getAttribute('data-number-of-reviews') ||
+      0,
+      10
+    );
+  }
+
+  // Fallback: keine Bewertungen → 5 graue Sterne
+  starWrap.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const star = document.createElement('span');
+    star.className = 'jdgm-star';
+    star.textContent = count > 0 && i <= Math.round(avg) ? '★' : '☆';
+    starWrap.appendChild(star);
+  }
+
+  countEl.textContent = '(' + count + ')';
+}
+
+
+  // mehrfach prüfen (Judge.me lädt async)
+  hydrateFromJudgeMe();
+  setTimeout(hydrateFromJudgeMe, 300);
+  setTimeout(hydrateFromJudgeMe, 900);
+
+  document.addEventListener('jdgm.ready', hydrateFromJudgeMe);
+
+  // Klick → Tab 3 öffnen + scrollen
+  host.addEventListener('click', function(e){
+    e.preventDefault();
+
+    const tabBtn = document.querySelector('[id$="-3"][role="tab"]');
+    if (tabBtn) tabBtn.click();
+
+    setTimeout(function(){
+      const target =
+        document.getElementById('jdgm-faq') ||
+        document.querySelector('.jdgm-review-widget');
+
+      if (target) {
+        target.scrollIntoView({ behavior:'smooth', block:'start' });
+      }
+    }, 200);
+  });
+})();
+</script>
+{% endif %}

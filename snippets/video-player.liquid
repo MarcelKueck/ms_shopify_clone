@@ -1,0 +1,64 @@
+{% liquid
+  assign video_player_class = 'w-full h-full'
+
+  if video == blank and video_url != blank and background == true
+    assign video_player_class = 'fit-cover'
+  endif
+
+  if video != blank and video_poster == blank and background != true
+    assign video_poster = video.preview_image
+  endif
+%}
+
+<video-player
+  class="{{ video_player_class }}"
+
+  {% if background == true %}
+    background
+  {% else %}
+    controls
+    {% if loop %}
+      loop
+    {% endif %}
+  {% endif %}
+
+  {% if autoplay == false %}
+    autoplay="false"
+  {% endif %}
+
+  {% if video == blank %}
+    host="{{ video_url.type }}"
+    video-id="{{ video_url.id }}"
+  {% endif %}
+>
+  {% if background != true %}
+    <button class="cursor-pointer w-full h-full" data-poster aria-label="{{ 'accessibility.play_video' | t }}">
+      {% if video_poster != blank %}
+        {{
+          video_poster
+          | image_url: width: 3840
+          | image_tag: class: 'pointer-events-none select-none', sizes: sizes, loading: 'lazy'
+        }}
+      {% else %}
+        {% render 'placeholder', type: 'lifestyle-1', class: 'placeholder--dark' %}
+      {% endif %}
+
+      <div class="play-icon text-white">
+        {% render 'icon-video-play' %}
+        {% render 'spinner' %}
+      </div>
+    </button>
+  {% endif %}
+
+  {% if video != blank %}
+    <template>
+      {% if background == true and natural_size != true %}
+        <div class="fit-cover" style="--aspect-ratio: {{ video.aspect_ratio }}">
+          {{ video | video_tag: image_size: '480x' }}
+        </div>
+      {% else %}
+        {{ video | video_tag: image_size: '480x' }}
+      {% endif %}
+    </template>
+  {% endif %}
+</video-player>

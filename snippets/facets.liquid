@@ -1,0 +1,131 @@
+{% comment %}
+  Renders the filtering and sorting for a collection or set of search results.
+
+  Usage:
+  {% render 'facets', results: collection %}
+
+  Accepts:
+  - results: {Array objects}
+  - filter_type: string (horizontal, vertical)
+{% endcomment %}
+
+<facet-filters-form
+  type="filters"
+  {% if manual %}
+    manual
+  {% endif %}
+>
+  <form id="FacetFiltersForm-{{ scope }}">
+    <div
+      class="
+        filters-wrapper flex flex-wrap
+        {% if filter_type == "vertical" %}
+          flex-col
+        {% elsif filter_type == "horizontal" %}
+          gap-4
+        {% endif %}
+      "
+    >
+      {% unless results.terms == null %}
+        <input type="hidden" name="q" value="{{ results.terms }}">
+        <input type="hidden" name="type" value="{{ results.types | join: ',' }}">
+        <input name="options[prefix]" type="hidden" value="last">
+      {% endunless %}
+
+      {% if results.current_vendor or results.current_type %}
+        {% comment %}
+          There are special collection pages for vendor and product types that use a "q" parameter.
+          For filtering and sorting to work properly for these, we must pass use a hidden input to pass them into the URL
+        {% endcomment %}
+        <input type="hidden" name="q" value="{{ results.current_vendor }}{{ results.current_type }}">
+      {% endif %}
+
+      {% for filter in results.filters %}
+        {% liquid
+          assign show_filter = true
+          if section.settings.show_filter_values_with_no_matches == false and filter.type == 'boolean' or filter.type == 'list'
+            assign show_filter = false
+            for value in filter.values
+              if value.active
+               assign has_active_values = true
+              endif
+              if value.count != 0 or value.active
+                assign show_filter = true
+                break
+              endif
+            endfor
+          endif
+
+          if filter.type == 'price_range' and filter.min_value.value or filter.max_value.value
+            assign has_active_values = true
+          endif
+
+          if show_filter == false
+            continue
+          endif
+
+          assign filter_index = filter_index | plus: 1
+        %}
+
+        {% if filter_type == 'horizontal' %}
+          <dropdown-element max-width="384" id="filter-{{ scope }}-{{ filter.param_name }}" data-preserve-state>
+            <details>
+              <summary class="button button-light button-filter gap-2">
+                {{ filter.label | escape }}
+
+                <div class="collapse-chevron w-3">
+                  {% render 'icon-chevron' %}
+                </div>
+              </summary>
+              <div class="dropdown-menu dropdown-filters styled-links">
+                {% case filter.type %}
+                  {% when 'boolean', 'list' %}
+                    {% render 'filter-values', filter: filter, scope: scope %}
+                  {% when 'price_range' %}
+                    <div class="w-64">
+                      {% render 'filter-price-range', filter: filter, scope: scope %}
+                    </div>
+                {% endcase %}
+              </div>
+            </details>
+          </dropdown-element>
+        {% elsif filter_type == 'vertical' %}
+          <smooth-collapse
+            class="border-b last:border-0"
+            id="filter-{{ scope }}-{{ filter.param_name }}"
+            data-preserve-state
+          >
+            <details
+              {% if filter_index <= section.settings.default_open_filters or has_active_values %}
+                open
+              {% endif %}
+            >
+              <summary class="flex items-center justify-between cursor-pointer py-4">
+                <span class="font-accordion text-h6">
+                  {{ filter.label | escape }}
+                </span>
+
+                <div class="collapse-chevron">
+                  {% render 'icon-chevron' %}
+                </div>
+              </summary>
+              <div>
+                <div class="pt-2 pb-8">
+                  {% case filter.type %}
+                    {% when 'boolean', 'list' %}
+                      {% render 'filter-values', filter: filter, scope: scope %}
+                    {% when 'price_range' %}
+                      {% render 'filter-price-range', filter: filter, scope: scope %}
+                  {% endcase %}
+                </div>
+              </div>
+            </details>
+          </smooth-collapse>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% comment %}
+      <button class="button">{{ 'products.facets.filter_and_sort_button' | t }}</button>
+    {% endcomment %}
+  </form>
+</facet-filters-form>

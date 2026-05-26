@@ -1,0 +1,240 @@
+{%- assign current_variant = product.selected_or_first_available_variant -%}
+
+<div
+  class="product-price"
+  id="price-prod-{{ product.id }}"
+  data-product-id="{{ product.id }}"
+  data-money-format='{{ shop.money_format | json }}'
+  aria-live="polite"
+  style="--price-size: 2em; --compare-scale: .4;"
+>
+
+  {%- comment -%} ►► Savings-Badge: nur auf der PDP, eigene Zeile über dem Preis {%- endcomment -%}
+  {% if request.page_type == 'product' %}
+    <div class="price-row price-row--badge {% unless current_variant.compare_at_price > current_variant.price %}is-hidden{% endunless %}">
+      <span
+        id="savings-{{ product.id }}"
+        class="info-badge savings-badge"
+        aria-live="polite"
+      >
+        {% if current_variant.compare_at_price > current_variant.price %}
+          {{ current_variant.compare_at_price | minus: current_variant.price | money }} sparen
+        {% endif %}
+      </span>
+    </div>
+  {% endif %}
+
+  <span
+    class="price price--current"
+    data-price-cents="{{ current_variant.price }}"
+  >
+    {{ current_variant.price | money }}
+  </span>
+
+  <span
+    class="price price--compare {% unless current_variant.compare_at_price > current_variant.price %}is-hidden{% endunless %}"
+    data-compare-cents="{{ current_variant.compare_at_price | default: 0 }}"
+  >
+    <s>{{ current_variant.compare_at_price | money }}</s>
+  </span>
+
+  <span class="price-vat-note">inkl. MwSt.</span>
+
+  <!-- NEU: Versandinfo in eigener Zeile -->
+  <div class="price-shipping-note">ab € 289,- versandkostenfrei (DE)</div>
+</div>
+
+<style>
+  .product-price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 6px;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Zeile für die Badge (nimmt volle Breite, damit der Preis darunter startet) */
+  .price-row--badge {
+    flex-basis: 100%;
+    order: -1;           /* über den Preis */
+    margin-bottom: 6px;
+  }
+
+  /* Badge selbst: nur so breit wie ihr Text */
+.info-badge.savings-badge {
+  background-color: #16a34a;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: .35rem .6rem;
+  padding-top: calc(.35rem + 2px); /* nur oben 2px extra */
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+
+  .price {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Preis schwarz, fett wie gehabt */
+  .price--current {
+    font-size: var(--price-size);
+    font-weight: 600;
+    line-height: 1;
+    color: #000;
+  }
+
+/* Streichpreis: ~40% vom Hauptpreis */
+.price--compare {
+  font-size: calc(var(--price-size) * var(--compare-scale));
+  color: #7a7a7a;
+}
+
+/* individueller Streichpreis-Strich */
+.price--compare s {
+  text-decoration: none;   /* Standardlinie deaktivieren */
+  position: relative;      /* Bezug für ::after */
+  color: inherit;
+}
+
+.price--compare s::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #E30613;   /* kräftigeres Rot */
+  top: calc(62% - 4px); /* 10px höher */
+  pointer-events: none;
+}
+
+  .price-vat-note {
+    font-size: 0.75rem;
+    color: #666;
+  }
+
+  .price-shipping-note {
+    flex-basis: 100%;
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 2px;
+  }
+
+  .is-hidden { display: none !important; }
+</style>
+
+<script>
+(function() {
+  var root = document.getElementById('price-prod-{{ product.id }}');
+  if (!root) return;
+
+  var priceEl    = root.querySelector('.price--current');
+  var compareEl  = root.querySelector('.price--compare');
+  var savingsRow = root.querySelector('.price-row--badge');
+  var savingsEl  = root.querySelector('#savings-{{ product.id }}');
+  var moneyFmt   = null;
+
+  try {
+    moneyFmt = JSON.parse(root.getAttribute('data-money-format') || 'null');
+  } catch(e) { moneyFmt = null; }
+
+  // ------- Helpers -------
+  function formatMoney(cents) {
+    if (window.Shopify && typeof Shopify.formatMoney === 'function') {
+      return Shopify.formatMoney(cents, moneyFmt || "{{ amount_with_comma_separator }} €");
+    }
+    try {
+      return (Number(cents)/100).toLocaleString('de-DE', {
+        style: 'currency',
+        currency: '{{ shop.currency }}'
+      });
+    } catch (e) {
+      return (Number(cents)/100).toFixed(2) + ' {{ shop.currency }}';
+    }
+  }
+
+  function show(el) { el && el.classList.remove('is-hidden'); }
+  function hide(el) { el && el.classList.add('is-hidden'); }
+
+  function render(variant) {
+    if (!variant) return;
+
+    // Hauptpreis
+    priceEl.textContent = formatMoney(variant.price);
+    priceEl.setAttribute('data-price-cents', variant.price);
+
+    // Streichpreis (nur wenn echt reduziert)
+    var hasCompare = typeof variant.compare_at_price === 'number'
+                     && variant.compare_at_price > variant.price;
+
+    if (hasCompare) {
+      show(compareEl);
+      compareEl.setAttribute('data-compare-cents', variant.compare_at_price);
+      var s = compareEl.querySelector('s') || (function(){
+        var sEl = document.createElement('s'); compareEl.innerHTML = ''; compareEl.appendChild(sEl); return sEl;
+      })();
+      s.textContent = formatMoney(variant.compare_at_price);
+    } else {
+      hide(compareEl);
+    }
+
+    // ► Savings-Badge (eigene Zeile, Badge nur Textbreite)
+    if (savingsEl && savingsRow) {
+      if (hasCompare) {
+        var diff = variant.compare_at_price - variant.price;
+        if (diff > 0) {
+          savingsEl.textContent = formatMoney(diff) + ' sparen';
+          show(savingsRow);
+        } else {
+          hide(savingsRow);
+        }
+      } else {
+        hide(savingsRow);
+      }
+    }
+  }
+
+  // ------- Varianten-Daten -------
+  var variants = {{ product.variants | json }};
+  function getVariantById(id) {
+    id = Number(id);
+    for (var i=0; i<variants.length; i++) if (variants[i].id === id) return variants[i];
+    return null;
+  }
+
+  // ------- Events -------
+  function onVariantEvent(e) {
+    var v = e.detail && (e.detail.variant || e.detail);
+    if (v && typeof v.price === 'number') render(v);
+  }
+  document.addEventListener('variant:change', onVariantEvent);
+  document.addEventListener('product:variant-change', onVariantEvent);
+  document.addEventListener('variant:changed', onVariantEvent);
+
+  document.addEventListener('change', function(e) {
+    var t = e.target;
+    if (!t) return;
+    if (t.name === 'id') {
+      var id = t.value || (t.form ? new FormData(t.form).get('id') : null);
+      var v = id && getVariantById(id);
+      if (v) render(v);
+    }
+  });
+
+  // ------- Initial -------
+  var selectedInput = document.querySelector('form[action*="/cart/add"] [name="id"]:checked, form[action*="/cart/add"] select[name="id"]');
+  if (selectedInput && selectedInput.value) {
+    var v = getVariantById(selectedInput.value);
+    if (v) { render(v); return; }
+  }
+  render({
+    price: {{ current_variant.price }},
+    compare_at_price: {{ current_variant.compare_at_price | default: 'null' }}
+  });
+})();
+</script>

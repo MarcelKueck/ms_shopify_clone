@@ -1,0 +1,59 @@
+{%- capture colors -%}
+red:#DC2626
+orange:#F97316
+amber:#FBBF24
+brown:#713F12
+yellow:#FDE047
+lime:#A3E635
+green:#22C55E
+emerald:#34D399
+teal:#2DD4BF
+cyan:#22D3EE
+light blue:#38BDF8
+blue:#1D4ED8
+indigo:#6366F1
+violet:#8B5CF6
+purple:#9333EA
+fuchsia:#D946EF
+pink:#EC4899
+rose:#F43F5E
+gray:#9CA3AF
+grey:#9CA3AF
+beige:#dac5ac
+gold:#FFD700
+silver:#E5E7EB
+white:#F0F0F0
+black:#090909
+maroon:#7F1D1D
+magenta:#D946EF
+turquoise:#2DD4BF
+{%- endcapture -%}
+
+{%- liquid
+  assign name_downcase = name | downcase
+  assign colors = colors | append: '<br />' | append: settings.color_swatches | downcase
+  assign color_lines = colors | newline_to_br | strip_newlines | split: '<br />'
+  assign image_name = ''
+
+  for line in color_lines
+    assign color_and_hex = line | split: ':'
+    assign color_name = color_and_hex[0] | strip
+
+    if color_name == name_downcase
+      if color_and_hex[1] contains '#'
+        assign hex_split = color_and_hex[1] | split: '#'
+        assign hex_split_size = hex_split | size
+      else
+        assign image_name = color_and_hex[1]
+      endif
+    endif
+  endfor
+-%}
+
+{%- if image_name != blank -%}
+  url({{ images[image_name] | image_url: width: 128 }})
+{%- elsif hex_split_size == 3 -%}
+  linear-gradient(135deg, #{{ hex_split[1] }} 0%, #{{ hex_split[1] }} 49.9%, #{{ hex_split[2] }} 50%, #{{ hex_split[2] }} 100%)
+{%- elsif hex_split_size == 2 -%}
+  #{{ hex_split[1] }}
+{%- endif -%}

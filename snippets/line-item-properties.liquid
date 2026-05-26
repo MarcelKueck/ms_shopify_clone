@@ -1,0 +1,27 @@
+{%- if item.properties != empty -%}
+  <dl class="text-xs md:text-sm text-foreground/75 grid grid-cols-[auto_1fr] gap-x-2 gap-y-2 mt-2">
+    {% comment %} Properties {% endcomment %}
+    {%- for property in item.properties -%}
+      {%- assign property_first_char = property.first | slice: 0 -%}
+      {%- if property.last != blank and property_first_char != '_' -%}
+        <dt>{{ property.first }}:</dt>
+        <dd>
+          {%- if property.last contains '/uploads/' -%}
+            <a href="{{ property.last }}" class="styled-link" target="_blank">
+              {{ property.last | split: '/' | last }}
+            </a>
+          {%- else -%}
+            {{ property.last }}
+          {%- endif -%}
+        </dd>
+      {%- endif -%}
+    {%- endfor -%}
+  </dl>
+{%- endif -%}
+
+{%- comment -%} Selling plan {%- endcomment -%}
+{%- unless item.selling_plan_allocation.selling_plan.name == empty -%}
+  <p class="text-xs md:text-sm text-foreground/75 mt-2">
+    {{ item.selling_plan_allocation.selling_plan.name }}
+  </p>
+{%- endunless -%}

@@ -1,0 +1,30 @@
+<div class="styled-links w-full mb-4 sm:mb-6 max-md:text-sm">
+  <a
+    role="button"
+    class="inline-flex items-center gap-3 font-bold p-6 -m-6"
+    data-button-close
+    aria-label="{{ 'accessibility.close_modal' | t }}"
+    tabindex="0"
+  >
+    <div class="w-4 -scale-x-100" style="--stroke-width: 2">
+      {% render 'icon-chevron' %}
+    </div>
+    {{ 'general.continue_shopping' | t }}
+  </a>
+</div>
+
+{% render 'alert-added-to-cart', class: 'mb-6 sm:mb-8' %}
+
+{% render 'product-variant', product_variant: product_variant %}
+
+<div class="flex flex-wrap gap-2 sm:gap-4 mt-8 sm:mt-12">
+  <a data-instant href="{{ routes.cart_url }}" class="button button-secondary whitespace-nowrap max-md:text-xs flex-1">
+    {{ 'sections.cart.view_cart' | t }}
+  </a>
+
+  {% form 'cart', cart, data-form-button-loading: true, class: 'contents' %}
+    <button type="submit" name="checkout" class="button button-primary whitespace-nowrap max-md:text-xs flex-1">
+      {{ 'sections.cart.checkout' | t }}
+    </button>
+  {% endform %}
+</div>

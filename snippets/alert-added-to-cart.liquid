@@ -1,0 +1,10 @@
+<div
+  class="alert alert-success flex items-center gap-3 md:gap-4 md:px-5 md:py-3 {{ class }}"
+  style="{{ style }}"
+  data-added-to-cart-alert
+>
+  <div class="w-5 md:w-6">
+    {% render 'icon-check', stroke_width: 2 %}
+  </div>
+  {{ 'products.added_to_cart' | t }}
+</div>

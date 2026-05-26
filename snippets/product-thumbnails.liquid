@@ -1,0 +1,20 @@
+{% liquid
+  assign index = 1
+
+  if featured_media
+    render 'product-thumbnail', media: featured_media, active: true, index: index
+    assign index = index | plus: 1
+  endif
+
+  for media in product.media
+    if featured_media == blank
+      render 'product-thumbnail', media: media, active: forloop.first, index: index
+      assign index = index | plus: 1
+    else
+      unless media.id == featured_media.id
+        render 'product-thumbnail', media: media, index: index
+        assign index = index | plus: 1
+      endunless
+    endif
+  endfor
+%}

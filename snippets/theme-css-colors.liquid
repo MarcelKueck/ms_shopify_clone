@@ -1,0 +1,146 @@
+{% liquid
+  assign color_success_light = settings.colors_alerts_success | color_mix: '#FFF', 10
+  assign color_warning_light = settings.colors_alerts_warning | color_mix: '#FFF', 10
+  assign color_danger_light = settings.colors_alerts_danger | color_mix: '#FFF', 10
+%}
+
+<style>
+    :root {
+      --color-base-background: {{ settings.colors_background.rgb }};
+      --color-base-foreground: {{ settings.colors_text.rgb }};
+      --color-base-headings: {{ settings.colors_headings.rgb }};
+      --color-base-accent: {{ settings.colors_text.rgb }};
+      --color-base-accent-foreground: {% render 'generate-foreground-color', background: settings.colors_text %};
+
+      --button-primary-background: {{ settings.colors_primary_button_background.rgb }};
+      {% render 'button-hover-active-vars', var: '--button-primary-background', color: settings.colors_primary_button_background %}
+      --button-primary-foreground: {{ settings.colors_primary_button_text.rgb }};
+
+      --button-secondary-background: {{ settings.colors_secondary_button_background.rgb }};
+      {% render 'button-hover-active-vars', var: '--button-secondary-background', color: settings.colors_secondary_button_background %}
+      --button-secondary-foreground: {{ settings.colors_secondary_button_text.rgb }};
+
+      --color-header-background: {{ settings.colors_header_background.rgb }};
+      --color-header-foreground: {{ settings.colors_header_text.rgb }};
+
+      --color-footer-background: {{ settings.colors_footer_background.rgb }};
+      --color-footer-foreground: {{ settings.colors_footer_text.rgb }};
+
+      --color-product-card-background: {{ settings.colors_product_card_background.rgb }};
+      --color-product-card-text: {{ settings.colors_product_card_text.rgb }};
+
+      --color-sale-badge: {{ settings.colors_product_sale_badge.rgb }};
+      --color-sale-badge-text: {% render 'generate-foreground-color', background: settings.colors_product_sale_badge %};
+      --color-sale-price: {{ settings.colors_product_sale_price.rgb }};
+
+      --color-sold-out-badge: {{ settings.colors_product_sold_out_badge.rgb }};
+      --color-sold-out-badge-text: {% render 'generate-foreground-color', background: settings.colors_product_sold_out_badge %};
+
+      --color-custom-badge: {{ settings.colors_custom_badge.rgb }};
+      --color-custom-badge-text: {% render 'generate-foreground-color', background: settings.colors_custom_badge %};
+
+      --color-rating-star: {{ settings.colors_product_rating_star.rgb }};
+
+      --color-in-stock-text: {{ settings.colors_in_stock_text.rgb }};
+      --color-low-stock-text: {{ settings.colors_low_stock_text.rgb }};
+
+      --color-free-shipping-bar: {{ settings.colors_free_shipping_bar.rgb }};
+
+      --color-modal-background: {{ settings.colors_modal_background.rgb }};
+      --color-modal-foreground: {{ settings.colors_modal_foreground.rgb }};
+
+      --color-article-category-badge: {{ settings.colors_article_category_badge.rgb }};
+      --color-article-category-badge-text: {% render 'generate-foreground-color', background: settings.colors_article_category_badge %};
+
+      --color-success: {{ settings.colors_alerts_success.rgb }};
+      --color-success-light: {{ color_success_light.rgb }};
+
+      --color-warning: {{ settings.colors_alerts_warning.rgb }};
+      --color-warning-light: {{ color_warning_light.rgb }};
+
+      --color-danger: {{ settings.colors_alerts_danger.rgb }};
+      --color-danger-light: {{ color_danger_light.rgb }};
+
+      {% comment %} Advanced {% endcomment %}
+      {% if settings.colors_active_filter_pill == blank or settings.colors_active_filter_pill.rgba == "0 0 0 / 0.0" %}
+        --color-active-filter-pill: var(--color-base-foreground) / 6%;
+        --color-active-filter-pill-foreground: var(--color-base-foreground);
+      {% else %}
+        --color-active-filter-pill: {{ settings.colors_active_filter_pill.rgb }};
+        --color-active-filter-pill-foreground: {% render 'generate-foreground-color', background: settings.colors_active_filter_pill %};
+      {% endif %}
+
+      {% if settings.colors_input_accent == blank or settings.colors_input_accent.rgba == "0 0 0 / 0.0" %}
+        --color-input-accent: var(--color-base-accent);
+        --color-input-accent-foreground: var(--color-base-accent-foreground);
+      {% else %}
+        --color-input-accent: {{ settings.colors_input_accent.rgb }};
+        --color-input-accent-foreground: {% render 'generate-foreground-color', background: settings.colors_input_accent %};
+      {% endif %}
+
+      {% if settings.colors_progress_bar == blank or settings.colors_progress_bar.rgba == "0 0 0 / 0.0" %}
+        --color-progress-bar: var(--color-base-accent);
+      {% else %}
+        --color-progress-bar: {{ settings.colors_progress_bar.rgb }};
+      {% endif %}
+
+      {% if settings.colors_range_slider == blank or settings.colors_range_slider.rgba == "0 0 0 / 0.0" %}
+        --color-range-slider: var(--color-base-accent);
+      {% else %}
+        --color-range-slider: {{ settings.colors_range_slider.rgb }};
+      {% endif %}
+
+      {% if settings.colors_selected_dropdown_item == blank or settings.colors_selected_dropdown_item.rgba == "0 0 0 / 0.0" %}
+        --color-selected-dropdown-item: rgb(var(--color-base-accent) / 8%);
+        --color-selected-dropdown-item-foreground: var(--color-base-foreground);
+      {% else %}
+        --color-selected-dropdown-item: {{ settings.colors_selected_dropdown_item }};
+        --color-selected-dropdown-item-foreground: {% render 'generate-foreground-color', background: settings.colors_selected_dropdown_item %};
+      {% endif %}
+
+      {% if settings.colors_cart_badge == blank or settings.colors_cart_badge.rgba == "0 0 0 / 0.0" %}
+        --color-cart-badge: var(--button-secondary-background);
+        --color-cart-badge-foreground: var(--button-secondary-foreground);
+      {% else %}
+        --color-cart-badge: {{ settings.colors_cart_badge.rgb }};
+        --color-cart-badge-foreground: {% render 'generate-foreground-color', background: settings.colors_cart_badge %};
+      {% endif %}
+
+      {% liquid
+        assign bg_red = settings.colors_background.red | times: 65025
+        assign bg_green = settings.colors_background.green | times: 255
+        assign bg_blue = settings.colors_background.blue
+      %}
+
+      --main-bg-number: {{ bg_red | plus: bg_green | plus: bg_blue }};
+    }
+
+    {% if settings.colors_filter_button != blank and settings.colors_filter_button.rgba != "0 0 0 / 0.0" %}
+      .button-light.button-filter {
+        --button-background: {{ settings.colors_filter_button.rgb }};
+        {% render 'button-hover-active-vars', var: '--button-background', color: settings.colors_filter_button %}
+        --button-foreground: {% render 'generate-foreground-color', background: settings.colors_filter_button %};
+
+        --button-background-opacity: 1;
+        --button-background-hover-opacity: 1;
+        --button-background-active-opacity: 1;
+      }
+  {% endif %}
+</style>
+
+{% unless settings.colors_text_selection == blank or settings.colors_text_selection.rgba == '0 0 0 / 0.0' %}
+  <style>
+    ::selection {
+      {% capture selection_style %}
+        background: {{ settings.colors_text_selection }};
+        color: rgb({% render 'generate-foreground-color', background: settings.colors_text_selection %});
+      {% endcapture %}
+
+      {{ selection_style }}
+    }
+
+    ::moz-selection {
+      {{ selection_style }}
+    }
+  </style>
+{% endunless %}

@@ -1,0 +1,63 @@
+{% assign image_sizes = '(min-width: 992px) 80px, 64px' %}
+
+<button
+  class="product-thumbnail {% if active %}active{% endif %}"
+  data-media-id="{{ media.id }}"
+  data-media-type="{{ media.media_type }}"
+  aria-label="{{ 'accessibility.go_to_item' | t: index: index }}"
+>
+  {% case media.media_type %}
+    {% when 'image' %}
+      <div
+        class="media"
+      >
+        <lqip-element class="image-loader">
+          {{
+            media
+            | image_url: width: 160
+            | image_tag: widths: '80, 160', sizes: image_sizes, class: 'product-thumbnail-shade', loading: 'eager'
+          }}
+        </lqip-element>
+      </div>
+    {% when 'external_video' %}
+      <div
+        class="media media--ratio-16-9"
+      >
+        {{ media | image_url: width: 160 | image_tag: widths: '80, 160', sizes: image_sizes, loading: 'eager' }}
+      </div>
+
+      <div class="play-icon">
+        {% render 'icon-video-play' %}
+      </div>
+    {% when 'video' %}
+      <div
+        class="media media--ratio-16-9"
+      >
+        {{ media | image_url: width: 160 | image_tag: widths: '80, 160', sizes: image_sizes, loading: 'eager' }}
+      </div>
+
+      <div class="play-icon">
+        {% render 'icon-video-play' %}
+      </div>
+    {% when 'model' %}
+      <div
+        class="media media--ratio-1-1"
+      >
+        {{
+          media
+          | image_url: width: 160
+          | image_tag: widths: '80, 160', sizes: image_sizes, class: 'product-thumbnail-shade', loading: 'eager'
+        }}
+      </div>
+
+      <div class="play-icon">
+        {% render 'icon-3d-model-button' %}
+      </div>
+    {% else %}
+      <div
+        class="media media--contain media--ratio-1-1"
+      >
+        {{ media | media_tag }}
+      </div>
+  {% endcase %}
+</button>

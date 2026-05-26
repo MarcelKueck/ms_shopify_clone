@@ -1,0 +1,559 @@
+{% comment %}
+  Section: Tabs (Kartenreiter) – Produktseite
+  Tabs:
+  1) Beschreibung (Block-Richtext)
+  2) Details (custom.kurztext + custom.zusatzbilder, Fallback: Block-Richtext)
+  3) Bewertungen (Loox – produktspezifisch)
+  4) Zubehör (intent=complementary) – lädt über separate Section + Fallback-JS
+{% endcomment %}
+
+<section class="tabs-cards-section" id="section-{{ section.id }}">
+  <div class="tabs-cards container">
+    {% if section.settings.heading != blank %}
+      <h2 class="tabs-heading">{{ section.settings.heading }}</h2>
+    {% endif %}
+
+    {% assign blocks = section.blocks %}
+    {% if blocks.size > 0 %}
+
+      <div class="tabs" role="tablist" aria-label="{{ section.settings.heading | default: 'Tabs' }}">
+        {% for block in blocks %}
+          {% assign is_active = forloop.first %}
+          <button
+            id="tab-{{ section.id }}-{{ forloop.index }}"
+            class="tab-btn{% if is_active %} is-active{% endif %}"
+            role="tab"
+            aria-selected="{% if is_active %}true{% else %}false{% endif %}"
+            aria-controls="panel-{{ section.id }}-{{ forloop.index }}"
+            {{ block.shopify_attributes }}
+          >
+            {{ block.settings.tab_title | escape }}
+          </button>
+        {% endfor %}
+      </div>
+
+      <div class="tab-panels">
+        {% for block in blocks %}
+          {% assign is_active = forloop.first %}
+          <div
+            id="panel-{{ section.id }}-{{ forloop.index }}"
+            class="tab-panel{% if is_active %} is-active{% endif %}"
+            role="tabpanel"
+            aria-labelledby="tab-{{ section.id }}-{{ forloop.index }}"
+            {% unless is_active %}hidden{% endunless %}
+          >
+            <div class="panel-card">
+              {% case forloop.index %}
+
+                {% when 1 %}
+                  {% if block.settings.tab_content != blank %}
+                    {{ block.settings.tab_content }}
+                  {% else %}
+                    <p>Bitte Inhalt für Tab&nbsp;1 im Editor pflegen.</p>
+                  {% endif %}
+
+                {% when 2 %}
+                  {%- comment -%}
+                    Tab 2: Zweispaltig
+                    Links: Richtext aus custom.kurztext (HTML bleibt erhalten), Fallback: Block-Content
+                    Rechts: Zusatzbilder aus custom.zusatzbilder (Liste von Dateien ODER einzelne Datei)
+                  {%- endcomment -%}
+                  <div class="tab2-grid">
+                    <div class="tab2-left">
+                      {% if product and product.metafields.custom.kurztext != blank %}
+                        {{ product.metafields.custom.kurztext | metafield_tag }}
+                      {% else %}
+                        {{ block.settings.tab_content }}
+                      {% endif %}
+                    </div>
+
+                    <div class="tab2-right">
+                      {%- assign mf = product.metafields.custom.zusatzbilder -%}
+                      {%- if mf and mf.value -%}
+                        {%- if mf.type contains 'list' -%}
+                          {%- for file in mf.value limit: 2 -%}
+                            {%- render 'tab2-image-item', file: file, product: product -%}
+                          {%- endfor -%}
+                        {%- else -%}
+                          {%- assign file = mf.value -%}
+                          {%- render 'tab2-image-item', file: file, product: product -%}
+                        {%- endif -%}
+                      {%- endif -%}
+                    </div>
+                  </div>
+
+                {% when 3 %}
+                  {%- comment -%} Sprungmarke für Scroll (Offset gegen Header) {%- endcomment -%}
+                  <div id="loox-faq" class="loox-faq-anchor" aria-hidden="true"></div>
+
+                  {%- comment -%}
+                    Loox Product Reviews Widget (produktspezifisch)
+                    Wichtig: Loox erwartet data-product-id (nicht data-loox-product-id)
+                  {%- endcomment -%}
+                  <div
+                    id="looxReviews"
+                    class="loox-reviews-default"
+                    data-product-id="{{ product.id }}">
+                  </div>
+
+                {% when 4 %}
+                  {%- comment -%} Zubehör via Recommendations-API (intent=complementary)
+                                 Erfordert /sections/complementary-products-tab.liquid {%- endcomment -%}
+                  <product-recommendations
+                    class="comp-root"
+                    data-url="{{ routes.product_recommendations_url }}?section_id=complementary-products-tab&product_id={{ product.id }}&intent=complementary{% if section.settings.comp_limit %}&limit={{ section.settings.comp_limit }}{% endif %}">
+                    <div>Lade Zubehör …</div>
+                  </product-recommendations>
+
+                {% else %}
+                  {{ block.settings.tab_content }}
+
+              {% endcase %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      <p>Bitte Tabs im Theme-Editor hinzufügen.</p>
+    {% endif %}
+  </div>
+
+  <style>
+    /* === Container === */
+    #section-{{ section.id }} .container {
+      max-width: {{ section.settings.max_width }}px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+    #section-{{ section.id }} .tabs-heading { margin-bottom: 1rem; }
+
+    /* === Tabs-Leiste: nur untere Linie, keine Außenrahmen === */
+    #section-{{ section.id }} .tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .5rem;
+      align-items: stretch;
+      padding-bottom: .25rem;
+      border: none;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    /* === Tab-Buttons === */
+    #section-{{ section.id }} .tab-btn {
+      border: none;
+      border-bottom: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      text-align: center;
+      padding: 1rem;
+      font-weight: 400;
+      font-size: 18px;
+      transition: color .2s ease, border-color .2s ease;
+      color: #000;
+      outline: none;
+    }
+    #section-{{ section.id }} .tab-btn:focus { outline: none; box-shadow: none; }
+    #section-{{ section.id }} .tab-btn.is-active,
+    #section-{{ section.id }} .tab-btn.is-active:hover {
+      font-weight: 900;
+      color: #000;
+      border-bottom: 1px solid #FF0000;
+    }
+    #section-{{ section.id }} .tab-btn:not(.is-active):hover { color: #000; border-bottom-color: transparent; }
+
+    /* === Panels === */
+    #section-{{ section.id }} .tab-panels { margin-top: 1rem; }
+    #section-{{ section.id }} .panel-card {
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      background: #fff;
+      box-shadow: 0 8px 28px rgba(0,0,0,.06);
+    }
+    @media (min-width: 900px) {
+      #section-{{ section.id }} .tab-panels .tab-panel .panel-card {
+        min-height: {{ section.settings.card_min_h }}px;
+      }
+    }
+
+    /* === Richtext-Spacing allgemein === */
+    #section-{{ section.id }} .panel-card p { margin: 0 0 1rem; line-height: 1.55; }
+    #section-{{ section.id }} .panel-card ul,
+    #section-{{ section.id }} .panel-card ol { margin: 0 0 1rem 1.5rem; padding-left: 0; }
+    #section-{{ section.id }} .panel-card ul { list-style: disc; }
+    #section-{{ section.id }} .panel-card ol { list-style: decimal; }
+    #section-{{ section.id }} .panel-card li { margin: .3rem 0; line-height: 1.5; }
+
+    /* === Tab 2: zweispaltig === */
+    #section-{{ section.id }} .tab2-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+    @media (min-width: 900px) { #section-{{ section.id }} .tab2-grid { grid-template-columns: 1fr 1fr; } }
+    #section-{{ section.id }} .tab2-left p { margin: 0 0 1rem; line-height: 1.55; }
+    #section-{{ section.id }} .tab2-right .tab2-image { margin-bottom: 1rem; }
+    #section-{{ section.id }} .tab2-right img { display: block; width: 100%; height: auto; border-radius: .5rem; }
+
+    /* === Nur Tab 2: Bullets aus, Streifen beibehalten === */
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul { list-style: none; margin: 0; padding-left: 0; }
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li { padding: 4px 6px; }
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li:nth-child(odd) { background-color: #fff; }
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li:nth-child(even) { background-color: #eee; }
+
+    /* ---- Loox: Sprungmarke Offset ---- */
+    #section-{{ section.id }} .loox-faq-anchor {
+      position: relative;
+      top: -220px;
+      height: 1px;
+    }
+    @media (max-width: 640px) {
+      #section-{{ section.id }} .loox-faq-anchor { top: -70px; }
+    }
+
+    /* ===== Tab 3: Loox – darf NICHT abgeschnitten werden ===== */
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(3),
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(3) .panel-card {
+      overflow: visible !important;
+      height: auto !important;
+      max-height: none !important;
+    }
+
+    /* Loox Masonry-Layout absichern */
+    #section-{{ section.id }} #looxReviews {
+      position: relative !important;
+      overflow: visible !important;
+      min-height: 1px;
+    }
+    #section-{{ section.id }} #looxReviews #grid {
+      position: relative !important;
+      overflow: visible !important;
+    }
+
+    /* === Mobil: 2×2 Tabs === */
+    @media (max-width: 640px) {
+      #section-{{ section.id }} .tabs { grid-template-columns: repeat(2, 1fr); gap: .25rem; padding-bottom: .2rem; }
+      #section-{{ section.id }} .tab-btn {
+        padding: .6rem .4rem;
+        font-size: 14px;
+        line-height: 1.1;
+        white-space: normal;
+        word-break: break-word;
+        min-width: 0;
+      }
+      #section-{{ section.id }} .tab-btn { border-bottom-width: 1px; }
+    }
+
+    /* === Mobil: kein „nach rechts schwimmen“ === */
+    @media (max-width: 767px) {
+      #section-{{ section.id }} { overflow-x: hidden; }
+      #section-{{ section.id }} .tabs { overflow-x: hidden; }
+    }
+
+    /* === Tab 4: Buttons in Blau === */
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .comp-add-btn,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart {
+      background-color: #008CCB !important; border-color: #008CCB !important; color: #fff !important;
+    }
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .comp-add-btn:hover,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:hover,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:hover {
+      background-color: #0079AF !important; border-color: #0079AF !important;
+    }
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:focus,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:focus {
+      outline: 0; box-shadow: 0 0 0 2px rgba(0,140,203,.25) !important;
+    }
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:active,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:active {
+      filter: brightness(.95);
+    }
+
+    /* Tab 4: Preis nicht fett */
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price *,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price .price-item,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price .price-item * {
+      font-weight: 400 !important; font-style: normal;
+    }
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price *,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price,
+    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price * {
+      font-weight: 400 !important; font-style: normal !important; font-variation-settings: normal !important;
+    }
+
+/* =========================================================
+   TAB 1 – ANGEPASSTE FORMATIERUNG (an Tabs 2–4 angeglichen)
+   ========================================================= */
+
+#section-{{ section.id }} 
+.tab-panels 
+.tab-panel:nth-child(1) 
+.panel-card {
+  overflow: visible;
+}
+
+/* Headings – reduziert & konsistent */
+#section-{{ section.id }} 
+.tab-panels 
+.tab-panel:nth-child(1) 
+.panel-card h1 {
+  font-size: 1.5rem;      /* vorher 2rem */
+  font-weight: 700;
+  margin: 0 0 .75rem;
+}
+
+#section-{{ section.id }} 
+.tab-panels 
+.tab-panel:nth-child(1) 
+.panel-card h2 {
+  font-size: 1.25rem;     /* vorher 1.6rem */
+  font-weight: 700;
+  margin: 1.25rem 0 .5rem;
+}
+
+#section-{{ section.id }} 
+.tab-panels 
+.tab-panel:nth-child(1) 
+.panel-card h3 {
+  font-size: 1.1rem;      /* vorher 1.25rem */
+  font-weight: 600;
+  margin: 1rem 0 .4rem;
+}
+
+/* Text – identisch zu Tab 2–4 */
+#section-{{ section.id }} 
+.tab-panels 
+.tab-panel:nth-child(1) 
+.panel-card p {
+  font-size: .85rem;      /* vorher 1rem */
+  line-height: 1.55;
+  margin: 0 0 .9rem;
+}
+
+/* Listen */
+#section-{{ section.id }} 
+.tab-panels 
+.tab-panel:nth-child(1) 
+.panel-card ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0 0 .9rem;
+}
+
+#section-{{ section.id }} 
+.tab-panels 
+.tab-panel:nth-child(1) 
+.panel-card li {
+  margin: .3rem 0;
+  line-height: 1.5;
+}
+
+
+  </style>
+
+  <script>
+    (function() {
+      const root = document.getElementById('section-{{ section.id }}');
+      if (!root) return;
+
+      const tabs   = root.querySelectorAll('.tab-btn');
+      const panels = root.querySelectorAll('.tab-panel');
+
+      function activate(index) {
+        tabs.forEach((t, i) => {
+          const active = i === index;
+          t.classList.toggle('is-active', active);
+          t.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+
+        panels.forEach((p, i) => {
+          const active = i === index;
+          p.classList.toggle('is-active', active);
+          if (active) { p.removeAttribute('hidden'); }
+          else { p.setAttribute('hidden', ''); }
+        });
+
+        // Tab 3 (Index 2): Loox neu layouten, weil Panel zuvor hidden war
+        if (index === 2) {
+          const kick = () => {
+            try { window.Loox && typeof window.Loox.refresh === 'function' && window.Loox.refresh(); } catch(_) {}
+            try { window.dispatchEvent(new Event('resize')); } catch(_) {}
+          };
+          setTimeout(kick, 30);
+          setTimeout(kick, 180);
+          setTimeout(kick, 700);
+        }
+
+        // Tab 4 (Index 3): Zubehör laden
+        if (index === 3) {
+          const recEl = root.querySelector('product-recommendations[data-url]');
+          recEl && loadComplementary(recEl);
+        }
+      }
+
+      function loadComplementary(el) {
+        if (!el || !el.getAttribute('data-url') || el.dataset.loaded) return;
+        const url = el.getAttribute('data-url');
+        el.setAttribute('data-loading', 'true');
+
+        fetch(url, { credentials: 'same-origin' })
+          .then(r => r.text())
+          .then(html => {
+            el.innerHTML = html;
+            el.dataset.loaded = 'true';
+
+            const gridContainer =
+              el.querySelector('.product-grid') ||
+              el.querySelector('ul.grid') ||
+              el.querySelector('.recommendations, .recommendations__inner, .product-recommendations, .product-recommendations__inner') ||
+              el;
+
+            const cards = gridContainer.querySelectorAll(
+              'li.grid__item, .product-grid > li, .recommendations__item, .product-recommendations__item, .grid__item, li'
+            );
+
+            cards.forEach(card => {
+              let titleEl =
+                card.querySelector('.card-information__text a, .card__heading a, .product-card__title a, .full-unstyled-link') ||
+                card.querySelector('.card-information__text, .card__heading, .product-card__title');
+
+              if (titleEl) {
+                const isH3 = titleEl.tagName && titleEl.tagName.toLowerCase() === 'h3';
+                const isClass = titleEl.classList && titleEl.classList.contains('product-name');
+                if (!(isH3 && isClass)) {
+                  const h3 = document.createElement('h3');
+                  h3.className = 'product-name';
+                  if (titleEl.tagName && titleEl.tagName.toLowerCase() === 'a') {
+                    h3.appendChild(titleEl.cloneNode(true));
+                    titleEl.replaceWith(h3);
+                  } else {
+                    h3.innerHTML = titleEl.innerHTML;
+                    titleEl.replaceWith(h3);
+                  }
+                }
+              }
+
+              let rawPrice =
+                card.querySelector('.price__regular .price-item--regular') ||
+                card.querySelector('.price-item--regular') ||
+                card.querySelector('.price .price-item') ||
+                card.querySelector('.price [data-price]') ||
+                card.querySelector('.price, [data-price]');
+
+              if (rawPrice) {
+                let priceSpan;
+                if (rawPrice.tagName && rawPrice.tagName.toLowerCase() === 'span') {
+                  priceSpan = rawPrice;
+                  priceSpan.classList.add('regular-price');
+                } else {
+                  priceSpan = document.createElement('span');
+                  priceSpan.className = 'regular-price';
+                  priceSpan.innerHTML = rawPrice.innerHTML;
+                  rawPrice.innerHTML = '';
+                  rawPrice.appendChild(priceSpan);
+                }
+
+                priceSpan.querySelectorAll('strong, b').forEach(node => { node.replaceWith(...node.childNodes); });
+                const priceContainer = priceSpan.closest('.price') || priceSpan.parentElement;
+                if (priceContainer) {
+                  priceContainer.querySelectorAll('strong, b').forEach(node => { node.replaceWith(...node.childNodes); });
+                }
+
+                if (!card.classList.contains('comp-card')) {
+                  card.classList.add('comp-card');
+                  card.style.display = 'flex';
+                  card.style.flexDirection = 'column';
+                  card.style.height = '100%';
+                }
+                if (!card.querySelector('.comp-flex-spacer')) {
+                  const spacer = document.createElement('div');
+                  spacer.className = 'comp-flex-spacer';
+                  priceSpan.parentElement.insertBefore(spacer, priceSpan);
+                }
+              }
+            });
+
+            document.dispatchEvent(new CustomEvent('product-recommendations:loaded', { detail: { el } }));
+            window.dispatchEvent(new Event('resize'));
+          })
+          .catch(() => {
+            el.innerHTML = '<p>Aktuell kein Zubehör empfohlen.</p>';
+          })
+          .finally(() => {
+            el.removeAttribute('data-loading');
+          });
+      }
+
+      tabs.forEach((tab, i) => { tab.addEventListener('click', () => activate(i)); });
+
+      const initialIndex = Array.from(panels).findIndex(p => p.classList.contains('is-active'));
+      activate(initialIndex >= 0 ? initialIndex : 0);
+
+      const recEl = root.querySelector('product-recommendations[data-url]');
+      recEl && loadComplementary(recEl);
+
+      function openReviewsAndScroll() {
+        activate(2);
+
+        const anchor = root.querySelector('#loox-faq');
+        const target = anchor || root.querySelector('#looxReviews') || root.querySelector('#panel-{{ section.id }}-3');
+        if (!target) return;
+
+        const doScroll = () => {
+          try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          catch(_) { window.location.hash = '#loox-faq'; }
+        };
+        setTimeout(doScroll, 60);
+        setTimeout(doScroll, 240);
+      }
+
+document.addEventListener(
+  'click',
+  function (e) {
+    const hit = e.target.closest(
+      '.loox-rating, .loox-rating-content, .loox-rating-stars, [data-loox-rating], .loox-stars, .loox-rating-fallback'
+    );
+    if (!hit) return;
+
+    e.preventDefault();
+    openReviewsAndScroll();
+  },
+  true
+);
+
+
+    })();
+  </script>
+
+  {% schema %}
+  {
+    "name": "Tabs – Produkt",
+    "settings": [
+      { "type": "text", "id": "heading", "label": "Überschrift", "default": "Mehr Informationen" },
+      { "type": "range", "id": "max_width", "min": 720, "max": 1400, "step": 10, "unit": "px", "label": "Max. Breite", "default": 1100 },
+      { "type": "range", "id": "card_min_h", "min": 0, "max": 800, "step": 10, "unit": "px", "label": "Min. Kartenhöhe (Desktop)", "default": 0 },
+      { "type": "range", "id": "comp_limit", "min": 2, "max": 12, "step": 1, "label": "Zubehör: Anzahl Produkte", "default": 8 }
+    ],
+    "blocks": [
+      {
+        "type": "tab",
+        "name": "Tab",
+        "limit": 6,
+        "settings": [
+          { "type": "text", "id": "tab_title", "label": "Tab-Titel", "default": "Tab-Titel" },
+          { "type": "richtext", "id": "tab_content", "label": "Inhalt (Fallback)", "default": "<p>Dein Inhalt hier …</p>" }
+        ]
+      }
+    ],
+    "max_blocks": 6,
+    "presets": [
+      {
+        "name": "Tabs – Produkt",
+        "blocks": [{ "type": "tab" }, { "type": "tab" }, { "type": "tab" }, { "type": "tab" }]
+      }
+    ]
+  }
+  {% endschema %}
+</section>
+}

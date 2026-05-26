@@ -1,0 +1,11 @@
+{%- liquid
+  assign http_prefix = url | slice: 0, 7
+  assign https_prefix = url | slice: 0, 8
+  assign slash_prefix = url | slice: 0, 2
+
+  unless http_prefix == 'http://' or https_prefix == 'https://' or slash_prefix == '//'
+    assign url = url | prepend: 'https://'
+  endunless
+-%}
+
+{{- url -}}

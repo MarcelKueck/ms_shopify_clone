@@ -1,0 +1,148 @@
+{% render 'section-bg-number-vars' %}
+
+<div class="section section--full-width styled-links text-center" style="--container-max-inner-width: 512px;">
+  <h1 id="recover" class="h2" tabindex="-1"></h1>
+
+  <div>
+    <h1 class="h3" tabindex="-1">
+      {{ 'customer.recover_password.title' | t }}
+    </h1>
+
+    <div class="mt-4 md:mt-6">
+      <p class="rfs:mb-12">
+        {{ 'customer.recover_password.subtext' | t }}
+      </p>
+
+      {%- if recover_success == true -%}
+        <h3 class="h3 message message-success text-success" tabindex="-1" autofocus>
+          {{ 'customer.recover_password.success' | t }}
+        </h3>
+      {%- endif -%}
+
+      {%- form 'recover_customer_password', data-form-button-loading: true -%}
+        {% assign recover_success = form.posted_successfully? %}
+
+        {%- if form.errors -%}
+          <div id="RecoverEmail-email-error" class="alert alert-danger message message-danger mb-6">
+            {{ form.errors.messages.form }}
+          </div>
+        {%- endif -%}
+
+        <div class="form-floating">
+          <input
+            class="input"
+            type="email"
+            value=""
+            name="email"
+            id="RecoverEmail"
+            autocorrect="off"
+            autocapitalize="off"
+            autocomplete="email"
+            placeholder="{{ 'customer.login_page.email' | t }}"
+            {% if form.errors %}
+              aria-invalid="true"
+              aria-describedby="RecoverEmail-email-error"
+              autofocus
+            {% endif %}
+          >
+
+          <label for="RecoverEmail">
+            {{ 'customer.login_page.email' | t }}
+          </label>
+        </div>
+
+        <div class="mt-12">
+          <button type="submit" class="button button-primary">
+            {{ 'customer.login_page.submit' | t }}
+          </button>
+        </div>
+
+        <a href="#login" class="inline-block mt-4 text-sm" data-smooth-scroll-ignore>
+          {{ 'customer.login_page.cancel' | t }}
+        </a>
+      {%- endform -%}
+    </div>
+  </div>
+
+  <h1 id="login" class="h3 mb-8" tabindex="-1">
+    {{ 'customer.login_page.title' | t }}
+  </h1>
+  <div>
+    {%- if recover_success == true -%}
+      <div class="alert alert-success text-left message message-success mb-8">
+        {{ 'customer.recover_password.success' | t }}
+      </div>
+    {%- endif -%}
+
+    {%- form 'customer_login', data-form-button-loading: true -%}
+      {%- if form.errors -%}
+        <div class="text-left mb-8">
+          {% render 'form-errors', errors: form.errors %}
+        </div>
+      {%- endif -%}
+
+      <div class="form-floating">
+        <input
+          class="input"
+          type="email"
+          name="customer[email]"
+          id="CustomerEmail"
+          placeholder="{{ 'customer.login_page.email' | t }}"
+          autocomplete="email"
+          autocorrect="off"
+          autocapitalize="off"
+          {% if form.errors contains 'form' %}
+            aria-invalid="true"
+          {% endif %}
+        >
+        <label for="CustomerEmail">
+          {{ 'customer.login_page.email' | t }}
+        </label>
+      </div>
+
+      <div class="form-floating mt-6">
+        <input
+          class="input"
+          type="password"
+          value=""
+          name="customer[password]"
+          id="CustomerPassword"
+          autocomplete="current-password"
+          placeholder="{{ 'customer.login_page.password' | t }}"
+          {% if form.errors contains 'form' %}
+            aria-invalid="true"
+          {% endif %}
+        >
+        <label for="CustomerPassword">
+          {{ 'customer.login_page.password' | t }}
+        </label>
+      </div>
+
+      <button type="submit" class="button button-primary mt-8">
+        {{ 'customer.login_page.sign_in' | t }}
+      </button>
+    {%- endform -%}
+
+    <div class="flex flex-col mt-6 gap-4 items-center text-sm">
+      <a href="#recover" data-smooth-scroll-ignore>
+        {{ 'customer.login_page.forgot_password' | t }}
+      </a>
+
+      <a href="{{ routes.account_register_url }}">
+        {{ 'customer.login_page.create_account' | t }}
+      </a>
+    </div>
+  </div>
+</div>
+
+{% comment %}
+  <div class="recover-password hidden">
+
+  </div>
+{% endcomment %}
+
+{% schema %}
+{
+  "name": "t:sections.main-login.name"
+}
+{% endschema %}

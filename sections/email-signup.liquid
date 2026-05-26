@@ -1,0 +1,311 @@
+{% liquid
+  assign full_width = section.settings.full_width
+
+  if section.settings.background_color != blank and section.settings.background_color.rgba != '0 0 0 / 0.0' and section.settings.background_color.rgba != settings.colors_background.rgba
+    assign has_diff_bg = true
+  else
+    assign has_diff_bg = false
+  endif
+
+  if section.settings.image == blank and has_diff_bg == false and full_width == false
+    assign full_width = true
+  endif
+
+  if full_width
+    assign section_type = 'section--full-width section--first-pt-0'
+  else
+    assign section_type = 'section--block'
+  endif
+
+  capture image_sizes
+    if full_width
+      render 'image-sizes-columns-full-width', base: 1, lg: 2
+    else
+      render 'image-sizes-columns', base: 1, lg: 2
+    endif
+  endcapture
+
+  if section.settings.image
+    assign bg = settings.colors_background
+    assign section_type = section_type | append: ' bg-transparent'
+
+    if full_width == false
+      assign section_type = section_type | append: ' section--no-padding'
+    else
+      assign section_type = section_type | append: ' px-0'
+    endif
+  else
+    assign bg = null
+  endif
+%}
+
+{% render 'section-bg-number-vars', bg: bg, full_width: full_width %}
+
+<div {% render 'section-attrs', type: section_type %}>
+  <div class="section-body {% if section.settings.image %} grid lg:grid-cols-2 {% endif %}">
+    {% if section.settings.image %}
+      <div
+        class="
+          {% if section.settings.image_natural_size == false %} media media--ratio-4-3 max-h-[40rem] w-full h-full {% endif %}
+          {% if full_width == false %}
+            sm:max-lg:rounded-t-block lg:rounded-l-block overflow-hidden
+            {% if has_diff_bg == false %}
+              sm:max-lg:rounded-b-block lg:rounded-r-block
+            {% endif %}
+          {% endif %}
+        "
+      >
+        <lqip-element class="image-loader">
+          {{
+            section.settings.image
+            | image_url: width: 3840
+            | image_tag: class: 'w-full h-full', sizes: image_sizes, loading: 'lazy'
+          }}
+        </lqip-element>
+      </div>
+    {% endif %}
+
+    <div
+      class="
+        {% if section.settings.image %}
+          p-8 md:p-12 xl:p-16
+          color
+          flex flex-col justify-center
+          {% if has_diff_bg == false %}
+            max-lg:!pb-0
+          {% endif %}
+          {% if full_width == false %}
+            sm:max-lg:rounded-b-block lg:rounded-r-block
+          {% else %}
+            xl:!pr-co
+          {% endif %}
+        {% else %}
+          text-center
+        {% endif %}
+      "
+    >
+      {% if section.settings.show_icon %}
+        <div
+          data-animation="icon"
+          data-animation-group="{{ section.id }}"
+          class="
+            icon-xl mb-4 inline-block
+            {% if section.settings.image %} -ml-1 {% endif %}
+          "
+        >
+          {% render 'icon-newsletter' %}
+        </div>
+      {% endif %}
+
+      {% render 'section-header', button: false %}
+
+      <div
+        class="inline-flex max-w-xl w-full"
+        data-animation="block"
+        data-animation-group="{{ section.id }}"
+      >
+        {% render 'newsletter-signup-form',
+          button_text: section.settings.button_text,
+          button_style: section.settings.button_style,
+          button_background_color: section.settings.button_background_color,
+          button_text_color: section.settings.button_text_color
+        %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "t:sections.email-signup.name",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:sections.all.full_width.label",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_icon",
+      "label": "t:sections.email-signup.settings.show_icon.label",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "image_natural_size",
+      "label": "t:sections.email-signup.settings.image_natural_size.label",
+      "default": false
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:sections.email-signup.settings.image.label"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:sections.all.subheading.label"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "default": "Subscribe to our newsletter",
+      "label": "t:sections.email-signup.settings.heading.label"
+    },
+    {
+      "type": "richtext",
+      "id": "content",
+      "default": "<p>Provide additional information about your newsletter and explain the benefits of subscribing to it.</p>",
+      "label": "t:sections.email-signup.settings.text.label"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:sections.all.heading_size.label",
+      "options": [
+        {
+          "value": "h0",
+          "label": "t:sections.all.heading_size.options__0.label"
+        },
+        {
+          "value": "h1",
+          "label": "t:sections.all.heading_size.options__1.label"
+        },
+        {
+          "value": "h2",
+          "label": "t:sections.all.heading_size.options__2.label"
+        },
+        {
+          "value": "h3",
+          "label": "t:sections.all.heading_size.options__3.label"
+        },
+        {
+          "value": "h4",
+          "label": "t:sections.all.heading_size.options__4.label"
+        },
+        {
+          "value": "h5",
+          "label": "t:sections.all.heading_size.options__5.label"
+        },
+        {
+          "value": "h6",
+          "label": "t:sections.all.heading_size.options__6.label"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "default": "Subscribe",
+      "label": "t:sections.email-signup.settings.button_text.label"
+    },
+    {
+      "type": "select",
+      "id": "button_style",
+      "label": "t:sections.all.button_style.label",
+      "options": [
+        {
+          "value": "",
+          "label": "t:sections.all.button_style.options.filled"
+        },
+        {
+          "value": "button-outline",
+          "label": "t:sections.all.button_style.options.outline"
+        }
+      ],
+      "default": ""
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.heading_color.label",
+      "id": "heading_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.button_background_color.label",
+      "id": "button_background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.button_text_color.label",
+      "id": "button_text_color"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.seo"
+    },
+    {
+      "type": "select",
+      "id": "heading_html_tag",
+      "label": "t:sections.all.heading_html_tag.label",
+      "options": [
+        {
+          "value": "h1",
+          "label": "h1"
+        },
+        {
+          "value": "h2",
+          "label": "h2"
+        },
+        {
+          "value": "h3",
+          "label": "h3"
+        },
+        {
+          "value": "h4",
+          "label": "h4"
+        },
+        {
+          "value": "h5",
+          "label": "h5"
+        },
+        {
+          "value": "h6",
+          "label": "h6"
+        },
+        {
+          "value": "p",
+          "label": "p"
+        },
+        {
+          "value": "span",
+          "label": "span"
+        },
+        {
+          "value": "div",
+          "label": "div"
+        }
+      ],
+      "default": "p",
+      "info": "t:sections.all.heading_html_tag.info"
+    }
+  ],
+  "disabled_on": {
+    "groups": [
+      "header",
+      "custom.overlay"
+    ]
+  },
+  "presets": [
+    {
+      "name": "t:sections.email-signup.presets.name"
+    }
+  ]
+}
+{% endschema %}

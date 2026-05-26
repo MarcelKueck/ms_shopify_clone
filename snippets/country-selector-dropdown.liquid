@@ -1,0 +1,62 @@
+{% liquid
+  if flag == false and currency == false and name == false
+    assign name = true
+  endif
+%}
+
+<dropdown-list
+  class="{{ class }}"
+  focus-only
+  list-title="{{ 'localization.country_label' | t }}"
+  offset="4"
+  offset-cross="0"
+  placement="top"
+  lg:offset-cross="-24"
+  lg:placement="{{ placement | default: "bottom-start" }}"
+>
+  <details class="relative">
+    <summary class="flex items-center py-3 -my-3" data-dropdown-activator>
+      {% if flag != false %}
+        {% render 'country-flag', country: localization.country, class: 'cursor-pointer' %}
+      {% endif %}
+
+      {% if name != false or currency != false %}
+        <div
+          class="
+            {{ text_size_class | default: 'text-sm' }}
+            {{ font_class | default: 'font-bold' }}
+            whitespace-nowrap
+            {% if flag != false %} {{ flag_spacing_class | default: 'ml-3' }} {% endif %}
+          "
+        >
+          {% if name != false %}
+            {{ localization.country.name }}
+          {% endif %}
+
+          {% if currency != false %}
+            {%- if name != false -%}
+              (
+            {%- endif -%}
+            {{ localization.country.currency.iso_code }}
+            {{ localization.country.currency.symbol -}}
+            {%- if name != false -%}
+              )
+            {%- endif -%}
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <div class="grow"></div>
+
+      <div class="collapse-chevron w-3 {{ collapse_spacing_class | default: 'ml-2' }}">
+        {% render 'icon-chevron' %}
+      </div>
+    </summary>
+
+    <div class="dropdown-menu py-2 locale-selector-dropdown">
+      <div class="dropdown-list">
+        {% render 'country-selector', label: false %}
+      </div>
+    </div>
+  </details>
+</dropdown-list>

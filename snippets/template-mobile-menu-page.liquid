@@ -1,0 +1,79 @@
+<template id="template-mobile-menu-page">
+  <style>
+    .wrapper {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .content {
+      background: rgb(var(--color-modal-background));
+      flex-grow: 1;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .header {
+      flex-shrink: 0;
+      height: var(--mobile-menu-header-height);
+      background: rgb(var(--white));
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .header-title {
+      font-size: var(--size-text-base);
+      font-weight: var(--weight-bold);
+      font-family: var(--font-heading-family);
+    }
+
+    .header-side {
+      flex-grow: 1;
+      flex-basis: 0;
+    }
+
+    .header-side:last-child {
+      display: flex;
+      justify-content: end;
+      align-items: center;
+    }
+
+    .back-button,
+    .close-button {
+      display: flex;
+      width: 1rem;
+      height: 1rem;
+      background: none;
+      color: rgb(var(--color-foreground));
+      margin-left: auto;
+      border: 0;
+      padding: 0;
+      margin: 0;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .back-button svg {
+      transform: scaleX(-1);
+    }
+
+    .close-button {
+      width: 1rem;
+      height: 1rem;
+    }
+  </style>
+
+  <slot name="activator"></slot>
+
+  <div class="wrapper" style="display: none;">
+    <div class="content">
+      <slot name="content"></slot>
+    </div>
+  </div>
+</template>

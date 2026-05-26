@@ -1,0 +1,207 @@
+{% liquid
+  assign current_variant = current_variant | default: product.selected_or_first_available_variant
+%}
+
+<sticky-sidebar
+  class="
+    product-info
+    {% if section.settings.show_breadcrumbs %} !pt-0 {% endif %}
+  "
+  top-offset="48"
+  bottom-offset="48"
+  disable-below="992"
+>
+  <div
+    class="product-info-inner color trim-margins w-full"
+    id="Product-Info-{{ section.id }}"
+    style="
+      {%- render 'apply-color-var', var: '--color-background', color: section.settings.buy_section_background_color -%}
+      {%- render 'apply-color-var', var: '--color-foreground', color: section.settings.buy_section_text_color -%}
+      {%- render 'apply-color-var', var: '--color-headings', color: section.settings.buy_section_text_color -%}
+    "
+  >
+    {% assign product_form_id = 'Product-Form-' | append: section.id %}
+
+    {% for block in section.blocks %}
+      {% case block.type %}
+        {% when '@app' %}
+          {% render block %}
+        {% when 'vendor' %}
+          <div
+            class="product-vendor my-1 md:my-2 text-foreground/75 styled-links tracking-wider max-md:text-sm"
+            {{ block.shopify_attributes }}
+          >
+            {% if product == null %}
+              Vendor
+            {% else %}
+              {{ product.vendor | link_to_vendor }}
+            {% endif %}
+          </div>
+        {% when 'title' %}
+          <div
+            class="product-name-wrapper my-1 md:my-2"
+            {{ block.shopify_attributes }}
+            style="{%- render 'apply-color-var', var: '--color-headings', color: block.settings.text_color -%}"
+          >
+            {% if request.page_type != 'product' %}
+              <a data-instant href="{{ product.url }}">
+                <h2 class="{{ block.settings.heading_size }} mb-2">
+                  {{ product.title | default: 'Product' }}
+                </h2>
+              </a>
+
+              <a
+                data-instant
+                href="{{ product.url }}"
+                class="styled-link inline-block text-foreground/75 max-md:text-sm"
+              >
+                {{ 'products.product.view_full_details' | t }}
+              </a>
+            {% else %}
+              <h1 class="{{ block.settings.heading_size }}">
+                {{ block.settings.content | default: product.title }}
+              </h1>
+            {% endif %}
+          </div>
+        {% when 'rating' %}
+          {% if block.settings.show_empty_rating or product.metafields.reviews.rating.value != blank %}
+            <div
+              id="rating-{{ block.id }}"
+              class="my-3 md:my-4"
+              {{ block.shopify_attributes }}
+            >
+              <style>
+                #rating-{{ block.id }} {
+                  --rating-font-size: {{ block.settings.star_size | times: 0.75 | divided_by: 4.0 | round | times: 4 | divided_by: 16.0 | at_least: 1 }};
+                }
+
+                @media (min-width: 768px) {
+                  #rating-{{ block.id }} {
+                    --rating-font-size: {{ block.settings.star_size | divided_by: 16.0 }};
+                  }
+                }
+              </style>
+              <a
+                href="{% if request.page_type != 'product' %}{{ product.url }}{% endif %}#shopify-product-reviews"
+                class="product-rating"
+              >
+                {% render 'product-rating', product: product, show_rating_value: true %}
+              </a>
+            </div>
+          {% endif %}
+        {% when 'sku' %}
+          <div class="product-sku-list my-2 empty:hidden" data-variant-info="sku">
+            {%- render 'product-sku', product: product -%}
+          </div>
+        {% when 'product_highlights' %}
+          {% if block.settings.content != blank %}
+            <div
+              class="my-6 product-highlights-list product-highlights-list--{{ block.settings.icon_type }}"
+              style="
+                {%- render 'apply-color-var', var: '--product-highlights-icon-color', color: block.settings.icon_color, opacity: 1.0 -%}
+                {%- render 'apply-color-var', var: '--color-foreground', color: block.settings.text_color -%}
+              "
+              {{ block.shopify_attributes }}
+            >
+              {{ block.settings.content }}
+            </div>
+          {% endif %}
+
+        {% when 'price' %}
+          <div
+            class="product-price {% if block.settings.use_bold_font %} bold {% endif %}"
+            data-variant-info="price"
+            {{ block.shopify_attributes }}
+          >
+            {% render 'product-page-price', product: product, block: block %}
+          </div>
+        {% when 'payment_installments' %}
+          <div {{ block.shopify_attributes }}>
+            {%- assign installment_id = 'Installment-' | append: section.id -%}
+            {%- form 'product', product, id: installment_id -%}
+              <input
+                data-variant-info="installment_variant_id"
+                type="hidden"
+                name="id"
+                value="{{ product.selected_or_first_available_variant.id }}"
+              >
+              {{ form | payment_terms }}
+            {%- endform -%}
+          </div>
+        {% when 'variant_picker' %}
+          {% unless product.has_only_default_variant %}
+            <div class="product-variant-picker my-6" {{ block.shopify_attributes }}>
+              {% render 'product-variant-picker', product: product, product_form_id: product_form_id, block: block %}
+            </div>
+          {% endunless %}
+        {% when 'inventory' %}
+          <div
+            class="product-stock-info my-6 empty:hidden"
+            id="StockInfo-{{ section.id }}"
+            data-variant-info="stock"
+            {{ block.shopify_attributes }}
+          >
+            {% render 'product-stock-info', product: product, block: block %}
+          </div>
+        {% when 'quantity_selector' %}
+          <div class="qty-selector-wrapper my-6" {{ block.shopify_attributes }}>
+            {% capture qty_selector_id %}{{ section.id }}-qty-input{% endcapture %}
+
+            <label class="label label-product-info mb-3" for="{{ qty_selector_id }}">
+              {{ 'products.product.quantity.label' | t }}
+            </label>
+
+            <div>
+              {% render 'qty-selector', product: product, product_form_id: product_form_id, id: qty_selector_id %}
+            </div>
+          </div>
+        {% when 'buy_buttons' %}
+          <div class="product-buy-buttons my-8" {{ block.shopify_attributes }}>
+            {% render 'product-page-buy-buttons', product: product, product_form_id: product_form_id, block: block %}
+          </div>
+        {% when 'pickup_availability' %}
+          {% render 'product-pickup-availability',
+            product_variant: product.selected_or_first_available_variant,
+            class: 'my-6',
+            block: block
+          %}
+        {% when 'complementary_products' %}
+          {% render 'product-complementary-products', product: product, class: 'my-8 md:my-12', block: block %}
+        {% when 'share_button' %}
+          <div class="share-button-wrapper my-6" {{ block.shopify_attributes }}>
+            {% render 'share-button' %}
+          </div>
+        {% when 'separator' %}
+          <hr class="my-6" {{ block.shopify_attributes }}>
+        {% when 'text' -%}
+          <div class="my-4 md:my-6 prose max-w-none">
+            {{ block.settings.content }}
+          </div>
+        {% when 'rich_text_block' %}
+          {% render 'product-rich-text', block: block %}
+        {% when 'description' %}
+          {% render 'product-description', block: block, product: product, class: 'my-6 md:my-8' %}
+        {% when 'collapsible_content' %}
+          {% render 'product-collapsible-content', block: block %}
+        {% when 'custom_liquid' %}
+          {% render 'product-custom-liquid', block: block %}
+        {% when 'image' %}
+          {% render 'product-image', block: block %}
+        {% when 'custom_badges' %}
+          <div class="product-custom-badges" {{ block.shopify_attributes }}>
+            {%- render 'product-custom-badges', product: product -%}
+          </div>
+      {% endcase %}
+    {% endfor %}
+  </div>
+
+  {% render 'product-quick-add-media' %}
+
+  <template class="product-quick-add-header-template">
+    {% render 'product-quick-add-header', product: product %}
+  </template>
+
+  <script type="application/json" data-variant-info="json">
+    {{ product.selected_or_first_available_variant | json }}
+  </script>
+</sticky-sidebar>

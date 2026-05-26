@@ -1,0 +1,63 @@
+{% liquid
+  assign carousel = block.settings.carousel
+%}
+
+<style>
+  {% if block.settings.add_to_cart_background_color != blank and block.settings.add_to_cart_background_color.rgba != '0 0 0 / 0.0' %}
+    #shopify-section-{{ section.id }} .complementary-product__button-add-to-cart {
+      --button-background: {{ block.settings.add_to_cart_background_color.rgb }};
+      {% render 'button-hover-active-vars', var: '--button-background', color: block.settings.add_to_cart_background_color %}
+
+      --button-background-opacity: 1;
+      --button-background-hover-opacity: 1;
+      --button-background-active-opacity: 1;
+    }
+  {% endif %}
+
+  {% if block.settings.add_to_cart_text_color != blank and block.settings.add_to_cart_text_color.rgba != '0 0 0 / 0.0' %}
+    #shopify-section-{{ section.id }} .complementary-product__button-add-to-cart {
+      --button-foreground: {{ block.settings.add_to_cart_text_color.rgb }};
+    }
+  {% endif %}
+</style>
+
+<product-recommendations
+  section-id="{{ section.id }}"
+  product-id="{{ product.id }}"
+  limit="{{ block.settings.products_to_show }}"
+  intent="complementary"
+  {{ block.shopify_attributes }}
+>
+  {% if recommendations.performed? and recommendations.products_count > 0 %}
+    <div
+      class="
+        product-complementary-products group {{ class }}
+        {% render 'has-diff-bg-class', item_color: block.settings.background_color %}
+      "
+    >
+      {% if carousel %}
+        {% capture items_html %}
+          {% for item in recommendations.products %}
+            <div class="grid-carousel-item snap-start stop-always">
+              {% render 'complementary-product', product: item, block: block %}
+            </div>
+          {% endfor %}
+        {% endcapture %}
+
+        {% render 'mini-product-carousel',
+          heading: block.settings.heading,
+          count: recommendations.products_count,
+          items_html: items_html
+        %}
+      {% else %}
+        <div class="text-base md:text-lg heading mb-6">{{ block.settings.heading }}</div>
+
+        <div class="flex flex-col gap-4">
+          {% for item in recommendations.products %}
+            {% render 'complementary-product', product: item, block: block %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+</product-recommendations>

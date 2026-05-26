@@ -1,0 +1,43 @@
+{% liquid
+  assign product_image = product.selected_or_first_available_variant.featured_media | default: product.featured_media
+%}
+
+<div class="sticky-add-to-cart-wrapper --{{ section.settings.sticky_add_to_cart_position }}">
+  <sticky-add-to-cart>
+    {% if product_image %}
+      {{ product_image | image_url: width: 192 | image_tag: class: 'product-thumbnail-shade product-thumbnail' }}
+    {% else %}
+      {% render 'placeholder', type: 'image', class: 'product-thumbnail placeholder' %}
+    {% endif %}
+    <div class="product-title">
+      <div class="product-vendor text-foreground/75 tracking-wider text-xs md:text-sm mb-1">
+        {{ product.vendor }}
+      </div>
+      <p class="heading text-h6/h6">
+        {{ product.title }}
+      </p>
+    </div>
+    <quick-add-button
+      product-id="{{ product.id }}"
+      handle="{{ product.handle }}"
+      {% if product.has_only_default_variant %}
+        variant-id="{{ product.selected_or_first_available_variant.id }}"
+      {% endif %}
+    >
+      <button
+        type="button"
+        class="button whitespace-nowrap"
+      >
+        {% if product.has_only_default_variant %}
+          <span>
+            {{ 'products.product.add_to_cart' | t }}
+            &mdash;
+            {{ product.price | money }}
+          </span>
+        {% else %}
+          <span>{{ 'products.product.select_options' | t }}</span>
+        {% endif %}
+      </button>
+    </quick-add-button>
+  </sticky-add-to-cart>
+</div>

@@ -1,0 +1,30 @@
+{% liquid
+  assign target = target | default: section
+
+  unless defaults == false
+    assign link = link | default: target.settings.button_link
+    assign style = style | default: target.settings.button_style
+    assign size = size | default: target.settings.button_size
+    assign text = text | default: target.settings.button_text
+    assign background_color = background_color | default: target.settings.button_background_color
+    assign text_color = text_color | default: target.settings.button_text_color
+  endunless
+
+  assign tag = 'button'
+
+  if link != blank and section.settings.link == blank
+    assign tag = 'a'
+  endif
+%}
+
+<{{ tag }}
+  {% if link != blank %}
+    href="{{ link }}"
+    data-instant
+  {% endif %}
+  class="button {{ style }} {{ size }}"
+  style="{% render 'button-vars', background: background_color, text: text_color %}"
+  {{ attrs }}
+>
+  {{ text }}
+</{{ tag }}>

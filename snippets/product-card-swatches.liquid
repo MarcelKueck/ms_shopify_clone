@@ -1,0 +1,133 @@
+{% liquid
+  assign type = settings.product_card_color_display
+  assign color_names = settings.color_swatch_option_names | newline_to_br | strip_newlines | split: '<br />'
+  assign color_option = null
+
+  for option in product.options_with_values
+    if color_names contains option.name
+      assign color_option = option
+    endif
+  endfor
+
+  if color_option == null
+    continue
+  endif
+%}
+
+{% case type %}
+  {% when 'count' %}
+    {% assign color_count = color_option.values | size %}
+    <div class="text-foreground/75">
+      {{ 'products.product.colors_count_text' | t: count: color_count }}
+    </div>
+  {% when 'swatch' %}
+    <product-card-swatches class="flex flex-wrap items-center gap-3 sm:gap-4">
+      {% assign swatches_shown = 0 %}
+      {% for option_value in color_option.values %}
+        {% if swatches_shown < 4 %}
+          {% liquid
+            if option_value.swatch.image
+              assign swatch_image_url = option_value.swatch.image | image_url: width: 128
+              assign swatch_color = 'url(' | append: swatch_image_url | append: ')'
+            elsif option_value.swatch.color
+              assign swatch_color = option_value.swatch.color
+            else
+              capture swatch_color
+                render 'get-color-from-name', name: option_value
+              endcapture
+            endif
+            assign swatch_brightness = swatch_color | color_brightness
+          %}
+
+          <div class="color-swatch-selector">
+            <input
+              type="radio"
+              id="{{ section.id }}-{{ option_value.variant.id }}"
+              name="{{ section.id }}-{{ product.id }}-color"
+              value="{{ option_value | escape }}"
+              class="peer visually-hidden"
+              data-url="{{ option_value.variant.url }}"
+              data-variant-id="{{ option_value.variant.id }}"
+            >
+            <label
+              for="{{ section.id }}-{{ option_value.variant.id }}"
+              class="
+                block p-1.5 -m-1.5 sm:p-2 sm:-m-2
+                {% if swatch_color == blank or swatch_brightness > 240 and settings.color_swatches_enhance_visibility %}
+                  has-swatch-border
+                {% endif %}
+              "
+              title="{{ option_value | escape }}"
+              {% if swatch_color != blank %}
+                style="--swatch-color: {{ swatch_color }};"
+              {% endif %}
+            >
+              <div class="inner"></div>
+            </label>
+
+            {% if option_value.variant.featured_image %}
+              <template id="{{ section.id }}-{{ option_value.variant.id }}-image-template">
+                {{
+                  option_value.variant.featured_image
+                  | image_url: width: 1440
+                  | image_tag:
+                    widths: '360, 450, 540, 630, 720, 900, 1050, 1200, 1320, 1440',
+                    sizes: sizes,
+                    class: 'product-card__image product-thumbnail-shade'
+                }}
+              </template>
+            {% endif %}
+          </div>
+          {% assign swatches_shown = swatches_shown | plus: 1 %}
+        {% endif %}
+      {% endfor %}
+
+      {% assign remaining_colors = color_option.values.size | minus: swatches_shown %}
+      {% if swatches_shown > 0 and remaining_colors > 0 %}
+        <a href="{{ product.url }}" class="text-foreground/75 hover:underline">+{{ remaining_colors }}</a>
+      {% endif %}
+    </product-card-swatches>
+
+  {% when 'image' %}
+    <product-card-swatches class="flex gap-2 md:gap-3 items-center">
+      {% assign swatches_shown = 0 %}
+      {% for option_value in color_option.values %}
+        {% if swatches_shown < 3 %}
+          {% if option_value.variant != null and option_value.variant.featured_image != null %}
+            <div class="variant-radio-image w-8 md:w-12">
+              <input
+                type="radio"
+                id="{{ section.id }}-{{ option_value.variant.id }}"
+                name="{{ section.id }}-{{ product.id }}-color"
+                value="{{ option_value | escape }}"
+                class="peer visually-hidden"
+                data-url="{{ option_value.variant.url }}"
+                data-variant-id="{{ option_value.variant.id }}"
+              >
+              <label
+                class="media w-full"
+                for="{{ section.id }}-{{ option_value.variant.id }}"
+              >
+                {{- option_value.variant.featured_image | image_url: width: 128 | image_tag: loading: 'lazy' -}}
+              </label>
+              <template id="{{ section.id }}-{{ option_value.variant.id }}-image-template">
+                {{
+                  option_value.variant.featured_image
+                  | image_url: width: 1440
+                  | image_tag:
+                    widths: '360, 450, 540, 630, 720, 900, 1050, 1200, 1320, 1440',
+                    sizes: sizes,
+                    class: 'product-card__image product-thumbnail-shade'
+                }}
+              </template>
+            </div>
+            {% assign swatches_shown = swatches_shown | plus: 1 %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+      {% assign remaining_colors = color_option.values.size | minus: swatches_shown %}
+      {% if swatches_shown > 0 and remaining_colors > 0 %}
+        <a href="{{ product.url }}" class="text-foreground/75 hover:underline ml-1">+{{ remaining_colors }}</a>
+      {% endif %}
+    </product-card-swatches>
+{% endcase %}

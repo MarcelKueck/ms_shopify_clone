@@ -1,0 +1,42 @@
+<qty-selector class="qty-selector">
+  <button
+    type="button"
+    data-dec
+    class="button button-light qty-selector__button"
+    aria-label="{{ 'accessibility.decrease_quantity' | t }}"
+  >
+    {% render 'icon-minus' %}
+  </button>
+
+  <input
+    class="hide-input-arrows"
+    type="number"
+    {% if id %}
+      id="{{ id }}"
+    {% endif %}
+    {% if item %}
+      {% if name != false %} name="updates[]" {% endif %}
+      value="{{ item.quantity }}"
+      min="0"
+      aria-label="{{ 'products.quantity.input_label' | t: product: item.product.title | escape }}"
+      data-index="{{ item.index | plus: 1 }}"
+    {% elsif product_form_id %}
+      name="quantity"
+      form="{{ product_form_id }}"
+      value="1"
+      min="1"
+    {% else %}
+      value="1"
+      min="1"
+    {% endif %}
+  >
+
+  <button
+    type="button"
+    data-inc
+    class="button button-light qty-selector__button"
+    aria-label="{{ 'accessibility.increase_quantity' | t }}"
+  >
+    {% render 'icon-plus' %}
+  </button>
+</qty-selector>

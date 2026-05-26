@@ -1,0 +1,9 @@
+{% liquid
+  assign flag_url = 'flag-' | append: country.iso_code | append: '.svg' | downcase | asset_url
+%}
+
+<div
+  class="country-flag {{ class }}"
+  style="background-image: url({{ flag_url }})"
+  data-iso-code="{{ country.iso_code }}"
+></div>

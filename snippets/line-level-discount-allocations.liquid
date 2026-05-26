@@ -1,0 +1,17 @@
+<ul
+  class="text-xs md:text-sm list-unstyled flex flex-col gap-2"
+  role="list"
+  aria-label="{{ 'customer.order.discount' | t }}"
+>
+  {% for discount_allocation in item.line_level_discount_allocations %}
+    <li class="flex items-center gap-3 md:gap-4 font-bold">
+      <div class="icon-xs md:icon-sm" style="--icon-stroke-width: 1.75">
+        {% render 'icon-discount' %}
+      </div>
+      <span>
+        {{ discount_allocation.discount_application.title }}
+        (-{{ discount_allocation.discount_application.total_allocated_amount | money }})
+      </span>
+    </li>
+  {% endfor %}
+</ul>

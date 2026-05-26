@@ -1,0 +1,110 @@
+{% assign stores = product_variant.store_availabilities | where: 'pick_up_enabled', true %}
+{% assign available_stores = stores | where: 'available', true %}
+
+<div
+  class="pickup-availability block max-md:text-sm empty:hidden {{ class }}"
+  data-variant-info="pickup_availability"
+  {{ block.shopify_attributes }}
+  {% if available_stores.size == 0 %}
+    data-hidden="true"
+  {% endif %}
+>
+  {%- if stores.size > 0 -%}
+    {%- assign closest_availability = stores.first -%}
+
+    {%- if closest_availability.available -%}
+      <div class="message message-success before:text-success">
+        <div>
+          <div class="font-bold">
+            {{
+              'products.pickup_availability.available_at_html'
+              | t: location_name: closest_availability.location.name
+            }}
+
+            <p class="font-normal text-sm text-foreground/75 mt-1">
+              {{ closest_availability.pick_up_time }}
+            </p>
+          </div>
+
+          <modal-trigger class="contents" target="#pickup-availability-{{ product_variant.id }}">
+            <button class="inline-block font-normal styled-link mt-1 text-sm text-foreground/75">
+              {{ 'products.pickup_availability.view_info' | t: count: stores.size }}
+            </button>
+          </modal-trigger>
+        </div>
+      </div>
+
+      <modal-drawer
+        append-to-body
+        position="bottom"
+        md:position="right"
+        class="modal modal-drawer modal-drawer--lg modal-drawer--mobile-bottom"
+        id="pickup-availability-{{ product_variant.id }}"
+      >
+        <div slot="content" tabindex="-1" class="mobile-bottom-modal-content h-full flex flex-col">
+          <div class="flex justify-between items-start modal-header">
+            <div class="flex items-start gap-4 md:gap-6">
+              {% assign variant_image = product_variant.image | default: product_variant.product.featured_image %}
+              {% if variant_image %}
+                <lqip-element class="image-loader">
+                  {{
+                    variant_image
+                    | image_url: width: 192
+                    | image_tag:
+                      class: 'w-16 md:w-24 shrink-0 rounded-block-sm',
+                      sizes: '(min-width: 768px) 96px, 64px',
+                      loading: 'lazy'
+                  }}
+                </lqip-element>
+              {% endif %}
+
+              <div class="self-center">
+                <h2 class="h5">{{ product_variant.product.title | escape }}</h2>
+                {% unless product_variant.product.has_only_default_variant %}
+                  <p class="text-sm text-foreground/75 mt-2">{{ product_variant.title }}</p>
+                {% endunless %}
+              </div>
+            </div>
+
+            <button
+              class="ml-4 modal-close -mt-2 -mr-2"
+              data-button-close
+              aria-label="{{ 'accessibility.close_modal' | t }}"
+              aria-label="{{ 'general.dialog.close_modal' | t }}"
+            >
+              {% render 'icon-times' %}
+            </button>
+          </div>
+          <ul class="overflow-y-auto">
+            {% for availability in stores %}
+              <li class="px-8 sm:px-12 py-6 md:py-8 border-b last:border-0">
+                <h3 class="text-base md:text-lg font-bold">{{ availability.location.name }}</h3>
+
+                {% if availability.available %}
+                  <div class="text-sm md:text-base message message-success before:text-success font-normal mt-1 md:mt-2">
+                    {{ 'products.pickup_availability.available' | t }}
+                  </div>
+                  <p class="text-xs md:text-sm text-foreground/75 mt-1 md:mt-2">
+                    {{ availability.pick_up_time }}
+                  </p>
+                {% else %}
+                  <div class="text-sm md:text-base message message-unavailable before:text-danger font-normal mt-1 md:mt-2">
+                    <p>{{ 'products.pickup_availability.unavailable' | t }}</p>
+                  </div>
+                {% endif %}
+
+                {% assign address = availability.location.address %}
+                <address class="leading-relaxed mt-4 md:mt-6 px-4 py-3 md:px-6 md:py-4 bg-foreground/3 rounded-block">
+                  {{ address | format_address }}
+                </address>
+                {% if address.phone.size > 0 %}
+                  <p>{{ address.phone }}</p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </modal-drawer>
+    {%- endif -%}
+  {%- endif -%}
+</div>

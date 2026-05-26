@@ -1,0 +1,17 @@
+{% liquid
+  if bg
+    #
+  elsif section.settings.background_color != blank and section.settings.background_color.rgba != '0 0 0 / 0.0'
+    assign bg = section.settings.background_color
+  else
+    assign bg = settings.colors_background
+  endif
+
+  assign red = bg.red | times: 65025
+  assign green = bg.green | times: 255
+  assign blue = bg.blue
+
+  assign bg_number = red | plus: green | plus: blue
+
+  echo bg_number
+%}

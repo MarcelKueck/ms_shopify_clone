@@ -1,0 +1,25 @@
+{% unless section.settings.heading == blank %}
+  <div class="section-header section-header--with-link {{ header_mb }} {{ section.settings.text_alignment }}">
+    <div class="filler-left"></div>
+
+    <div class="max-sm:pr-3 section-content-spacing">
+      {% render 'section-content' %}
+    </div>
+
+    <div class="filler-right styled-links">
+      <a
+        data-instant
+        href="{{ link_url }}"
+        class="flex gap-1 items-center label whitespace-nowrap max-md:text-xs"
+        data-animation
+        data-animation-group="{{ section.id }}"
+      >
+        {{ link_text }}
+
+        <div class="w-3 md:w-3.5 ml-1.5 icon-xs-stroke md:icon-sm-stroke">
+          {% render 'icon-chevron' %}
+        </div>
+      </a>
+    </div>
+  </div>
+{% endunless %}

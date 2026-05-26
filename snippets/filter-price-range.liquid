@@ -1,0 +1,78 @@
+<div class="filter-price-range">
+  <price-range>
+    <div class="range-group no-js:hidden mb-6">
+      <input
+        aria-label="{{ 'accessibility.filter_minimum_price' | t }}"
+        type="range"
+        class="range"
+        min="0"
+        max="{{ filter.range_max | divided_by: 100.0 | ceil }}"
+        data-range-min
+
+        {% if filter.min_value.value %}
+          value="{{ filter.min_value.value | divided_by: 100.0 | floor }}"
+        {% else %}
+          value="0"
+        {% endif %}
+      >
+      <input
+        aria-label="{{ 'accessibility.filter_maximum_price' | t }}"
+        type="range"
+        class="range"
+        min="0"
+        max="{{ filter.range_max | divided_by: 100.0 | ceil }}"
+        data-range-max
+
+        {% if filter.max_value.value %}
+          value="{{ filter.max_value.value | divided_by: 100.0 | floor }}"
+        {% else %}
+          value="{{ filter.range_max | divided_by: 100.0 | ceil }}"
+        {% endif %}
+      >
+    </div>
+
+    <div class="flex items-center gap-4">
+      <label class="relative grow">
+        <span class="input absolute pointer-events-none bg-transparent">
+          {{ cart.currency.symbol }}
+        </span>
+        <input
+          id="Filter-{{ scope }}-{{ filter.label | escape }}-GTE"
+          name="{{ filter.min_value.param_name }}"
+          type="number"
+          class="input hide-input-arrows text-right"
+          min="0"
+          max="{{ filter.range_max | divided_by: 100.0 | ceil }}"
+          placeholder="0"
+          data-input-min
+          {% if filter.min_value.value %}
+            value="{{ filter.min_value.value | divided_by: 100.0 | floor }}"
+          {% endif %}
+          aria-label="{{ 'accessibility.filter_minimum_price' | t }}"
+        >
+      </label>
+
+      <span>{{ 'products.facets.to' | t }}</span>
+
+      <label class="relative grow">
+        <span class="input absolute pointer-events-none bg-transparent">
+          {{ cart.currency.symbol }}
+        </span>
+        <input
+          id="Filter-{{ scope }}-{{ filter.label | escape }}-LTE"
+          name="{{ filter.max_value.param_name }}"
+          type="number"
+          class="input hide-input-arrows text-right"
+          min="0"
+          max="{{ filter.range_max | divided_by: 100.0 | ceil }}"
+          placeholder="{{ filter.range_max | divided_by: 100.0 | ceil }}"
+          data-input-max
+          {% if filter.max_value.value %}
+            value="{{ filter.max_value.value | divided_by: 100.0 | ceil }}"
+          {% endif %}
+          aria-label="{{ 'accessibility.filter_maximum_price' | t }}"
+        >
+      </label>
+    </div>
+  </price-range>
+</div>

@@ -1,0 +1,116 @@
+<template id="template-modal">
+  <style>
+    .overlay {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      background: var(--overlay-bg);
+      z-index: 1900;
+      display: none;
+      cursor: pointer;
+    }
+
+    .panel {
+      --color-background: var(--color-modal-background);
+      --color-foreground: var(--color-modal-foreground);
+
+      background: rgb(var(--color-background));
+      color: rgb(var(--color-foreground));
+      border-radius: var(--block-corner-radius);
+      overflow: hidden;
+
+      pointer-events: auto;
+    }
+
+    .panel.hide-scrollbar {
+      scrollbar-width: none;
+    }
+
+    .panel.hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .panel-inner {
+      height: 100%;
+    }
+
+    .panel-wrapper {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: none;
+      z-index: 2000;
+      pointer-events: none;
+    }
+
+    :host(.modal-scrollable) .panel-inner {
+      overflow-y: auto;
+    }
+
+    @keyframes dash {
+      0% {
+        stroke-dashoffset: 280;
+      }
+      50% {
+        stroke-dashoffset: 75;
+        transform: rotate(135deg);
+      }
+      100% {
+        stroke-dashoffset: 280;
+        transform: rotate(450deg);
+      }
+    }
+
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgb(var(--color-modal-background) / 50%);
+      border-radius: var(--block-corner-radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .spinner {
+      width: min(15vw, 4rem);
+    }
+
+    .spinner .path {
+      stroke-dasharray: 280;
+      stroke-dashoffset: 0;
+      transform-origin: center;
+      stroke: rgb(var(--color-foreground));
+      animation: dash 1.4s ease-in-out infinite;
+    }
+
+    @media (min-width: 768px) {
+      .md\:max-w-\[640px\] {
+        max-width: 640px;
+      }
+    }
+  </style>
+
+  <slot name="activator"></slot>
+
+  <div class="panel-wrapper" part="panel-wrapper">
+    <div class="panel" part="panel" tabindex="-1">
+      <div class="loading-overlay" style="display: none;">
+        {% render 'spinner' %}
+      </div>
+
+      <div class="panel-inner" part="panel-inner">
+        <slot name="content"></slot>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" part="overlay"></div>
+</template>

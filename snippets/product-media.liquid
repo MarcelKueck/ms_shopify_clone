@@ -1,0 +1,296 @@
+{% liquid
+  assign gallery_layout_desktop = section.settings.media_layout_desktop
+  assign carousel_indicator_mobile = section.settings.media_mobile_indicator
+  assign thumbnails_active_style = 'underline'
+  assign carousel_class = ''
+
+  assign featured_media = product.selected_or_first_available_variant.featured_media
+  assign variant_images = product.images | where: 'attached_to_variant?', true | map: 'src'
+  assign media_count = product.media.size
+  if section.settings.hide_variants and media_count > 1
+    assign media_count = media_count | minus: variant_images.size | plus: 1
+  endif
+  assign first_3d_model = product.media | where: 'media_type', 'model' | first
+
+  if media_count > 1
+    assign show_indicator = true
+  endif
+
+  case gallery_layout_desktop
+    when 'carousel_horizontal'
+      assign is_carousel = true
+      assign scroll_area_class = 'scroll-area-x scroll-shadow-horizontal -mb-2'
+      assign thumbnails_direction_desktop = 'horizontal'
+      if show_indicator
+        assign carousel_class = carousel_class | append: ' thumbs-horizontal '
+      endif
+    when 'carousel_vertical'
+      assign is_carousel = true
+      assign scroll_area_class = 'scroll-area-y scroll-shadow-vertical'
+      assign thumbnails_direction_desktop = 'vertical'
+      if show_indicator
+        assign carousel_class = carousel_class | append: ' thumbs-vertical '
+      endif
+    when 'grid', 'grid_main'
+      assign is_grid = true
+      assign carousel_class = ' lg:hidden thumbs-horizontal '
+    when 'grid_main'
+      if media_count != 2
+        assign media_grid_class = ' first:child:col-span-2 '
+      endif
+  endcase
+
+  if section.settings.media_zoom == 'lightbox'
+    assign lightbox = true
+  else
+    assign lightbox = false
+  endif
+%}
+
+{% capture media_image_sizes -%}
+(min-width: 992px) min({{ settings.page_width | times: section.settings.desktop_media_width | divided_by: 100.0 }}px, {{ section.settings.desktop_media_width }}vw), calc(100vw - 20px)
+{%- endcapture %}
+
+{% capture media_image_half_sizes -%}
+(min-width: 992px) min({{ settings.page_width | times: section.settings.desktop_media_width | divided_by: 200.0 }}px, {{ section.settings.desktop_media_width | divided_by: 2.0 }}vw), calc(100vw - 20px)
+{%- endcapture %}
+
+{% liquid
+  if gallery_layout_desktop == 'grid_main'
+    assign grid_first_image_sizes = media_image_sizes
+  elsif gallery_layout_desktop == 'grid'
+    assign grid_first_image_sizes = media_image_half_sizes
+  endif
+%}
+
+<style>
+  .product-grid, #shopify-section-{{ section.id }} {
+    --product-media-column-width: {{ section.settings.desktop_media_width }}%;
+  }
+</style>
+
+{% if section.settings.show_breadcrumbs %}
+  <div class="product-breadcrumbs col-[1/-1] container mt-4 mb-4 md:mb-6 relative">
+    {% render 'breadcrumbs' %}
+  </div>
+{% endif %}
+
+{% if product.media == empty or product == null %}
+  {% assign placeholder_type = 'image' %}
+
+  {% if product == null %}
+    {% assign placeholder_type = 'product-1' %}
+  {% endif %}
+
+  <div class="product-media">
+    {% render 'placeholder', type: placeholder_type, class: 'placeholder rounded-block' %}
+  </div>
+  {% continue %}
+{% endif %}
+
+<div
+  class="
+    product-media color
+    {% if lightbox %} product-media--lightbox {% endif %}
+    {% if section.settings.show_breadcrumbs %} !pt-0 {% endif %}
+  "
+  style="{%- render 'apply-color-var', var: '--color-background', color: section.settings.gallery_background_color -%}"
+>
+  {% if is_grid %}
+    {% capture grid_inner %}
+      <media-grid class="product-media-grid grid grid-cols-2 gap-6 items-start max-lg:hidden {{ media_grid_class }}">
+        {% liquid
+          if featured_media
+            render 'media', media: featured_media, preload: true, sizes: grid_first_image_sizes, loader: false
+          endif
+
+          for media in product.media
+            if featured_media == blank
+              if forloop.first
+                assign sizes = grid_first_image_sizes
+                assign is_lazy = false
+                assign is_preload = true
+              else
+                assign sizes = media_image_half_sizes
+                assign is_lazy = true
+                assign is_preload = false
+              endif
+              render 'media', media: media, lazy: is_lazy, preload: is_preload, sizes: sizes, loader: false
+            else
+              unless media.id == featured_media.id
+                render 'media', media: media, lazy: true, sizes: media_image_half_sizes, loader: false
+              endunless
+            endif
+          endfor
+        %}
+      </media-grid>
+    {% endcapture %}
+
+    {% if lightbox %}
+      <media-lightbox class="contents">
+        {{ grid_inner }}
+      </media-lightbox>
+    {% else %}
+      {{ grid_inner }}
+    {% endif %}
+  {% endif %}
+
+  <div class="product-media-carousel {{ carousel_class }}">
+    {% if show_indicator and is_carousel %}
+      <div class="product-media-thumbnails-wrapper thumbnails-wrapper--desktop">
+        <button class="button-prev is-hidden" data-carousel-prev aria-label="{{ 'accessibility.previous' | t }}">
+          {% render 'icon-chevron' %}
+        </button>
+
+        <scroll-carousel
+          {{ thumbnails_direction_desktop }}
+          class="{{ scroll_area_class }} block"
+          item-selector=".product-thumbnail"
+        >
+          <product-thumbnails
+            class="
+              product-media-thumbnails product-media-thumbnails--active-{{ thumbnails_active_style }}
+              product-media-thumbnails--{{ thumbnails_direction_desktop }}
+            "
+          >
+            {% render 'product-thumbnails', product: product, media: media, featured_media: featured_media %}
+          </product-thumbnails>
+
+          <div class="scroll-shadow-start"></div>
+          <div class="scroll-shadow-end"></div>
+        </scroll-carousel>
+
+        <button class="button-next is-hidden" data-carousel-next aria-label="{{ 'accessibility.next' | t }}">
+          {% render 'icon-chevron' %}
+        </button>
+      </div>
+    {% endif %}
+
+    <div class="relative product-gallery-wrapper overflow-hidden max-lg:-mx-co">
+      <media-carousel
+        class="
+          scroll-area-x !scroll-auto product-gallery max-lg:px-co max-lg:scroll-pl-co
+          {% if section.settings.media_fit_height %}
+            product-media--fit-height
+          {% endif %}
+        "
+        item-selector="[data-media-id]"
+        lightbox="{{ lightbox }}"
+        video-autoplay="{{ section.settings.media_enable_video_autoplay }}"
+        {% if section.settings.media_size == blank %}
+          adaptive-height
+        {% endif %}
+      >
+        {% if featured_media %}
+          <div class="product-gallery__slide">
+            {% render 'media', media: featured_media, preload: true, sizes: media_image_sizes %}
+          </div>
+        {% endif %}
+
+        {% for media in product.media %}
+          {% if featured_media == blank %}
+            {% if forloop.first %}
+              {% assign is_lazy = false %}
+              {% assign is_preload = true %}
+            {% else %}
+              {% assign is_lazy = true %}
+              {% assign is_preload = false %}
+            {% endif %}
+            <div class="product-gallery__slide">
+              {% render 'media', media: media, lazy: is_lazy, preload: is_preload, sizes: media_image_sizes %}
+            </div>
+          {% else %}
+            {% unless media.id == featured_media.id %}
+              <div class="product-gallery__slide">
+                {% render 'media', media: media, lazy: true, sizes: media_image_sizes %}
+              </div>
+            {% endunless %}
+          {% endif %}
+        {% endfor %}
+
+        <div class="product-gallery__loader" data-media-carousel-loading-overlay>
+          {% render 'spinner' %}
+        </div>
+      </media-carousel>
+
+      {% if first_3d_model %}
+        <div class="container lg:hidden">
+          <button
+            class="button button-light w-full mt-2"
+            type="button"
+            aria-label="{{ 'products.product.xr_button_label' | t }}"
+            data-shopify-xr
+            data-shopify-model3d-id="{{ first_3d_model.id }}"
+            data-shopify-title="{{ product.title | escape }}"
+            data-shopify-xr-hidden
+          >
+            <div class="icon-xs mr-3">
+              {% render 'icon-3d-model' %}
+            </div>
+            {{ 'products.product.xr_button' | t }}
+          </button>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if show_indicator %}
+      <div class="product-gallery-mobile-indicator">
+        {% case carousel_indicator_mobile %}
+          {% when 'bar' %}
+            <media-carousel-bar class="block mt-2" media-count="{{ product.media.size }}"></media-carousel-bar>
+
+          {% when 'dots' %}
+            <media-carousel-dots
+              class="dots-indicator-filled justify-self-center mt-2"
+              item-count="{{ product.media.size }}"
+            ></media-carousel-dots>
+
+          {% when 'thumbnails' %}
+            <scroll-carousel
+              class="scroll-area-x grid bleed pt-8 md:pt-12 pb-2 -my-2"
+              item-selector=".product-thumbnail"
+            >
+              <product-thumbnails
+                class="
+                  product-media-thumbnails product-media-thumbnails--active-{{ thumbnails_active_style }}
+                  product-media-thumbnails--horizontal
+                "
+              >
+                {% render 'product-thumbnails', product: product, media: media, featured_media: featured_media %}
+              </product-thumbnails>
+            </scroll-carousel>
+        {% endcase %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if first_3d_model %}
+    <link
+      id="ModelViewerStyle"
+      rel="stylesheet"
+      href="https://cdn.shopify.com/shopifycloud/model-viewer-ui/assets/v1.0/model-viewer-ui.css"
+      media="print"
+      onload="this.media='all'"
+    >
+    <style>
+      .shopify-model-viewer-ui {
+        display: block;
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+      }
+
+      .shopify-model-viewer-ui model-viewer {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+
+    <script type="application/json" id="Product-JSON-{{ product.id }}">
+      {{ product.media | where: 'media_type', 'model' | json }}
+    </script>
+  {% endif %}
+</div>

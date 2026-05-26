@@ -1,0 +1,80 @@
+{% liquid
+  assign overlay_opacity = block.settings.overlay_opacity | divided_by: 100.0
+  assign tag = 'div'
+
+  if block.settings.button_text == blank and block.settings.link != blank
+    assign tag = 'a'
+  endif
+%}
+
+<li id="{{ block.id }}" {{ block.shopify_attributes }}>
+  <style>
+    #{{ block.id }} {
+      --color-foreground: {{ block.settings.text_color.rgb }};
+      --color-headings: {{ block.settings.text_color.rgb }};
+
+      {% render 'media-overlay-vars',
+        type: block.settings.overlay_type,
+        content_position: block.settings.content_alignment,
+        color: block.settings.overlay_color,
+        opacity: overlay_opacity
+      %}
+    }
+
+    @media not all and (min-width: 768px) {
+      #{{ block.id }} {
+        {% render 'media-overlay-vars',
+          type: block.settings.overlay_type,
+          content_position: block.settings.content_alignment_mobile,
+          color: block.settings.overlay_color,
+          opacity: overlay_opacity
+        %}
+      }
+    }
+  </style>
+
+  <{{ tag }}
+    class="promo-tile group grid grid-stack {% if block.settings.fill_height %} h-full {% endif %}"
+    {% if block.settings.button_text == blank and block.settings.link != blank %}
+      href="{{ block.settings.link }}"
+    {% endif %}
+  >
+    {% if block.settings.image != blank %}
+      <lqip-element
+        class="media rounded-block image-loader media--overlay md:hidden"
+      >
+        {{
+          block.settings.image_mobile
+          | default: block.settings.image
+          | image_url: width: 1440
+          | image_tag:
+            widths: '360, 450, 540, 630, 720, 900, 1050, 1200, 1320, 1440',
+            loading: 'lazy',
+            sizes: sizes,
+            class: 'md:hidden'
+        }}
+      </lqip-element>
+      <lqip-element
+        class="media rounded-block image-loader media--overlay max-md:hidden"
+      >
+        {{
+          block.settings.image
+          | image_url: width: 1440
+          | image_tag:
+            class: 'image-hover-zoom',
+            widths: '360, 450, 540, 630, 720, 900, 1050, 1200, 1320, 1440',
+            loading: 'lazy',
+            sizes: sizes
+        }}
+      </lqip-element>
+    {% else %}
+      <div class="media media--overlay rounded-block">
+        {% render 'placeholder', type: 'lifestyle-1' %}
+      </div>
+    {% endif %}
+
+    <div class="z-10 p-[min(10%,2rem)] {{ block.settings.content_alignment }} {{ block.settings.content_alignment_mobile }}">
+      {% render 'section-content', section: block %}
+    </div>
+  </{{ tag }}>
+</li>

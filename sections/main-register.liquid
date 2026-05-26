@@ -1,0 +1,95 @@
+{% render 'section-bg-number-vars' %}
+
+<div class="section section--full-width styled-links text-center" style="--container-max-inner-width: 512px;">
+  <h1 class="h3 mb-8">
+    {{ 'customer.register.title' | t }}
+  </h1>
+  {% form 'create_customer', data-form-button-loading: true %}
+    {%- if form.errors -%}
+      <div class="mb-6">
+        {% render 'form-errors', errors: form.errors, form_id: "RegisterForm" %}
+      </div>
+    {%- endif -%}
+
+    <div class="form-floating">
+      <input
+        class="input"
+        type="text"
+        name="customer[first_name]"
+        id="RegisterForm-FirstName"
+        {% if form.first_name %}
+          value="{{ form.first_name }}"
+        {% endif %}
+        autocomplete="given-name"
+        placeholder="{{ 'customer.register.first_name' | t }}"
+      >
+      <label for="RegisterForm-FirstName">
+        {{ 'customer.register.first_name' | t }}
+      </label>
+    </div>
+
+    <div class="form-floating mt-6">
+      <input
+        class="input"
+        type="text"
+        name="customer[last_name]"
+        id="RegisterForm-LastName"
+        {% if form.last_name %}
+          value="{{ form.last_name }}"
+        {% endif %}
+        autocomplete="family-name"
+        placeholder="{{ 'customer.register.last_name' | t }}"
+      >
+      <label for="RegisterForm-LastName">
+        {{ 'customer.register.last_name' | t }}
+      </label>
+    </div>
+
+    <div class="form-floating mt-6">
+      <input
+        class="input"
+        type="email"
+        name="customer[email]"
+        id="RegisterForm-email"
+        {% if form.email %}
+          value="{{ form.email }}"
+        {% endif %}
+        spellcheck="false"
+        autocapitalize="off"
+        autocomplete="email"
+        aria-required="true"
+        {% if form.errors contains 'email' %}
+          aria-invalid="true"
+          aria-describedby="RegisterForm-email-error"
+        {% endif %}
+        placeholder="{{ 'customer.register.email' | t }}"
+      >
+      <label for="RegisterForm-email">
+        {{ 'customer.register.email' | t }}
+      </label>
+
+    </div>
+
+    <div class="form-floating mt-6">
+      <input
+        class="input"
+        type="password"
+        name="customer[password]"
+        id="RegisterForm-password"
+        aria-required="true"
+        {% if form.errors contains 'password' %}
+          aria-invalid="true"
+          aria-describedby="RegisterForm-password-error"
+        {% endif %}
+        placeholder="{{ 'customer.register.password' | t }}"
+      >
+      <label for="RegisterForm-password">
+        {{ 'customer.register.password' | t }}
+      </label>
+    </div>
+
+    <button type="submit" class="button button-primary mt-8">
+      {{- 'customer.register.submit' | t -}}
+    </button>
+  {% endform %}
+</div>

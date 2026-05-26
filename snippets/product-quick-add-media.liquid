@@ -1,0 +1,87 @@
+{% liquid
+  assign featured_media = product.selected_or_first_available_variant.featured_media
+  assign media_count = product.media | size
+  assign first_3d_model = product.media | where: 'media_type', 'model' | first
+%}
+
+{% capture media_image_sizes -%}
+(min-width: 768px) min(480px, 100vw), 100vw
+{%- endcapture %}
+
+<template id="quick-add-media">
+  <div class="relative quick-add-media">
+    {% if media_count == 0 %}
+      {% render 'placeholder', type: 'image' %}
+    {% else %}
+      <media-carousel
+        class="scroll-area-x !scroll-auto product-gallery gap-0 cursor-pointer "
+        item-selector="[data-media-id]"
+        adaptive-height
+        loop
+      >
+        {% if featured_media %}
+          <div class="product-gallery__slide">
+            {% render 'media', media: featured_media, preload: true, sizes: media_image_sizes %}
+          </div>
+        {% endif %}
+
+        {% for media in product.media %}
+          {% if featured_media == blank %}
+            {% if forloop.first %}
+              {% assign is_lazy = false %}
+              {% assign is_preload = true %}
+            {% else %}
+              {% assign is_lazy = true %}
+              {% assign is_preload = false %}
+            {% endif %}
+            <div class="product-gallery__slide">
+              {% render 'media', media: media, lazy: is_lazy, preload: is_preload, sizes: media_image_sizes %}
+            </div>
+          {% else %}
+            {% unless media.id == featured_media.id %}
+              <div class="product-gallery__slide">
+                {% render 'media', media: media, lazy: true, sizes: media_image_sizes %}
+              </div>
+            {% endunless %}
+          {% endif %}
+        {% endfor %}
+
+        <div class="product-gallery__loader" data-media-carousel-loading-overlay>
+          {% render 'spinner' %}
+        </div>
+      </media-carousel>
+
+      {% render 'carousel-buttons' %}
+    {% endif %}
+  </div>
+
+  {% if first_3d_model %}
+    <link
+      id="ModelViewerStyle"
+      rel="stylesheet"
+      href="https://cdn.shopify.com/shopifycloud/model-viewer-ui/assets/v1.0/model-viewer-ui.css"
+      media="print"
+      onload="this.media='all'"
+    >
+    <style>
+      .shopify-model-viewer-ui {
+        display: block;
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+      }
+
+      .shopify-model-viewer-ui model-viewer {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+
+    <script type="application/json" id="Product-JSON-{{ product.id }}">
+      {{ product.media | where: 'media_type', 'model' | json }}
+    </script>
+  {% endif %}
+</template>

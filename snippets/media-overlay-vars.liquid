@@ -1,0 +1,45 @@
+{% comment %}
+  Output css vars for a media overlay
+
+  Params:
+   - type: solid or gradient
+   - content_position
+   - color
+   - opacity
+   - prefix
+{% endcomment %}
+
+{% liquid
+  assign prefix = prefix | default: '--media-overlay'
+  assign opacity = opacity | default: '1.0'
+  assign content_position = content_position | default: 'middle-center' | replace: 'content-', '' | replace: 'md:', ''
+
+  if type == 'gradient' and content_position != 'middle-center'
+    case content_position
+      when 'middle-left'
+        assign angle = '90deg'
+      when 'middle-right'
+        assign angle = '270deg'
+      when 'top-left', 'top-center', 'top-right'
+        assign angle = '180deg'
+      when 'bottom-left', 'bottom-center', 'bottom-right'
+        assign angle = '0deg'
+    endcase
+  endif
+%}
+
+{% if type == 'gradient' and angle %}
+  {{ prefix }}: linear-gradient(
+    {{ angle }},
+    rgb( {{ color.rgb }} / 100% ),
+    rgb( {{ color.rgb }} / 100% ),
+    rgb( {{ color.rgb }} / 75% ),
+    rgb( {{ color.rgb }} / 45% ),
+    rgb( {{ color.rgb }} / 20% ),
+    rgb( {{ color.rgb }} / 0% )
+  );
+{% else %}
+  {{ prefix }}: {{ color }};
+{% endif %}
+
+{{ prefix }}-opacity: {{ opacity }};

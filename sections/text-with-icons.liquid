@@ -1,0 +1,623 @@
+{% render 'section-bg-number-vars' %}
+
+<style>
+  #shopify-section-{{ section.id }} {
+    --grid-columns-max: {{ section.blocks.size }};
+  }
+</style>
+
+<div {% render 'section-attrs' %}>
+  {% render 'section-header', header_mb: 'rfs:mb-20' %}
+
+  <div class="section-body">
+    <div
+      class="
+        grid-carousel grid-carousel--pseudo-pr
+        {{ section.settings.item_text_alignment }} {{ section.settings.item_text_alignment_mobile }}
+
+        {% if section.settings.enable_swipe_on_mobile %}
+          max-lg:scroll-area-x
+          max-lg:bleed
+          [--grid-columns:1.5]
+          md:[--grid-columns:2.25]
+        {% else %}
+          grid-carousel--stack
+          {% if section.settings.columns_mobile == '2' %}
+            [--grid-columns:2]
+          {% else %}
+            [--grid-columns:1]
+          {% endif %}
+          {% if section.blocks.size == 3 or section.blocks.size == 5 %}
+            md:[--grid-columns:3]
+          {% else %}
+            sm:[--grid-columns:2]
+          {% endif %}
+          gap-y-12
+        {% endif %}
+
+        lg:[--grid-columns:5]
+        [--grid-gap:1.5rem]
+        md:[--grid-gap:2rem]
+      "
+    >
+      {% for block in section.blocks %}
+        <div
+          class="trim-margins snap-center md:snap-start snap-always"
+          data-animation
+          data-animation-group="{{ section.id }}"
+          {{ block.shopify_attributes }}
+        >
+          <div class="mb-6">
+            {% render 'section-full-icon',
+              custom_icon: block.settings.custom_icon,
+              icon: block.settings.icon,
+              icon_background: section.settings.icon_background,
+              icon_background_color: section.settings.icon_background_color,
+              icon_color: section.settings.icon_color,
+              icon_width: section.settings.icon_width
+            %}
+          </div>
+
+          {% if block.settings.heading != blank %}
+            <p class="{{ section.settings.item_heading_size }} mb-4">
+              {{ block.settings.heading }}
+            </p>
+          {% endif %}
+
+          {% if block.settings.content != blank %}
+            <div
+              class="
+                inline-block prose  max-w-md
+                {% if section.settings.columns_mobile == '2' %} max-md:text-sm {% endif %}
+              "
+            >
+              {{ block.settings.content }}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "t:sections.text-with-icons.name",
+  "class": "overflow-hidden",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:sections.all.full_width.label",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_swipe_on_mobile",
+      "label": "t:sections.text-with-icons.settings.enable_swipe_on_mobile.label",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "label": "t:sections.text-with-icons.settings.columns_mobile.label",
+      "options": [
+        {
+          "value": "1",
+          "label": "t:sections.text-with-icons.settings.columns_mobile.options__0.label"
+        },
+        {
+          "value": "2",
+          "label": "t:sections.text-with-icons.settings.columns_mobile.options__1.label"
+        }
+      ],
+      "default": "1",
+      "info": "t:sections.text-with-icons.settings.columns_mobile.info"
+    },
+    {
+      "type": "select",
+      "id": "item_heading_size",
+      "label": "t:sections.all.heading_size.label",
+      "options": [
+        {
+          "value": "h0",
+          "label": "t:sections.all.heading_size.options__0.label"
+        },
+        {
+          "value": "h1",
+          "label": "t:sections.all.heading_size.options__1.label"
+        },
+        {
+          "value": "h2",
+          "label": "t:sections.all.heading_size.options__2.label"
+        },
+        {
+          "value": "h3",
+          "label": "t:sections.all.heading_size.options__3.label"
+        },
+        {
+          "value": "h4",
+          "label": "t:sections.all.heading_size.options__4.label"
+        },
+        {
+          "value": "h5",
+          "label": "t:sections.all.heading_size.options__5.label"
+        },
+        {
+          "value": "h6",
+          "label": "t:sections.all.heading_size.options__6.label"
+        }
+      ],
+      "default": "h5"
+    },
+    {
+      "type": "select",
+      "id": "item_text_alignment",
+      "label": "t:sections.all.text_alignment.label",
+      "options": [
+        {
+          "value": "text-left",
+          "label": "t:sections.all.text_alignment.options.text_left.label"
+        },
+        {
+          "value": "text-center",
+          "label": "t:sections.all.text_alignment.options.text_center.label"
+        },
+        {
+          "value": "text-right",
+          "label": "t:sections.all.text_alignment.options.text_right.label"
+        }
+      ],
+      "default": "text-center"
+    },
+    {
+      "type": "select",
+      "id": "item_text_alignment_mobile",
+      "label": "t:sections.text-with-icons.settings.item_text_alignment_mobile.label",
+      "options": [
+        {
+          "value": "",
+          "label": "t:sections.text-with-icons.settings.item_text_alignment_mobile.options__0.label"
+        },
+        {
+          "value": "max-md:text-left",
+          "label": "t:sections.all.text_alignment.options.text_left.label"
+        },
+        {
+          "value": "max-md:text-center",
+          "label": "t:sections.all.text_alignment.options.text_center.label"
+        },
+        {
+          "value": "max-md:text-right",
+          "label": "t:sections.all.text_alignment.options.text_right.label"
+        }
+      ],
+      "default": ""
+    },
+    {
+      "type": "select",
+      "id": "icon_background",
+      "label": "t:sections.text-with-icons.settings.icon_background.label",
+      "options": [
+        {
+          "value": "",
+          "label": "t:sections.text-with-icons.settings.icon_background.options__0.label"
+        },
+        {
+          "value": "square",
+          "label": "t:sections.text-with-icons.settings.icon_background.options__1.label"
+        },
+        {
+          "value": "circle",
+          "label": "t:sections.text-with-icons.settings.icon_background.options__2.label"
+        }
+      ],
+      "default": "circle"
+    },
+    {
+      "type": "range",
+      "id": "icon_width",
+      "min": 24,
+      "max": 96,
+      "step": 8,
+      "unit": "px",
+      "label": "t:sections.all.icon_width.label",
+      "default": 48
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.heading"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:sections.all.heading.label"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:sections.all.heading_size.label",
+      "options": [
+        {
+          "value": "h0",
+          "label": "t:sections.all.heading_size.options__0.label"
+        },
+        {
+          "value": "h1",
+          "label": "t:sections.all.heading_size.options__1.label"
+        },
+        {
+          "value": "h2",
+          "label": "t:sections.all.heading_size.options__2.label"
+        },
+        {
+          "value": "h3",
+          "label": "t:sections.all.heading_size.options__3.label"
+        },
+        {
+          "value": "h4",
+          "label": "t:sections.all.heading_size.options__4.label"
+        },
+        {
+          "value": "h5",
+          "label": "t:sections.all.heading_size.options__5.label"
+        },
+        {
+          "value": "h6",
+          "label": "t:sections.all.heading_size.options__6.label"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:sections.all.heading_alignment.label",
+      "options": [
+        {
+          "value": "text-left",
+          "label": "t:sections.all.heading_alignment.options.text_left.label"
+        },
+        {
+          "value": "text-center",
+          "label": "t:sections.all.heading_alignment.options.text_center.label"
+        },
+        {
+          "value": "text-right",
+          "label": "t:sections.all.heading_alignment.options.text_right.label"
+        }
+      ],
+      "default": "text-center"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.heading_color.label",
+      "id": "heading_color"
+    },
+    {
+      "type": "color",
+      "id": "icon_background_color",
+      "label": "t:sections.text-with-icons.settings.icon_background_color.label"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "t:sections.text-with-icons.settings.icon_color.label"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.seo"
+    },
+    {
+      "type": "select",
+      "id": "heading_html_tag",
+      "label": "t:sections.all.heading_html_tag.label",
+      "options": [
+        {
+          "value": "h1",
+          "label": "h1"
+        },
+        {
+          "value": "h2",
+          "label": "h2"
+        },
+        {
+          "value": "h3",
+          "label": "h3"
+        },
+        {
+          "value": "h4",
+          "label": "h4"
+        },
+        {
+          "value": "h5",
+          "label": "h5"
+        },
+        {
+          "value": "h6",
+          "label": "h6"
+        },
+        {
+          "value": "p",
+          "label": "p"
+        },
+        {
+          "value": "span",
+          "label": "span"
+        },
+        {
+          "value": "div",
+          "label": "div"
+        }
+      ],
+      "default": "p",
+      "info": "t:sections.all.heading_html_tag.info"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "column",
+      "name": "t:sections.text-with-icons.blocks.column.name",
+      "limit": 5,
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "custom_icon",
+          "label": "t:sections.all.custom_icon.label"
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "t:sections.all.icon.label",
+          "options": [
+            {
+              "group": "t:sections.all.icon.options__0.group",
+              "value": "message-chat-circle",
+              "label": "t:sections.all.icon.options__0.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__1.group",
+              "value": "at-sign",
+              "label": "t:sections.all.icon.options__1.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__2.group",
+              "value": "headphones",
+              "label": "t:sections.all.icon.options__2.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__3.group",
+              "value": "mail",
+              "label": "t:sections.all.icon.options__3.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__4.group",
+              "value": "phone",
+              "label": "t:sections.all.icon.options__4.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__5.group",
+              "value": "message-text-square",
+              "label": "t:sections.all.icon.options__5.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__6.group",
+              "value": "voicemail",
+              "label": "t:sections.all.icon.options__6.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__7.group",
+              "value": "bank-note",
+              "label": "t:sections.all.icon.options__7.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__8.group",
+              "value": "credit-card",
+              "label": "t:sections.all.icon.options__8.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__9.group",
+              "value": "credit-card-check",
+              "label": "t:sections.all.icon.options__9.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__10.group",
+              "value": "credit-card-shield",
+              "label": "t:sections.all.icon.options__10.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__11.group",
+              "value": "shield",
+              "label": "t:sections.all.icon.options__11.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__12.group",
+              "value": "percent",
+              "label": "t:sections.all.icon.options__12.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__13.group",
+              "value": "tag",
+              "label": "t:sections.all.icon.options__13.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__14.group",
+              "value": "shopping-cart",
+              "label": "t:sections.all.icon.options__14.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__15.group",
+              "value": "plane",
+              "label": "t:sections.all.icon.options__15.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__16.group",
+              "value": "package-check",
+              "label": "t:sections.all.icon.options__16.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__17.group",
+              "value": "package",
+              "label": "t:sections.all.icon.options__17.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__18.group",
+              "value": "return",
+              "label": "t:sections.all.icon.options__18.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__19.group",
+              "value": "truck",
+              "label": "t:sections.all.icon.options__19.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__20.group",
+              "value": "check-heart",
+              "label": "t:sections.all.icon.options__20.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__21.group",
+              "value": "check",
+              "label": "t:sections.all.icon.options__21.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__22.group",
+              "value": "star",
+              "label": "t:sections.all.icon.options__22.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__23.group",
+              "value": "thumbs-up",
+              "label": "t:sections.all.icon.options__23.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__24.group",
+              "value": "check-verified",
+              "label": "t:sections.all.icon.options__24.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__25.group",
+              "value": "building",
+              "label": "t:sections.all.icon.options__25.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__26.group",
+              "value": "file",
+              "label": "t:sections.all.icon.options__26.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__27.group",
+              "value": "gift",
+              "label": "t:sections.all.icon.options__27.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__28.group",
+              "value": "heart",
+              "label": "t:sections.all.icon.options__28.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__29.group",
+              "value": "heart-hand",
+              "label": "t:sections.all.icon.options__29.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__30.group",
+              "value": "marker-pin",
+              "label": "t:sections.all.icon.options__30.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__31.group",
+              "value": "face-smile",
+              "label": "t:sections.all.icon.options__31.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__32.group",
+              "value": "store",
+              "label": "t:sections.all.icon.options__32.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__33.group",
+              "value": "target",
+              "label": "t:sections.all.icon.options__33.label"
+            },
+            {
+              "group": "t:sections.all.icon.options__34.group",
+              "value": "user",
+              "label": "t:sections.all.icon.options__34.label"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "t:sections.all.heading.label"
+        },
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "t:sections.all.content.label"
+        }
+      ]
+    }
+  ],
+  "disabled_on": {
+    "groups": [
+      "header",
+      "custom.overlay"
+    ]
+  },
+  "presets": [
+    {
+      "name": "t:sections.text-with-icons.presets__0.name",
+      "blocks": [
+        {
+          "type": "column",
+          "settings": {
+            "icon": "package-check",
+            "heading": "Free shipping",
+            "content": "<p>Share your free shipping policy and any terms, like minimum purchase or specific regions.</p>"
+          }
+        },
+        {
+          "type": "column",
+          "settings": {
+            "icon": "message-chat-circle",
+            "heading": "Customer support",
+            "content": "<p>Describe your customer support services, including availability and contact options.</p>"
+          }
+        },
+        {
+          "type": "column",
+          "settings": {
+            "icon": "return",
+            "heading": "Easy returns",
+            "content": "<p>Provide a brief overview of your return and exchange policies, including return timeframe and potential costs.</p>"
+          }
+        },
+        {
+          "type": "column",
+          "settings": {
+            "icon": "credit-card-shield",
+            "heading": "Secure checkout",
+            "content": "<p>Mention your secure checkout process, highlighting any specific security measures employed.</p>"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

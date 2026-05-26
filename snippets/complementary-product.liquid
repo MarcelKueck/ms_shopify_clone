@@ -1,0 +1,79 @@
+{% liquid
+  if product == empty
+    assign product = null
+  endif
+
+  assign background_color = background_color | default: block.settings.background_color | default: settings.colors_product_card_background
+  assign text_color = text_color | default: block.settings.text_color | default: settings.colors_product_card_text
+%}
+
+<div
+  class="
+    complementary-product color grid grid-cols-[auto_1fr_auto] gap-x-4 md:gap-x-6
+    group-[.has-diff-bg]:border-0
+    {% unless borderless == true %} border p-4 rounded-block mr-px {% endunless %}
+  "
+  style="
+    {%- render 'apply-color-var', var: '--color-background', color: background_color -%}
+    {%- render 'apply-color-var', var: '--color-foreground', color: text_color -%}
+  "
+>
+  <a data-instant href="{{ product.url }}" class="block">
+    <div class="media media--contain w-16 md:w-20 shrink-0 rounded-block-xs">
+      {% if product %}
+        {% if product.featured_image %}
+          <lqip-element class="image-loader">
+            {{
+              product.featured_image
+              | image_url: width: 160
+              | image_tag:
+                widths: '80, 160',
+                class: 'product-thumbnail-shade',
+                sizes: '(min-width: 768px) 80px, 64px',
+                fetchpriority: 'low'
+            }}
+          </lqip-element>
+        {% else %}
+          {% render 'placeholder', type: 'image' %}
+        {% endif %}
+
+      {% else %}
+        {% capture placeholder_type %}product-{{ index | modulo: 6 | plus: 1 }}{% endcapture %}
+        {% render 'placeholder', type: placeholder_type %}
+      {% endif %}
+    </div>
+  </a>
+
+  <div class="flex flex-col self-center">
+    <a data-instant href="{{ product.url }}">
+      <h2 class="product-name text-sm md:text-base">
+        {{ product.title | default: 'Product' }}
+      </h2>
+    </a>
+
+    <div class="text-sm mt-3">
+      {% if product %}
+        {% render 'price', product: product %}
+      {% else %}
+        {{ 5000 | money }}
+      {% endif %}
+    </div>
+  </div>
+
+  <quick-add-button
+    class="contents"
+    {% if product.has_only_default_variant or product.variants.size == 1 %}
+      variant-id="{{ product.first_available_variant.id }}"
+    {% endif %}
+    handle="{{ product.handle }}"
+  >
+    <button
+      class="button button-light complementary-product__button-add-to-cart p-0 w-9 h-9 md:w-10 md:h-10 rounded-full"
+      aria-label="{{ 'accessibility.add_to_cart' | t }}"
+    >
+      <div class="icon-sm">
+        {% render 'icon-cart' %}
+      </div>
+    </button>
+  </quick-add-button>
+</div>

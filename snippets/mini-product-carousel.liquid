@@ -1,0 +1,40 @@
+<div class="flex items-center mb-6">
+  <div class="heading text-base md:text-lg">
+    {{ heading }}
+  </div>
+  {% if count > 1 %}
+    <div class="grow"></div>
+    <button
+      id="{{ section.id }}-product-carousel-prev"
+      class="
+        button button-light rounded-full w-7 h-7 sm:w-8 sm:h-8 p-0
+        [&.is-hidden]:opacity-50 [&.is-hidden]:pointer-events-none
+      "
+    >
+      <div class="w-3 -scale-100 icon-xs-stroke">{% render 'icon-chevron' %}</div>
+    </button>
+    <button
+      id="{{ section.id }}-product-carousel-next"
+      class="
+        button button-light rounded-full w-7 h-7 sm:w-8 sm:h-8 p-0
+        [&.is-hidden]:opacity-50 [&.is-hidden]:pointer-events-none
+        ml-3
+      "
+    >
+      <div class="w-3 icon-xs-stroke">{% render 'icon-chevron' %}</div>
+    </button>
+  {% endif %}
+</div>
+
+<scroll-carousel
+  class="block scroll-area-x {{ carousel_class }}"
+  item-selector=".grid-carousel-item"
+  {% if count > 1 %}
+    button-prev="#{{ section.id }}-product-carousel-prev"
+    button-next="#{{ section.id }}-product-carousel-next"
+  {% endif %}
+>
+  <div class="grid-carousel [--grid-columns:1] [--grid-gap:3rem] {{ grid_carousel_class }}">
+    {{ items_html }}
+  </div>
+</scroll-carousel>

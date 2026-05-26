@@ -1,0 +1,143 @@
+{% liquid
+  if section.settings.show_only_on_homepage and request.page_type != 'index'
+    break
+  endif
+
+  assign tag = 'div'
+
+  if section.settings.url != blank
+    assign tag = 'a'
+  endif
+%}
+
+{% render 'section-bg-number-vars' %}
+
+<height-observer variable="promotion-bar-height">
+  <{{ tag }}
+    {% render 'section-attrs', class: 'section--no-padding block group' %}
+    {% if section.settings.url != blank %}
+      href="{{ section.settings.url }}"
+      data-instant
+    {% endif %}
+  >
+    <div
+      class="
+        section-body flex justify-center items-center text-center headings
+        {{ section.settings.section_height }}
+        {{ section.settings.text_size }}
+      "
+    >
+      {% if section.settings.url %}
+        <div class="grow basis-0"></div>
+        <div>
+          {{ section.settings.content }}
+        </div>
+        <div class="grow basis-0">
+          <div class="icon-xs ml-4">
+            {% render 'icon-chevron' %}
+          </div>
+        </div>
+      {% else %}
+        <div>
+          {{ section.settings.content }}
+        </div>
+      {% endif %}
+    </div>
+  </{{ tag }}>
+</height-observer>
+
+{% schema %}
+{
+  "name": "t:sections.promotion-bar.name",
+  "class": "section-promotion-bar",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_only_on_homepage",
+      "label": "t:sections.promotion-bar.settings.show_only_on_homepage.label",
+      "default": false
+    },
+    {
+      "type": "richtext",
+      "id": "content",
+      "label": "t:sections.promotion-bar.settings.content.label",
+      "default": "<p><strong>SPECIAL OFFER</strong></p><p>Insert your text about your sale, discount code, or special offer here.</p>"
+    },
+    {
+      "type": "url",
+      "id": "url",
+      "label": "t:sections.promotion-bar.settings.url.label"
+    },
+    {
+      "type": "select",
+      "label": "t:sections.promotion-bar.settings.text_size.label",
+      "id": "text_size",
+      "options": [
+        {
+          "label": "t:sections.promotion-bar.settings.text_size.options__0.label",
+          "value": "text-sm"
+        },
+        {
+          "label": "t:sections.promotion-bar.settings.text_size.options__1.label",
+          "value": "text-sm md:text-base"
+        },
+        {
+          "label": "t:sections.promotion-bar.settings.text_size.options__2.label",
+          "value": "text-base md:text-lg"
+        }
+      ],
+      "default": "text-sm md:text-base"
+    },
+    {
+      "type": "select",
+      "id": "section_height",
+      "label": "t:sections.promotion-bar.settings.section_height.label",
+      "options": [
+        {
+          "value": "py-2",
+          "label": "t:sections.promotion-bar.settings.section_height.options__0.label"
+        },
+        {
+          "value": "py-3 md:py-4",
+          "label": "t:sections.promotion-bar.settings.section_height.options__1.label"
+        },
+        {
+          "value": "py-4 md:py-6",
+          "label": "t:sections.promotion-bar.settings.section_height.options__2.label"
+        }
+      ],
+      "default": "py-2"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color",
+      "default": "#FFC60D"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.heading_color.label",
+      "id": "heading_color"
+    }
+  ],
+  "enabled_on": {
+    "groups": [
+      "header"
+    ]
+  },
+  "presets": [
+    {
+      "name": "t:sections.promotion-bar.presets__0.name"
+    }
+  ]
+}
+{% endschema %}

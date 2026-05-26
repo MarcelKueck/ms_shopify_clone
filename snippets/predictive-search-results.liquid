@@ -1,0 +1,105 @@
+<div class="">
+  <div class="flex flex-col gap-6 md:gap-8">
+    {% if predictive_search.resources.queries.size > 0 or skeleton %}
+      <div class="">
+        <div class="mb-4 md:mb-6">
+          {% if skeleton %}
+            <div class="skeleton w-40 h-6 md:h-8"></div>
+          {% else %}
+            <div class="h5">{{ 'templates.search.suggestions' | t }}</div>
+          {% endif %}
+        </div>
+
+        <ul class="flex md:flex-wrap max-md:scroll-area-x max-md:bleed pb-4 -mb-4 gap-3">
+          {% if skeleton %}
+            <li class="skeleton w-28 h-6 md:h-8 rounded-full"></li>
+            <li class="skeleton w-24 h-6 md:h-8 rounded-full"></li>
+            <li class="skeleton w-32 h-6 md:h-8 rounded-full"></li>
+          {% else %}
+            {% for item in predictive_search.resources.queries %}
+              <li>
+                {{
+                  item.text
+                  | link_to: item.url, class: 'button-pill text-xs md:text-sm py-2 px-4', data-instant: true
+                }}
+              </li>
+            {% endfor %}
+          {% endif %}
+        </ul>
+      </div>
+
+      <hr class="last:hidden">
+    {% endif %}
+
+    {% if predictive_search.resources.products.size > 0 or skeleton %}
+      <div>
+        <div class="flex mb-4 md:mb-6">
+          {% if skeleton %}
+            <div class="skeleton w-36 h-6 md:h-8"></div>
+          {% else %}
+            <div class="h5">{{ 'templates.search.products' | t }}</div>
+          {% endif %}
+
+          {% unless skeleton %}
+            <a
+              data-instant
+              href="{{ routes.search_url | append: '?type=product&q=' | append: predictive_search.terms }}"
+              class="flex gap-1 items-center label whitespace-nowrap styled-link ml-auto"
+            >
+              <span>{{ 'templates.search.view_all' | t }}</span>
+
+              <div class="w-3 md:w-3.5 ml-1.5 icon-sm-stroke">
+                {% render 'icon-chevron' %}
+              </div>
+            </a>
+          {% endunless %}
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-x-6 gap-y-6 md:gap-y-8">
+          {% if skeleton %}
+            {% for n in (1..6) %}
+              {% render 'predictive-search-item', skeleton: true %}
+            {% endfor %}
+          {% else %}
+            {% for item in predictive_search.resources.products %}
+              {% if item.metafields.custom.hide_from_search == true %}
+                {% continue %}
+              {% endif %}
+
+              {% render 'predictive-search-item', item_product: item %}
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+
+      <hr class="last:hidden">
+    {% endif %}
+
+    {% if predictive_search.resources.collections.size > 0 %}
+      <div>
+        <div class="h5 mb-4 md:mb-6">{{ 'templates.search.collections' | t }}</div>
+        <div class="grid sm:grid-cols-2 gap-x-6 gap-y-6 md:gap-y-8">
+          {% for item in predictive_search.resources.collections %}
+            {% render 'predictive-search-item', item_collection: item %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <hr class="last:hidden">
+    {% endif %}
+
+    {% if predictive_search.resources.articles.size > 0 %}
+      <div>
+        <div class="h5 mb-4 md:mb-6">{{ 'templates.search.blog_posts' | t }}</div>
+
+        <div class="grid sm:grid-cols-2 gap-x-6 gap-y-6 md:gap-y-8">
+          {% for item in predictive_search.resources.articles %}
+            {% render 'predictive-search-item', item_article: item %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <hr class="last:hidden">
+    {% endif %}
+  </div>
+</div>

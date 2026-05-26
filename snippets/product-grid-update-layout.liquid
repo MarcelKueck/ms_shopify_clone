@@ -1,0 +1,39 @@
+<script>
+  (function () {
+    function updateGridLayout(productGrid) {
+      const mainProductDetails = productGrid.querySelector('.section-main-product-details');
+
+      if (mainProductDetails?.previousElementSibling?.classList.contains('section-main-product')) {
+        let index = Array.from(productGrid.children).indexOf(mainProductDetails);
+
+        if (productGrid.querySelector('.section-main-product .product-breadcrumbs')) {
+          index++;
+        }
+
+        productGrid.style.gridTemplateRows = `repeat(${index}, auto) 1fr`;
+      } else {
+        productGrid.style.gridTemplateRows = '1fr';
+      }
+    }
+
+    const productGrid = document.querySelector('main.product-grid');
+
+    if (productGrid) {
+      updateGridLayout(productGrid);
+
+      const config = { childList: true };
+
+      const callback = function (mutationsList) {
+        for (let mutation of mutationsList) {
+          if (mutation.type === 'childList') {
+            updateGridLayout(productGrid);
+          }
+        }
+      };
+
+      const observer = new MutationObserver(callback);
+
+      observer.observe(productGrid, config);
+    }
+  })();
+</script>

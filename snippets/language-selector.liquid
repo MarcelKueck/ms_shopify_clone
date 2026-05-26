@@ -1,0 +1,29 @@
+{%- if localization.available_languages.size > 1 -%}
+  <localization-form class="leading-none">
+    {%- form 'localization', id: 'FooterLanguageForm', class: 'localization-form' -%}
+      {% unless label == false %}
+        <h2 class="label text-xs opacity-75 mb-5" id="FooterLanguageLabel">{{ 'localization.language_label' | t }}</h2>
+      {% endunless %}
+
+      <ul role="list">
+        {%- for language in localization.available_languages -%}
+          <li tabindex="-1">
+            <button
+              tabindex="-1"
+              class="dropdown-list-item w-full {% if language.iso_code == localization.language.iso_code %}active{% endif %}"
+              hreflang="{{ language.iso_code }}"
+              lang="{{ language.iso_code }}"
+              {% if language.iso_code == localization.language.iso_code %}
+                aria-current="true"
+              {% endif %}
+              data-value="{{ language.iso_code }}"
+            >
+              {{ language.endonym_name | capitalize }}
+            </button>
+          </li>
+        {%- endfor -%}
+      </ul>
+      <input type="hidden" name="locale_code" value="{{ localization.language.iso_code }}">
+    {%- endform -%}
+  </localization-form>
+{%- endif -%}

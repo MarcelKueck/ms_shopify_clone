@@ -1,0 +1,54 @@
+{% liquid
+  assign original_price = item.original_price
+
+  if original_price == item.final_price and item.fulfillment == blank and item.variant.compare_at_price > item.final_price
+    assign original_price = item.variant.compare_at_price
+  endif
+%}
+
+{%- if original_price != item.final_price or item.unit_price_measurement -%}
+  <div>
+    {%- if original_price != item.final_price -%}
+      <div class="flex gap-x-2">
+        <div class="sale-price">
+          <span class="visually-hidden">{{ 'products.product.price.sale_price' | t }}</span>
+          <span>{{ item.final_price | money }}</span>
+        </div>
+        <div class="regular-price opacity-60">
+          <span class="visually-hidden">{{ 'products.product.price.regular_price' | t }}</span>
+          <s>{{ original_price | money }}</s>
+        </div>
+      </div>
+
+    {%- else -%}
+      <div>
+        <span class="visually-hidden">{{ 'products.product.price.regular_price' | t }}</span>
+        {{ original_price | money }}
+      </div>
+    {%- endif -%}
+
+    {%- if item.unit_price_measurement -%}
+      <div class="text-xs text-foreground/75 mt-1">
+        <span class="visually-hidden">
+          {{ 'products.product.price.unit_price' | t }}
+        </span>
+        <span class="unit-price">
+          {% comment %} Price {% endcomment %}
+          <span>{{- item.unit_price | money -}}</span>
+          {% comment %} Separator {% endcomment %}
+          <span aria-hidden="true">/</span>
+          <span class="visually-hidden">&nbsp;{{ 'accessibility.unit_price_separator' | t }}&nbsp;</span>
+          {% comment %} Unit {% endcomment %}
+          <span>
+            {%- if item.unit_price_measurement.reference_value != 1 -%}
+              {{- item.unit_price_measurement.reference_value -}}
+            {%- endif -%}
+            {{ item.unit_price_measurement.reference_unit }}
+          </span>
+        </span>
+      </div>
+    {%- endif -%}
+  </div>
+{%- else -%}
+  <div>{{ item.final_price | money }}</div>
+{%- endif -%}

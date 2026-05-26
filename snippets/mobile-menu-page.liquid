@@ -1,0 +1,85 @@
+{% assign child_level = level | plus: 1 %}
+
+<mobile-menu-page>
+  <button class="w-full side-menu-item {% if level > 1 %} side-menu-item--sub {% endif %}" slot="activator">
+    {{ link.title }}
+
+    <div class="collapse-chevron">
+      {% render 'icon-chevron' %}
+    </div>
+  </button>
+
+  <div slot="content" tabindex="-1" class="mobile-menu-content h-full">
+    <div class="px-8 pt-10 pb-6">
+      <button
+        class="back-button label text-sm md:text-base tracking-widest flex items-center gap-3 text-foreground/75 mb-8 md:mb-12"
+        data-menu-anim-in
+      >
+        <div class="w-3 md:w-4 icon-xs-stroke rotate-180">
+          {% render 'icon-chevron' %}
+        </div>
+
+        {% if parent_link == null %}
+          {{ 'sections.header.menu' | t }}
+        {% else %}
+          {{ parent_link.title }}
+        {% endif %}
+      </button>
+
+      <a href="{{ link.url }}" class="h4 inline-block" data-menu-anim-in>{{ link.title }}</a>
+    </div>
+
+    {% for sub in link.links %}
+      {% if sub.links != empty %}
+        <div data-menu-anim-in>
+          {% render 'mobile-menu-page', link: sub, parent_link: link, level: child_level %}
+        </div>
+      {% else %}
+        <a data-instant data-menu-anim-in href="{{ sub.url }}" class="side-menu-item side-menu-item--sub">
+          {{ sub.title }}
+        </a>
+      {% endif %}
+    {% endfor %}
+
+    {% liquid
+      assign mega_menu_block = false
+      for block in section.blocks
+        assign block_menu_item = block.settings.menu_item | downcase
+        assign link_title = link.title | downcase
+        if block.type == 'mega_menu' and block_menu_item == link_title
+          assign mega_menu_block = block
+        endif
+      endfor
+    %}
+
+    {% if mega_menu_block
+      and mega_menu_block.settings.show_promo_images_on_mobile
+      and mega_menu_block.settings.image1
+      or mega_menu_block.settings.image2
+    %}
+      <div class="mobile-menu-promo-images grid-carousel scroll-area-x">
+        {% if mega_menu_block.settings.image1 %}
+          <div data-menu-anim-in>
+            {% render 'mega-menu-image',
+              image: mega_menu_block.settings.image1,
+              url: mega_menu_block.settings.image1_url,
+              heading: mega_menu_block.settings.image1_heading,
+              width: 512
+            %}
+          </div>
+        {% endif %}
+
+        {% if mega_menu_block.settings.image2 %}
+          <div data-menu-anim-in>
+            {% render 'mega-menu-image',
+              image: mega_menu_block.settings.image2,
+              url: mega_menu_block.settings.image2_url,
+              heading: mega_menu_block.settings.image2_heading,
+              width: 512
+            %}
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</mobile-menu-page>

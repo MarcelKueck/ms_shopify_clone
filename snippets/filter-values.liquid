@@ -1,0 +1,105 @@
+{% liquid
+  assign color_names = settings.color_swatch_option_names | newline_to_br | strip_newlines | split: '<br />'
+  assign checkbox_class = 'checkbox'
+  assign list_class = 'list-unstyled flex flex-wrap gap-4 flex-col'
+
+  if filter.presentation == 'swatch' or section.settings.enable_color_swatches and color_names contains filter.label
+    assign is_color_swatch = true
+    assign checkbox_class = 'color-swatch-selector'
+    assign list_class = 'list-unstyled flex flex-wrap gap-4 mx-1'
+  elsif filter.presentation == 'image'
+    assign checkbox_class = ''
+    assign list_class = 'image-filter-list'
+  endif
+%}
+
+<fieldset>
+  <legend class="visually-hidden">{{ filter.label | escape }}</legend>
+  <ul class="{{ list_class }}" role="list">
+    {% for value in filter.values %}
+      {% unless section.settings.show_filter_values_with_no_matches == false
+        and value.count == 0
+        and value.active == false
+      %}
+        <li class="{{ checkbox_class }} {% if value.count == 0 and value.active == false %}disabled{% endif %}">
+          {% if filter.presentation == 'image' %}
+            <input
+              type="checkbox"
+              name="{{ value.param_name }}"
+              value="{{ value.value }}"
+              id="Filter-{{ scope }}-{{ filter.param_name }}-{{ forloop.index }}"
+              {% if value.active %}
+                checked
+              {% endif %}
+              class="visually-hidden"
+            >
+            <label
+              for="Filter-{{ scope }}-{{ filter.param_name }}-{{ forloop.index }}"
+            >
+              <div class="grid items-center">
+                {{ value.image | image_url: width: 256 | image_tag }}
+              </div>
+              <span class="text-xs leading-tight text-center">{{ value.label }}</span>
+            </label>
+          {% elsif is_color_swatch %}
+            {% liquid
+              if value.swatch.image
+                assign swatch_image_url = value.swatch.image | image_url: width: 128
+                assign swatch_color = 'url(' | append: swatch_image_url | append: ')'
+              elsif value.swatch.color
+                assign swatch_color = value.swatch.color
+              else
+                capture swatch_color
+                  render 'get-color-from-name', name: value.label
+                endcapture
+              endif
+              assign swatch_brightness = swatch_color | color_brightness
+            %}
+            <input
+              type="checkbox"
+              name="{{ value.param_name }}"
+              value="{{ value.value }}"
+              id="Filter-{{ scope }}-{{ filter.param_name }}-{{ forloop.index }}"
+              {% if value.active %}
+                checked
+              {% endif %}
+              class="peer visually-hidden"
+            >
+            <label
+              for="Filter-{{ scope }}-{{ filter.param_name }}-{{ forloop.index }}"
+              class="
+                block
+                {% if swatch_color == blank or swatch_brightness > 240 and settings.color_swatches_enhance_visibility %}
+                  has-swatch-border
+                {% endif %}
+              "
+              title="{{ value.label | escape }}"
+              {% if swatch_color != blank %}
+                style="--swatch-color: {{ swatch_color }};"
+              {% endif %}
+            >
+              <div class="inner"></div>
+              <span class="sr-only">{{ value.label }}</span>
+            </label>
+          {% else %}
+            <input
+              type="checkbox"
+              name="{{ value.param_name }}"
+              value="{{ value.value }}"
+              id="Filter-{{ scope }}-{{ filter.param_name }}-{{ forloop.index }}"
+              {% if value.active %}
+                checked
+              {% endif %}
+            >
+            <label for="Filter-{{ scope }}-{{ filter.param_name }}-{{ forloop.index }}">
+              {{ value.label | escape -}}
+              {%- if section.settings.show_filter_match_count -%}
+                <span class="filter-label-count">({{ value.count }})</span>
+              {%- endif -%}
+            </label>
+          {% endif %}
+        </li>
+      {% endunless %}
+    {% endfor %}
+  </ul>
+</fieldset>

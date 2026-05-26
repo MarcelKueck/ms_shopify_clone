@@ -1,0 +1,51 @@
+<dropdown-element
+  max-height="false"
+  offset-cross="-24"
+  interaction-handler="{{ interaction_handler | default: "click" }}"
+>
+  <details>
+    <summary>
+      <a class="menu-item" href="{{ link.url }}">
+        <span> {{ link.title }} </span>
+
+        <div class="collapse-chevron w-3 ml-2">
+          {% render 'icon-chevron' %}
+        </div>
+      </a>
+    </summary>
+
+    <div class="dropdown-menu header-dropdown">
+      {% for link in link.links %}
+        {% if link.links == blank %}
+          <a data-instant class="dropdown-menu-item" href="{{ link.url }}">
+            <span> {{ link.title }} </span>
+          </a>
+        {% else %}
+          <smooth-collapse animation="simple" group="{{ id }}">
+            <details class="{%- if forloop.first -%} first {%- elsif forloop.last -%} last {%- endif -%}">
+              <summary>
+                <div class="dropdown-menu-item">
+                  <span>{{ link.title }}</span>
+
+                  <div class="spacer"></div>
+
+                  <div class="collapse-chevron w-3">
+                    {% render 'icon-chevron' %}
+                  </div>
+                </div>
+              </summary>
+
+              <div class="dropdown-submenu styled-links">
+                {% for link in link.links %}
+                  <a data-instant href="{{ link.url }}" class="dropdown-submenu-item">
+                    {{ link.title }}
+                  </a>
+                {% endfor %}
+              </div>
+            </details>
+          </smooth-collapse>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </details>
+</dropdown-element>

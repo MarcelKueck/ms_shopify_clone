@@ -1,0 +1,7 @@
+{%- assign current_variant = current_variant | default: product.selected_or_first_available_variant -%}
+
+{%- if current_variant.sku != blank -%}
+  <div class="product-sku">
+    {{ 'products.product.sku' | t: sku: current_variant.sku }}
+  </div>
+{%- endif -%}

@@ -1,0 +1,37 @@
+{% liquid
+  assign tag = 'div'
+
+  if url
+    assign tag = 'a'
+  endif
+
+  assign width2x = width | times: 2
+  assign width_px = width | append: 'px'
+  assign height = width | divided_by: image.aspect_ratio | round
+
+  capture widths
+    echo width
+    echo ','
+    echo width2x
+  endcapture
+%}
+
+<{{ tag }}
+  {% if url %}
+    href="{{ url }}"
+  {% endif -%}
+  class="inline-block"
+>
+  <lqip-element class="image-loader relative rounded-block overflow-hidden">
+    {{
+      image
+      | image_url: width: width2x
+      | image_tag: widths: widths, width: width, height: height, sizes: width_px, loading: 'lazy'
+    }}
+    {{ image | image_url: width: 20 | image_tag: class: 'media-lq-placeholder', fetchpriority: 'low' }}
+  </lqip-element>
+
+  {% if heading != blank %}
+    <div class="font-navigation  mt-4 {{ heading_alignment | default: 'text-center' }}">{{ heading }}</div>
+  {% endif %}
+</{{ tag }}>

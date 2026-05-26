@@ -1,0 +1,166 @@
+<height-observer variable="announcement-bar-height">
+  <announcement-bar
+    class="announcement-bar grid grid-cols-[1fr_auto_1fr] no-scroll-expand color {{ section.settings.text_size }} styled-links relative"
+    transition="{{ section.settings.transition }}"
+    speed="{{ section.settings.change_message_every | times: 1000 }}"
+    autoplay="{{ section.settings.autoplay }}"
+    style="
+      --color-background: {{ section.settings.background_color.rgb }};
+      --color-foreground: {{ section.settings.text_color.rgb }};
+    "
+  >
+    {% if section.blocks.size > 1 %}
+      <button
+        data-button-prev
+        aria-label="{{ 'accessibility.previous' | t }}"
+        class="flex items-center sm:justify-self-end px-3 sm:px-8 md:px-12 opacity-50 mouse:hover:opacity-100 no-js:invisible"
+      >
+        <div class="w-3 icon-xs-stroke -scale-x-100">
+          {% render 'icon-chevron' %}
+        </div>
+      </button>
+    {% endif %}
+
+    {% for block in section.blocks %}
+      {% if block.settings.text != blank %}
+        <div
+          class="
+            announcement col-start-2 row-start-1 text-center self-center py-2.5 opacity-0 pointer-events-none
+            {% if forloop.first %} no-js:opacity-100 {% endif %}
+          "
+        >
+          {% if block.settings.url %}
+            {{ block.settings.text | link_to: block.settings.url, data-instant: true }}
+          {% else %}
+            {{ block.settings.text }}
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    {% if section.blocks.size > 1 %}
+      <button
+        data-button-next
+        aria-label="{{ 'accessibility.next' | t }}"
+        class="flex items-center justify-self-end sm:justify-self-start px-3 sm:px-8 md:px-12 opacity-50 mouse:hover:opacity-100 no-js:invisible"
+      >
+        <div class="w-3 icon-xs-stroke">
+          {% render 'icon-chevron' %}
+        </div>
+      </button>
+    {% endif %}
+  </announcement-bar>
+</height-observer>
+
+{% schema %}
+{
+  "name": "t:sections.announcement-bar.name",
+  "class": "section-announcement-bar",
+  "blocks": [
+    {
+      "type": "announcement",
+      "name": "t:sections.announcement-bar.blocks.announcement.name",
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "default": "Welcome to our store",
+          "label": "t:sections.announcement-bar.settings.text.label"
+        },
+        {
+          "type": "url",
+          "id": "url",
+          "label": "t:sections.announcement-bar.settings.url.label"
+        }
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "type": "select",
+      "label": "t:sections.announcement-bar.settings.text_size.label",
+      "id": "text_size",
+      "options": [
+        {
+          "label": "t:sections.announcement-bar.settings.text_size.options__0.label",
+          "value": "announcement-bar--text-xs"
+        },
+        {
+          "label": "t:sections.announcement-bar.settings.text_size.options__1.label",
+          "value": "announcement-bar--text-sm"
+        },
+        {
+          "label": "t:sections.announcement-bar.settings.text_size.options__2.label",
+          "value": "announcement-bar--text-md"
+        },
+        {
+          "label": "t:sections.announcement-bar.settings.text_size.options__3.label",
+          "value": "announcement-bar--text-lg"
+        }
+      ],
+      "default": "announcement-bar--text-sm"
+    },
+    {
+      "type": "select",
+      "label": "t:sections.announcement-bar.settings.transition.label",
+      "id": "transition",
+      "options": [
+        {
+          "label": "t:sections.announcement-bar.settings.transition.options__0.label",
+          "value": "fade"
+        },
+        {
+          "label": "t:sections.announcement-bar.settings.transition.options__1.label",
+          "value": "slide-y"
+        }
+      ],
+      "default": "fade"
+    },
+    {
+      "type": "checkbox",
+      "label": "t:sections.announcement-bar.settings.autoplay.label",
+      "id": "autoplay",
+      "default": true
+    },
+    {
+      "type": "range",
+      "label": "t:sections.announcement-bar.settings.change_message_every.label",
+      "id": "change_message_every",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "default": 4,
+      "unit": "s"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "enabled_on": {
+    "groups": ["header"]
+  },
+  "presets": [
+    {
+      "name": "t:sections.announcement-bar.presets__0.name",
+      "blocks": [
+        {
+          "type": "announcement"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,28 @@
+{% liquid
+  assign product_recommendations = section.settings.product_recommendations
+  assign product_ids = cart.items | map: 'product_id'
+%}
+
+{% capture recommendations_html %}
+  {% for item in product_recommendations %}
+    {% if item.available == false or product_ids contains item.id %}
+      {% continue %}
+    {% endif %}
+    <div class="grid-carousel-item snap-start snap-always">
+      {% render 'complementary-product', product: item, borderless: true %}
+    </div>
+    {% assign has_recommendations = has_recommendations | plus: 1 %}
+  {% endfor %}
+{% endcapture %}
+
+{% if has_recommendations > 0 %}
+  <div class="mt-auto px-[--cart-modal-px] border-t pt-6">
+    {% render 'mini-product-carousel',
+      heading: section.settings.product_recommendations_heading,
+      count: has_recommendations,
+      items_html: recommendations_html,
+      carousel_class: '[--bleed-distance:--cart-modal-px] bleed',
+      grid_carousel_class: 'grid-carousel--pseudo-pr'
+    %}
+  </div>
+{% endif %}

@@ -1,0 +1,44 @@
+<facet-filters-form type="sort">
+  <form id="FacetSortForm">
+    <div class="flex items-center lg:ml-auto">
+      <label for="SortBy" class="max-lg:hidden">
+        {{ 'products.facets.sort_by_label' | t }}
+      </label>
+
+      <div class="lg:hidden">
+        {% render 'icon-sort' %}
+      </div>
+
+      <div class="ml-2 lg:ml-3">
+        {% assign sort_by = results.sort_by | default: results.default_sort_by %}
+
+        <dropdown-list placement="bottom-end" list-title="{{ 'products.facets.sort_by_label' | t }}">
+          <details>
+            <summary tabindex="-1" class="flex items-center gap-2">
+              <button class="font-bold max-md:text-sm" data-dropdown-activator>
+                {{ results.sort_options | where: 'value', sort_by | map: 'name' }}
+              </button>
+
+              <div class="w-3 collapse-chevron">
+                {% render 'icon-chevron' %}
+              </div>
+            </summary>
+            <div class="dropdown-menu py-2">
+              <ul class="dropdown-list dropdown-list--small">
+                {% for option in results.sort_options %}
+                  <li>
+                    <button data-value="{{ option.value | escape }}" class="dropdown-list-item w-full" tabindex="-1">
+                      {{ option.name | escape }}
+                    </button>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </details>
+
+          <input data-list-value type="hidden" name="sort_by" value="{{ sort_by }}">
+        </dropdown-list>
+      </div>
+    </div>
+  </form>
+</facet-filters-form>

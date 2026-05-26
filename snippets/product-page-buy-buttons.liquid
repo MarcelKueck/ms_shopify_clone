@@ -1,0 +1,101 @@
+{% liquid
+  assign gift_card_recipient_feature_active = false
+  if block.settings.show_gift_card_recipient and product.gift_card?
+    assign gift_card_recipient_feature_active = true
+  endif
+
+  assign show_dynamic_checkout = false
+  if block.settings.show_dynamic_checkout_buttons and gift_card_recipient_feature_active == false
+    assign show_dynamic_checkout = true
+  endif
+%}
+
+<style>
+  #shopify-section-{{ section.id }} :where(.button-add-to-cart, sticky-add-to-cart .button) {
+    {% render 'button-vars',
+      background: block.settings.add_to_cart_background_color,
+      text: block.settings.add_to_cart_text_color
+    %}
+  }
+
+  #shopify-section-{{ section.id }} .shopify-payment-button__button--unbranded {
+    {% render 'button-vars',
+      background: block.settings.buy_it_now_background_color,
+      text: block.settings.buy_it_now_text_color
+    %}
+  }
+</style>
+
+{% if product == null %}
+  <div class="buy-buttons">
+    <button
+      type="button"
+      class="button button-add-to-cart w-full button primary min-w-fit"
+    >
+      {{ 'products.product.add_to_cart' | t }}
+    </button>
+  </div>
+
+  {% continue %}
+{% endif %}
+
+<product-form>
+  {% form 'product',
+    product,
+    id: product_form_id,
+    class: 'product-form',
+    novalidate: 'novalidate',
+    data-type: 'add-to-cart-form'
+  %}
+    <input
+      data-variant-info="variant_id"
+      type="hidden"
+      name="id"
+      value="{{ product.selected_or_first_available_variant.id }}"
+      disabled
+    >
+
+    {% if gift_card_recipient_feature_active %}
+      <div class="mb-8">
+        {% render 'gift-card-recipient-form', product: product, form: form, section: section %}
+      </div>
+    {% endif %}
+
+    <div class="trim-margins buy-buttons">
+      <button
+        data-variant-info="add_to_cart"
+        type="submit"
+        name="add"
+        class="
+          button button-add-to-cart w-full min-w-fit
+          {%- if show_dynamic_checkout %}
+            button-secondary
+          {% else %}
+            button-primary
+          {% endif -%}
+        "
+        {% if product.selected_or_first_available_variant == null
+          or product.selected_or_first_available_variant.available == false
+        %}
+          disabled
+        {% endif %}
+      >
+        <span>
+          {%- if product.selected_or_first_available_variant == null -%}
+            {{ 'products.product.unavailable' | t }}
+          {%- elsif product.selected_or_first_available_variant.available -%}
+            {{ 'products.product.add_to_cart' | t }}
+          {%- else -%}
+            {{ 'products.product.sold_out' | t }}
+          {%- endif -%}
+        </span>
+      </button>
+
+      {% if show_dynamic_checkout %}
+        {{ form | payment_button }}
+      {% endif %}
+    </div>
+  {% endform %}
+
+  <div class="message message-danger text-danger mt-6" role="alert"></div>
+</product-form>

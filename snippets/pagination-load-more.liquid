@@ -1,0 +1,22 @@
+{% if paginate.parts.size > 0 and paginate.next %}
+  {% assign showing_items = paginate.current_offset | plus: paginate.page_size %}
+  {% assign progress_percentage = showing_items | times: 100 | divided_by: paginate.items %}
+
+  <pagination-load-more class="flex justify-center mt-12 max-md:text-sm">
+    <div class="pagination-load-more flex flex-col items-center text-center w-full max-w-xs">
+      <div class="progress-bar w-full">
+        <div class="progress-bar-inner" style="width: {{ progress_percentage }}%"></div>
+      </div>
+
+      <p class="mt-4">
+        {{ 'general.pagination.load_more_text' | t: count: showing_items, all: paginate.items }}
+      </p>
+
+      <a href="{{ paginate.next.url }}" class="button button-primary mt-4 md:mt-6">
+        {{ 'general.pagination.load_more' | t }}
+      </a>
+
+      <div class="message message-danger text-danger mt-6"></div>
+    </div>
+  </pagination-load-more>
+{% endif %}

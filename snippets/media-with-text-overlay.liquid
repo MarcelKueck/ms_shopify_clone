@@ -1,0 +1,90 @@
+{% liquid
+  if section.settings.full_width
+    assign container_class = 'content-over-media--full-width'
+    assign section_type = 'section--full-width bg-transparent !py-0'
+    assign bg_number = -1
+  else
+    assign container_class = 'content-over-media--block'
+    assign section_type = 'section--space-after section--block section--no-padding'
+  endif
+
+  if section.settings.use_original_media_size
+    assign container_class = container_class | append: ' content-over-media--natural-size'
+  endif
+
+  assign overlay_opacity = section.settings.overlay_opacity | divided_by: 100.0
+
+  assign tag = 'div'
+
+  if section.settings.link != blank
+    assign tag = 'a'
+  endif
+%}
+
+{% render 'section-bg-number-vars', bg: settings.colors_background, bg_number: bg_number %}
+
+<style>
+  #shopify-section-{{ section.id }} {
+    --color-foreground: {{ section.settings.text_color.rgb }};
+    --color-headings: {{ section.settings.text_color.rgb }};
+    --section-min-height: {% render 'rfs', value: section.settings.min_height, base_value: 300, breakpoint: 1500 %};
+
+    {% render 'media-overlay-vars',
+      type: section.settings.overlay_type,
+      content_position: section.settings.content_alignment,
+      color: section.settings.overlay_color,
+      opacity: overlay_opacity
+    %}
+  }
+
+  @media not all and (min-width: 768px) {
+    #shopify-section-{{ section.id }} {
+      {% render 'media-overlay-vars',
+        type: section.settings.overlay_type,
+        content_position: section.settings.content_alignment_mobile,
+        color: section.settings.overlay_color,
+        opacity: overlay_opacity
+      %}
+    }
+  }
+</style>
+
+<{{ tag }}
+  {% render 'section-attrs', type: section_type, class: 'block' %}
+  {% if section.settings.link != blank %}
+    href="{{ section.settings.link }}"
+  {% endif %}
+>
+  <div class="section-body trim-margins">
+    <div
+      class="content-over-media min-h-[--section-min-height] {{ container_class }}"
+      {% if section.settings.enable_transparent_header and section.settings.full_width %}
+        enable-transparent-header
+      {% endif %}
+    >
+      <lqip-element
+        class="
+          image-loader content-over-media__media media media--overlay {{ media_class }}
+          {% if media_mobile %} max-md:hidden {% endif %}
+        "
+      >
+        {{ media }}
+      </lqip-element>
+
+      {% if media_mobile %}
+        <lqip-element class="image-loader content-over-media__media media media--overlay {{ media_class }} md:hidden">
+          {{ media_mobile }}
+        </lqip-element>
+      {% endif %}
+
+      <div
+        class="
+          content-over-media__content trim-margins [--subheading-opacity:1]
+          {{ section.settings.content_alignment_mobile }} {{ section.settings.content_alignment }}
+        "
+      >
+        {% render 'rich-text-blocks' %}
+      </div>
+    </div>
+  </div>
+</{{ tag }}>

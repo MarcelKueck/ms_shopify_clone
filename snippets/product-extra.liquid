@@ -1,0 +1,22 @@
+<div class="product-extra trim-margins text-foreground">
+  {% for block in section.blocks %}
+    {% case block.type %}
+      {% when 'text' %}
+        <div class="my-6 md:my-8 prose  max-w-none">
+          {{ block.settings.content }}
+        </div>
+      {% when 'rich_text_block' %}
+        {% render 'product-rich-text', block: block %}
+      {% when 'description' %}
+        {% render 'product-description', block: block, class: 'my-6 md:my-8' %}
+      {% when 'collapsible_content' %}
+        {% render 'product-collapsible-content', block: block %}
+      {% when 'custom_liquid' %}
+        {% render 'product-custom-liquid', block: block %}
+      {% when 'image' %}
+        {% render 'product-image', block: block %}
+      {% when 'separator' %}
+        <hr class="my-6" {{ block.shopify_attributes }}>
+    {% endcase %}
+  {% endfor %}
+</div>

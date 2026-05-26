@@ -1,0 +1,77 @@
+<modal-trigger target="#mega-menu-{{ block.id }}">
+  <a href="{{ link.url }}" class="menu-item">
+    {{ link.title }}
+
+    <div class="collapse-chevron w-3 ml-2">
+      {% render 'icon-chevron' %}
+    </div>
+  </a>
+</modal-trigger>
+
+<modal-drawer
+  class="modal modal-drawer modal-drawer--left mega-menu-drawer"
+  position="left"
+  style="--promo-image-width: {{ block.settings.promo_image_width }}px;"
+  {{ block.shopify_attributes }}
+  data-block-id="{{ block.id }}"
+  id="mega-menu-{{ block.id }}"
+  append-to-body
+>
+  <div slot="content" tabindex="-1" class="flex flex-col h-full overflow-y-auto overscroll-y-contain">
+    <div class="side-menu-header flex-shrink-0">
+      <button class="modal-close" data-button-close aria-label="{{ 'accessibility.close_modal' | t }}">
+        {% render 'icon-times' %}
+      </button>
+    </div>
+
+    {% for link in link.links %}
+      {% if link.links == blank %}
+        <a data-instant href="{{ link.url }}" class="side-menu-item">
+          {{ link.title }}
+        </a>
+      {% else %}
+        <modal-drawer class="modal modal-drawer modal-drawer--left mega-menu-drawer" position="left" child>
+          <a href="{{ link.url }}" class="side-menu-item" slot="activator">
+            {{ link.title }}
+
+            <div class="collapse-chevron">
+              {% render 'icon-chevron' %}
+            </div>
+          </a>
+          <div slot="content" tabindex="-1" class="h-full overflow-y-auto overscroll-y-contain">
+            <div class="side-menu-header"></div>
+            {% for link in link.links %}
+              <a data-instant href="{{ link.url }}" class="side-menu-item text-base">
+                {{ link.title }}
+              </a>
+            {% endfor %}
+          </div>
+        </modal-drawer>
+      {% endif %}
+    {% endfor %}
+
+    {% if block.settings.image1 or block.settings.image2 %}
+      <div class="mega-menu-drawer-promo max-w-full mt-auto p-8 flex flex-col items-start gap-8">
+        {% if block.settings.image1 %}
+          {% render 'mega-menu-image',
+            image: block.settings.image1,
+            url: block.settings.image1_url,
+            heading: block.settings.image1_heading,
+            width: block.settings.promo_image_width,
+            heading_alignment: 'text-left'
+          %}
+        {% endif %}
+
+        {% if block.settings.image2 %}
+          {% render 'mega-menu-image',
+            image: block.settings.image2,
+            url: block.settings.image2_url,
+            heading: block.settings.image2_heading,
+            width: block.settings.promo_image_width,
+            heading_alignment: 'text-left'
+          %}
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</modal-drawer>

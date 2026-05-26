@@ -1,0 +1,40 @@
+{% liquid
+  assign vendor_block = section.blocks | where: 'type', 'vendor' | first
+  assign price_block = section.blocks | where: 'type', 'price' | first
+  assign featured_media = product.selected_or_first_available_variant.featured_media | default: product.featured_media
+  assign media_count = product.media | size
+%}
+
+<div class="{% if media_count > 0 %} max-md:grid max-md:grid-cols-[5rem_1fr] gap-5 sm:gap-6 md:gap-0 {% endif %}">
+  {% if media_count > 0 %}
+    <mini-gallery class="md:hidden">
+      {% for item in product.media %}
+        <lqip-element
+          data-media-id="{{ item.id }}"
+          class="image-loader {% if item.id != featured_media.id %} hidden {% endif %}"
+        >
+          {{ item | image_url: width: 200 | image_tag: class: 'product-thumbnail-shade rounded-block' }}
+        </lqip-element>
+      {% endfor %}
+    </mini-gallery>
+  {% endif %}
+
+  <div class="flex flex-col justify-center">
+    {% if vendor_block %}
+      <div class="product-vendor mb-1 md:mb-2 text-foreground/75 tracking-wider text-xs md:text-sm">
+        {{ product.vendor }}
+      </div>
+    {% endif %}
+
+    <a href="{{ product.url }}" class="heading product-title pr-6">
+      {{ product.title }}
+    </a>
+
+    <div
+      class="product-price mt-4 {% if price_block.settings.use_bold_font %} bold {% endif %}"
+      data-variant-info="quick-add-price"
+    >
+      {% render 'product-page-price', product: product, block: price_block %}
+    </div>
+  </div>
+</div>

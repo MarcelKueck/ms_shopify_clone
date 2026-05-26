@@ -1,0 +1,52 @@
+{% liquid
+  capture icon_check
+    render 'icon-check'
+  endcapture
+
+  capture icon_chevron
+    render 'icon-chevron'
+  endcapture
+%}
+
+<style>
+  :root {
+    --svg-message-danger: url("data:image/svg+xml,%3Csvg viewBox='0 0 13 13' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.76034 2.98801L5.87883 7.7671H7.12297L7.24146 2.98801H5.76034ZM6.5009 10.2356C6.95017 10.2356 7.30563 9.89497 7.30563 9.4605C7.30563 9.02604 6.95017 8.68538 6.5009 8.68538C6.05163 8.68538 5.69615 9.02604 5.69615 9.4605C5.69615 9.89497 6.05163 10.2356 6.5009 10.2356Z' fill='white'/%3E%3C/svg%3E%0A");
+    --svg-circle-check: url("data:image/svg+xml,%3Csvg viewBox='0 0 13 13' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.01528 6.3321L5.44807 8.7649L9.98472 4.2351' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E%0A");
+    --svg-message-success: var(--svg-circle-check);
+    --svg-message-unavailable: url("data:image/svg+xml,%3Csvg viewBox='0 0 48 48' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='11.9792' y='16.2218' width='6' height='28' transform='rotate(-45 11.9792 16.2218)' fill='white'/%3E%3Crect x='16.2218' y='36.0208' width='6' height='28' transform='rotate(-135 16.2218 36.0208)' fill='white'/%3E%3C/svg%3E%0A");
+
+    --svg-star: url("data:image/svg+xml,%3Csvg viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg clip-path='url(%23clip0_1_2)'%3E%3Cpath d='M32 3L39.1844 25.1115H62.4338L43.6247 38.7771L50.8091 60.8885L32 47.2229L13.1909 60.8885L20.3753 38.7771L1.56619 25.1115H24.8156L32 3Z' fill='black'/%3E%3C/g%3E%3Cdefs%3E%3CclipPath id='clip0_1_2'%3E%3Crect width='64' height='64' fill='white'/%3E%3C/clipPath%3E%3C/defs%3E%3C/svg%3E%0A");
+    --svg-check: url("data:image/svg+xml,{{ icon_check | url_escape }}");
+    --svg-checkbox-check: url("data:image/svg+xml,{{ icon_check | replace: "currentColor", "white" | url_escape }}");
+    --svg-chevron: url("data:image/svg+xml,{{ icon_chevron | url_escape }}");
+    --svg-product-card-size-unavailable: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' version='1.1' width='30' height='30'%3E%3Cpath d='M 0,30 30,0' style='stroke:{{ settings.colors_product_card_text | url_encode }};stroke-width:1'/%3E%3Cpath d='M 0,0 30,30' style='stroke:{{ settings.colors_product_card_text | url_encode }};stroke-width:1'/%3E%3C/svg%3E");
+
+
+    {% case settings.icons_line_thickness %}
+      {% when "thin" %}
+        --icon-xs-stroke-width: 1.25px;
+        --icon-sm-stroke-width: 1.25px;
+        --icon-md-stroke-width: 1.375px;
+        --icon-lg-stroke-width: 1.5px;
+        --icon-xl-stroke-width: 1.75px;
+      {% when "normal" %}
+        --icon-xs-stroke-width: 1.5px;
+        --icon-sm-stroke-width: 1.75px;
+        --icon-md-stroke-width: 1.875px;
+        --icon-lg-stroke-width: 2px;
+        --icon-xl-stroke-width: 2.5px;
+      {% when "bold" %}
+        --icon-xs-stroke-width: 1.75px;
+        --icon-sm-stroke-width: 2px;
+        --icon-md-stroke-width: 2.125px;
+        --icon-lg-stroke-width: 2.375px;
+        --icon-xl-stroke-width: 3px;
+    {% endcase %}
+
+
+    --icon-stroke-width: var(--icon-md-stroke-width);
+
+    --icon-stroke-linecap: {{ settings.icons_corner_style }};
+    --icon-stroke-linejoin: {{ settings.icons_corner_style }};
+  }
+</style>

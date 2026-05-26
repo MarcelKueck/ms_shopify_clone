@@ -1,0 +1,20 @@
+{% liquid
+  if enabled == false
+    assign carousel_tag = 'div'
+    assign grid_class = 'grid-carousel--stack'
+  else
+    assign carousel_tag = 'scroll-carousel'
+    assign carousel_class = carousel_class | append: ' grid scroll-area-x bleed'
+    assign grid_class = 'grid-carousel--pseudo-pr'
+  endif
+%}
+
+<div class="relative">
+  <{{ carousel_tag }} class="{{ carousel_class }}" item-selector=".grid-carousel-item">
+    <div class="grid-carousel {{ grid_class }}">
+      {{ slot }}
+    </div>
+  </{{ carousel_tag }}>
+
+  {% render 'carousel-buttons' %}
+</div>

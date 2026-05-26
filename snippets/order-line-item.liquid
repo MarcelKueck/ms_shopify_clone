@@ -1,0 +1,55 @@
+{% liquid
+  if item.image == null
+    assign featured_image = item.product.featured_image
+  else
+    assign featured_image = item.image
+  endif
+%}
+
+<div class="flex items-start gap-4 xl:gap-6">
+  <a class="block w-16 md:w-24 shrink-0" href="{{ item.url | default: item.product.url }}">
+    {% if featured_image %}
+      {{
+        featured_image
+        | image_url: width: 192
+        | image_tag: class: 'w-full product-thumbnail-shade rounded-block-xs', sizes: '(min-width: 768px) 96px, 64px'
+      }}
+    {% else %}
+      {% render 'placeholder', type: 'image', class: 'w-full placeholder rounded-block-xs' %}
+    {% endif %}
+  </a>
+
+  <div class="grow">
+    <a href="{{ item.url | default: item.product.url }}" class="styled-link">
+      <h2 class="product-name">
+        {{ item.product.title }}
+      </h2>
+    </a>
+
+    {% unless item.product.has_only_default_variant or item.variant.title == blank %}
+      <div class="text-sm mt-1 xl:mt-2 text-foreground/75">
+        {{ item.variant.title }}
+      </div>
+    {% endunless %}
+
+    {% render 'line-item-properties', item: item %}
+
+    <div class="grid grid-cols-[1fr_auto] mt-6">
+      <div>
+        <div class="label sm:hidden mb-1">{{ 'customer.order.price' | t }}</div>
+        {% render 'line-item-price', item: item %}
+      </div>
+
+      <div class="sm:hidden">
+        <div class="label mb-1">{{ 'customer.order.quantity' | t }}</div>
+        <div>{{ item.quantity }}</div>
+      </div>
+    </div>
+
+    {% if item.line_level_discount_allocations.size > 0 %}
+      <div class="mt-4">
+        {% render 'line-level-discount-allocations', item: item %}
+      </div>
+    {% endif %}
+  </div>
+</div>

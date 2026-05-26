@@ -1,0 +1,19 @@
+{% liquid
+  assign class = class | default: 'placeholder'
+
+  if text_color != blank
+    assign text_brightness = text_color | color_brightness
+    if text_brightness >= 165
+      assign class = 'placeholder--dark'
+    else
+      assign class = 'placeholder--light'
+    endif
+  endif
+%}
+
+{% assign placeholder = type | placeholder_svg_tag: class %}
+{% if cover != false %}
+  {{ placeholder | replace_first: '<svg ', '<svg preserveAspectRatio="xMidYMid slice" ' }}
+{% else %}
+  {{ placeholder }}
+{% endif %}

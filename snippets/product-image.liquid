@@ -1,0 +1,41 @@
+{% assign width_2x = block.settings.image.width | times: 2 %}
+{% assign height = block.settings.width | divided_by: block.settings.image.aspect_ratio | round %}
+
+{% capture widths %}
+{{ block.settings.width | times: 2 }}, {{ block.settings.width }}
+{% endcapture %}
+
+{% capture sizes %}
+min(calc(100vw - 20px), {{ block.settings.width }}px)
+{% endcapture %}
+
+<div class="my-6 md:my-8 {{ block.settings.alignment }}" {{ block.shopify_attributes }}>
+  {% if block.settings.heading %}
+    <div class="heading text-lg md:text-h5 mb-4 md:mb-6">{{ block.settings.heading }}</div>
+  {% endif %}
+
+  {% capture inner %}
+    {% if block.settings.image != blank %}
+      {{ block.settings.image
+        | image_url: width: width_2x
+        | image_tag:
+          widths: '1000, 500',
+          sizes: sizes,
+          width: block.settings.width,
+          height: height,
+          class: 'inline-block rounded-block',
+          loading: 'lazy'
+      }}
+    {% else %}
+      <div class="inline-block media media--ratio-16-9 max-w-full rounded-block overflow-hidden" style="width: {{ block.settings.width }}px;">
+        {% render 'placeholder', type: 'image' %}
+      </div>
+    {% endif %}
+  {% endcapture %}
+
+  {% if block.settings.link != blank %}
+    {{ inner | link_to: block.settings.link }}
+  {% else %}
+    {{ inner }}
+  {% endif %}
+</div>

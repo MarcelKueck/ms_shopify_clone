@@ -1,0 +1,520 @@
+<section id="ms-complaint">
+  <style>
+    #ms-complaint .ms-section{padding:60px 20px}
+    #ms-complaint .ms-container{max-width:1100px;margin:0 auto}
+    #ms-complaint .ms-h2{margin:0 0 20px 0 !important;padding:0 !important;font-weight:700;font-size:28px;line-height:1.2}
+    #ms-complaint .ms-lead{font-size:18px;max-width:760px}
+    #ms-complaint .ms-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:22px}
+    #ms-complaint .ms-steps{margin:0;padding:0;list-style:none;display:grid;gap:14px}
+    #ms-complaint .ms-step{display:flex;align-items:flex-start;gap:12px}
+    #ms-complaint .ms-step svg{flex:0 0 22px;margin-top:2px}
+    #ms-complaint .ms-badges{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;padding:0;list-style:none}
+    #ms-complaint .ms-badges li{padding:8px 12px;border:1px solid #e5e7eb;border-radius:999px;background:#fff}
+    #ms-complaint .ms-form-wrap{max-width:860px}
+    #ms-complaint label{display:block;margin-bottom:6px;font-weight:600}
+    #ms-complaint input,
+    #ms-complaint select,
+    #ms-complaint textarea{
+      width:100%;
+      padding:12px;
+      border:1px solid #d1d5db;
+      border-radius:10px;
+      background:#fff;
+      font:inherit;
+      box-sizing:border-box;
+    }
+    #ms-complaint input[type="checkbox"]{
+      width:auto;
+      padding:0;
+      border:none;
+      border-radius:0;
+      margin:0;
+    }
+    #ms-complaint textarea{min-height:140px;resize:vertical}
+    #ms-complaint .ms-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    #ms-complaint .ms-btn{
+      display:inline-block;background:#111827;color:#fff;padding:14px 24px;border:none;
+      border-radius:12px;text-decoration:none;font-weight:600;cursor:pointer
+    }
+    #ms-complaint .ms-btn-secondary{
+      display:inline-block;border:1px solid #111827;color:#111827;padding:14px 24px;
+      border-radius:12px;text-decoration:none;font-weight:600
+    }
+    #ms-complaint .ms-btn-ghost{
+      display:inline-block;background:#fff;color:#111827;padding:12px 16px;border:1px solid #d1d5db;
+      border-radius:10px;text-decoration:none;font-weight:600;cursor:pointer
+    }
+    #ms-complaint .ms-muted{color:#4b5563}
+    #ms-complaint .ms-small{font-size:14px;line-height:1.5;color:#6b7280}
+    #ms-complaint .ms-success{padding:16px;background:#d1fae5;border-radius:8px;margin-bottom:24px}
+    #ms-complaint .ms-error{padding:16px;background:#fee2e2;border-radius:8px;margin-bottom:24px}
+    #ms-complaint .ms-checkbox-row{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      margin-top:4px;
+    }
+    #ms-complaint .ms-checkbox-row label{
+      margin:0;
+      font-weight:400;
+      line-height:1.5;
+    }
+
+    #ms-complaint .ms-item-list{
+      display:grid;
+      gap:18px;
+    }
+    #ms-complaint .ms-item-card{
+      border:1px solid #e5e7eb;
+      border-radius:16px;
+      padding:18px;
+      background:#fff;
+    }
+    #ms-complaint .ms-item-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      margin-bottom:14px;
+    }
+    #ms-complaint .ms-item-title{
+      font-size:18px;
+      font-weight:700;
+      line-height:1.3;
+    }
+    #ms-complaint .ms-part-list{
+      display:grid;
+      gap:12px;
+      margin-top:14px;
+    }
+    #ms-complaint .ms-part-row{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:end;
+    }
+    #ms-complaint .ms-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+    }
+
+    #ms-complaint .ms-upload-box{
+      border:1px solid #e5e7eb;
+      border-radius:16px;
+      padding:18px;
+      background:#fff;
+    }
+
+    @media (max-width: 900px){
+      #ms-complaint .ms-form-grid{grid-template-columns:1fr}
+      #ms-complaint .ms-part-row{grid-template-columns:1fr}
+      #ms-complaint .ms-item-head{flex-direction:column}
+    }
+
+    @media (prefers-reduced-motion: no-preference){
+      #ms-complaint .reveal{opacity:0;transform:translateY(12px);will-change:opacity,transform;transition:opacity .5s ease, transform .6s cubic-bezier(.22,.61,.36,1)}
+      #ms-complaint .reveal.fade-in{transform:none}
+      #ms-complaint .reveal.is-visible{opacity:1;transform:none}
+      #ms-complaint .stagger > *{opacity:0;transform:translateY(12px);transition:opacity .45s ease, transform .55s ease}
+      #ms-complaint .stagger.is-visible > *{opacity:1;transform:none}
+      #ms-complaint .stagger.is-visible > *:nth-child(1){transition-delay:.05s}
+      #ms-complaint .stagger.is-visible > *:nth-child(2){transition-delay:.12s}
+      #ms-complaint .stagger.is-visible > *:nth-child(3){transition-delay:.19s}
+      #ms-complaint .stagger.is-visible > *:nth-child(4){transition-delay:.26s}
+      #ms-complaint .stagger.is-visible > *:nth-child(5){transition-delay:.33s}
+    }
+  </style>
+
+  <div class="ms-section">
+    <div class="ms-container">
+      <p class="reveal fade-in" style="background:#f3f4f6; display:inline-block; padding:6px 12px; border-radius:999px; font-size:14px; margin-bottom:16px;">
+        motion sports Service
+      </p>
+
+      <h1 class="reveal" style="font-size:36px; font-weight:700; margin-bottom:20px;">
+        Reklamation zu deinem Artikel schnell und unkompliziert einreichen
+      </h1>
+
+      <p class="reveal ms-lead">
+        Du möchtest einen oder mehrere Artikel reklamieren? Teile uns bitte die wichtigsten Informationen zu deiner Bestellung,
+        den betroffenen Artikeln und ggf. Bauteilnummern mit. Unser Service-Team prüft dein Anliegen und meldet sich schnellstmöglich bei dir.
+      </p>
+
+      <ul class="reveal fade-in ms-badges">
+        <li>Schnelle Bearbeitung</li>
+        <li>Direkte Zuordnung zur Bestellung</li>
+        <li>Mehrere Artikel möglich</li>
+        <li>Bilder & Videos hochladen</li>
+      </ul>
+
+      <div class="reveal fade-in" style="margin-top:30px;">
+        <a href="#reklamation-form" class="ms-btn" style="margin-right:12px;">Reklamation einreichen</a>
+        <a href="#reklamation-info" class="ms-btn-secondary">Infos zur Bearbeitung</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="reklamation-info" class="ms-section" style="background:#f9fafb;">
+    <div class="ms-container">
+      <h2 class="ms-h2 reveal">So läuft deine Reklamation ab</h2>
+
+      <ul class="ms-steps stagger">
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22a10 10 0 1 1 10-10"></path>
+            <path d="M22 12a10 10 0 0 1-10 10"></path>
+            <circle cx="12" cy="12" r="2"></circle>
+            <path d="M22 2 12 12"></path>
+          </svg>
+          <div>
+            <strong>Reklamation einreichen</strong><br>
+            Beschreibe die betroffenen Artikel, ggf. Bauteilnummern, das Problem sowie Bestellnummer und Bestelldatum möglichst genau.
+          </div>
+        </li>
+
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 16v-8a2 2 0 0 0-2-2h-5l-2-2H5a2 2 0 0 0-2 2v12"></path>
+            <rect x="3" y="8" width="18" height="13" rx="2"></rect>
+            <path d="m9 13 2 2 4-4"></path>
+          </svg>
+          <div>
+            <strong>Prüfung durch unser Service-Team</strong><br>
+            Wir prüfen deine Angaben und gleichen sie mit deiner Bestellung sowie dem gemeldeten Problem ab.
+          </div>
+        </li>
+
+        <li class="ms-step">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 11a4 4 0 1 0-8 0"></path>
+            <path d="M12 15v6"></path>
+            <path d="M8 21h8"></path>
+            <path d="M7 8h10"></path>
+          </svg>
+          <div>
+            <strong>Rückmeldung & Lösungsvorschlag</strong><br>
+            Je nach Fall melden wir uns zur Klärung, mit Rückfragen oder direkt mit einem Lösungsvorschlag bei dir.
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="reklamation-form" class="ms-section">
+    <div class="ms-container">
+      <div class="ms-form-wrap reveal fade-in">
+        <h2 class="ms-h2" style="margin-bottom:12px !important;">Reklamation einreichen</h2>
+        <p class="ms-muted" style="margin-bottom:28px;">
+          Bitte fülle das Formular möglichst vollständig aus, damit wir dein Anliegen schnell bearbeiten können.
+        </p>
+
+        {% form 'contact', id: 'complaint-form' %}
+          {% if form.posted_successfully? %}
+            <div class="ms-success">
+              <strong>Vielen Dank!</strong> Deine Reklamation wurde erfolgreich übermittelt. Wir melden uns schnellstmöglich bei dir.
+            </div>
+          {% endif %}
+
+          {% if form.errors %}
+            <div class="ms-error">
+              <strong>Ups!</strong> Bitte überprüfe deine Angaben.
+              <ul style="margin-top:8px;">
+                {% for field in form.errors %}
+                  <li>{{ form.errors.messages[field] }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          <input type="hidden" name="contact[tags]" value="Reklamation">
+          <input type="hidden" name="contact[reklamierte_artikel]" id="complaint-items-data">
+
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <div class="ms-form-grid">
+              <div>
+                <label for="complaint-name">Name *</label>
+                <input type="text" id="complaint-name" name="contact[name]" required>
+              </div>
+              <div>
+                <label for="complaint-email">E-Mail *</label>
+                <input type="email" id="complaint-email" name="contact[email]" required>
+              </div>
+            </div>
+
+            <div class="ms-form-grid">
+              <div>
+                <label for="complaint-phone">Telefon (optional)</label>
+                <input type="tel" id="complaint-phone" name="contact[phone]">
+              </div>
+              <div>
+                <label for="complaint-order-date">Bestellt am *</label>
+                <input type="date" id="complaint-order-date" name="contact[order_date]" required>
+              </div>
+            </div>
+
+            <div>
+              <label for="complaint-order-number">Bestellnummer *</label>
+              <input type="text" id="complaint-order-number" name="contact[order_number]" required>
+            </div>
+
+            <div>
+              <label>Betroffene Artikel *</label>
+              <div id="complaint-items" class="ms-item-list"></div>
+
+              <div class="ms-actions" style="margin-top:14px;">
+                <button type="button" id="complaint-add-item" class="ms-btn-ghost">Weiteren Artikel hinzufügen</button>
+              </div>
+
+              <p class="ms-small" style="margin-top:10px;">
+                Du kannst mehrere Artikel anlegen und unter jedem Artikel eine oder mehrere Bauteilnummern ergänzen.
+              </p>
+            </div>
+
+            <div>
+              <label for="complaint-description">Beschreibung des Problems *</label>
+              <textarea id="complaint-description" name="contact[body]" required placeholder="Bitte beschreibe den Mangel oder das Problem so genau wie möglich."></textarea>
+            </div>
+
+            <div class="ms-upload-box">
+              <label for="complaint-file-upload">Bilder / Videos zur Reklamation</label>
+              <input type="text" id="complaint-file-upload" name="contact[file_upload]" placeholder="Upload File" class="fluHidden appFileUpload">
+              <p class="ms-small" style="margin-top:10px;">
+                Du kannst hier Bilder oder Videos ergänzen, damit wir dein Anliegen besser prüfen können.
+              </p>
+            </div>
+
+            <div class="ms-checkbox-row">
+              <input type="checkbox" id="complaint-contact-request" name="contact[contact_request]" value="Ja">
+              <label for="complaint-contact-request">Ich bitte um Kontaktaufnahme</label>
+            </div>
+
+            <div class="ms-checkbox-row">
+              <input type="checkbox" id="complaint-consent" name="contact[data_privacy_accepted]" value="Ja" required>
+              <label for="complaint-consent">Datenschutz / AGB akzeptiert *</label>
+            </div>
+
+            <div>
+              <button type="submit" class="ms-btn" style="width:100%;">Reklamation absenden</button>
+            </div>
+          </div>
+        {% endform %}
+      </div>
+    </div>
+  </div>
+
+  <div class="ms-section" style="background:#f9fafb;">
+    <div class="ms-container">
+      <div class="ms-card reveal fade-in">
+        <h2 class="ms-h2" style="margin-bottom:12px !important;">Service & Kontakt</h2>
+        <p>
+          <strong>Telefon:</strong> <a href="tel:+498142448666">08142 / 448666</a><br>
+          <strong>E-Mail:</strong> <a href="mailto:info@motionsports.de">info@motionsports.de</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        var revealEls = document.querySelectorAll('#ms-complaint .reveal, #ms-complaint .stagger');
+        var io = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { root: null, rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+
+        revealEls.forEach(function(el) {
+          io.observe(el);
+        });
+      }
+
+      var section = document.getElementById('ms-complaint');
+      if (!section) return;
+
+      var itemsContainer = section.querySelector('#complaint-items');
+      var addItemButton = section.querySelector('#complaint-add-item');
+      var hiddenItemsField = section.querySelector('#complaint-items-data');
+      var complaintForm = section.querySelector('#complaint-form');
+
+      if (!itemsContainer || !addItemButton || !hiddenItemsField || !complaintForm) return;
+
+      var items = [];
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function syncHiddenField() {
+        var payload = items.map(function(item, index) {
+          var lines = [];
+          lines.push('Artikel ' + (index + 1) + ': ' + (item.article || ''));
+
+          if (item.parts.length) {
+            item.parts.forEach(function(part) {
+              if (part && String(part).trim() !== '') {
+                lines.push('Bauteilnummer: ' + part);
+              }
+            });
+          }
+
+          return lines.join('\n');
+        }).join('\n\n');
+
+        hiddenItemsField.value = payload;
+      }
+
+      function renderItems() {
+        if (!items.length) {
+          itemsContainer.innerHTML = '';
+          syncHiddenField();
+          return;
+        }
+
+        itemsContainer.innerHTML = items.map(function(item, itemIndex) {
+          var partRows = item.parts.map(function(part, partIndex) {
+            return ''
+              + '<div class="ms-part-row">'
+              +   '<div>'
+              +     '<label>Bauteilnummer ' + (partIndex + 1) + '</label>'
+              +     '<input type="text" value="' + escapeHtml(part) + '" data-part-input="' + itemIndex + '" data-part-index="' + partIndex + '" placeholder="z. B. 123456">'
+              +   '</div>'
+              +   '<div>'
+              +     '<button type="button" class="ms-btn-ghost" data-remove-part="' + itemIndex + '" data-remove-part-index="' + partIndex + '">Bauteilnummer entfernen</button>'
+              +   '</div>'
+              + '</div>';
+          }).join('');
+
+          return ''
+            + '<div class="ms-item-card" data-item="' + itemIndex + '">'
+            +   '<div class="ms-item-head">'
+            +     '<div>'
+            +       '<div class="ms-item-title">Artikel ' + (itemIndex + 1) + '</div>'
+            +       '<div class="ms-small">Lege hier den betroffenen Artikel und optional Bauteilnummern an.</div>'
+            +     '</div>'
+            +     '<button type="button" class="ms-btn-ghost" data-remove-item="' + itemIndex + '">Artikel entfernen</button>'
+            +   '</div>'
+            +   '<div>'
+            +     '<label>Artikel *</label>'
+            +     '<input type="text" value="' + escapeHtml(item.article) + '" data-article-input="' + itemIndex + '" placeholder="z. B. CBA" required>'
+            +   '</div>'
+            +   '<div class="ms-part-list">' + partRows + '</div>'
+            +   '<div class="ms-actions" style="margin-top:14px;">'
+            +     '<button type="button" class="ms-btn-ghost" data-add-part="' + itemIndex + '">Bauteilnummer hinzufügen</button>'
+            +   '</div>'
+            + '</div>';
+        }).join('');
+
+        syncHiddenField();
+      }
+
+      function addItem() {
+        items.push({
+          article: '',
+          parts: []
+        });
+        renderItems();
+      }
+
+      function addPart(itemIndex) {
+        if (!items[itemIndex]) return;
+        items[itemIndex].parts.push('');
+        renderItems();
+      }
+
+      addItemButton.addEventListener('click', function() {
+        addItem();
+      });
+
+      itemsContainer.addEventListener('click', function(event) {
+        var addPartBtn = event.target.closest('[data-add-part]');
+        if (addPartBtn) {
+          var itemIndex = parseInt(addPartBtn.getAttribute('data-add-part'), 10);
+          addPart(itemIndex);
+          return;
+        }
+
+        var removeItemBtn = event.target.closest('[data-remove-item]');
+        if (removeItemBtn) {
+          var removeItemIndex = parseInt(removeItemBtn.getAttribute('data-remove-item'), 10);
+          if (!isNaN(removeItemIndex)) {
+            items.splice(removeItemIndex, 1);
+            renderItems();
+          }
+          return;
+        }
+
+        var removePartBtn = event.target.closest('[data-remove-part]');
+        if (removePartBtn) {
+          var parentIndex = parseInt(removePartBtn.getAttribute('data-remove-part'), 10);
+          var removePartIndex = parseInt(removePartBtn.getAttribute('data-remove-part-index'), 10);
+
+          if (!isNaN(parentIndex) && !isNaN(removePartIndex) && items[parentIndex]) {
+            items[parentIndex].parts.splice(removePartIndex, 1);
+            renderItems();
+          }
+        }
+      });
+
+      itemsContainer.addEventListener('input', function(event) {
+        var articleInput = event.target.closest('[data-article-input]');
+        if (articleInput) {
+          var itemIndex = parseInt(articleInput.getAttribute('data-article-input'), 10);
+          if (!isNaN(itemIndex) && items[itemIndex]) {
+            items[itemIndex].article = articleInput.value;
+            syncHiddenField();
+          }
+          return;
+        }
+
+        var partInput = event.target.closest('[data-part-input]');
+        if (partInput) {
+          var parentIndex = parseInt(partInput.getAttribute('data-part-input'), 10);
+          var partIndex = parseInt(partInput.getAttribute('data-part-index'), 10);
+
+          if (!isNaN(parentIndex) && !isNaN(partIndex) && items[parentIndex] && typeof items[parentIndex].parts[partIndex] !== 'undefined') {
+            items[parentIndex].parts[partIndex] = partInput.value;
+            syncHiddenField();
+          }
+        }
+      });
+
+      complaintForm.addEventListener('submit', function(event) {
+        var hasValidArticle = items.some(function(item) {
+          return item.article && String(item.article).trim() !== '';
+        });
+
+        if (!hasValidArticle) {
+          event.preventDefault();
+          alert('Bitte lege mindestens einen betroffenen Artikel an.');
+          return;
+        }
+
+        syncHiddenField();
+      });
+
+      addItem();
+    })();
+  </script>
+
+  {% schema %}
+  {
+    "name": "Reklamation",
+    "settings": [],
+    "presets": [
+      {
+        "name": "Reklamation"
+      }
+    ]
+  }
+  {% endschema %}
+</section>

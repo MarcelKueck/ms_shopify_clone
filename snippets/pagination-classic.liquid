@@ -1,0 +1,59 @@
+{% comment %}
+  Renders a set of links for paginated results. Must be used within paginate tags.
+
+  Usage:
+  {% paginate results by 2 %}
+    {% render 'pagination', paginate: paginate, anchor: '#yourID' %}
+  {% endpaginate %}
+
+  Accepts:
+  - paginate: {Object}
+  - anchor: {String} (optional) This can be added so that on page reload it takes you to wherever you've placed your anchor tag.
+{% endcomment %}
+{%- if paginate.parts.size > 0 -%}
+  <pagination-dynamic scroll-to-target="{{ scroll_to_target }}">
+    <nav role="navigation" class="pagination mt-8 md:mt-12 lg:md-16">
+      <ol class="list-unstyled" role="list">
+        <li class="{% if paginate.previous == nil %}opacity-30 pointer-events-none{% endif %}">
+          <a
+            class="pagination-prev icon-sm-stroke"
+            href="{{ paginate.previous.url }}{{ anchor }}"
+          >
+            <span class="visually-hidden">
+              {{ 'general.pagination.previous' | t }}
+            </span>
+            {% render 'icon-chevron' %}
+          </a>
+        </li>
+
+        {%- for part in paginate.parts -%}
+          <li class="{% if part.is_link == false and part.title == paginate.current_page %}active{% endif %}">
+            {%- if part.is_link -%}
+              <a href="{{ part.url }}{{ anchor }}" aria-label="{{ 'general.pagination.page' | t: number: part.title }}">
+                {{- part.title -}}
+              </a>
+            {%- else -%}
+              {%- if part.title == paginate.current_page -%}
+                <span aria-label="{{ 'general.pagination.page' | t: number: part.title }}" aria-current="page">
+                  {{- part.title -}}
+                </span>
+              {%- else -%}
+                <span aria-label="{{ 'general.pagination.page' | t: number: part.title }}">{{ part.title }}</span>
+              {%- endif -%}
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+
+        <li class="{% if paginate.next == nil %}opacity-30 pointer-events-none{% endif %}">
+          <a class="pagination-next icon-sm-stroke" href="{{ paginate.next.url }}{{ anchor }}">
+            <span class="visually-hidden">
+              {{ 'general.pagination.next' | t }}
+            </span>
+
+            {% render 'icon-chevron' %}
+          </a>
+        </li>
+      </ol>
+    </nav>
+  </pagination-dynamic>
+{%- endif -%}

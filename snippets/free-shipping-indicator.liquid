@@ -1,0 +1,37 @@
+{% if settings.cart_free_shipping_bar_enabled %}
+  {% liquid
+    assign free_shipping_threshold = settings.cart_free_shipping_bar_threshold
+
+    if settings.cart_free_shipping_threshold_per_currency != blank
+      assign currency_thresholds = settings.cart_free_shipping_threshold_per_currency | newline_to_br | strip_newlines | split: '<br />'
+
+      for currency_threshold in currency_thresholds
+        assign ct = currency_threshold | split: ':'
+        if ct.size == 2 and cart.currency.iso_code == ct[0]
+          assign free_shipping_threshold = ct[1] | plus: 0
+          break
+        endif
+      endfor
+    endif
+
+    assign cart_total = cart.total_price | divided_by: 100.0
+    assign remaining = free_shipping_threshold | minus: cart_total
+    assign remaining_text = remaining | times: 100.0 | money
+  %}
+  <div class="free-shipping-indicator max-md:text-sm {{ class }}" {{ attrs }}>
+    <div>
+      {% if remaining > 0 %}
+        {{ 'sections.cart.free_shipping_message_html' | t: remaining: remaining_text }}
+      {% else %}
+        {{ 'sections.cart.free_shipping_qualified_html' | t }}
+      {% endif %}
+    </div>
+
+    <div class="progress-bar mt-2">
+      <div
+        class="progress-bar-inner"
+        style="width: {{ cart_total | times: 100.0 | divided_by: free_shipping_threshold }}%;"
+      ></div>
+    </div>
+  </div>
+{% endif %}

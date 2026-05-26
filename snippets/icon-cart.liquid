@@ -1,0 +1,25 @@
+<svg
+  viewBox="0 0 24 24"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  stroke="currentColor"
+  stroke-width="var(--icon-stroke-width)"
+  stroke-linecap="var(--icon-stroke-linecap)"
+  stroke-linejoin="var(--icon-stroke-linejoin)"
+>
+  {% case settings.cart_icon %}
+    {% when 'cart' %}
+      <path d="M6 7L21 7L19 16L9 16L6 7ZM6 7L5 4H2" vector-effect="non-scaling-stroke"/>
+
+      {% case settings.icons_line_thickness %}
+        {% when "thin" %}
+          <circle cx="10" cy="20" r="1.5" vector-effect="non-scaling-stroke"/>
+          <circle cx="17" cy="20" r="1.5" vector-effect="non-scaling-stroke"/>
+        {% else %}
+          <circle cx="9.5" cy="20.5" r="1.5" fill="currentColor" stroke="none"/>
+          <circle cx="17.5" cy="20.5" r="1.5" fill="currentColor" stroke="none"/>
+      {% endcase %}
+    {% else %}
+      <path d="M9 11V6C9 4.34315 10.3431 3 12 3V3C13.6569 3 15 4.34315 15 6V11M4 21H20L19 8H5L4 21Z" vector-effect="non-scaling-stroke"/>
+  {% endcase %}
+</svg>

@@ -1,0 +1,7 @@
+<div class="custom-gallery">
+  {% for image in product.metafields.custom_gallery.images %}
+    <div class="custom-gallery-item">
+      <img src="{{ image | img_url: 'large' }}" alt="{{ image.alt }}" />
+    </div>
+  {% endfor %}
+</div>

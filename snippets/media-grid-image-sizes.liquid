@@ -1,0 +1,110 @@
+{% liquid
+  if layout == 'stack' or count == 1
+    render 'image-sizes-columns', base: 1
+    break
+  endif
+
+  case count
+      # 2 ITEMS
+    when 2
+      case layout
+        when '1'
+          render 'image-sizes-columns', base: 1, lg: 2
+        when '2'
+          case index
+            when 1
+              render 'image-sizes-columns', base: 1, lg: 1.5
+            when 2
+              render 'image-sizes-columns', base: 1, lg: 3
+          endcase
+        when '3'
+          case index
+            when 1
+              render 'image-sizes-columns', base: 1, lg: 1.33
+            when 2
+              render 'image-sizes-columns', base: 1, lg: 4
+          endcase
+        when '4'
+          case index
+            when 1
+              render 'image-sizes-columns', base: 1, lg: 3
+            when 2
+              render 'image-sizes-columns', base: 1, lg: 1.5
+          endcase
+      endcase
+
+      # 3 ITEMS
+    when 3
+      case layout
+        when '1'
+          render 'image-sizes-columns', base: 1, lg: 3
+        when '2'
+          case index
+            when 1
+              render 'image-sizes-columns', base: 1, lg: 2
+            when 2, 3
+              render 'image-sizes-columns', base: 1, lg: 4
+          endcase
+        when '3'
+          render 'image-sizes-columns', base: 1, lg: 2
+        when '4'
+          case index
+            when 1
+              render 'image-sizes-columns', base: 1
+            when 2, 3
+              render 'image-sizes-columns', base: 1, lg: 2
+          endcase
+      endcase
+
+      # 4 ITEMS
+    when 4
+      case layout
+        when '1'
+          render 'image-sizes-columns', base: 1, lg: 2, xl: 4
+        when '2'
+          render 'image-sizes-columns', base: 1, lg: 2
+        when '3'
+          case index
+            when 1
+              render 'image-sizes-columns', base: 1
+            when 2, 3, 4
+              render 'image-sizes-columns', base: 1, lg: 3
+          endcase
+        when '4'
+          case index
+            when 1, 4
+              render 'image-sizes-columns', base: 1, lg: 1.5
+            when 2, 3
+              render 'image-sizes-columns', base: 1, lg: 3
+          endcase
+      endcase
+
+      # 5 ITEMS
+    when 5
+      case layout
+        when '1'
+          case index
+            when 1, 2
+              render 'image-sizes-columns', base: 1, lg: 2
+            when 3, 4, 5
+              render 'image-sizes-columns', base: 1, lg: 3
+          endcase
+        when '2'
+          render 'image-sizes-columns', base: 1, lg: 2
+        when '3'
+          case index
+            when 1, 2
+              render 'image-sizes-columns', base: 1, lg: 1.5
+            when 3, 4, 5
+              render 'image-sizes-columns', base: 1, lg: 3
+          endcase
+        when '4'
+          case index
+            when 1
+              render 'image-sizes-columns', base: 1, lg: 1.5
+            when 2, 3, 4, 5
+              render 'image-sizes-columns', base: 1, lg: 3
+          endcase
+      endcase
+  endcase
+%}

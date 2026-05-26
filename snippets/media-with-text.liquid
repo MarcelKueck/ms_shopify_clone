@@ -1,0 +1,140 @@
+{% liquid
+  if section.settings.full_width
+    assign section_type = 'section--full-width section--first-pt-0 px-0'
+  else
+    assign section_type = 'section--space-after section--block section--no-padding'
+  endif
+
+  if section.settings.remove_bottom_spacing
+    assign section_type = section_type | append: ' pb-0 mb-0'
+  endif
+
+  assign has_diff_bg = false
+
+  if section.settings.background_color != blank and section.settings.background_color.rgba != '0 0 0 / 0.0'
+    if section.settings.background_color.rgb != settings.colors_background.rgb
+      assign has_diff_bg = true
+    endif
+  endif
+%}
+
+<style>
+  #shopify-section-{{ section.id }} {
+    {% if section.settings.full_width %}
+      --image-with-text-width: calc(var(--container-outer-width) + var(--container-inner-width) * {{ section.settings.image_width | divided_by: 100.0 }});
+    {% else %}
+      --image-with-text-width: {{ section.settings.image_width }}%;
+    {% endif %}
+  }
+</style>
+
+{% render 'section-bg-number-vars', bg: settings.colors_background %}
+
+<div {% render 'section-attrs', type: section_type, class: 'bg-transparent' %}>
+  <div
+    data-animation-auto-order
+    class="
+      section-body grid group
+      {% if section.settings.image_position == 'left' %}
+        lg:grid-cols-image-with-text
+      {% else %}
+        lg:grid-cols-image-with-text--image-right
+      {% endif %}
+
+      {% if section.settings.full_width == false and has_diff_bg %}
+        sm:rounded-block sm:overflow-hidden
+      {% endif %}
+    "
+    {% render 'data-diff-bg', item_color: section.settings.background_color, background: settings.colors_background %}
+  >
+    <div class="color order-2 flex items-center">
+      <div
+        class="
+          w-full trim-margins {{ section.settings.text_alignment }}
+          {% if has_diff_bg or section.settings.remove_bottom_spacing %} rfs:pb-20 {% endif %}
+          rfs:pt-20 lg:rfs:pb-20
+
+          {% if section.settings.image_position == 'right' and section.settings.full_width %}
+            {% if has_diff_bg == false %}
+              rfs:px-co
+            {% else %}
+              rfs:px-12
+            {% endif %}
+            lg:pl-co lg:rfs:pr-12
+          {% elsif section.settings.image_position == 'left' and section.settings.full_width %}
+            {% if has_diff_bg == false %}
+              rfs:px-co
+            {% else %}
+              rfs:px-12
+            {% endif %}
+            lg:pr-co lg:rfs:pl-12
+          {% endif %}
+
+          {% if section.settings.full_width == false %}
+            {% if has_diff_bg == true %}
+              rfs:px-12
+            {% else %}
+              px-co
+              sm:px-0
+
+              {% if section.settings.image_position == 'right' %}
+                lg:rfs:pr-12
+              {% endif %}
+
+              {% if section.settings.image_position == 'left' %}
+                lg:rfs:pl-12
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        "
+      >
+        {% render 'rich-text-blocks' %}
+      </div>
+    </div>
+
+    <lqip-element
+      class="
+        image-loader media col-span-1 order-1 self-center w-full h-full
+
+        {{ section.settings.image_size }}{{ media_class }}
+
+        {% if section.settings.image_position == 'right' %}
+          lg:order-3
+        {% endif %}
+
+        {% if section.settings.full_width == true %}
+          {% if section.settings.image_position == 'right' %}
+            {% if has_diff_bg == false %} lg:rounded-l-block {% endif %}
+          {% elsif section.settings.image_position == 'left' %}
+            {% if has_diff_bg == false %} lg:rounded-r-block {% endif %}
+          {% endif %}
+        {% elsif section.settings.full_width == false %}
+          sm:rounded-t-block
+
+          {% if has_diff_bg == true %}
+            lg:rounded-b-block
+          {% else %}
+            sm:rounded-b-block
+          {% endif %}
+
+          {% if section.settings.image_position == 'left' %}
+            {% if has_diff_bg == true %}
+              lg:rounded-r-none
+            {% endif %}
+          {% else %}
+            {% if has_diff_bg == true %}
+              lg:rounded-l-none
+            {% endif %}
+          {% endif %}
+        {% endif %}
+      "
+      style="{{ media_style }}"
+      {% if section.settings.full_width == false %}
+        data-animation="block"
+        data-animation-group="{{ section.id }}"
+      {% endif %}
+    >
+      {{ media }}
+    </lqip-element>
+  </div>
+</div>

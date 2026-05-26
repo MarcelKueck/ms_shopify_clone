@@ -1,0 +1,15 @@
+{% liquid
+  case type
+    when 'small'
+      echo '640px'
+    when 'normal'
+      echo '768px'
+    when 'large'
+      echo '896px'
+    when 'extra-large'
+      echo '1024px'
+    when 'full-width'
+      echo settings.page_width
+      echo 'px'
+  endcase
+%}

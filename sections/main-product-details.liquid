@@ -1,0 +1,278 @@
+{% render 'product-extra' %}
+
+{% schema %}
+{
+  "name": "t:sections.main-product-details.name",
+  "tag": "section",
+  "class": "section-main-product-details product-grid-section",
+  "blocks": [
+    {
+      "type": "text",
+      "name": "t:sections.main-product-details.blocks.text.name",
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "t:sections.main-product-details.blocks.text.settings.content.label",
+          "default": "<p>Content</p>"
+        }
+      ]
+    },
+    {
+      "type": "rich_text_block",
+      "name": "t:sections.main-product-details.blocks.rich_text_block.name",
+      "settings": [
+        {
+          "type": "text",
+          "id": "subheading",
+          "label": "t:sections.all.subheading.label"
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "t:sections.all.heading.label"
+        },
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "t:sections.all.content.label",
+          "default": "<p>Content</p>"
+        },
+        {
+          "type": "select",
+          "id": "heading_size",
+          "label": "t:sections.all.heading_size.label",
+          "options": [
+            {
+              "value": "heading text-h5 md:text-h4",
+              "label": "t:sections.all.heading_size.options__4.label"
+            },
+            {
+              "value": "heading text-h6 md:text-h5",
+              "label": "t:sections.all.heading_size.options__5.label"
+            },
+            {
+              "value": "heading text-base md:text-h6",
+              "label": "t:sections.all.heading_size.options__6.label"
+            }
+          ],
+          "default": "heading text-h6 md:text-h5"
+        },
+        {
+          "type": "select",
+          "id": "text_alignment",
+          "label": "t:sections.all.text_alignment.label",
+          "options": [
+            {
+              "value": "text-left",
+              "label": "t:sections.all.text_alignment.options.text_left.label"
+            },
+            {
+              "value": "text-center",
+              "label": "t:sections.all.text_alignment.options.text_center.label"
+            },
+            {
+              "value": "text-right",
+              "label": "t:sections.all.text_alignment.options.text_right.label"
+            }
+          ],
+          "default": "text-left"
+        },
+        {
+          "type": "header",
+          "content": "t:sections.main-product-details.headers.button"
+        },
+        {
+          "type": "text",
+          "id": "button_text",
+          "label": "t:sections.all.button_text.label"
+        },
+        {
+          "type": "url",
+          "id": "button_url",
+          "label": "t:sections.all.button_link.label"
+        },
+        {
+          "type": "select",
+          "id": "button_style",
+          "label": "t:sections.all.button_style.label",
+          "options": [
+            {
+              "value": "",
+              "label": "t:sections.all.button_style.options.filled"
+            },
+            {
+              "value": "button-outline",
+              "label": "t:sections.all.button_style.options.outline"
+            }
+          ],
+          "default": ""
+        },
+        {
+          "type": "header",
+          "content": "t:sections.all.headers.colors"
+        },
+        {
+          "type": "color",
+          "label": "t:sections.all.background_color.label",
+          "id": "background_color"
+        },
+        {
+          "type": "color",
+          "label": "t:sections.all.text_color.label",
+          "id": "text_color"
+        },
+        {
+          "type": "color",
+          "label": "t:sections.all.heading_color.label",
+          "id": "heading_color"
+        },
+        {
+          "type": "color",
+          "label": "t:sections.all.button_background_color.label",
+          "id": "button_background_color"
+        },
+        {
+          "type": "color",
+          "label": "t:sections.all.button_text_color.label",
+          "id": "button_text_color"
+        }
+      ]
+    },
+    {
+      "type": "description",
+      "name": "t:sections.main-product-details.blocks.description.name",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "collapse_content",
+          "label": "t:sections.all.collapse_content.label",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "collapse_open",
+          "label": "t:sections.all.collapse_open.label",
+          "default": false,
+          "info": "t:sections.all.collapse_open.info"
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "t:sections.all.heading.label"
+        }
+      ]
+    },
+    {
+      "type": "collapsible_content",
+      "name": "t:sections.main-product-details.blocks.collapsible_content.name",
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "collapse_open",
+          "label": "t:sections.all.collapse_open.label",
+          "default": false
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "t:sections.all.heading.label",
+          "default": "Collapsible content"
+        },
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "t:sections.all.content.label",
+          "default": "<p>Provide your customers with additional information about the product.</p>"
+        }
+      ]
+    },
+    {
+      "type": "custom_liquid",
+      "name": "t:sections.main-product-details.blocks.custom_liquid.name",
+      "settings": [
+        {
+          "type": "liquid",
+          "id": "custom_liquid",
+          "label": "t:sections.main-product-details.blocks.custom_liquid.settings.custom_liquid.label",
+          "info": "t:sections.main-product-details.blocks.custom_liquid.settings.custom_liquid.info"
+        },
+        {
+          "type": "checkbox",
+          "id": "collapse_content",
+          "label": "t:sections.all.collapse_content.label",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "collapse_open",
+          "label": "t:sections.all.collapse_open.label",
+          "default": false,
+          "info": "t:sections.all.collapse_open.info"
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "t:sections.all.heading.label"
+        }
+      ]
+    },
+    {
+      "name": "t:sections.main-product-details.blocks.image.name",
+      "type": "image",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "t:sections.main-product-details.blocks.image.settings.image.label"
+        },
+        {
+          "type": "range",
+          "id": "width",
+          "label": "t:sections.main-product-details.blocks.image.settings.width.label",
+          "min": 200,
+          "max": 1000,
+          "step": 20,
+          "unit": "px",
+          "default": 500
+        },
+        {
+          "type": "select",
+          "id": "alignment",
+          "label": "t:sections.main-product-details.blocks.image.settings.alignment.label",
+          "options": [
+            {
+              "value": "text-left",
+              "label": "t:sections.main-product-details.blocks.image.settings.alignment.options__0.label"
+            },
+            {
+              "value": "text-center",
+              "label": "t:sections.main-product-details.blocks.image.settings.alignment.options__1.label"
+            },
+            {
+              "value": "text-right",
+              "label": "t:sections.main-product-details.blocks.image.settings.alignment.options__2.label"
+            }
+          ],
+          "default": "text-left"
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "t:sections.all.heading.label"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "t:sections.main-product-details.blocks.image.settings.link.label"
+        }
+      ]
+    },
+    {
+      "type": "separator",
+      "name": "t:sections.main-product-details.blocks.separator.name"
+    }
+  ]
+}
+{% endschema %}

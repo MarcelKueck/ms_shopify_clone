@@ -1,0 +1,46 @@
+<div class="product-reviews-faq">
+  {% assign review_count = product.metafields.judgeme.review_count | default: 0 %}
+  {% assign question_count = product.metafields.judgeme.qa_count | default: 0 %}
+
+  <a href="#judgeme_product_reviews" class="reviews-link">
+    <span class="single-star" aria-hidden="true">★</span>
+    <span class="count">({{ review_count }})</span>
+  </a>
+
+  | <a href="#judgeme_product_reviews" class="faq-link">
+    {% if question_count > 0 %}
+      ({{ question_count }}) Fragen
+    {% else %}
+      Frage stellen
+    {% endif %}
+  </a>
+</div>
+
+<style>
+  .product-reviews-faq {
+    font-size: 14px;
+    font-weight: 400;
+    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+  }
+  .product-reviews-faq a {
+    color: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .product-reviews-faq a:hover {
+    text-decoration: underline;
+  }
+
+  /* Das eine Sternsymbol */
+  .product-reviews-faq .single-star {
+    color: #000; /* oder #FFD700 für Gold */
+    font-size: 14px;
+    line-height: 1;
+  }
+</style>

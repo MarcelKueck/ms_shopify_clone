@@ -1,0 +1,18 @@
+{% if errors %}
+  <div class="flex flex-col gap-4 text-left">
+    {%- for field in errors -%}
+      <div class="alert alert-danger message message-danger">
+        {%- if field == 'form' -%}
+          <div>
+            {{ errors.messages[field] }}
+          </div>
+        {%- else -%}
+          <a href="#{{ form_id }}-{{ field }}">
+            {{ errors.translated_fields[field] | capitalize }}
+            {{ errors.messages[field] }}
+          </a>
+        {%- endif -%}
+      </div>
+    {%- endfor -%}
+  </div>
+{% endif %}

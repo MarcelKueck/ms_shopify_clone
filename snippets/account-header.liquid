@@ -1,0 +1,42 @@
+<div
+  class="
+    grid items-center gap-y-6 sm:gap-x-8 lg:gap-x-12
+    grid-cols-[1fr_auto] md:grid-cols-[auto_1fr] mb-8 pb-4 md:pb-6 border-b
+  "
+>
+  <a href="{{ routes.account_url }}">
+    <h1 class="h3" tabindex="-1">{{ 'customer.account.title' | t }}</h1>
+  </a>
+
+  <div class="flex flex-wrap items-center gap-2 md:gap-4 row-start-2 md:row-auto col-span-2 md:col-auto">
+    <a
+      href="{{ routes.account_url }}"
+      class="
+        button-pill text-xs md:text-sm
+        {% if request.page_type == "customers/account" or request.page_type == "customers/order" %}active{% endif %}
+      "
+    >
+      {{ 'customer.account.orders' | t }}
+    </a>
+
+    <a
+      href="{{ routes.account_addresses_url }}"
+      class="
+        button-pill text-xs md:text-sm
+        {% if request.page_type == "customers/addresses" %}active{% endif %}
+      "
+    >
+      {{ 'customer.account.addresses' | t }}
+    </a>
+
+    <a
+      href="{{ routes.account_logout_url }}"
+      class="styled-link flex items-center gap-2 md:gap-3 ml-auto max-md:text-sm"
+    >
+      <div class="icon-sm">
+        {% render 'icon-lock' %}
+      </div>
+      {{ 'customer.log_out' | t }}
+    </a>
+  </div>
+</div>

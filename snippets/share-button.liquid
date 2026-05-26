@@ -1,0 +1,85 @@
+{% liquid
+  if article
+    assign url = request.origin | append: article.url | escape
+    assign image_url = article.image | image_url: width: 1024
+    assign text_decoded = article.title
+    assign text = article.title | url_encode | escape
+  endif
+
+  if product
+    assign url = request.origin | append: product.url | escape
+    assign image_url = product.featured_image | image_url: width: 1024 | escape
+    assign text_decoded = product.title
+    assign text = product.title | url_encode | escape
+  endif
+%}
+
+<share-dropdown
+  focus-only
+  append-to-body
+  hide-on-menu-click
+  offset-cross="-24"
+  offset="16"
+  class="inline-block"
+  list-title="{{ 'general.share.button_text' | t }}"
+  url="{{ url }}"
+  text="{{ text_decoded | escape }}"
+>
+  <details>
+    <summary data-dropdown-activator class="inline-flex items-center gap-4 styled-link">
+      <div class="icon-sm">
+        {% render 'icon-share' %}
+      </div>
+      {{ 'general.share.button_text' | t }}
+    </summary>
+    <div class="dropdown-menu py-2">
+      <copy-to-clipboard data-text="{{ url }}" class="no-js-hidden contents">
+        <button
+          class="dropdown-list-item gap-6 pr-12 w-full"
+          data-value
+        >
+          <div class="w-6">
+            {% render 'icon-link' %}
+          </div>
+          {{ 'general.share.copy_link' | t }}
+        </button>
+      </copy-to-clipboard>
+      <a
+        href="https://www.facebook.com/sharer/sharer.php?u={{ url }}"
+        class="dropdown-list-item gap-6 pr-12"
+        target="_blank"
+        data-value
+        tabindex="0"
+      >
+        <div class="w-6">
+          {% render 'icon-facebook' %}
+        </div>
+        {{ 'general.social.links.facebook' | t }}
+      </a>
+      <a
+        href="https://twitter.com/intent/tweet?url={{ url }}&text={{ text }}"
+        class="dropdown-list-item gap-6 pr-12"
+        target="_blank"
+        data-value
+        tabindex="0"
+      >
+        <div class="w-6">
+          {% render 'icon-twitter' %}
+        </div>
+        {{ 'general.social.links.twitter' | t }}
+      </a>
+      <a
+        href="https://www.pinterest.com/pin/create/button/?url={{ url }}&media={{ image_url }}&description={{ text }}"
+        class="dropdown-list-item gap-6 pr-12"
+        target="_blank"
+        data-value
+        tabindex="0"
+      >
+        <div class="w-6">
+          {% render 'icon-pinterest' %}
+        </div>
+        {{ 'general.social.links.pinterest' | t }}
+      </a>
+    </div>
+  </details>
+</share-dropdown>

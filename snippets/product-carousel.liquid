@@ -1,0 +1,42 @@
+{% liquid
+  if enabled == false
+    assign carousel_tag = 'div'
+    assign grid_class = 'grid-carousel--stack'
+  else
+    assign carousel_tag = 'scroll-carousel'
+    assign carousel_class = 'grid scroll-area-x bleed pb-2 -mb-2'
+  endif
+%}
+
+<style>
+  #shopify-section-{{ section.id }} {
+    --grid-columns-max: {{ grid_columns }};
+
+    {% if enabled %}
+      {% if grid_columns_mobile == '1' %}
+        --grid-products-columns-sm: 1.15;
+      {% else %}
+        --grid-products-columns-sm: 1.6;
+      {% endif %}
+    {% else %}
+      --grid-products-columns-sm: {{ grid_columns_mobile }};
+    {% endif %}
+
+  }
+</style>
+
+<div class="product-carousel-wrapper relative">
+  <{{ carousel_tag }} class="{{ carousel_class }}" item-selector=".product-card">
+    <div
+      class="
+        grid-carousel grid-carousel--pseudo-pr grid-carousel--products
+        {{ grid_class }}
+        {% render 'has-diff-bg-class', item_color: settings.colors_product_card_background, class: 'product-card-container--diff-bg' %}
+      "
+    >
+      {{ slot }}
+    </div>
+  </{{ carousel_tag }}>
+
+  {% render 'carousel-buttons' %}
+</div>

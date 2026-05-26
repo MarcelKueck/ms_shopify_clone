@@ -1,0 +1,33 @@
+{% if block.settings.collapse_content %}
+  <smooth-collapse
+    class="product-collapse-wrapper block"
+    {{ block.shopify_attributes }}
+    {% if block.settings.collapse_open %}
+      default-open
+    {% endif %}
+  >
+    <details
+      class="product-collapse"
+      {% if block.settings.collapse_open %}
+        open
+      {% endif %}
+    >
+      <summary>
+        <div class="font-accordion product-info-heading">{{ block.settings.heading }}</div>
+        {% render 'icon-chevron' %}
+      </summary>
+
+      <div>
+        {{ inner }}
+      </div>
+    </details>
+  </smooth-collapse>
+{% else %}
+  <div class="my-6 md:my-8" {{ block.shopify_attributes }}>
+    {% if block.settings.heading != blank %}
+      <div class="heading product-info-heading mb-4 md:mb-6">{{ block.settings.heading }}</div>
+    {% endif %}
+
+    {{ inner }}
+  </div>
+{% endif %}

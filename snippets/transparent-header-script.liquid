@@ -1,0 +1,51 @@
+<script>
+  (function () {
+    function getHeaderGroupElements() {
+      return document.querySelectorAll('.shopify-section-group-header-group');
+    }
+
+    function isHeaderLast() {
+      const els = getHeaderGroupElements();
+      if (els.length === 0) return true;
+      return els[els.length - 1].classList.contains('section-site-header');
+    }
+
+    function isAllowHeaderTransparentFirst() {
+      return !!document.querySelector('main > :first-child [enable-transparent-header]');
+    }
+
+    function disableStyles() {
+      document.querySelectorAll('[data-transparent-header-style]').forEach((el) => {
+        el.setAttribute('media', 'not all');
+      });
+    }
+
+    function restoreStyles() {
+      document.querySelectorAll('[data-transparent-header-style]').forEach((el) => {
+        el.removeAttribute('media');
+      });
+    }
+
+    if (!isHeaderLast()) {
+      disableStyles();
+    }
+
+    if (window.Shopify.designMode) {
+      function updateFull() {
+        if (
+          !isHeaderLast() ||
+          !isAllowHeaderTransparentFirst() ||
+          !document.querySelector('.section-site-header .header--transparent')
+        ) {
+          disableStyles();
+        } else {
+          restoreStyles();
+        }
+      }
+
+      document.addEventListener('shopify:section:reorder', updateFull);
+      document.addEventListener('shopify:section:load', updateFull);
+      document.addEventListener('shopify:section:unload', () => setTimeout(updateFull, 100));
+    }
+  })();
+</script>

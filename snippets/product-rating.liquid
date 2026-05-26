@@ -1,0 +1,6 @@
+{% render 'rating',
+  rating: product.metafields.reviews.rating.value.rating,
+  rating_max: product.metafields.reviews.rating.value.scale_max,
+  rating_count: product.metafields.reviews.rating_count,
+  show_rating_text: show_rating_text
+%}

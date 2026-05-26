@@ -1,0 +1,149 @@
+<table class="cart-items w-full">
+  <thead class="max-md:hidden">
+    <tr>
+      <th scope="col" class="border-b">
+        <span class="subheading mb-0">{{ 'sections.cart.headings.product' | t }}</span>
+      </th>
+      <th scope="col" class="border-b text-center">
+        <span class="subheading mb-0">{{ 'sections.cart.headings.quantity' | t }}</span>
+      </th>
+      <th scope="col" class="border-b text-center">
+        <span class="subheading mb-0">{{ 'sections.cart.headings.total' | t }}</span>
+      </th>
+      <th scope="col" class="border-b text-center"></th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {%- for item in cart.items -%}
+      <tr id="CartItem-{{ item.index | plus: 1 }}" data-cart-item-index="{{ item.index | plus: 1 }}" class="relative">
+        <td>
+          <div class="flex items-start gap-4 sm:gap-6 lg:gap-8">
+            <a
+              data-instant
+              href="{{ item.url }}"
+              aria-hidden="true"
+              tabindex="-1"
+              class="cart-media block w-16 sm:w-20 md:w-24 shrink-0"
+            >
+              <div class="media rounded-block-xs">
+                {% if item.image %}
+                  <lqip-element class="image-loader">
+                    {{
+                      item.image
+                      | image_url: width: 192
+                      | image_tag:
+                        widths: '96, 128, 160, 192',
+                        sizes: '(min-width: 768px) 96px, (min-width: 576px) 80px, 64px',
+                        class: 'product-thumbnail-shade rounded-block-xs',
+                        loading: 'lazy'
+                    }}
+                  </lqip-element>
+                {% else %}
+                  {% render 'placeholder', type: 'image', class: 'placeholder rounded-block-xs' %}
+                {% endif %}
+              </div>
+            </a>
+            <div class="grow max-md:text-sm">
+              <div class="flex items-start">
+                <div class="grow">
+                  {% if section.settings.show_vendor %}
+                    <div class="text-xs md:text-sm text-foreground/75 tracking-wider product-vendor">
+                      {{ item.product.vendor }}
+                    </div>
+                  {% endif %}
+
+                  <a data-instant class="product-name" href="{{ item.url }}">{{ item.product.title }}</a>
+                </div>
+
+                <a
+                  data-button-remove
+                  data-index="{{ item.index | plus: 1 }}"
+                  role="button"
+                  href="{{ item.url_to_remove }}"
+                  class="md:hidden ml-4 block icon-md box-content -m-2.5 p-2.5"
+                  aria-label="{{ 'accessibility.cart_remove_item' | t: item: item.product.title }}"
+                >
+                  {% render 'icon-trash' %}
+                </a>
+              </div>
+
+              {% unless item.product.has_only_default_variant %}
+                <div class="text-xs md:text-sm mt-2 text-foreground/75">
+                  {{ item.variant.title }}
+                </div>
+              {% endunless %}
+
+              {% render 'line-item-properties', item: item %}
+
+              <div class="flex justify-between items-center mt-6">
+                <div>
+                  {% render 'line-item-price', item: item %}
+                </div>
+
+                <div class="md:hidden w-24 no-js:hidden">
+                  {% render 'qty-selector', item: item, name: false %}
+                </div>
+              </div>
+
+              {%- comment -%}
+                Item level discounts can be applied by merchants, and must be shown to the buyer
+              {%- endcomment -%}
+              {% if item.line_level_discount_allocations.size > 0 %}
+                <div class="mt-4">
+                  {% render 'line-level-discount-allocations', item: item %}
+                </div>
+              {% endif %}
+
+              <div class="message message-danger text-danger mt-6 text-xs md:text-sm" role="alert"></div>
+            </div>
+          </div>
+        </td>
+
+        <td
+          class="
+            js:max-md:hidden w-24 md:w-36
+            no-js:max-md:absolute no-js:max-md:bottom-0 no-js:max-md:right-0
+          "
+        >
+          {% render 'qty-selector', item: item %}
+        </td>
+
+        <td class="max-md:hidden text-center">
+          <div class="font-bold">
+            {%- comment -%}
+              This is the price of the entire line, as opposed to the units.
+            {%- endcomment -%}
+            {%- if item.original_line_price != item.final_line_price -%}
+              <div class="text-foreground/75 font-normal">
+                <s>{{ item.original_line_price | money }}</s>
+              </div>
+
+              <div>
+                {{ item.final_line_price | money }}
+              </div>
+
+            {%- else -%}
+              <div>
+                {{ item.original_line_price | money }}
+              </div>
+            {%- endif -%}
+          </div>
+        </td>
+
+        <td class="max-md:hidden text-center">
+          <a
+            data-button-remove
+            data-index="{{ item.index | plus: 1 }}"
+            role="button"
+            href="{{ item.url_to_remove }}"
+            class="inline-block icon-md box-content p-2.5 -m-2.5"
+            aria-label="{{ 'accessibility.cart_remove_item' | t: item: item.product.title }}"
+          >
+            {% render 'icon-trash' %}
+          </a>
+        </td>
+      </tr>
+    {%- endfor -%}
+  </tbody>
+</table>

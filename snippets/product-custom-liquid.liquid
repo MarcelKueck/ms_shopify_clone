@@ -1,0 +1,6 @@
+{% if block.settings.heading == blank %}
+  {{ block.settings.custom_liquid }}
+{% else %}
+  {% render 'product-content-block', inner: block.settings.custom_liquid, block: block %}
+{% endif %}
+

@@ -1,0 +1,103 @@
+{% liquid
+  assign image_width = image_width | default: 50
+  assign image_width_ratio = 100.0 | divided_by: image_width | round: 2
+  capture image_sizes
+    render 'image-sizes-columns', base: 1, lg: image_width_ratio
+  endcapture
+%}
+
+<a
+  data-instant
+  data-animation="block"
+  data-animation-group="{{ animation_group | default: section.id }}"
+  href="{{ featured_article.url }}"
+  class="
+    featured-article grid max-sm:bleed-margin group sm:rounded-block overflow-hidden
+    {% unless featured_article and featured_article.image == null %}
+      lg:grid-cols-image-with-text
+    {% else %}
+      text-center
+    {% endunless %}
+
+    {% if background_color == null %}
+      has-diff-bg
+    {% else %}
+      {% render 'has-diff-bg-class', item_color: background_color %}
+    {% endif %}
+  "
+  style="--image-with-text-width: {{ image_width }}%;"
+>
+  {% unless featured_article and featured_article.image == null %}
+    <lqip-element
+      class="image-loader media media--ratio-16-9 w-full h-full"
+    >
+      {% if featured_article == blank %}
+        {% render 'placeholder', type: 'image' %}
+      {% else %}
+        {{
+          featured_article
+          | image_url: width: 1920
+          | image_tag: sizes: image_sizes, class: 'image-hover-zoom', loading: 'lazy'
+        }}
+        {{ featured_article | image_url: width: 20 | image_tag: class: 'media-lq-placeholder', fetchpriority: 'low' }}
+      {% endif %}
+    </lqip-element>
+  {% endunless %}
+
+  <div
+    class="
+      featured-article__info color p-8 md:p-12 lg:px-12 lg:py-16
+      {% if background_color == blank or background_color.rgba == '0 0 0 / 0.0' %}
+        !bg-foreground/2.5
+      {% endif %}
+    "
+    style="{% render 'apply-color-vars', background: background_color, text: text_color, heading: heading_color %}"
+  >
+    {% if tag != false and featured_article != blank and featured_article.tags[0] %}
+      <div class="info-badge article-badge mb-3">
+        {{ featured_article.tags | first }}
+      </div>
+    {% endif %}
+
+    <div>
+      <h2 class="h3 !normal-case">{{ featured_article.title | default: 'Blog post' }}</h2>
+    </div>
+
+    {% if date != false or comments != false %}
+      <div class="inline-flex flex-wrap items-center gap-4 mt-4 md:mt-6">
+        {% if date != false %}
+          <div class="text-foreground/75">
+            {{ featured_article.published_at | default: 'now' | time_tag: format: 'date' }}
+          </div>
+        {% endif %}
+
+        {% if comments != false %}
+          <div class="separator-dot first:hidden"></div>
+          <div class="text-foreground/75">
+            {%- assign comments_count = featured_article.comments_count | default: 0 -%}
+            {{- 'blogs.article.comments' | t: count: comments_count -}}
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if excerpt != false %}
+      <div class="text-foreground leading-relaxed mt-4 md:mt-8">
+        {% if featured_article %}
+          {{ featured_article.excerpt_or_content | strip_html | truncatewords: 30 }}
+        {% else %}
+          Blog post excerpt
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if button_style != 'hidden' %}
+      <div
+        class="button {{ button_style }} mt-8 md:mt-12"
+        style="{% render 'button-vars', background: button_background_color, text: button_text_color %}"
+      >
+        {{ 'sections.featured_article.read_more' | t }}
+      </div>
+    {% endif %}
+  </div>
+</a>

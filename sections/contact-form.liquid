@@ -1,0 +1,449 @@
+{% assign form_id = section.id | append: '-ContactForm' %}
+
+{% render 'section-bg-number-vars' %}
+
+<div {% render 'section-attrs' %}>
+  <div
+    class="
+      grid gap-x-16 gap-y-12
+      {% if section.settings.text_position == 'left' or section.settings.text_position == 'right' %}
+        lg:grid-cols-2
+      {% else %}
+        text-center prose-align
+      {% endif %}
+    "
+  >
+    <div class="section-content-spacing">
+      {% render 'section-content' %}
+    </div>
+
+    <div
+      class="
+        contact-form-wrapper w-full text-left
+        {% if section.settings.text_position == 'center' %} max-w-3xl mx-auto {% endif %}
+        {% if section.settings.text_position == 'right' %} xl:col-start-1 xl:row-start-1 {% endif %}
+      "
+    >
+      {%- form 'contact', id: form_id, data-form-button-loading: true -%}
+        {%- if form.posted_successfully? -%}
+          <div class="alert alert-success mb-6">
+            <p class="message message-success text-success">{{ 'templates.contact.form.post_success' | t }}</p>
+          </div>
+        {%- elsif form.errors -%}
+          <div class="mb-6 md:mb-8">
+            {% render 'form-errors', errors: form.errors, form_id: form_id %}
+          </div>
+        {%- endif -%}
+
+        {% if product %}
+          <input
+            type="hidden"
+            name="contact[Product]"
+            value="{{ product.vendor | escape }} {{ product.title | escape }}"
+          >
+        {% endif %}
+
+        <div
+          class="grid gap-4"
+          data-animation="block"
+          data-animation-group="{{ section.id }}"
+        >
+          {% comment %}
+            Check if the form submitted successfully
+            If not it could only have come from the email field which is the only required field
+          {% endcomment %}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% comment %}
+              Name field
+              The inputs need to have an attribute of name="contact[information_id]", where information_id briefly
+              identifies the information that you're collecting. These titles appear in contact notifications, and
+              must be unique within the form. The emails sent to the buyer related to contact us form submissions
+              uses the name string for the label in the email and thus needs to be translated.
+            {% endcomment %}
+            <div class="form-floating">
+              <input
+                class="input"
+                autocomplete="name"
+                type="text"
+                id="{{ form_id }}-name"
+                name="contact[{{ 'templates.contact.form.name' | t }}]"
+                value="{% if form.name %}{{ form.name }}{% elsif customer %}{{ customer.name }}{% endif %}"
+                placeholder="{{ 'templates.contact.form.name' | t }}"
+              >
+              <label for="{{ form_id }}-name">{{ 'templates.contact.form.name' | t }}</label>
+            </div>
+
+            {% comment %}
+              Email field, which is required
+              Aria is used for accessibility
+            {% endcomment %}
+            <div class="form-floating">
+              <input
+                class="input"
+                autocomplete="email"
+                type="email"
+                id="{{ form_id }}-email"
+                name="contact[email]"
+                spellcheck="false"
+                autocapitalize="off"
+                aria-required="true"
+                required
+                value="{% if form.email %}{{ form.email }}{% elsif customer %}{{ customer.email }}{% endif %}"
+                placeholder="{{ 'templates.contact.form.email' | t }}"
+                {% if form.errors contains 'email' %}
+                  aria-invalid="true"
+                  aria-describedby="{{ form_id }}-email-error"
+                {% endif %}
+              >
+              <label for="{{ form_id }}-email">
+                {{- 'templates.contact.form.email' | t -}}
+                <span aria-hidden="true">*</span>
+              </label>
+            </div>
+          </div>
+
+          {% comment %} Custom fields {% endcomment %}
+          {% if section.blocks.size > 0 %}
+            <div class="grid gap-4 sm:grid-cols-2 items-start">
+              {% for block in section.blocks %}
+                <div
+                  class="
+                    form-floating
+                    {% if block.type == 'dropdown' %} form-select {% endif %}
+                    {% if block.settings.full_width %} sm:col-span-2 {% endif %}
+                  "
+                >
+                  {% if block.type == 'text' %}
+                    {% if block.settings.multiline %}
+                      <textarea
+                        class="input"
+                        id="{{ block.id }}"
+                        name="contact[{{ block.settings.label }}]"
+                        placeholder="{{ block.settings.label }}"
+                        rows="5"
+                        {% if block.settings.required %}
+                          required
+                        {% endif %}
+                      ></textarea>
+                    {% else %}
+                      <input
+                        class="input"
+                        type="text"
+                        id="{{ block.id }}"
+                        name="contact[{{ block.settings.label }}]"
+                        placeholder="{{ block.settings.label }}"
+                        {% if block.settings.required %}
+                          required
+                        {% endif %}
+                      >
+                    {% endif %}
+                    <label for="{{ block.id }}">
+                      {{- block.settings.label -}}
+                      {%- if block.settings.required -%}*{%- endif -%}
+                    </label>
+                  {% elsif block.type == 'dropdown' %}
+                    <select
+                      class="input select"
+                      id="{{ block.id }}"
+                      name="contact[{{ block.settings.label }}]"
+                    >
+                      {% assign options = block.settings.options | newline_to_br | strip_newlines | split: '<br />' %}
+                      {% for option in options %}
+                        <option value="{{ option }}">{{ option }}</option>
+                      {% endfor %}
+                    </select>
+                    <label for="{{ block.id }}">{{ block.settings.label }}</label>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          {% comment %} Comment field {% endcomment %}
+          <div class="form-floating">
+            <textarea
+              class="input"
+              id="{{ form_id }}-body"
+              name="contact[{{ 'templates.contact.form.comment' | t }}]"
+              placeholder="{{ 'templates.contact.form.comment' | t }}"
+              rows="5"
+              required
+            >
+                {{- form.body -}}
+              </textarea>
+            <label for="{{ form_id }}-body">
+              {{- 'templates.contact.form.comment' | t -}}
+              <span aria-hidden="true">*</span></label
+            >
+          </div>
+
+          <div class="mt-2 text-lg">
+            <button
+              type="submit"
+              class="button {{ section.settings.button_style }}"
+              style="{% render 'button-vars', background: section.settings.button_background_color, text: section.settings.button_text_color %}"
+            >
+              {% if section.settings.show_button_icon %}
+                <div class="w-4 mr-4">
+                  {% render 'icon-paper-plane' %}
+                </div>
+              {% endif %}
+              {{ 'templates.contact.form.send' | t }}
+            </button>
+          </div>
+        </div>
+      {%- endform -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "t:sections.contact-form.name",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:sections.all.full_width.label",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:sections.all.subheading.label"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:sections.all.heading.label",
+      "default": "Contact us"
+    },
+    {
+      "type": "richtext",
+      "id": "content",
+      "label": "t:sections.all.content.label"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:sections.all.heading_size.label",
+      "options": [
+        {
+          "value": "h0",
+          "label": "t:sections.all.heading_size.options__0.label"
+        },
+        {
+          "value": "h1",
+          "label": "t:sections.all.heading_size.options__1.label"
+        },
+        {
+          "value": "h2",
+          "label": "t:sections.all.heading_size.options__2.label"
+        },
+        {
+          "value": "h3",
+          "label": "t:sections.all.heading_size.options__3.label"
+        },
+        {
+          "value": "h4",
+          "label": "t:sections.all.heading_size.options__4.label"
+        },
+        {
+          "value": "h5",
+          "label": "t:sections.all.heading_size.options__5.label"
+        },
+        {
+          "value": "h6",
+          "label": "t:sections.all.heading_size.options__6.label"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "select",
+      "id": "text_position",
+      "label": "t:sections.contact-form.settings.text_position.label",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:sections.contact-form.settings.text_position.options__0.label"
+        },
+        {
+          "value": "center",
+          "label": "t:sections.contact-form.settings.text_position.options__1.label"
+        },
+        {
+          "value": "right",
+          "label": "t:sections.contact-form.settings.text_position.options__2.label"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "button_style",
+      "label": "t:sections.all.button_style.label",
+      "options": [
+        {
+          "value": "",
+          "label": "t:sections.all.button_style.options.filled"
+        },
+        {
+          "value": "button-outline",
+          "label": "t:sections.all.button_style.options.outline"
+        }
+      ],
+      "default": ""
+    },
+    {
+      "type": "checkbox",
+      "id": "show_button_icon",
+      "label": "t:sections.contact-form.settings.show_button_icon.label",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.colors"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.background_color.label",
+      "id": "background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.text_color.label",
+      "id": "text_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.heading_color.label",
+      "id": "heading_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.button_background_color.label",
+      "id": "button_background_color"
+    },
+    {
+      "type": "color",
+      "label": "t:sections.all.button_text_color.label",
+      "id": "button_text_color"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.headers.seo"
+    },
+    {
+      "type": "select",
+      "id": "heading_html_tag",
+      "label": "t:sections.all.heading_html_tag.label",
+      "options": [
+        {
+          "value": "h1",
+          "label": "h1"
+        },
+        {
+          "value": "h2",
+          "label": "h2"
+        },
+        {
+          "value": "h3",
+          "label": "h3"
+        },
+        {
+          "value": "h4",
+          "label": "h4"
+        },
+        {
+          "value": "h5",
+          "label": "h5"
+        },
+        {
+          "value": "h6",
+          "label": "h6"
+        },
+        {
+          "value": "p",
+          "label": "p"
+        },
+        {
+          "value": "span",
+          "label": "span"
+        },
+        {
+          "value": "div",
+          "label": "div"
+        }
+      ],
+      "default": "p",
+      "info": "t:sections.all.heading_html_tag.info"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "text",
+      "name": "t:sections.contact-form.blocks.text.name",
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "t:sections.contact-form.blocks.text.settings.full_width.label",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "required",
+          "label": "t:sections.contact-form.blocks.text.settings.required.label"
+        },
+        {
+          "type": "checkbox",
+          "id": "multiline",
+          "label": "t:sections.contact-form.blocks.text.settings.multiline.label"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "t:sections.contact-form.blocks.text.settings.label.label"
+        }
+      ]
+    },
+    {
+      "type": "dropdown",
+      "name": "t:sections.contact-form.blocks.dropdown.name",
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "t:sections.contact-form.blocks.dropdown.settings.full_width.label",
+          "default": true
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "t:sections.contact-form.blocks.dropdown.settings.label.label"
+        },
+        {
+          "type": "textarea",
+          "id": "options",
+          "label": "t:sections.contact-form.blocks.dropdown.settings.options.label",
+          "info": "t:sections.contact-form.blocks.dropdown.settings.options.info"
+        }
+      ]
+    }
+  ],
+  "disabled_on": {
+    "groups": [
+      "header",
+      "custom.overlay"
+    ]
+  },
+  "presets": [
+    {
+      "name": "t:sections.contact-form.presets.name"
+    }
+  ]
+}
+{% endschema %}
