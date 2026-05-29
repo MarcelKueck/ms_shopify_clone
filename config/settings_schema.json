@@ -1166,7 +1166,7 @@
     "settings": [
       {
         "type": "paragraph",
-        "content": "AI-powered chat widget that talks to the headless backend at chat.motionsports.de. Paste the shared secret below, then enable the widget."
+        "content": "AI-powered chat widget that talks to the headless backend. Paste the shared secret below, then enable the widget."
       },
       {
         "type": "checkbox",
@@ -1179,7 +1179,7 @@
         "id": "ai_advisor_backend_url",
         "label": "Backend URL",
         "info": "Origin of the chat backend. Change only if the backend is deployed elsewhere.",
-        "default": "https://chat.motionsports.de"
+        "default": "https://motionsports-chatbot.vercel.app"
       },
       {
         "type": "text",
