@@ -6,8 +6,9 @@ as listed. New files are safe to upload as-is; the two modified files changed
 by only the lines shown below, so you can hand-edit the live files instead of
 overwriting them if you prefer.
 
-The widget talks to the already-deployed backend at `https://chat.motionsports.de`
-and renders per `docs/ai-advisor/{API_CONTRACT,BEHAVIOR_REFERENCE,WIDGET_SPEC}.md`.
+The widget talks to the already-deployed headless backend (configured via the
+**Backend URL** theme setting) and renders per
+`docs/ai-advisor/{API_CONTRACT,BEHAVIOR_REFERENCE,WIDGET_SPEC}.md`.
 
 ---
 
@@ -46,7 +47,7 @@ the final `]`:
     "settings": [
       {
         "type": "paragraph",
-        "content": "AI-powered chat widget that talks to the headless backend at chat.motionsports.de. Paste the shared secret below, then enable the widget."
+        "content": "AI-powered chat widget that talks to the headless backend. Paste the shared secret below, then enable the widget."
       },
       {
         "type": "checkbox",
@@ -59,7 +60,7 @@ the final `]`:
         "id": "ai_advisor_backend_url",
         "label": "Backend URL",
         "info": "Origin of the chat backend. Change only if the backend is deployed elsewhere.",
-        "default": "https://chat.motionsports.de"
+        "default": "https://motionsports-chatbot.vercel.app"
       },
       {
         "type": "text",
@@ -118,8 +119,9 @@ schema/settings should exist before you flip the toggle.
    AI Advisor**:
    - Paste the backend's `CHAT_SHARED_SECRET` value into **Shared secret
      (x-ms-chat-key)**.
-   - Leave **Backend URL** as `https://chat.motionsports.de` unless the backend
-     moved.
+   - Leave **Backend URL** as `https://motionsports-chatbot.vercel.app` for now
+     (the custom domain's DNS is not live yet). Switch it to
+     `https://chat.motionsports.de` once DNS is configured.
    - **Hide widget on these templates** defaults to `cart`; add more template
      names (comma- or newline-separated, e.g. `page.contact`) if you want.
    - Tick **Enable AI advisor chat widget**.

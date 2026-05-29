@@ -45,7 +45,7 @@
     {{ 'ms-chat-widget.css' | asset_url | stylesheet_tag }}
     <script>
       window.MS_CHAT_CONFIG = {
-        apiBase: {{ settings.ai_advisor_backend_url | default: 'https://chat.motionsports.de' | json }},
+        apiBase: {{ settings.ai_advisor_backend_url | default: 'https://motionsports-chatbot.vercel.app' | json }},
         chatKey: {{ settings.ms_chat_shared_secret | json }},
         showroomUrl: "https://motionsports.de/pages/showroom-munchen-grobenzell",
         allowedFromTheme: true
