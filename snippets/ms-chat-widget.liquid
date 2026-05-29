@@ -1,0 +1,56 @@
+{% comment %}
+  AI Advisor chat widget (motionsports.de).
+
+  Talks to the headless backend documented in docs/ai-advisor/*.
+  Self-contained: this snippet injects window.MS_CHAT_CONFIG and loads the
+  prefixed CSS/JS assets. All widget markup is built by the JS at runtime.
+
+  Gating:
+    - Rendered only when settings.ai_advisor_enabled is on.
+    - Never rendered on /cart or any /checkout route.
+    - Never rendered on templates listed in settings.ai_advisor_excluded_templates
+      (comma- or newline-separated; matched against template.name and the full
+      template string, e.g. "page.contact").
+
+  Include this once in layout/theme.liquid immediately before </body>.
+{% endcomment %}
+
+{%- if settings.ai_advisor_enabled -%}
+  {%- liquid
+    assign ms_chat_render = true
+
+    # Hard exclusions: cart + checkout are never allowed.
+    if template contains 'cart' or request.page_type == 'cart'
+      assign ms_chat_render = false
+    endif
+    if request.page_type == 'checkout'
+      assign ms_chat_render = false
+    endif
+
+    # Operator-configurable exclusions.
+    assign ms_chat_excluded = settings.ai_advisor_excluded_templates | newline_to_br | split: '<br />' | join: ',' | replace: ' ', '' | split: ','
+    assign ms_chat_template_full = template | downcase
+    assign ms_chat_template_name = template.name | downcase
+    for ms_chat_ex in ms_chat_excluded
+      assign ms_chat_ex_clean = ms_chat_ex | strip | downcase
+      if ms_chat_ex_clean != blank
+        if ms_chat_template_full == ms_chat_ex_clean or ms_chat_template_name == ms_chat_ex_clean
+          assign ms_chat_render = false
+        endif
+      endif
+    endfor
+  -%}
+
+  {%- if ms_chat_render -%}
+    {{ 'ms-chat-widget.css' | asset_url | stylesheet_tag }}
+    <script>
+      window.MS_CHAT_CONFIG = {
+        apiBase: {{ settings.ai_advisor_backend_url | default: 'https://chat.motionsports.de' | json }},
+        chatKey: {{ settings.ms_chat_shared_secret | json }},
+        showroomUrl: "https://motionsports.de/pages/showroom-munchen-grobenzell",
+        allowedFromTheme: true
+      };
+    </script>
+    <script src="{{ 'ms-chat-widget.js' | asset_url }}" defer></script>
+  {%- endif -%}
+{%- endif -%}

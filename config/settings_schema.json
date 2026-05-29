@@ -1160,5 +1160,40 @@
         "label": "t:settings_schema.social_media.settings.social_vimeo_link.label"
       }
     ]
+  },
+  {
+    "name": "AI Advisor",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "AI-powered chat widget that talks to the headless backend at chat.motionsports.de. Paste the shared secret below, then enable the widget."
+      },
+      {
+        "type": "checkbox",
+        "id": "ai_advisor_enabled",
+        "label": "Enable AI advisor chat widget",
+        "default": false
+      },
+      {
+        "type": "text",
+        "id": "ai_advisor_backend_url",
+        "label": "Backend URL",
+        "info": "Origin of the chat backend. Change only if the backend is deployed elsewhere.",
+        "default": "https://chat.motionsports.de"
+      },
+      {
+        "type": "text",
+        "id": "ms_chat_shared_secret",
+        "label": "Shared secret (x-ms-chat-key)",
+        "info": "Paste the CHAT_SHARED_SECRET value. This is sent as the x-ms-chat-key header. It is visible in page source by design; security comes from the backend origin allowlist + rate limiting."
+      },
+      {
+        "type": "textarea",
+        "id": "ai_advisor_excluded_templates",
+        "label": "Hide widget on these templates",
+        "info": "Comma- or newline-separated template names (e.g. cart, page.contact). /cart and /checkout are always excluded regardless of this list.",
+        "default": "cart"
+      }
+    ]
   }
 ]
