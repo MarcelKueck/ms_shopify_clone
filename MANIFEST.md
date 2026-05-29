@@ -18,8 +18,24 @@ The widget talks to the already-deployed headless backend (configured via the
 | --- | --- |
 | `snippets/ms-chat-widget.liquid` | Mount point. Gates rendering (`ai_advisor_enabled` + never `/cart` or `/checkout` + operator exclusion list), injects `window.MS_CHAT_CONFIG` from theme settings, and loads the CSS/JS assets. |
 | `assets/ms-chat-widget.css` | All widget styling, every selector prefixed `.ms-chat*`. Pulls colors/fonts/radii from this theme's CSS custom properties; no Shadow DOM. |
-| `assets/ms-chat-widget.js` | The widget itself: launcher + panel, SSE streaming of `/api/chat` (fetch + reader), session id + conversation persistence, the five tool cards, silent-tool consumption, XSS-safe markdown, product hydration via `/api/products`, inline contact form, and all error handling. Vanilla JS, no dependencies. |
+| `assets/ms-chat-widget.js` | The widget itself: launcher + panel, SSE streaming of `/api/chat` (fetch + reader), session id + conversation persistence, the five tool cards, silent-tool consumption, XSS-safe markdown, product hydration via `/api/products`, inline contact form, and all error handling. Vanilla JS, no dependencies. **⚠️ Re-upload required — see "Changelog" below.** |
 | `MANIFEST.md` | This file. |
+
+### Changelog
+
+- **`assets/ms-chat-widget.js` (stream-parser fix):** the SSE parser was reading
+  the older v4-style event shape (`type: "text"`, `type: "tool-<name>"`) and
+  silently dropped every event, so the assistant reply never appeared (typing
+  indicator hung). It now parses the **Vercel AI SDK v5 UI-message stream**:
+  `text-start` / `text-delta` (concatenated by `id`) / `text-end`, the tool
+  lifecycle (`tool-input-start` → `tool-input-delta` → `tool-input-available`,
+  rendering the card on full input, keyed by `toolCallId`), the framing events
+  (`start` / `start-step` / `finish-step`, with `finish` and `[DONE]` ending the
+  stream + persisting the message), and logs unknown event types via
+  `console.debug`. Tool-rendering behavior (the five cards, render-nothing
+  guards, silent tools) is unchanged. **If you already uploaded an earlier copy
+  of this file to the live theme, re-upload `assets/ms-chat-widget.js`.** No
+  other file changed for this fix.
 
 ---
 
