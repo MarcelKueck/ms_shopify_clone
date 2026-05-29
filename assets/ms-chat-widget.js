@@ -885,6 +885,9 @@
     var asstParts = [];
     var ctx = null;
     var gotContent = false;
+    var toolNames = {};      // toolCallId -> toolName (from tool-input-start / -available)
+    var finished = false;
+    var streamErrored = false;
 
     function ensureCtx() { if (!ctx) ctx = newAssistantCtx(); return ctx; }
 
@@ -901,14 +904,35 @@
       autoGrow();
     }
 
-    function finishOk() {
+    // Idempotent: called on the `finish` event, on `[DONE]`, and on socket
+    // close (r.done) — whichever comes first wins.
+    function finalizeStream() {
+      if (finished) return;
+      finished = true;
       removeTyping();
+      // Stream produced nothing visible -> drop the empty assistant row.
+      if (ctx && ctx.row && !gotContent && !ctx.row.childNodes.length && ctx.row.parentNode) {
+        ctx.row.parentNode.removeChild(ctx.row);
+      }
       if (asstParts.length) {
         messages.push({ id: 'a-' + uuid(), role: 'assistant', parts: asstParts });
         saveHistory();
       }
       state.streaming = false;
       updateInputState();
+      if (streamErrored && !gotContent) {
+        showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
+      }
+    }
+
+    // Feed a part in the widget's canonical shape into history + the renderer.
+    // (renderPartIntoCtx / accumulatePart understand {type:'text',text} and
+    // {type:'tool-<name>', toolCallId, input} — unchanged from before.)
+    function feedCanonical(part) {
+      accumulatePart(asstParts, part);
+      var before = ensureCtx().row.childNodes.length;
+      renderPartIntoCtx(ctx, part);
+      if (ctx.row.childNodes.length > 0 || before !== ctx.row.childNodes.length) gotContent = true;
     }
 
     fetch(API_BASE + '/api/chat', {
@@ -923,7 +947,7 @@
           updateInputState();
         });
       }
-      // Stream the SSE body.
+      // Stream the AI SDK v5 UI-message stream (SSE) body.
       var reader = res.body.getReader();
       var decoder = new TextDecoder();
       var buffer = '';
@@ -932,11 +956,7 @@
         return reader.read().then(function (r) {
           if (r.done) {
             if (buffer.trim()) processLine(buffer);
-            finishOk();
-            if (!gotContent) {
-              // Stream closed with nothing visible to show.
-              if (ctx && ctx.row && !ctx.row.childNodes.length && ctx.row.parentNode) ctx.row.parentNode.removeChild(ctx.row);
-            }
+            finalizeStream();
             return;
           }
           buffer += decoder.decode(r.value, { stream: true });
@@ -953,21 +973,80 @@
         var payload = line;
         if (line.indexOf('data:') === 0) payload = line.slice(5).trim();
         else if (line.indexOf(':') === 0) return; // SSE comment / keep-alive
-        if (!payload || payload === '[DONE]') return;
-        var part;
-        try { part = JSON.parse(payload); } catch (e) { return; } // ignore partial/non-JSON
-        if (!part || typeof part !== 'object') return;
-        if (Array.isArray(part)) { part.forEach(handlePart); return; }
-        handlePart(part);
+        if (!payload) return;
+        if (payload === '[DONE]') { finalizeStream(); return; } // stream terminator
+        var ev;
+        try { ev = JSON.parse(payload); } catch (e) { return; } // ignore partial/non-JSON
+        if (!ev || typeof ev !== 'object') return;
+        if (Array.isArray(ev)) { ev.forEach(handleEvent); return; }
+        handleEvent(ev);
       }
 
-      function handlePart(part) {
-        if (!part || typeof part.type !== 'string') return;
-        accumulatePart(asstParts, part);
-        var before = ensureCtx().row.childNodes.length;
-        renderPartIntoCtx(ctx, part);
-        if (ctx.row.childNodes.length > 0) gotContent = true;
-        if (before !== ctx.row.childNodes.length) gotContent = true;
+      // Translate an AI SDK v5 UI-message-stream event into the widget's
+      // canonical part shape, then render/persist it.
+      function handleEvent(ev) {
+        var type = ev.type;
+        if (typeof type !== 'string') return;
+
+        switch (type) {
+          // --- Framing: no visible effect. ---
+          case 'start':
+          case 'start-step':
+          case 'finish-step':
+            return;
+          case 'finish':
+            finalizeStream();
+            return;
+
+          // --- Text run lifecycle (keyed by ev.id). ---
+          case 'text-start':
+            // Begin a fresh visible bubble for this run.
+            ensureCtx().activeText = null;
+            return;
+          case 'text-delta': {
+            var d = ev.delta != null ? ev.delta : (ev.text != null ? ev.text : '');
+            if (!d) return;
+            feedCanonical({ type: 'text', text: d });
+            return;
+          }
+          case 'text-end':
+            // Close the current run so the next text-start starts a new bubble.
+            if (ctx) ctx.activeText = null;
+            return;
+
+          // --- Tool call lifecycle (keyed by ev.toolCallId). ---
+          case 'tool-input-start':
+            if (ev.toolCallId && ev.toolName) toolNames[ev.toolCallId] = ev.toolName;
+            return;
+          case 'tool-input-delta':
+            // Partial input args streaming; we only render once full input lands.
+            return;
+          case 'tool-input-available': {
+            var name = ev.toolName || toolNames[ev.toolCallId];
+            if (!name) return;
+            if (ev.toolCallId) toolNames[ev.toolCallId] = name;
+            // input may legitimately be {} for some tools; pass it through.
+            feedCanonical({ type: 'tool-' + name, toolCallId: ev.toolCallId || null, input: ev.input != null ? ev.input : {} });
+            return;
+          }
+          case 'tool-output-available':
+          case 'tool-output-error':
+            // Tool results: the widget hydrates its own product data, so these
+            // carry nothing extra to render. Consumed silently.
+            return;
+
+          // --- Error event. ---
+          case 'error':
+            try { console.error('[ms-chat] stream error event', ev.errorText || ev.error || ev); } catch (e) {}
+            streamErrored = true;
+            return;
+
+          default:
+            // Custom data parts (data-*) and reasoning-* are not rendered here.
+            if (type.indexOf('data-') === 0 || type.indexOf('reasoning') === 0) return;
+            try { console.debug('[ms-chat] unhandled stream event type:', type, ev); } catch (e) {}
+            return;
+        }
       }
 
       return pump();
@@ -976,7 +1055,7 @@
       removeTyping();
       if (gotContent) {
         // Keep partial content; just surface a soft error and re-enable.
-        finishOk();
+        finalizeStream();
         showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
       } else {
         rollback();
