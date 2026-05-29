@@ -16,8 +16,18 @@ the widget and the requirements it must meet.
 
 - **A Shopify theme snippet.** Ship a single Liquid snippet (e.g.
   `snippets/ms-chat-widget.liquid`) that the theme includes near the end
-  of `theme.liquid` (before `</body>`). It contains the widget's markup
-  root, its CSS, and its JS — or links to asset files (see below).
+  of `theme.liquid` (before `</body>`), gated by an `ai_advisor_enabled`
+  theme setting so it can be toggled without code changes. It contains
+  the widget's markup root, its CSS, and its JS — or links to asset files
+  (see below).
+- **Page exclusions.** The widget MUST NOT render on `/cart` or any
+  `/checkout` route. Gate this in the snippet via Liquid (e.g.
+  `{% unless template contains 'cart' %}…{% endunless %}`). Additionally,
+  expose a theme setting for an **excluded-templates list** so the
+  operator can hide the widget from further templates (e.g. specific
+  landing or contact pages) without code changes. Note that Shopify's
+  checkout is not a normal theme template on most plans and the widget
+  cannot reach it anyway; the meaningful exclusion is `/cart`.
 - **Vanilla JS + CSS. No framework, no build step.** No React, no Vue, no
   bundler, no npm. Plain ES modules / a single IIFE script and hand-written
   CSS. It must run by dropping the snippet into a theme — nothing to
@@ -33,7 +43,7 @@ the widget and the requirements it must meet.
   the snippet `{{ 'ms-chat-widget.css' | asset_url | stylesheet_tag }}` /
   `<script src="{{ 'ms-chat-widget.js' | asset_url }}" defer>`. The only
   thing that *must* live in the Liquid snippet itself is the injected
-  config (§3). Inlining everything in the snippet is acceptable too.
+  config (§2). Inlining everything in the snippet is acceptable too.
 - **No external runtime dependencies.** No CDN libraries. The SSE parsing,
   markdown subset, and DOM building are all hand-rolled. (The icons in the
   old UI came from `lucide-react`; reproduce them as small inline SVGs or
@@ -69,7 +79,7 @@ launcher) if `chatKey` is empty.
 
 ---
 
-## 3. Session id
+## 3. Session id and conversation persistence
 
 On first interaction, generate and persist a stable session id, exactly
 as in `API_CONTRACT.md` §5:
@@ -84,9 +94,27 @@ Send it as the `x-ms-session` header on **every** request to `/api/chat`,
 key but should still carry the session id for rate-limit keying.)
 
 Conversation state lives **only** in the widget (the backend persists
-nothing). Persisting the message history to `localStorage` so the panel
-survives a page navigation is nice-to-have but optional; at minimum the
-state must survive within a single page session.
+nothing). **The widget MUST persist the message history to
+`localStorage`** keyed by session id, so the conversation survives page
+navigation across the storefront. Shoppers routinely navigate between
+product pages mid-conversation; a chat that resets on every nav is a
+poor experience and not acceptable.
+
+Persistence rules:
+
+- Restore the message list from `localStorage` on widget init; if a
+  history exists, skip the welcome state and show the messages.
+- Persist after every user send and after every completed assistant
+  message (don't write on every streamed token — too noisy).
+- Clear the persisted history when the user **explicitly starts a new
+  chat** (e.g. via the start-new-chat affordance after the 40-message
+  cap, §8). Rotate the session id at the same time so rate-limit windows
+  reset cleanly.
+- Cap the persisted payload (e.g. trim to the last 40 messages, matching
+  the backend's cap) to keep `localStorage` writes cheap.
+- If `localStorage` is unavailable (private browsing, quota exceeded),
+  fall back silently to in-memory state for the page session — never
+  throw.
 
 ---
 
@@ -96,7 +124,9 @@ state must survive within a single page session.
 
 - A floating circular button, fixed to a bottom corner (bottom-right by
   default), above storefront content (high `z-index`, but below modals if
-  the theme has any). Brand-red accent (`#dc2626`), a chat/message icon.
+  the theme has any). Brand-accent color — pull from the theme's own
+  brand token (e.g. a `settings_schema.json` color setting), do not
+  hardcode a hex. A chat/message icon.
 - Clicking it toggles the panel open/closed. When open, the launcher may
   swap to a close (×) icon.
 
@@ -107,8 +137,9 @@ state must survive within a single page session.
   the old full-page UI had, shrunk into a panel.
 - **Header**: the "**motion**sports" wordmark (accent) + a close button.
 - **Message area**: shows the **welcome state** (`BEHAVIOR_REFERENCE` §4)
-  until the first message, then the message list with text bubbles and
-  tool cards interleaved in arrival order.
+  until the first message **and** when no persisted history exists. If a
+  history was restored from `localStorage`, render it directly and skip
+  the welcome state.
 - **Input row**: growing textarea, Enter-to-send (Shift+Enter = newline),
   send button, the `"KI-Fitnessberater – Antworten können Fehler
   enthalten"` disclaimer. Input disabled while a response streams.
@@ -142,7 +173,8 @@ For each user send:
    - tool part → dispatch per `BEHAVIOR_REFERENCE` §2, keyed by
      `toolCallId` (update in place, render only once `input` exists, skip
      the two silent tools).
-5. On stream end, finalize the assistant message and re-enable input.
+5. On stream end, finalize the assistant message, persist the updated
+   history to `localStorage` (§3), and re-enable input.
 
 Treat malformed/partial JSON lines defensively (buffer until a full line
 arrives; ignore keep-alive/empty lines).
@@ -207,7 +239,8 @@ The backend uses a stable error envelope
 - **400 `payload_too_large`** on `/api/chat` — the 40-message cap was
   hit. Surface a **"start a new chat"** affordance: a message explaining
   the chat got long, and a button that clears the local conversation
-  (and may rotate the session id) so the user can continue fresh.
+  (clearing the persisted history per §3 and rotating the session id) so
+  the user can continue fresh.
 - **400 `bad_request`** — shouldn't happen with correct payloads; show
   the generic unavailable message and log.
 - **5xx / `upstream_unavailable` / `internal_error`** and **network
@@ -261,11 +294,21 @@ where the key isn't sent.
 
 - [ ] Drops into a Shopify theme as a snippet; no build step; works with
       JS-only + CSS-only assets.
-- [ ] Launcher + expandable panel; welcome state before first message.
+- [ ] Snippet is gated by an `ai_advisor_enabled` theme setting and is
+      not rendered on `/cart` or `/checkout`; an excluded-templates
+      theme setting lets the operator hide it on further templates.
+- [ ] Brand colors come from theme tokens, not hardcoded hexes.
+- [ ] Launcher + expandable panel; welcome state on first open with no
+      persisted history.
 - [ ] Generates/persists `x-ms-session`; sends it + `x-ms-chat-key` on
       the right requests.
+- [ ] Conversation history is persisted to `localStorage` and restored
+      on init so the chat survives page navigation across the
+      storefront; cleared on "start new chat" with a session-id
+      rotation; falls back to in-memory if `localStorage` is unavailable.
 - [ ] Streams `/api/chat` over SSE via fetch+reader (not `EventSource`);
-      concatenates text, renders the markdown subset safely.
+      concatenates text, renders the markdown subset safely (no
+      innerHTML on untrusted strings).
 - [ ] Renders all five tool cards per `BEHAVIOR_REFERENCE`, keyed by
       `toolCallId`, with the render-nothing guards; silently consumes
       `search_products` + `update_customer_profile`.
@@ -276,7 +319,8 @@ where the key isn't sent.
 - [ ] Mobile full-screen behavior; safe-area aware; horizontal-scroll
       comparison table.
 - [ ] Handles 429 (Retry-After), 401/403 (config), 400 payload_too_large
-      (start-new-chat), 5xx + network errors — all without throwing.
+      (start-new-chat clears persisted history), 5xx + network errors —
+      all without throwing.
 - [ ] Secret only ever shipped to the allowlisted storefront origin;
       no false-auth claims; relies on backend origin allowlist + rate
       limit.
