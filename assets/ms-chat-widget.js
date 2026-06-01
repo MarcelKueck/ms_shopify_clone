@@ -393,19 +393,38 @@
     });
   }
 
+  // tool-add_to_cart -> quick-checkout CTA. The backend tool id is unchanged,
+  // but shopifyCartUrl is now a one-unit Shopify checkout permalink
+  // (/cart/<variantId>:1) and is optional. We link straight to checkout.
   function buildAddToCart(input) {
     return hydrate([input.productId]).then(function (res) {
       var p = res[0];
-      if (!p) return null;
+      if (!p) return null; // can't hydrate -> render nothing
       var card = el('div', { class: 'ms-chat-card' });
       var body = el('div', { class: 'ms-chat-card-body' });
       if (input.message) body.appendChild(el('div', { class: 'ms-chat-card-msg', text: input.message }));
 
-      var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: p.shopifyCartUrl || '#', target: '_blank', rel: 'noopener noreferrer' });
-      btn.appendChild(icon('cart'));
-      btn.appendChild(el('span', { text: (p.name || 'Produkt') + ' in den Warenkorb' }));
-      body.appendChild(btn);
-      body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Du wirst zu motionsports.de weitergeleitet' }));
+      // Compact line: name + price, so the shopper sees exactly what one click buys.
+      var summary = el('div', { class: 'ms-chat-checkout-summary' });
+      summary.appendChild(el('span', { class: 'ms-chat-checkout-name', text: p.name || 'Produkt' }));
+      summary.appendChild(priceNode(p));
+      body.appendChild(summary);
+
+      if (p.shopifyCartUrl) {
+        var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: p.shopifyCartUrl, target: '_blank', rel: 'noopener noreferrer' });
+        btn.appendChild(icon('cart'));
+        btn.appendChild(el('span', { text: 'Jetzt direkt bestellen' }));
+        body.appendChild(btn);
+        body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Direkt zur sicheren Kasse bei motionsports.de' }));
+      } else if (p.shopifyUrl) {
+        // No resolvable variant id -> degrade to the product page, never a broken
+        // checkout link.
+        var link = el('a', { class: 'ms-chat-btn ms-chat-btn--secondary', href: p.shopifyUrl, target: '_blank', rel: 'noopener noreferrer' });
+        link.appendChild(el('span', { text: 'Zum Produkt' }));
+        link.appendChild(icon('external'));
+        body.appendChild(link);
+      }
+
       card.appendChild(body);
       return card;
     });

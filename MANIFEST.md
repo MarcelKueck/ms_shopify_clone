@@ -67,6 +67,24 @@ The widget talks to the already-deployed headless backend (configured via the
   CSS-only — no DOM/JS change was needed (the spec grid and comparison-table
   wrappers already existed).
 
+- **`assets/ms-chat-widget.js` + `assets/ms-chat-widget.css` (add_to_cart →
+  quick-checkout reframe):** the backend changed the meaning of `add_to_cart` —
+  `shopifyCartUrl` is now a one-unit Shopify **checkout permalink**
+  (`/cart/<variantId>:1`) and is optional. The card (still keyed off the
+  unchanged `tool-add_to_cart` part id) was reframed from "add to cart" to a
+  direct quick-checkout CTA: button label **"Jetzt direkt bestellen"** (plain
+  link to `shopifyCartUrl`, `target="_blank" rel="noopener noreferrer"`, no
+  in-page fetch), a compact product **name + price** line so the shopper sees
+  what one click buys, the assistant `message` kept as the bold top line, and
+  the caption changed to **"Direkt zur sicheren Kasse bei motionsports.de"**
+  (old "… in den Warenkorb" / "Du wirst zu motionsports.de weitergeleitet" copy
+  removed). Graceful degrade: if `shopifyCartUrl` is missing/null it falls back
+  to a "Zum Produkt" link to `shopifyUrl`, or renders no button if the product
+  can't be hydrated — never a broken checkout link. New CSS classes
+  `.ms-chat-checkout-summary` / `.ms-chat-checkout-name`. **Re-upload both
+  `assets/ms-chat-widget.js` and `assets/ms-chat-widget.css`.** No other tool
+  card or request/response contract changed.
+
 ---
 
 ## MODIFIED files

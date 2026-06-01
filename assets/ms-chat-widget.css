@@ -363,8 +363,10 @@
 .ms-chat-compare-img { width: 64px; height: 64px; object-fit: contain; background: #fff; display: block; margin-bottom: 6px; border-radius: 6px; }
 .ms-chat-compare-name { font-weight: 700; color: rgb(var(--msc-heading)); }
 
-/* Add-to-cart / showroom / contact heading */
+/* Quick-checkout (add_to_cart) / showroom / contact heading */
 .ms-chat-card-msg { font-weight: 700; color: rgb(var(--msc-heading)); }
+.ms-chat-checkout-summary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; max-width: 100%; }
+.ms-chat-checkout-name { font-weight: 600; color: rgb(var(--msc-heading)); min-width: 0; overflow-wrap: anywhere; }
 .ms-chat-card-head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: rgb(var(--msc-heading)); }
 .ms-chat-card-head svg { width: 20px; height: 20px; flex: 0 0 auto; color: rgb(var(--msc-accent)); }
 .ms-chat-card-text { font-size: 0.9rem; color: rgb(var(--msc-fg) / 85%); }
