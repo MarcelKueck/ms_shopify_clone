@@ -56,6 +56,14 @@ The widget talks to the already-deployed headless backend (configured via the
      fully removes the launcher (`display: none !important`), and the launcher's
      `z-index` sits one below the panel as a backstop so it can never overlap an
      open panel (desktop or mobile full-screen).
+  4. *Add-to-cart button proportions.* The primary button's long label (full
+     product name + "in den Warenkorb", uppercased by the theme) wrapped to two
+     lines and looked oversized; tightened to `font-size: 0.85rem`,
+     `line-height: 1.2`, `padding: 11px 16px` so the multi-line CTA stays
+     proportional. (The add-to-cart *link target* is unchanged — it still points
+     at `shopifyCartUrl`; the "Cannot find variant" error is a backend data
+     issue where `shopifyCartUrl` carries a SKU instead of a numeric variant ID,
+     fixed server-side.)
   CSS-only — no DOM/JS change was needed (the spec grid and comparison-table
   wrappers already existed).
 

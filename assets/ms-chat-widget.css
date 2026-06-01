@@ -321,7 +321,7 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  padding: 12px 16px;
+  padding: 11px 16px;
   min-height: 44px;
   border-radius: var(--msc-btn-radius);
   font-weight: var(--button-font-weight, 600);
@@ -330,7 +330,8 @@
   text-decoration: none;
   cursor: pointer;
   border: 1px solid transparent;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.2;
   text-align: center;
 }
 .ms-chat-btn--primary { background: rgb(var(--msc-accent)); color: rgb(var(--msc-accent-fg)); }
