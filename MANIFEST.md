@@ -37,6 +37,28 @@ The widget talks to the already-deployed headless backend (configured via the
   of this file to the live theme, re-upload `assets/ms-chat-widget.js`.** No
   other file changed for this fix.
 
+- **`assets/ms-chat-widget.css` (panel layout fixes):** three layout-only fixes
+  (no copy/color/font changes). **Re-upload `assets/ms-chat-widget.css` to the
+  live theme.**
+  1. *Horizontal overflow in the message area.* Tool cards are now constrained
+     to the panel width: card root `max-width: min(28rem, 100%)` + `box-sizing`,
+     inner grid/flex children `min-width: 0; max-width: 100%`, the product spec
+     grid uses `minmax(0, 1fr)` columns with `overflow-wrap: anywhere` so long
+     values (e.g. metaobject GID strings) wrap instead of widening the card, the
+     message area has `overflow-x: hidden`, and the comparison table keeps its
+     horizontal scroll inside its own `max-width: 100%` container. No horizontal
+     scrollbar can appear in the message area anymore.
+  2. *Textarea native controls.* The input textarea now sets
+     `appearance: none` (+ vendor prefixes) and `background-image: none` to
+     suppress browser/theme-leaked spinner controls; the scrollbar only appears
+     once the box reaches its `max-height` (height is auto-sized by JS below that).
+  3. *Launcher peeking behind the panel.* The open-state `--hidden` class now
+     fully removes the launcher (`display: none !important`), and the launcher's
+     `z-index` sits one below the panel as a backstop so it can never overlap an
+     open panel (desktop or mobile full-screen).
+  CSS-only — no DOM/JS change was needed (the spec grid and comparison-table
+  wrappers already existed).
+
 ---
 
 ## MODIFIED files

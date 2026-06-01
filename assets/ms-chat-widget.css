@@ -54,7 +54,8 @@
   border-radius: 999px;
   border: none;
   cursor: pointer;
-  z-index: var(--msc-z);
+  /* Sit just below the panel so it can never peek over the open panel. */
+  z-index: calc(var(--msc-z) - 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -67,7 +68,9 @@
 .ms-chat-launcher:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgb(0 0 0 / 28%); }
 .ms-chat-launcher:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 3px; }
 .ms-chat-launcher svg { width: 26px; height: 26px; display: block; }
-.ms-chat-launcher--hidden { display: none; }
+/* When the panel is open the JS adds this class. Fully removed from layout and
+   interaction so it can never overlap the panel (desktop or mobile full-screen). */
+.ms-chat-launcher--hidden { display: none !important; visibility: hidden; pointer-events: none; }
 
 /* ---------- Panel ---------- */
 .ms-chat-panel {
@@ -144,6 +147,8 @@
 .ms-chat-messages {
   flex: 1 1 auto;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
   display: flex;
@@ -163,7 +168,7 @@
 .ms-chat-welcome p { margin: 0; color: var(--msc-muted); font-size: 0.95rem; }
 
 /* Bubbles */
-.ms-chat-row { display: flex; flex-direction: column; gap: 8px; max-width: 100%; }
+.ms-chat-row { display: flex; flex-direction: column; gap: 8px; max-width: 100%; min-width: 0; }
 .ms-chat-row--user { align-items: flex-end; }
 .ms-chat-row--assistant { align-items: flex-start; }
 .ms-chat-bubble {
@@ -215,13 +220,17 @@
 /* ---------- Cards (shared) ---------- */
 .ms-chat-card {
   width: 100%;
-  max-width: 28rem;
+  max-width: min(28rem, 100%);
+  box-sizing: border-box;
   border: 1px solid var(--msc-border);
   border-radius: var(--msc-card-radius);
   background: rgb(var(--msc-bg));
   overflow: hidden;
 }
-.ms-chat-card-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ms-chat-card-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; max-width: 100%; box-sizing: border-box; }
+/* Let flex/grid children shrink below their intrinsic content width instead of
+   forcing the card wider than the panel. */
+.ms-chat-card-body > * { min-width: 0; max-width: 100%; }
 
 /* Product card */
 .ms-chat-prod-imgwrap {
@@ -265,13 +274,14 @@
 .ms-chat-price-strike { font-size: 0.95rem; color: var(--msc-muted); text-decoration: line-through; }
 .ms-chat-specs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px 12px;
   font-size: 0.82rem;
+  max-width: 100%;
 }
-.ms-chat-spec { display: flex; flex-direction: column; }
-.ms-chat-spec-key { color: var(--msc-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; }
-.ms-chat-spec-val { color: rgb(var(--msc-fg)); }
+.ms-chat-spec { display: flex; flex-direction: column; min-width: 0; }
+.ms-chat-spec-key { color: var(--msc-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; overflow-wrap: anywhere; word-break: break-word; }
+.ms-chat-spec-val { color: rgb(var(--msc-fg)); overflow-wrap: anywhere; word-break: break-word; }
 .ms-chat-reason {
   font-style: italic;
   font-size: 0.88rem;
@@ -283,12 +293,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--msc-border);
   font-size: 0.82rem;
 }
-.ms-chat-delivery { display: inline-flex; align-items: center; gap: 6px; color: var(--msc-muted); }
+.ms-chat-delivery { display: inline-flex; align-items: center; gap: 6px; color: var(--msc-muted); min-width: 0; }
 .ms-chat-delivery svg { width: 16px; height: 16px; flex: 0 0 auto; }
 
 /* Links / buttons */
@@ -336,7 +347,7 @@
 
 /* Compare table */
 .ms-chat-compare-context { font-style: italic; font-size: 0.85rem; color: var(--msc-muted); margin-bottom: 8px; }
-.ms-chat-compare-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.ms-chat-compare-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; min-width: 0; }
 .ms-chat-compare-table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
 .ms-chat-compare-table th,
 .ms-chat-compare-table td {
@@ -403,7 +414,12 @@
 .ms-chat-input-controls { display: flex; align-items: flex-end; gap: 8px; }
 .ms-chat-textarea {
   flex: 1 1 auto;
+  min-width: 0;
   resize: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
   border: 1px solid var(--msc-border-strong);
   border-radius: var(--msc-input-radius);
   padding: 10px 12px;
@@ -411,7 +427,10 @@
   font-size: 0.95rem;
   line-height: 1.4;
   max-height: 120px;
+  /* Single-line height is auto-sized by JS to fit content, so a scrollbar only
+     appears once the box hits max-height. */
   overflow-y: auto;
+  scrollbar-width: thin;
   background: rgb(var(--msc-bg));
   color: rgb(var(--msc-fg));
 }
