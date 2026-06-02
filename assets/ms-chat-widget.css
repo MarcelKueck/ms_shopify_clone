@@ -31,11 +31,12 @@
   --msc-z: 2147483000;
   --msc-font: var(--font-body-family, inherit);
 
-  /* Brand logo (assets/ms-chat-logo.svg). Referenced relatively so it resolves
-     to /assets/ms-chat-logo.svg on Shopify's CDN, where this stylesheet lives.
-     Used as a CSS mask so the single-color mark inherits the brand color via
-     currentColor — no hardcoded hexes. */
-  --msc-logo: url('ms-chat-logo.svg');
+  /* Brand logo — black/white contrast variants in assets/. Referenced
+     relatively so they resolve to /assets/… on Shopify's CDN, where this
+     stylesheet lives. Shown as real artwork (not masked) so each context can
+     use the variant with the right contrast. */
+  --msc-logo-white: url('ms-chat-logo-white.svg');
+  --msc-logo-black: url('ms-chat-logo-black.svg');
 
   font-family: var(--msc-font);
   color: rgb(var(--msc-fg));
@@ -75,23 +76,27 @@
 .ms-chat-launcher:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 3px; }
 .ms-chat-launcher svg { width: 26px; height: 26px; display: block; }
 
-/* ---------- Brand logo mask (launcher + assistant avatar) ---------- */
-/* The SVG is used as a mask so its silhouette inherits the current text color.
-   currentColor = the brand color in each context (accent-fg on the launcher,
-   accent for the avatar), so there are no hardcoded hexes. */
+/* ---------- Brand logo (launcher + assistant avatar) ---------- */
+/* Real artwork (not masked): the white variant sits on the dark accent
+   launcher, the black variant on the light panel background — each picked for
+   contrast. */
 .ms-chat-logo {
   display: inline-block;
-  background-color: currentColor;
-  -webkit-mask: var(--msc-logo) center / contain no-repeat;
-  mask: var(--msc-logo) center / contain no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
 }
-.ms-chat-launcher-logo { width: 34px; height: 34px; }
+.ms-chat-launcher-logo {
+  width: 34px;
+  height: 34px;
+  background-image: var(--msc-logo-white);
+}
 .ms-chat-avatar {
   width: 26px;
   height: 26px;
   flex: 0 0 auto;
   margin-top: 2px;
-  color: rgb(var(--msc-accent));
+  background-image: var(--msc-logo-black);
 }
 /* When the panel is open the JS adds this class. Fully removed from layout and
    interaction so it can never overlap the panel (desktop or mobile full-screen). */

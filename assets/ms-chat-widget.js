@@ -171,8 +171,8 @@
     return tpl.content.firstElementChild;
   }
 
-  // Brand logo (assets/ms-chat-logo.svg) as a CSS-masked element so its
-  // single-color silhouette inherits the brand color via currentColor.
+  // Brand logo element. The variant (white on the dark launcher, black on the
+  // light panel) is chosen per context in CSS via the extra class.
   function logoEl(extraClass) {
     return el('span', { class: 'ms-chat-logo ' + (extraClass || ''), 'aria-hidden': 'true' });
   }
