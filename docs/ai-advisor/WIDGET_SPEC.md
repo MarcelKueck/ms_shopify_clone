@@ -126,20 +126,31 @@ Persistence rules:
   default), above storefront content (high `z-index`, but below modals if
   the theme has any). Brand-accent color — pull from the theme's own
   brand token (e.g. a `settings_schema.json` color setting), do not
-  hardcode a hex. A chat/message icon.
-- Clicking it toggles the panel open/closed. When open, the launcher may
-  swap to a close (×) icon.
+  hardcode a hex. The button shows the **MOIA brand logo**
+  (`assets/ms-chat-logo.svg`), rendered as a CSS `mask-image` filled with
+  `currentColor` so the single-color mark inherits the brand color (no
+  hardcoded hexes).
+- Clicking it toggles the panel open/closed. While the panel is open the
+  launcher is hidden (the close (×) lives in the panel header).
 
 ### 4.2 Expandable panel
 
 - An anchored panel that expands from the launcher: a header, a scrollable
   message area, and an input row — i.e. the same three-part chat layout
   the old full-page UI had, shrunk into a panel.
-- **Header**: the "**motion**sports" wordmark (accent) + a close button.
+- **Header**: the "**motion**sports" wordmark (accent) + header buttons:
+  an **expand/enlarge toggle** (diagonal-double-arrow icon, desktop only —
+  see §7), a new-chat button, and a close button.
 - **Message area**: shows the **welcome state** (`BEHAVIOR_REFERENCE` §4)
   until the first message **and** when no persisted history exists. If a
   history was restored from `localStorage`, render it directly and skip
   the welcome state.
+- **Bubble styling** (feature 7): **user** messages take the subtle grey
+  fill (the theme's foreground token at low alpha); **assistant** messages
+  are **unfilled** with a solid 1.5px foreground/black border, and are
+  preceded by a small **logo avatar** (the same masked
+  `ms-chat-logo.svg`, tinted to the brand accent). The typing indicator
+  uses the same unfilled-bordered treatment.
 - **Input row**: growing textarea, Enter-to-send (Shift+Enter = newline),
   send button, the `"KI-Fitnessberater – Antworten können Fehler
   enthalten"` disclaimer. Input disabled while a response streams.
@@ -147,6 +158,29 @@ Persistence rules:
   submitted but no visible assistant content yet.
 
 ### 4.3 Desktop vs mobile (see §7).
+
+### 4.4 Enlarge / expand (feature 6)
+
+- The header expand toggle switches the **desktop** panel between its
+  normal size and a larger size (wider + taller), capped to the viewport
+  via sensible `max-width`/`max-height`. The icon flips between an
+  expand (diagonal-double-arrow) and a shrink glyph.
+- The chosen size is **persisted for the session** (`localStorage` key
+  `ms-chat-expanded`) and re-applied on init.
+- **No effect on mobile**: the expanded rule is scoped to a desktop media
+  query, so on narrow viewports the near-full-screen inset (§7) always
+  wins.
+
+### 4.5 Backdrop (feature 8)
+
+- While the panel is **open**, a semi-transparent dark **backdrop**
+  (`rgba(0,0,0,0.4)`) is rendered over the storefront so the chat comes
+  into focus like a modal. `backdrop-filter: blur(...)` is layered on as a
+  **progressive enhancement** that degrades to just-dim where unsupported.
+- **Clicking the backdrop closes the panel.**
+- **z-index ordering**: storefront < backdrop < panel; the launcher is
+  hidden while open. The backdrop also provides the dimmed surround that
+  shows around the mobile inset (§7).
 
 ---
 
@@ -204,13 +238,25 @@ API. Product/showroom links go to `shopifyUrl` /
 `https://motionsports.de/pages/showroom-munchen-grobenzell`, new tab,
 `rel="noopener noreferrer"`.
 
+**Prominent in-chat CTAs (feature 2 / KPI driver).** The primary action
+in each tool card is a clearly styled **primary button** (theme pill,
+brand color, prominent/full-width), not a subtle text link — these are the
+highest-value clicks and must look tappable. Labels: `"Zum Produkt"`
+(product card + each comparison column), `"In den Warenkorb"`
+(add-to-cart, links to `shopifyCartUrl`), `"Showroom ansehen"` (showroom).
+The render-nothing guards and link targets from `BEHAVIOR_REFERENCE` are
+unchanged — only the visual prominence.
+
 ---
 
 ## 7. Mobile responsiveness
 
-- On narrow viewports (≈ ≤ 640px) the panel goes **full-screen** (or
-  near-full: full width, full height minus a small top inset), instead of
-  a small floating card. The close button stays reachable.
+- On narrow viewports (≈ ≤ 640px) the panel goes **near-full-screen**
+  (feature 8) — **not** true full-screen: a small inset/margin on **all
+  sides** (respecting `env(safe-area-inset-*)`) so a sliver of the dimmed
+  storefront backdrop (§4.5) shows around the edges, matching the
+  modal-in-focus look. The panel keeps a rounded corner + border. The
+  close button stays reachable.
 - The launcher stays out of the way of Shopify's own sticky elements
   (cart drawer, mobile nav). Respect safe-area insets
   (`env(safe-area-inset-*)`) so it isn't hidden behind the iOS home bar.
@@ -289,6 +335,43 @@ exposes only storefront-visible fields), so product hydration works even
 where the key isn't sent.
 
 ---
+
+## 9a. Product-page CTA & public API (feature 2)
+
+The widget exposes a global so a storefront template can open the chat
+primed about a specific product:
+
+```js
+window.MS_CHAT.openWithProduct(productId, productTitle)
+```
+
+- It **opens the panel** and, on the **next** `/api/chat` request, includes
+  the `context: { type: "product", productId, productTitle }` field
+  (`API_CONTRACT.md` §2). Per the contract's two behaviors: if **no
+  conversation exists**, it triggers the assistant's product greeting
+  immediately (no user bubble); if a **conversation already exists**, the
+  product context is queued onto the **next user message** so history is
+  **not** wiped.
+- It fires `track('product_cta_opened', { productId })` (see §9b).
+- The product detail template (`templates/product.json`, the "USPs" /
+  Kurzinfo block) renders an **outlined/bordered** button immediately
+  **below the product bullet points**: the MOIA logo (mask-tinted) + the
+  text *"Detaillierte Beratung zu diesem Produkt"*, calling
+  `openWithProduct(product.id, product.title)`. It is gated by
+  `settings.ai_advisor_enabled` and styled distinct from (secondary to)
+  the black Add-to-cart button above it.
+
+## 9b. Telemetry (Phase 3 prep)
+
+A tiny **fail-silent** helper `track(event, data)` POSTs
+`{ event, sessionId, timestamp, data }` to `${apiBase}/api/kpi` with the
+`x-ms-session` header, wrapped in try/catch that swallows all errors (so it
+harmlessly no-ops until the backend endpoint exists). It sends **event
+names + ids only — never message text**. Events: `chat_opened`,
+`chat_closed`, `message_sent`, `product_cta_clicked` (`productId`),
+`add_to_cart_clicked` (`productId`), `showroom_clicked` (`productIds`),
+`product_cta_opened` (`productId`). This is pseudonymous analytics keyed
+by the random session id.
 
 ## 10. Acceptance checklist
 
