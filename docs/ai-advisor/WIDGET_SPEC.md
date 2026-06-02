@@ -126,10 +126,11 @@ Persistence rules:
   default), above storefront content (high `z-index`, but below modals if
   the theme has any). Brand-accent color — pull from the theme's own
   brand token (e.g. a `settings_schema.json` color setting), do not
-  hardcode a hex. The button shows the **MOIA brand logo**
-  (`assets/ms-chat-logo.svg`), rendered as a CSS `mask-image` filled with
-  `currentColor` so the single-color mark inherits the brand color (no
-  hardcoded hexes).
+  hardcode a hex. The button shows the **MOIA brand logo**: the
+  **white** artwork variant (`assets/ms-chat-logo-white.svg`) for contrast
+  on the dark accent launcher. (Black/white contrast variants live in
+  `assets/`; each context picks the one that contrasts with its
+  background.)
 - Clicking it toggles the panel open/closed. While the panel is open the
   launcher is hidden (the close (×) lives in the panel header).
 
@@ -148,9 +149,9 @@ Persistence rules:
 - **Bubble styling** (feature 7): **user** messages take the subtle grey
   fill (the theme's foreground token at low alpha); **assistant** messages
   are **unfilled** with a solid 1.5px foreground/black border, and are
-  preceded by a small **logo avatar** (the same masked
-  `ms-chat-logo.svg`, tinted to the brand accent). The typing indicator
-  uses the same unfilled-bordered treatment.
+  preceded by a small **logo avatar** (the **black** artwork variant,
+  `ms-chat-logo-black.svg`, for contrast on the light panel). The typing
+  indicator uses the same unfilled-bordered treatment.
 - **Input row**: growing textarea, Enter-to-send (Shift+Enter = newline),
   send button, the `"KI-Fitnessberater – Antworten können Fehler
   enthalten"` disclaimer. Input disabled while a response streams.
@@ -355,7 +356,7 @@ window.MS_CHAT.openWithProduct(productId, productTitle)
 - It fires `track('product_cta_opened', { productId })` (see §9b).
 - The product detail template (`templates/product.json`, the "USPs" /
   Kurzinfo block) renders an **outlined/bordered** button immediately
-  **below the product bullet points**: the MOIA logo (mask-tinted) + the
+  **below the product bullet points**: the MOIA logo (black variant) + the
   text *"Detaillierte Beratung zu diesem Produkt"*, calling
   `openWithProduct(product.id, product.title)`. It is gated by
   `settings.ai_advisor_enabled` and styled distinct from (secondary to)

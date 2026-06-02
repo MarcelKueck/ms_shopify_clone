@@ -22,16 +22,24 @@ dev theme; the spec is docs-only.
 | `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
 | `assets/ms-chat-widget.js` | **MODIFIED** | ✅ Yes |
 | `templates/product.json` | **MODIFIED** | ✅ Yes (default product template) |
-| `assets/ms-chat-logo.svg` | (added earlier) | ✅ Yes — required by the new logo/avatar/CTA mask |
+| `assets/ms-chat-logo-white.svg` | (added) | ✅ Yes — launcher logo (white, for the dark accent button) |
+| `assets/ms-chat-logo-black.svg` | (added) | ✅ Yes — assistant avatar + product CTA logo (black, for light backgrounds) |
 | `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** | ❌ No (docs only) |
 
-The widget **snippet was not touched** — the logo is referenced from CSS
-(relative `url('ms-chat-logo.svg')`, resolves to `/assets/…` on Shopify's CDN)
-and from the product template via `{{ 'ms-chat-logo.svg' | asset_url }}`.
+> **Logo update:** the single `ms-chat-logo.svg` was replaced by black/white
+> contrast variants. The logo is now shown as **real artwork** (no CSS mask):
+> white on the dark launcher, black on the light panel avatar and the product
+> CTA. Make sure **both** new SVGs are uploaded.
+
+The widget **snippet was not touched** — the logos are referenced from CSS
+(relative `url('ms-chat-logo-white.svg')` / `url('ms-chat-logo-black.svg')`,
+resolving to `/assets/…` on Shopify's CDN) and from the product template via
+`{{ 'ms-chat-logo-black.svg' | asset_url }}`.
 
 ### `assets/ms-chat-widget.css` — what changed
 - `--msc-logo` token + `.ms-chat-logo` / `.ms-chat-launcher-logo` /
-  `.ms-chat-avatar` mask helpers (single-color SVG tinted via `currentColor`).
+  `.ms-chat-avatar` helpers (real logo artwork: white on the launcher, black
+  on the avatar — `--msc-logo-white` / `--msc-logo-black`).
 - **Feature 7 bubble swap**: `.ms-chat-bubble--user` = grey fill;
   `.ms-chat-bubble--assistant` = unfilled + 1.5px foreground/black border;
   assistant rows are now `row` layout with avatar + `.ms-chat-asst-content`;
@@ -50,7 +58,7 @@ and from the product template via `{{ 'ms-chat-logo.svg' | asset_url }}`.
   swallowed; **no message text**). Fired on: `chat_opened`, `chat_closed`,
   `message_sent`, `product_cta_clicked`, `add_to_cart_clicked`,
   `showroom_clicked`, `product_cta_opened`.
-- Launcher + assistant avatar use the masked logo (`logoEl`, `assistantRow`).
+- Launcher + assistant avatar use the logo artwork (`logoEl`, `assistantRow`).
 - Prominent CTAs: `productButton()` primary pill replaces the subtle "Zum
   Produkt" text link (product card + each comparison column); add-to-cart =
   "In den Warenkorb"; showroom promoted to primary "Showroom ansehen".
@@ -77,7 +85,7 @@ bullets** (right after that block's `{% endif %}`):
 <style>
   .ms-chat-product-cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:0 0 16px 0;padding:12px 16px;background:transparent;color:rgb(var(--color-base-foreground,0 0 0));border:1.5px solid rgb(var(--color-base-foreground,0 0 0));border-radius:var(--button-corner-radius,64px);font-family:var(--button-font-family,inherit);font-weight:var(--button-font-weight,600);font-size:0.9rem;line-height:1.2;text-align:center;cursor:pointer;-webkit-appearance:none;appearance:none;}
   .ms-chat-product-cta:hover{background:rgb(var(--color-base-foreground,0 0 0) / 6%);}
-  .ms-chat-product-cta__logo{width:22px;height:22px;flex:0 0 auto;display:inline-block;background-color:currentColor;-webkit-mask:url("{{ 'ms-chat-logo.svg' | asset_url }}") center / contain no-repeat;mask:url("{{ 'ms-chat-logo.svg' | asset_url }}") center / contain no-repeat;}
+  .ms-chat-product-cta__logo{width:22px;height:22px;flex:0 0 auto;display:inline-block;background:url("{{ 'ms-chat-logo-black.svg' | asset_url }}") center / contain no-repeat;}
 </style>
 {%- endif -%}
 ```
@@ -85,9 +93,8 @@ bullets** (right after that block's `{% endif %}`):
 Notes: passes **`product.id`** + **`product.title`** per the brief (swap
 `product.id` → `product.handle` if the backend matches products by handle;
 first-variant id would be `product.selected_or_first_available_variant.id`).
-Gated by `settings.ai_advisor_enabled`. The logo uses a CSS **mask** so it's a
-solid black silhouette on the outlined button (a plain `<img>` of this
-white-masked SVG would be invisible on a light button). `product.produkt-new.json`
+Gated by `settings.ai_advisor_enabled`. The CTA shows the **black** logo
+variant for contrast on the light outlined button. `product.produkt-new.json`
 also has a Kurzinfo block but was **not** edited (brief said one template);
 re-apply the same snippet there if you want the CTA on it too.
 
