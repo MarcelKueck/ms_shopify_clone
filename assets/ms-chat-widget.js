@@ -86,23 +86,27 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Fail-silent KPI telemetry (Phase 3 prep). POSTs pseudonymous event +
-  // session id to /api/kpi. Wrapped so it harmlessly no-ops until the backend
-  // endpoint exists, and never sends message text — only event names + ids.
+  // Fail-silent KPI telemetry (Phase 3 prep). Fire-and-forget beacon to
+  // /api/kpi with the pseudonymous session id in the BODY (never message text).
+  // Sent via sendBeacon / fetch(no-cors) so it never triggers a CORS preflight
+  // and produces no console errors — it harmlessly no-ops until the backend
+  // endpoint exists. (Session id travels in the body since beacons can't set
+  // the x-ms-session header.)
   // ---------------------------------------------------------------------------
   function track(event, data) {
     try {
-      fetch(API_BASE + '/api/kpi', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-ms-session': sid },
-        body: JSON.stringify({
-          event: event,
-          sessionId: sid,
-          timestamp: new Date().toISOString(),
-          data: data || {}
-        }),
-        keepalive: true
-      }).catch(function () {});
+      var payload = JSON.stringify({
+        event: event,
+        sessionId: sid,
+        timestamp: new Date().toISOString(),
+        data: data || {}
+      });
+      var url = API_BASE + '/api/kpi';
+      if (navigator && typeof navigator.sendBeacon === 'function') {
+        navigator.sendBeacon(url, payload);
+        return;
+      }
+      fetch(url, { method: 'POST', mode: 'no-cors', keepalive: true, body: payload }).catch(function () {});
     } catch (e) {}
   }
 
@@ -652,8 +656,6 @@
   var state = { open: false, streaming: false, rateLocked: false, expanded: lsGet(EXPAND_KEY) === '1' };
   var typingEl = null;
   var rateTimer = null;
-  // Product context to attach to the NEXT /api/chat request (see openWithProduct).
-  var pendingContext = null;
 
   function wordmark() {
     var w = el('span', { class: 'ms-chat-wordmark' });
@@ -976,7 +978,7 @@
     sendMessage(text);
   }
 
-  function sendMessage(text) {
+  function sendMessage(text, context) {
     clearNotice();
 
     var userMsg = { id: 'u-' + uuid(), role: 'user', parts: [{ type: 'text', text: text }] };
@@ -988,21 +990,7 @@
     textarea.value = '';
     autoGrow();
 
-    // Attach (and consume) any product context queued by openWithProduct.
-    var context = pendingContext;
-    pendingContext = null;
-
-    startStream({ userMsg: userMsg, userRow: userRow, restoreText: text, context: context });
-  }
-
-  // Start an assistant turn with NO user message — used to trigger the
-  // product greeting from openWithProduct on a fresh conversation. History
-  // (if any) is preserved and sent as-is.
-  function requestAssistant(context) {
-    if (state.streaming || state.rateLocked) { pendingContext = context; return; }
-    clearNotice();
-    clearWelcome();
-    startStream({ userMsg: null, userRow: null, restoreText: '', context: context });
+    startStream({ userMsg: userMsg, userRow: userRow, restoreText: text, context: context || null });
   }
 
   function startStream(opts) {
@@ -1271,23 +1259,24 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Public API: product-page CTA (feature 2). Opens the panel primed about a
-  // product. On a fresh conversation this triggers the assistant's product
-  // greeting; mid-conversation it queues the product context for the next
-  // message WITHOUT wiping the existing chat. Sends ids/title only — never a
-  // page scrape. See API_CONTRACT.md §2.
+  // Public API: product-page CTA (feature 2). Opens the panel and sends a
+  // product-primed message so the assistant advises about that product. This
+  // works whether the conversation is fresh or already going — it appends a
+  // normal turn, so existing history is never wiped. The `context` field is
+  // also sent (the backend may use it); ids/title only — never a page scrape.
   // ---------------------------------------------------------------------------
   function openWithProduct(id, title) {
     try {
       openPanel();
       var pid = id != null ? String(id) : '';
+      var ptitle = title != null ? String(title) : '';
       track('product_cta_opened', { productId: pid });
-      var context = { type: 'product', productId: pid, productTitle: title != null ? String(title) : '' };
-      if (!messages.length) {
-        requestAssistant(context); // fresh -> product greeting
-      } else {
-        pendingContext = context;  // mid-chat -> attach to next send, keep history
-      }
+      if (state.streaming || state.rateLocked) return; // busy -> just open; user can ask
+      var context = { type: 'product', productId: pid, productTitle: ptitle };
+      var prompt = ptitle
+        ? ('Ich interessiere mich für „' + ptitle + '". Kannst du mich zu diesem Produkt beraten?')
+        : 'Kannst du mich zu diesem Produkt beraten?';
+      sendMessage(prompt, context);
     } catch (e) {
       try { console.error('[ms-chat] openWithProduct failed', e); } catch (e2) {}
     }

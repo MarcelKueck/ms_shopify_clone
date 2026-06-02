@@ -346,13 +346,16 @@ primed about a specific product:
 window.MS_CHAT.openWithProduct(productId, productTitle)
 ```
 
-- It **opens the panel** and, on the **next** `/api/chat` request, includes
-  the `context: { type: "product", productId, productTitle }` field
-  (`API_CONTRACT.md` §2). Per the contract's two behaviors: if **no
-  conversation exists**, it triggers the assistant's product greeting
-  immediately (no user bubble); if a **conversation already exists**, the
-  product context is queued onto the **next user message** so history is
-  **not** wiped.
+- It **opens the panel** and sends a short **product-primed user message**
+  (e.g. *"Ich interessiere mich für „<Titel>". Kannst du mich zu diesem
+  Produkt beraten?"*) so the assistant advises about that product. This is
+  a normal chat turn, so it works whether the conversation is **fresh or
+  already going** and **never wipes existing history**. The request also
+  carries a `context: { type: "product", productId, productTitle }` field
+  (the backend may use it; it is ignored otherwise). *(The current backend
+  requires a non-empty prompt — an empty-`messages` "context-only" greeting
+  is rejected with `Invalid prompt: messages must not be empty` — hence the
+  primer message.)*
 - It fires `track('product_cta_opened', { productId })` (see §9b).
 - The product detail template (`templates/product.json`, the "USPs" /
   Kurzinfo block) renders an **outlined/bordered** button immediately
@@ -364,11 +367,13 @@ window.MS_CHAT.openWithProduct(productId, productTitle)
 
 ## 9b. Telemetry (Phase 3 prep)
 
-A tiny **fail-silent** helper `track(event, data)` POSTs
-`{ event, sessionId, timestamp, data }` to `${apiBase}/api/kpi` with the
-`x-ms-session` header, wrapped in try/catch that swallows all errors (so it
-harmlessly no-ops until the backend endpoint exists). It sends **event
-names + ids only — never message text**. Events: `chat_opened`,
+A tiny **fail-silent** helper `track(event, data)` sends a fire-and-forget
+beacon of `{ event, sessionId, timestamp, data }` to `${apiBase}/api/kpi`
+via `navigator.sendBeacon` (with a `fetch(mode:'no-cors')` fallback). Using
+a beacon avoids a CORS **preflight** and produces **no console errors**, so
+it harmlessly no-ops until the backend endpoint exists. The session id rides
+in the **body** (beacons can't set an `x-ms-session` header). It sends
+**event names + ids only — never message text**. Events: `chat_opened`,
 `chat_closed`, `message_sent`, `product_cta_clicked` (`productId`),
 `add_to_cart_clicked` (`productId`), `showroom_clicked` (`productIds`),
 `product_cta_opened` (`productId`). This is pseudonymous analytics keyed
