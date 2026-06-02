@@ -83,17 +83,19 @@
 .ms-chat-logo {
   display: inline-block;
   background-position: center;
-  background-size: contain;
+  /* The SVG has generous built-in padding (the mark fills ~65% of its
+     viewBox), so zoom past it to make the logo clearly visible. */
+  background-size: 150%;
   background-repeat: no-repeat;
 }
 .ms-chat-launcher-logo {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   background-image: var(--msc-logo-white);
 }
 .ms-chat-avatar {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
   margin-top: 2px;
   background-image: var(--msc-logo-black);

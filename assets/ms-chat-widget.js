@@ -1302,6 +1302,20 @@
     updateInputState();
     window.MS_CHAT = window.MS_CHAT || {};
     window.MS_CHAT.openWithProduct = openWithProduct;
+    bindProductCtas();
+  }
+
+  // Delegated handler for storefront product-page CTAs. Reading product id +
+  // title from data-* attributes (not an inline onclick) keeps it robust no
+  // matter what quotes/apostrophes a product title contains.
+  function bindProductCtas() {
+    document.addEventListener('click', function (e) {
+      var t = e.target;
+      var btn = t && t.closest ? t.closest('.ms-chat-product-cta') : null;
+      if (!btn) return;
+      e.preventDefault();
+      openWithProduct(btn.getAttribute('data-ms-chat-product-id'), btn.getAttribute('data-ms-chat-product-title'));
+    });
   }
 
   if (document.readyState === 'loading') {
