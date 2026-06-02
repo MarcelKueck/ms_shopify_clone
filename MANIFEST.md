@@ -12,6 +12,109 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-02) — styling/UX (features 5–8 + prominent buttons) + product-page CTA
+
+This session changed **4 files**. Re-upload the three theme files below to the
+dev theme; the spec is docs-only.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** | ✅ Yes |
+| `templates/product.json` | **MODIFIED** | ✅ Yes (default product template) |
+| `assets/ms-chat-logo.svg` | (added earlier) | ✅ Yes — required by the new logo/avatar/CTA mask |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** | ❌ No (docs only) |
+
+The widget **snippet was not touched** — the logo is referenced from CSS
+(relative `url('ms-chat-logo.svg')`, resolves to `/assets/…` on Shopify's CDN)
+and from the product template via `{{ 'ms-chat-logo.svg' | asset_url }}`.
+
+### `assets/ms-chat-widget.css` — what changed
+- `--msc-logo` token + `.ms-chat-logo` / `.ms-chat-launcher-logo` /
+  `.ms-chat-avatar` mask helpers (single-color SVG tinted via `currentColor`).
+- **Feature 7 bubble swap**: `.ms-chat-bubble--user` = grey fill;
+  `.ms-chat-bubble--assistant` = unfilled + 1.5px foreground/black border;
+  assistant rows are now `row` layout with avatar + `.ms-chat-asst-content`;
+  typing indicator matches the bordered look.
+- **Feature 8 backdrop**: `.ms-chat-backdrop` (dim + `backdrop-filter` blur,
+  progressive); panel `z-index` → `calc(var(--msc-z) + 1)`.
+- **Feature 6 expand**: `@media (min-width:641px) .ms-chat-panel--expanded`
+  (560×780, capped to viewport) — desktop only.
+- **Feature 8 mobile inset**: the `max-width:640px` block is now
+  near-full-screen (safe-area inset all sides, rounded + bordered, `dvh`
+  height anchored to bottom so the keyboard never covers the input).
+
+### `assets/ms-chat-widget.js` — what changed
+- `track(event, data)` fail-silent KPI POST → `${apiBase}/api/kpi`
+  (`{event, sessionId, timestamp, data}`, `x-ms-session`, all errors
+  swallowed; **no message text**). Fired on: `chat_opened`, `chat_closed`,
+  `message_sent`, `product_cta_clicked`, `add_to_cart_clicked`,
+  `showroom_clicked`, `product_cta_opened`.
+- Launcher + assistant avatar use the masked logo (`logoEl`, `assistantRow`).
+- Prominent CTAs: `productButton()` primary pill replaces the subtle "Zum
+  Produkt" text link (product card + each comparison column); add-to-cart =
+  "In den Warenkorb"; showroom promoted to primary "Showroom ansehen".
+- Header **expand toggle** (persisted `ms-chat-expanded`), **backdrop**
+  element + open/close wiring, `openPanel` guarded so telemetry fires once.
+- **Public API** `window.MS_CHAT.openWithProduct(id, title)`: opens panel;
+  fresh chat → product greeting (`requestAssistant`, no user bubble); mid-chat
+  → queues `pendingContext` for the next send (history preserved).
+  `sendMessage`/`requestAssistant` share `startStream(opts)`, which adds the
+  `context` field to the `/api/chat` body.
+
+### `templates/product.json` — exact added lines (hand-paste)
+Added to the **"USPs" custom_liquid block** (`custom_liquid_BGU8Mt`, which
+renders the bullet points as `.product-kurzinfo`), **immediately below the
+bullets** (right after that block's `{% endif %}`):
+
+```liquid
+{%- comment -%} AI Advisor (MOIA) product CTA — opens the chat primed about this product {%- endcomment -%}
+{%- if settings.ai_advisor_enabled -%}
+<button type="button" class="ms-chat-product-cta" onclick="if(window.MS_CHAT&&window.MS_CHAT.openWithProduct){window.MS_CHAT.openWithProduct({{ product.id | json }}, {{ product.title | json }});}return false;">
+  <span class="ms-chat-product-cta__logo" aria-hidden="true"></span>
+  <span class="ms-chat-product-cta__label">Detaillierte Beratung zu diesem Produkt</span>
+</button>
+<style>
+  .ms-chat-product-cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:0 0 16px 0;padding:12px 16px;background:transparent;color:rgb(var(--color-base-foreground,0 0 0));border:1.5px solid rgb(var(--color-base-foreground,0 0 0));border-radius:var(--button-corner-radius,64px);font-family:var(--button-font-family,inherit);font-weight:var(--button-font-weight,600);font-size:0.9rem;line-height:1.2;text-align:center;cursor:pointer;-webkit-appearance:none;appearance:none;}
+  .ms-chat-product-cta:hover{background:rgb(var(--color-base-foreground,0 0 0) / 6%);}
+  .ms-chat-product-cta__logo{width:22px;height:22px;flex:0 0 auto;display:inline-block;background-color:currentColor;-webkit-mask:url("{{ 'ms-chat-logo.svg' | asset_url }}") center / contain no-repeat;mask:url("{{ 'ms-chat-logo.svg' | asset_url }}") center / contain no-repeat;}
+</style>
+{%- endif -%}
+```
+
+Notes: passes **`product.id`** + **`product.title`** per the brief (swap
+`product.id` → `product.handle` if the backend matches products by handle;
+first-variant id would be `product.selected_or_first_available_variant.id`).
+Gated by `settings.ai_advisor_enabled`. The logo uses a CSS **mask** so it's a
+solid black silhouette on the outlined button (a plain `<img>` of this
+white-masked SVG would be invisible on a light button). `product.produkt-new.json`
+also has a Kurzinfo block but was **not** edited (brief said one template);
+re-apply the same snippet there if you want the CTA on it too.
+
+### Dev-theme test checklist (this session)
+1. **Launcher logo** — launcher shows the MOIA logo, brand-tinted.
+2. **Swapped bubbles** — user = grey fill; assistant = unfilled + black
+   border with a small logo avatar; typing dots bordered.
+3. **Prominent buttons** — product card "Zum Produkt" pill; comparison "Zum
+   Produkt" per column; add-to-cart "In den Warenkorb"; showroom "Showroom
+   ansehen" — all look tappable.
+4. **Expand** — header diagonal-arrow enlarges the desktop panel, icon flips,
+   size remembered after reload; no effect on mobile width.
+5. **Desktop backdrop + click-to-close** — storefront dims/blurs behind the
+   open panel, launcher hidden, click outside closes it.
+6. **Mobile inset** — near-full-screen with a margin all sides (dimmed
+   storefront sliver), rounded/bordered, close reachable, comparison table
+   scrolls horizontally, input stays above the keyboard.
+7. **Product CTA — fresh** — on a product page, the bordered CTA below the
+   bullets opens the chat with a greeting **about that product** (no user
+   bubble). *(needs backend `context` support)*
+8. **Product CTA — mid-chat** — with an existing conversation, the CTA opens
+   the panel, **keeps history**, and primes the next message with the product.
+9. **Telemetry no-op** — with no `/api/kpi` yet, nothing throws; KPI POSTs
+   fail silently (visible as failed requests in the Network tab).
+
+---
+
 ## CREATED files (upload as-is)
 
 | Path | Purpose |

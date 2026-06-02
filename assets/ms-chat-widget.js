@@ -86,6 +86,27 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Fail-silent KPI telemetry (Phase 3 prep). POSTs pseudonymous event +
+  // session id to /api/kpi. Wrapped so it harmlessly no-ops until the backend
+  // endpoint exists, and never sends message text — only event names + ids.
+  // ---------------------------------------------------------------------------
+  function track(event, data) {
+    try {
+      fetch(API_BASE + '/api/kpi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-ms-session': sid },
+        body: JSON.stringify({
+          event: event,
+          sessionId: sid,
+          timestamp: new Date().toISOString(),
+          data: data || {}
+        }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  // ---------------------------------------------------------------------------
   // Tool names.
   // ---------------------------------------------------------------------------
   var VISIBLE_TOOLS = ['show_product', 'compare_products', 'add_to_cart', 'suggest_showroom', 'show_contact_form'];
@@ -134,6 +155,8 @@
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
+    shrink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
     truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
     external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
@@ -146,6 +169,12 @@
     var tpl = document.createElement('template');
     tpl.innerHTML = ICONS[name] || '';
     return tpl.content.firstElementChild;
+  }
+
+  // Brand logo (assets/ms-chat-logo.svg) as a CSS-masked element so its
+  // single-color silhouette inherits the brand color via currentColor.
+  function logoEl(extraClass) {
+    return el('span', { class: 'ms-chat-logo ' + (extraClass || ''), 'aria-hidden': 'true' });
   }
 
   // ---------------------------------------------------------------------------
@@ -281,6 +310,17 @@
     return a;
   }
 
+  // Prominent primary CTA button to a product page (feature 2 / KPI driver).
+  // These are the highest-value clicks, so they get the theme's primary pill
+  // button instead of a subtle text link. Fires a fail-silent KPI event.
+  function productButton(product, label) {
+    var a = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: product.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer' });
+    a.appendChild(el('span', { text: label || 'Zum Produkt' }));
+    a.appendChild(icon('external'));
+    a.addEventListener('click', function () { track('product_cta_clicked', { productId: product.id }); });
+    return a;
+  }
+
   // ---------------------------------------------------------------------------
   // Tool card builders. Each returns Promise<Element|null> (null = render nothing).
   // ---------------------------------------------------------------------------
@@ -322,8 +362,9 @@
       var delivery = el('span', { class: 'ms-chat-delivery' }, [p.deliveryTime || '']);
       delivery.insertBefore(icon('truck'), delivery.firstChild);
       footer.appendChild(delivery);
-      footer.appendChild(productLink(p, 'Zum Produkt'));
       body.appendChild(footer);
+      // Prominent primary CTA below the meta row.
+      body.appendChild(productButton(p, 'Zum Produkt'));
 
       card.appendChild(body);
       return card;
@@ -383,7 +424,7 @@
         });
       });
       row('Lieferzeit', function (p) { return el('td', { text: p.deliveryTime || '—' }); });
-      row('', function (p) { var td = el('td'); td.appendChild(productLink(p, 'Zum Produkt')); return td; });
+      row('', function (p) { var td = el('td'); td.appendChild(productButton(p, 'Zum Produkt')); return td; });
 
       table.appendChild(tbody);
       scroll.appendChild(table);
@@ -413,15 +454,17 @@
       if (p.shopifyCartUrl) {
         var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: p.shopifyCartUrl, target: '_blank', rel: 'noopener noreferrer' });
         btn.appendChild(icon('cart'));
-        btn.appendChild(el('span', { text: 'Jetzt direkt bestellen' }));
+        btn.appendChild(el('span', { text: 'In den Warenkorb' }));
+        btn.addEventListener('click', function () { track('add_to_cart_clicked', { productId: p.id }); });
         body.appendChild(btn);
         body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Direkt zur sicheren Kasse bei motionsports.de' }));
       } else if (p.shopifyUrl) {
         // No resolvable variant id -> degrade to the product page, never a broken
         // checkout link.
-        var link = el('a', { class: 'ms-chat-btn ms-chat-btn--secondary', href: p.shopifyUrl, target: '_blank', rel: 'noopener noreferrer' });
+        var link = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: p.shopifyUrl, target: '_blank', rel: 'noopener noreferrer' });
         link.appendChild(el('span', { text: 'Zum Produkt' }));
         link.appendChild(icon('external'));
+        link.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id }); });
         body.appendChild(link);
       }
 
@@ -445,9 +488,10 @@
       body.appendChild(head);
       body.appendChild(el('div', { class: 'ms-chat-card-text', text: 'Möchtest du ' + names + ' vor dem Kauf testen? Besuche unseren Showroom!' }));
 
-      var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--secondary', href: SHOWROOM_URL, target: '_blank', rel: 'noopener noreferrer' });
-      btn.appendChild(el('span', { text: 'Termin vereinbaren' }));
+      var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: SHOWROOM_URL, target: '_blank', rel: 'noopener noreferrer' });
+      btn.appendChild(el('span', { text: 'Showroom ansehen' }));
       btn.appendChild(icon('external'));
+      btn.addEventListener('click', function () { track('showroom_clicked', { productIds: prods.map(function (p) { return p.id; }) }); });
       body.appendChild(btn);
       body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Terminvereinbarung erforderlich' }));
       card.appendChild(body);
@@ -603,10 +647,13 @@
   // ---------------------------------------------------------------------------
   // Widget shell.
   // ---------------------------------------------------------------------------
-  var root, launcher, panel, messagesEl, textarea, sendBtn, noticeEl, welcomeEl;
-  var state = { open: false, streaming: false, rateLocked: false };
+  var root, launcher, panel, backdrop, expandBtn, messagesEl, textarea, sendBtn, noticeEl, welcomeEl;
+  var EXPAND_KEY = 'ms-chat-expanded';
+  var state = { open: false, streaming: false, rateLocked: false, expanded: lsGet(EXPAND_KEY) === '1' };
   var typingEl = null;
   var rateTimer = null;
+  // Product context to attach to the NEXT /api/chat request (see openWithProduct).
+  var pendingContext = null;
 
   function wordmark() {
     var w = el('span', { class: 'ms-chat-wordmark' });
@@ -619,14 +666,22 @@
     root = el('div', { class: 'ms-chat-root' });
 
     launcher = el('button', { class: 'ms-chat-launcher', type: 'button', 'aria-label': 'Chat öffnen' });
-    launcher.appendChild(icon('chat'));
+    launcher.appendChild(logoEl('ms-chat-launcher-logo'));
     launcher.addEventListener('click', togglePanel);
+
+    backdrop = el('div', { class: 'ms-chat-backdrop', 'aria-hidden': 'true' });
+    backdrop.addEventListener('click', closePanel);
 
     panel = el('div', { class: 'ms-chat-panel', role: 'dialog', 'aria-label': 'AI Fitnessberater', 'aria-modal': 'false' });
 
     var header = el('div', { class: 'ms-chat-header' });
     header.appendChild(wordmark());
     var actions = el('div', { class: 'ms-chat-header-actions' });
+    // Feature 6: enlarge/expand toggle (desktop only; no-op styling on mobile).
+    expandBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Chat vergrößern', title: 'Vergrößern' });
+    expandBtn.appendChild(icon(state.expanded ? 'shrink' : 'expand'));
+    expandBtn.addEventListener('click', toggleExpand);
+    actions.appendChild(expandBtn);
     var newBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Neuen Chat starten', title: 'Neuen Chat starten' });
     newBtn.appendChild(icon('refresh'));
     newBtn.addEventListener('click', function () { startNewChat(); });
@@ -663,8 +718,27 @@
     welcomeEl = buildWelcome();
 
     root.appendChild(launcher);
+    root.appendChild(backdrop);
     root.appendChild(panel);
     document.body.appendChild(root);
+
+    applyExpanded();
+  }
+
+  function applyExpanded() {
+    if (!panel) return;
+    panel.classList.toggle('ms-chat-panel--expanded', !!state.expanded);
+    if (expandBtn) {
+      expandBtn.replaceChildren(icon(state.expanded ? 'shrink' : 'expand'));
+      expandBtn.title = state.expanded ? 'Verkleinern' : 'Vergrößern';
+      expandBtn.setAttribute('aria-label', state.expanded ? 'Chat verkleinern' : 'Chat vergrößern');
+    }
+  }
+
+  function toggleExpand() {
+    state.expanded = !state.expanded;
+    lsSet(EXPAND_KEY, state.expanded ? '1' : '0');
+    applyExpanded();
   }
 
   function buildWelcome() {
@@ -682,16 +756,22 @@
 
   function togglePanel() { state.open ? closePanel() : openPanel(); }
   function openPanel() {
+    if (state.open) return;
     state.open = true;
     panel.classList.add('ms-chat-panel--open');
+    if (backdrop) backdrop.classList.add('ms-chat-backdrop--open');
     launcher.classList.add('ms-chat-launcher--hidden');
     scrollToBottom();
     setTimeout(function () { try { textarea.focus(); } catch (e) {} }, 50);
+    track('chat_opened', {});
   }
   function closePanel() {
+    if (!state.open) return;
     state.open = false;
     panel.classList.remove('ms-chat-panel--open');
+    if (backdrop) backdrop.classList.remove('ms-chat-backdrop--open');
     launcher.classList.remove('ms-chat-launcher--hidden');
+    track('chat_closed', {});
   }
 
   function scrollToBottom() {
@@ -727,12 +807,22 @@
   }
   function clearNotice() { noticeEl.style.display = 'none'; noticeEl.replaceChildren(); }
 
+  // Build an assistant row: brand avatar + a stacked content column. Returns
+  // both so callers append bubbles/cards into `.content`.
+  function assistantRow() {
+    var row = el('div', { class: 'ms-chat-row ms-chat-row--assistant' });
+    row.appendChild(logoEl('ms-chat-avatar'));
+    var content = el('div', { class: 'ms-chat-asst-content' });
+    row.appendChild(content);
+    return { row: row, content: content };
+  }
+
   // An assistant-area error line that lives in the message list.
   function showMessageError(text) {
     clearWelcome();
-    var row = el('div', { class: 'ms-chat-row ms-chat-row--assistant' });
-    row.appendChild(el('div', { class: 'ms-chat-bubble ms-chat-bubble--assistant', text: text }));
-    messagesEl.appendChild(row);
+    var ar = assistantRow();
+    ar.content.appendChild(el('div', { class: 'ms-chat-bubble ms-chat-bubble--assistant', text: text }));
+    messagesEl.appendChild(ar.row);
     scrollToBottom();
   }
 
@@ -760,9 +850,9 @@
   // ctx-based incremental renderer, reused for streaming and restore.
   function newAssistantCtx() {
     clearWelcome();
-    var row = el('div', { class: 'ms-chat-row ms-chat-row--assistant' });
-    messagesEl.appendChild(row);
-    return { row: row, activeText: null, tools: {} };
+    var ar = assistantRow();
+    messagesEl.appendChild(ar.row);
+    return { row: ar.row, content: ar.content, activeText: null, tools: {} };
   }
 
   function renderPartIntoCtx(ctx, part) {
@@ -775,7 +865,7 @@
       removeTyping();
       if (!ctx.activeText) {
         var node = el('div', { class: 'ms-chat-bubble ms-chat-bubble--assistant' });
-        ctx.row.appendChild(node);
+        ctx.content.appendChild(node);
         ctx.activeText = { str: '', node: node };
       }
       ctx.activeText.str += t;
@@ -801,7 +891,7 @@
     } else {
       holder = { node: el('div'), inputKey: inputKey };
       ctx.tools[key] = holder;
-      ctx.row.appendChild(holder.node);
+      ctx.content.appendChild(holder.node);
     }
     buildToolCard(name, input).then(function (cardEl) {
       holder.node.replaceChildren();
@@ -831,9 +921,9 @@
   // ---------------------------------------------------------------------------
   function showTyping() {
     removeTyping();
-    typingEl = el('div', { class: 'ms-chat-row ms-chat-row--assistant' }, [
-      el('div', { class: 'ms-chat-typing' }, [el('span'), el('span'), el('span')])
-    ]);
+    var ar = assistantRow();
+    ar.content.appendChild(el('div', { class: 'ms-chat-typing' }, [el('span'), el('span'), el('span')]));
+    typingEl = ar.row;
     messagesEl.appendChild(typingEl);
     scrollToBottom();
   }
@@ -893,9 +983,32 @@
     messages.push(userMsg);
     var userRow = renderUserMessage(userMsg);
     saveHistory();
+    track('message_sent', {}); // event only — never the message text
 
     textarea.value = '';
     autoGrow();
+
+    // Attach (and consume) any product context queued by openWithProduct.
+    var context = pendingContext;
+    pendingContext = null;
+
+    startStream({ userMsg: userMsg, userRow: userRow, restoreText: text, context: context });
+  }
+
+  // Start an assistant turn with NO user message — used to trigger the
+  // product greeting from openWithProduct on a fresh conversation. History
+  // (if any) is preserved and sent as-is.
+  function requestAssistant(context) {
+    if (state.streaming || state.rateLocked) { pendingContext = context; return; }
+    clearNotice();
+    clearWelcome();
+    startStream({ userMsg: null, userRow: null, restoreText: '', context: context });
+  }
+
+  function startStream(opts) {
+    var userMsg = opts.userMsg;
+    var userRow = opts.userRow;
+    var restoreText = opts.restoreText || '';
 
     state.streaming = true;
     updateInputState();
@@ -912,15 +1025,16 @@
 
     function rollback() {
       // Remove optimistic user message + assistant scaffolding; restore input.
-      var idx = messages.indexOf(userMsg);
-      if (idx !== -1) messages.splice(idx, 1);
-      if (userRow && userRow.parentNode) userRow.parentNode.removeChild(userRow);
+      if (userMsg) {
+        var idx = messages.indexOf(userMsg);
+        if (idx !== -1) messages.splice(idx, 1);
+        if (userRow && userRow.parentNode) userRow.parentNode.removeChild(userRow);
+      }
       if (ctx && ctx.row && ctx.row.parentNode) ctx.row.parentNode.removeChild(ctx.row);
       removeTyping();
       saveHistory();
       if (!messages.length) showWelcome();
-      textarea.value = text;
-      autoGrow();
+      if (restoreText) { textarea.value = restoreText; autoGrow(); }
     }
 
     // Idempotent: called on the `finish` event, on `[DONE]`, and on socket
@@ -930,7 +1044,7 @@
       finished = true;
       removeTyping();
       // Stream produced nothing visible -> drop the empty assistant row.
-      if (ctx && ctx.row && !gotContent && !ctx.row.childNodes.length && ctx.row.parentNode) {
+      if (ctx && ctx.row && !gotContent && ctx.content && !ctx.content.childNodes.length && ctx.row.parentNode) {
         ctx.row.parentNode.removeChild(ctx.row);
       }
       if (asstParts.length) {
@@ -949,15 +1063,21 @@
     // {type:'tool-<name>', toolCallId, input} — unchanged from before.)
     function feedCanonical(part) {
       accumulatePart(asstParts, part);
-      var before = ensureCtx().row.childNodes.length;
+      var c = ensureCtx().content;
+      var before = c.childNodes.length;
       renderPartIntoCtx(ctx, part);
-      if (ctx.row.childNodes.length > 0 || before !== ctx.row.childNodes.length) gotContent = true;
+      if (c.childNodes.length > 0 || before !== c.childNodes.length) gotContent = true;
     }
+
+    // Body carries the full history each turn; `context` (when present) primes
+    // the assistant with the current product per API_CONTRACT.md §2.
+    var chatBody = { messages: toWire(messages) };
+    if (opts.context) chatBody.context = opts.context;
 
     fetch(API_BASE + '/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
-      body: JSON.stringify({ messages: toWire(messages) })
+      body: JSON.stringify(chatBody)
     }).then(function (res) {
       if (!res.ok) {
         return res.json().catch(function () { return null; }).then(function (data) {
@@ -1151,12 +1271,37 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Public API: product-page CTA (feature 2). Opens the panel primed about a
+  // product. On a fresh conversation this triggers the assistant's product
+  // greeting; mid-conversation it queues the product context for the next
+  // message WITHOUT wiping the existing chat. Sends ids/title only — never a
+  // page scrape. See API_CONTRACT.md §2.
+  // ---------------------------------------------------------------------------
+  function openWithProduct(id, title) {
+    try {
+      openPanel();
+      var pid = id != null ? String(id) : '';
+      track('product_cta_opened', { productId: pid });
+      var context = { type: 'product', productId: pid, productTitle: title != null ? String(title) : '' };
+      if (!messages.length) {
+        requestAssistant(context); // fresh -> product greeting
+      } else {
+        pendingContext = context;  // mid-chat -> attach to next send, keep history
+      }
+    } catch (e) {
+      try { console.error('[ms-chat] openWithProduct failed', e); } catch (e2) {}
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Init.
   // ---------------------------------------------------------------------------
   function init() {
     buildShell();
     renderAllMessages();
     updateInputState();
+    window.MS_CHAT = window.MS_CHAT || {};
+    window.MS_CHAT.openWithProduct = openWithProduct;
   }
 
   if (document.readyState === 'loading') {

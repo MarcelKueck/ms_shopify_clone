@@ -31,6 +31,12 @@
   --msc-z: 2147483000;
   --msc-font: var(--font-body-family, inherit);
 
+  /* Brand logo (assets/ms-chat-logo.svg). Referenced relatively so it resolves
+     to /assets/ms-chat-logo.svg on Shopify's CDN, where this stylesheet lives.
+     Used as a CSS mask so the single-color mark inherits the brand color via
+     currentColor — no hardcoded hexes. */
+  --msc-logo: url('ms-chat-logo.svg');
+
   font-family: var(--msc-font);
   color: rgb(var(--msc-fg));
   line-height: 1.5;
@@ -68,6 +74,25 @@
 .ms-chat-launcher:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgb(0 0 0 / 28%); }
 .ms-chat-launcher:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 3px; }
 .ms-chat-launcher svg { width: 26px; height: 26px; display: block; }
+
+/* ---------- Brand logo mask (launcher + assistant avatar) ---------- */
+/* The SVG is used as a mask so its silhouette inherits the current text color.
+   currentColor = the brand color in each context (accent-fg on the launcher,
+   accent for the avatar), so there are no hardcoded hexes. */
+.ms-chat-logo {
+  display: inline-block;
+  background-color: currentColor;
+  -webkit-mask: var(--msc-logo) center / contain no-repeat;
+  mask: var(--msc-logo) center / contain no-repeat;
+}
+.ms-chat-launcher-logo { width: 34px; height: 34px; }
+.ms-chat-avatar {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: rgb(var(--msc-accent));
+}
 /* When the panel is open the JS adds this class. Fully removed from layout and
    interaction so it can never overlap the panel (desktop or mobile full-screen). */
 .ms-chat-launcher--hidden { display: none !important; visibility: hidden; pointer-events: none; }
@@ -85,25 +110,58 @@
   border: 1px solid var(--msc-border);
   border-radius: var(--msc-card-radius);
   box-shadow: 0 18px 60px rgb(0 0 0 / 28%);
-  z-index: var(--msc-z);
+  /* Sit above the backdrop (which sits above the storefront). */
+  z-index: calc(var(--msc-z) + 1);
   display: none;
   flex-direction: column;
   overflow: hidden;
 }
 .ms-chat-panel--open { display: flex; }
 
+/* ---------- Backdrop (modal-style dim/blur behind the open panel) ---------- */
+/* Baseline = dim; blur is a progressive enhancement that degrades to just-dim
+   on devices/browsers that can't do backdrop-filter. Shown on desktop and
+   mobile so the storefront recedes behind the in-focus chat. */
+.ms-chat-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 40%);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: var(--msc-z);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+.ms-chat-backdrop--open { opacity: 1; pointer-events: auto; }
+
+/* ---------- Enlarged desktop panel (expand toggle, persisted per session) ---------- */
+/* Desktop-only: on mobile the panel uses the near-full-screen inset below, so
+   the expand state must not affect it. Capped to the viewport via the existing
+   max-width/max-height on .ms-chat-panel. */
+@media (min-width: 641px) {
+  .ms-chat-panel--expanded {
+    width: 560px;
+    height: 780px;
+  }
+}
+
 @media (max-width: 640px) {
+  /* Near-full-screen (not true full-screen): a small inset on all sides,
+     respecting safe-area, so a sliver of the dimmed storefront shows around
+     the edges (modal-in-focus look). Anchored to the bottom inset with a dvh
+     height so the mobile keyboard doesn't obscure the input. */
   .ms-chat-panel {
-    right: 0;
-    bottom: 0;
-    top: 0;
-    left: 0;
-    width: 100%;
-    max-width: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-    border: none;
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    right: calc(10px + env(safe-area-inset-right, 0px));
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    top: auto;
+    width: auto;
+    max-width: none;
+    height: calc(100dvh - 20px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 20px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    border-radius: var(--msc-card-radius);
+    border: 1px solid var(--msc-border);
   }
 }
 
@@ -170,7 +228,17 @@
 /* Bubbles */
 .ms-chat-row { display: flex; flex-direction: column; gap: 8px; max-width: 100%; min-width: 0; }
 .ms-chat-row--user { align-items: flex-end; }
-.ms-chat-row--assistant { align-items: flex-start; }
+/* Assistant rows put the small brand avatar to the left of a stacked content
+   column (text bubbles + tool cards). */
+.ms-chat-row--assistant { flex-direction: row; align-items: flex-start; gap: 8px; }
+.ms-chat-asst-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
 .ms-chat-bubble {
   max-width: 85%;
   padding: 10px 14px;
@@ -179,14 +247,18 @@
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
+/* Feature 7: user bubbles take the grey fill; assistant bubbles are unfilled
+   with a solid foreground (black) border. */
 .ms-chat-bubble--user {
-  background: rgb(var(--msc-accent));
-  color: rgb(var(--msc-accent-fg));
+  background: var(--msc-surface);
+  color: rgb(var(--msc-fg));
   border-bottom-right-radius: 4px;
 }
 .ms-chat-bubble--assistant {
-  background: var(--msc-surface);
+  background: transparent;
   color: rgb(var(--msc-fg));
+  border: 1.5px solid rgb(var(--msc-fg));
+  padding: 9px 13px;
   border-bottom-left-radius: 4px;
 }
 .ms-chat-bubble p { margin: 0 0 6px; }
@@ -199,7 +271,8 @@
   display: inline-flex;
   gap: 4px;
   padding: 12px 16px;
-  background: var(--msc-surface);
+  background: transparent;
+  border: 1.5px solid rgb(var(--msc-fg));
   border-radius: 16px;
   border-bottom-left-radius: 4px;
 }
@@ -466,5 +539,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ms-chat-launcher,
+  .ms-chat-backdrop,
   .ms-chat-typing span { transition: none; animation: none; }
 }
