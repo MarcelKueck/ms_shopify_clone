@@ -12,6 +12,86 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-04) — in-chat email-capture form (GDPR double opt-in)
+
+Builds the in-chat consent UI for the backend's email-capture flow
+(`API_CONTRACT.md` §7: `POST /api/capture-email` + `GET /api/confirm-marketing`,
+plus the assistant's `offer_email_summary` tool). **Two theme files changed**
+(re-upload both); the spec is docs-only.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** | ❌ No (docs only — new §6a) |
+
+> **Legal note for whoever copies this over:** the two consents are **separate**
+> and the **marketing checkbox is unchecked by default** — never pre-tick it and
+> never merge the two into one control. The placeholder consent copy lives in the
+> **`CONSENT_COPY` object near the top of `assets/ms-chat-widget.js`**; update it
+> there (and only there) when legal signs off. The exact labels shown are sent
+> verbatim to the backend as `consentTextShown` (audit proof), so editing the
+> strings keeps the audit trail in sync automatically.
+
+### `assets/ms-chat-widget.js` — what changed
+- **`CONSENT_COPY`** placeholder string table near the top of the file (title,
+  intro, email + both consent labels, submit/sending, privacy caption, all
+  error/success messages) — the single place legal edits.
+- **`buildCaptureCard(opts)`** — the GDPR capture card: email input (real
+  `<label for>`), a **required transactional** consent checkbox, a **separate
+  marketing** checkbox **unchecked by default**, submit + inline error + privacy
+  caption. Client-side email validation (`^[^@\s]+@[^@\s]+\.[^@\s]+$`); requires
+  the transactional box; POSTs `{ sessionId, email, transactionalConsent,
+  marketingConsent, consentTextShown }` to `/api/capture-email` with the
+  `x-ms-chat-key` + `x-ms-session` headers. Success → replaces the form with the
+  "Zusammenfassung gesendet! …" state; error (429 / 502 / 503 / network /
+  generic) → inline message, **form stays populated** for retry. Fires
+  `track('email_capture_submitted', { marketing })` (fail-silent).
+- **Entry point (a):** `offer_email_summary` added to `VISIBLE_TOOLS` and to the
+  `buildToolCard` switch, so the assistant's tool part renders the card inline
+  (using the tool `message` as intro and `productIds` as an advisory cart
+  preview), keyed by `toolCallId` like the other cards.
+- **Entry point (b):** a **share icon** in the panel header calls
+  `openCaptureForm()`, which opens the panel and drops the same card into the
+  message area (reusing an unsubmitted one rather than stacking). Also exposed as
+  `window.MS_CHAT.openEmailSummary()`. New `share` SVG in the `ICONS` table.
+
+### `assets/ms-chat-widget.css` — what changed
+- New `.ms-chat-consent` / `.ms-chat-consent-text` rules: two separate
+  `<label>+<input>` checkbox rows, comfortable tap target, accent focus ring,
+  and consent text that **wraps freely and is never truncated**. No other
+  selectors touched.
+
+### Dev-theme test checklist (this session)
+1. **Trigger via the assistant** — chat until the assistant offers to email the
+   summary (the `offer_email_summary` tool); the capture card renders inline with
+   the email field, the transactional checkbox, and a **separate, unchecked**
+   marketing checkbox, plus the assistant's intro text.
+2. **Trigger via the share icon** — click the share icon in the panel header; the
+   **same** capture form appears in the message area (with the default intro).
+3. **Marketing box default** — confirm the marketing checkbox is **unchecked** on
+   first render in both entry points, and that the two boxes are visually/behaviour
+   ally independent (ticking one never ticks the other).
+4. **Transactional-only submit** — enter a valid email, tick **only** the
+   transactional box, submit → success state "Zusammenfassung gesendet! …".
+   Confirm the **summary email arrives** and contains the cart link (no DOI link,
+   since marketing wasn't selected).
+5. **Transactional + marketing submit** — enter a valid email, tick **both**
+   boxes, submit → success. Confirm the summary email arrives **and** a separate
+   double-opt-in confirmation email arrives; click its **confirmation link** and
+   verify it lands on "Danke, deine Anmeldung ist bestätigt." (`/api/confirm-marketing`).
+6. **Validation** — empty/invalid email shows "Bitte gib eine gültige E-Mail…";
+   submitting without the transactional box shows the transactional error; the
+   form is never sent until both pass.
+7. **Error + retry** — block `/api/capture-email` in DevTools and submit → inline
+   error appears, the **form stays populated** (email + checkbox states kept), and
+   the submit button re-enables for retry.
+8. **Accessibility / mobile** — both checkboxes are reachable and toggleable by
+   keyboard (Tab + Space), the full marketing text is visible (not truncated), and
+   the card fits the panel on a ≤640px viewport.
+
+---
+
 ## ⭐ Session update (2026-06-02) — styling/UX (features 5–8 + prominent buttons) + product-page CTA
 
 This session changed **4 files**. Re-upload the three theme files below to the
