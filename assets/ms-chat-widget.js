@@ -22,6 +22,44 @@
   var CHAT_KEY = CFG.chatKey || '';
   var SHOWROOM_URL = CFG.showroomUrl || 'https://motionsports.de/pages/showroom-munchen-grobenzell';
 
+  // ---------------------------------------------------------------------------
+  // Email-capture / consent copy — PLACEHOLDER pending lawyer approval.
+  // ALL user-facing strings for the GDPR capture form live here, in one place,
+  // so legal can retune them without touching the rendering code. See
+  // docs/ai-advisor/{API_CONTRACT,WIDGET_SPEC}.md §7 / CONSENT_FLOW.md.
+  //
+  // LEGAL INVARIANTS (do not "optimise" away):
+  //   * The two consents are SEPARATE — one transactional, one marketing.
+  //   * The marketing checkbox is UNCHECKED by default and is NEVER pre-ticked
+  //     or bundled into the same control/action as the transactional one.
+  //   * `transactionalLabel` / `marketingLabel` are the EXACT strings shown to
+  //     the user; both are sent verbatim (joined by " | ") as `consentTextShown`
+  //     for Art. 7 proof — so edit them here and the audit trail stays in sync.
+  // ---------------------------------------------------------------------------
+  var CONSENT_COPY = {
+    title: 'Zusammenfassung per E-Mail',
+    // Default intro for the header share-icon entry point. When the assistant
+    // emits offer_email_summary it supplies its own intro (the tool `message`).
+    intro: 'Ich schicke dir gerne die Zusammenfassung deiner Beratung samt Warenkorb per E-Mail.',
+    emailLabel: 'E-Mail',
+    emailPlaceholder: 'deine@email.de',
+    // Transactional consent — REQUIRED to submit (you can't email a summary
+    // without consent to email it). Submittable on its own, without marketing.
+    transactionalLabel: 'Ja, sendet mir die Zusammenfassung meiner Beratung und meinen Warenkorb per E-Mail.',
+    // Marketing consent — SEPARATE, UNCHECKED by default, double opt-in.
+    marketingLabel: 'Ja, motion sports darf mir personalisierte Angebote und Produktempfehlungen per E-Mail senden. Diese Einwilligung kann ich jederzeit widerrufen.',
+    submit: 'Zusammenfassung senden',
+    sending: 'Wird gesendet…',
+    privacy: 'Wir verwenden deine E-Mail nur wie oben angegeben. Für Angebote ist eine Bestätigung über den Doppel-Opt-in-Link in der E-Mail nötig.',
+    errEmail: 'Bitte gib eine gültige E-Mail-Adresse an.',
+    errTransactional: 'Bitte bestätige, dass wir dir die Zusammenfassung per E-Mail senden dürfen.',
+    errRate: 'Zu viele Anfragen — bitte kurz warten.',
+    errUpstream: 'Senden gerade nicht möglich — bitte später erneut versuchen.',
+    errGeneric: 'Senden fehlgeschlagen. Bitte versuch es erneut.',
+    successTitle: 'Erledigt!',
+    success: 'Zusammenfassung gesendet! Falls du Angebote abonniert hast, bestätige bitte den Link in der E-Mail.'
+  };
+
   // Fail gracefully: no secret -> log a warning, do not render the launcher.
   if (!CHAT_KEY) {
     try { console.warn('[ms-chat] ms_chat_shared_secret is empty; AI advisor widget not mounted. Paste the secret in Theme settings > AI Advisor.'); } catch (e) {}
@@ -113,7 +151,7 @@
   // ---------------------------------------------------------------------------
   // Tool names.
   // ---------------------------------------------------------------------------
-  var VISIBLE_TOOLS = ['show_product', 'compare_products', 'add_to_cart', 'suggest_showroom', 'show_contact_form'];
+  var VISIBLE_TOOLS = ['show_product', 'compare_products', 'add_to_cart', 'suggest_showroom', 'show_contact_form', 'offer_email_summary'];
   var SILENT_TOOLS = ['update_customer_profile', 'search_products'];
   var ALL_TOOLS = VISIBLE_TOOLS.concat(SILENT_TOOLS);
 
@@ -162,6 +200,7 @@
     expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
     shrink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
     truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
     external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
     cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
@@ -637,6 +676,145 @@
     return Promise.resolve(card);
   }
 
+  // ---------------------------------------------------------------------------
+  // GDPR email-capture form. Shared by BOTH entry points:
+  //   (a) the assistant's offer_email_summary tool part (inline in the chat),
+  //   (b) the header share icon (proactive, on demand).
+  // Returns the card Element synchronously. The two consents are SEPARATE; the
+  // marketing box starts UNCHECKED and is never bundled with the transactional
+  // one. POSTs to /api/capture-email (API_CONTRACT.md §7). opts.productIds is
+  // advisory cart-preview only — the backend resolves the real products.
+  // ---------------------------------------------------------------------------
+  function buildCaptureCard(opts) {
+    opts = opts || {};
+    var card = el('div', { class: 'ms-chat-card' });
+    var body = el('div', { class: 'ms-chat-card-body' });
+
+    var head = el('div', { class: 'ms-chat-card-head' });
+    head.appendChild(icon('mail'));
+    head.appendChild(el('span', { text: CONSENT_COPY.title }));
+    body.appendChild(head);
+
+    if (opts.message) body.appendChild(el('div', { class: 'ms-chat-card-text', text: opts.message }));
+
+    if (opts.productIds && opts.productIds.length) {
+      var refsEl = el('div', { class: 'ms-chat-card-refs' });
+      body.appendChild(refsEl);
+      hydrate(opts.productIds).then(function (res) {
+        var names = res.filter(function (p) { return !!p; }).map(function (p) { return p.name; });
+        if (names.length) {
+          refsEl.replaceChildren();
+          refsEl.appendChild(el('span', { text: 'Im Warenkorb: ' }));
+          refsEl.appendChild(el('b', { text: names.join(', ') }));
+        }
+      });
+    }
+
+    var form = el('form', { class: 'ms-chat-form ms-chat-capture', novalidate: 'novalidate' });
+
+    // Email field (real <label> tied to the input via for/id).
+    var emailId = 'msc-' + Math.random().toString(36).slice(2, 8);
+    var emailInput = el('input', { type: 'email', name: 'email', required: 'required', autocomplete: 'email', placeholder: CONSENT_COPY.emailPlaceholder, id: emailId });
+    var emailField = el('div', { class: 'ms-chat-field' });
+    var emailLbl = el('label', { text: CONSENT_COPY.emailLabel + ' *' });
+    emailLbl.setAttribute('for', emailId);
+    emailField.appendChild(emailLbl);
+    emailField.appendChild(emailInput);
+    form.appendChild(emailField);
+
+    // Two SEPARATE consent controls. Each is a real <label> wrapping a real
+    // <input type=checkbox> (keyboard-usable, clicking the text toggles it) with
+    // the full consent text always visible (never truncated).
+    function consentRow(checked, labelText) {
+      var row = el('label', { class: 'ms-chat-consent' });
+      var input = el('input', { type: 'checkbox' });
+      if (checked) input.checked = true;
+      row.appendChild(input);
+      row.appendChild(el('span', { class: 'ms-chat-consent-text', text: labelText }));
+      return { row: row, input: input };
+    }
+
+    var txn = consentRow(false, CONSENT_COPY.transactionalLabel);  // required
+    var mkt = consentRow(false, CONSENT_COPY.marketingLabel);      // UNCHECKED — never pre-tick
+    form.appendChild(txn.row);
+    form.appendChild(mkt.row);
+
+    var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
+    form.appendChild(errEl);
+
+    var submit = el('button', { type: 'submit', class: 'ms-chat-btn ms-chat-btn--primary' }, [CONSENT_COPY.submit]);
+    form.appendChild(submit);
+    body.appendChild(form);
+
+    body.appendChild(el('div', { class: 'ms-chat-caption', text: CONSENT_COPY.privacy }));
+
+    function showError(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    function clearError() { errEl.textContent = ''; errEl.style.display = 'none'; }
+
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      clearError();
+
+      // Client-side validation before sending.
+      var email = emailInput.value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { showError(CONSENT_COPY.errEmail); try { emailInput.focus(); } catch (e) {} return; }
+      if (!txn.input.checked) { showError(CONSENT_COPY.errTransactional); try { txn.input.focus(); } catch (e) {} return; }
+
+      var marketing = !!mkt.input.checked;
+      // Exact labels the user saw (BOTH boxes), stored verbatim as Art. 7 proof.
+      var consentTextShown = CONSENT_COPY.transactionalLabel + ' | ' + CONSENT_COPY.marketingLabel;
+      var payload = {
+        sessionId: sid,
+        email: email,
+        transactionalConsent: true,
+        marketingConsent: marketing,
+        consentTextShown: consentTextShown
+      };
+
+      submit.disabled = true;
+      submit.textContent = CONSENT_COPY.sending;
+      track('email_capture_submitted', { marketing: marketing }); // fail-silent
+
+      fetch(API_BASE + '/api/capture-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+        body: JSON.stringify(payload)
+      }).then(function (res) {
+        if (res.ok) {
+          var ok = el('div', { class: 'ms-chat-form-success' });
+          ok.appendChild(icon('check'));
+          ok.appendChild(el('h3', { text: CONSENT_COPY.successTitle }));
+          ok.appendChild(el('p', { text: CONSENT_COPY.success }));
+          body.replaceChildren(head, ok);
+          scrollToBottom();
+          return;
+        }
+        // Error: keep the form populated for retry.
+        return res.json().catch(function () { return null; }).then(function (data) {
+          var code = data && data.error && data.error.code;
+          var msg = (data && data.error && data.error.message) || '';
+          if (res.status === 429 || code === 'rate_limited') {
+            msg = CONSENT_COPY.errRate;
+          } else if (res.status === 502 || res.status === 503 || code === 'upstream_unavailable') {
+            msg = CONSENT_COPY.errUpstream;
+          } else if (!msg) {
+            msg = CONSENT_COPY.errGeneric;
+          }
+          showError(msg);
+          submit.disabled = false;
+          submit.textContent = CONSENT_COPY.submit;
+        });
+      }).catch(function () {
+        showError(CONSENT_COPY.errUpstream);
+        submit.disabled = false;
+        submit.textContent = CONSENT_COPY.submit;
+      });
+    });
+
+    card.appendChild(body);
+    return card;
+  }
+
   function buildToolCard(name, input) {
     switch (name) {
       case 'show_product': return buildShowProduct(input);
@@ -644,6 +822,7 @@
       case 'add_to_cart': return buildAddToCart(input);
       case 'suggest_showroom': return buildShowroom(input);
       case 'show_contact_form': return buildContactForm(input);
+      case 'offer_email_summary': return Promise.resolve(buildCaptureCard({ message: input.message, productIds: input.productIds }));
       default: return Promise.resolve(null);
     }
   }
@@ -679,6 +858,12 @@
     var header = el('div', { class: 'ms-chat-header' });
     header.appendChild(wordmark());
     var actions = el('div', { class: 'ms-chat-header-actions' });
+    // Share icon: opens the email-capture form on demand (proactive entry point,
+    // same form the assistant's offer_email_summary tool renders inline).
+    var shareBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Zusammenfassung per E-Mail', title: 'Zusammenfassung per E-Mail' });
+    shareBtn.appendChild(icon('share'));
+    shareBtn.addEventListener('click', function () { openCaptureForm(); });
+    actions.appendChild(shareBtn);
     // Feature 6: enlarge/expand toggle (desktop only; no-op styling on mobile).
     expandBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Chat vergrößern', title: 'Vergrößern' });
     expandBtn.appendChild(icon(state.expanded ? 'shrink' : 'expand'));
@@ -1283,6 +1468,35 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Share-icon entry point: open the panel and drop the SAME email-capture form
+  // into the message area so the user can request the summary at any time. If a
+  // not-yet-submitted capture card is already on screen, reuse it (don't stack).
+  // ---------------------------------------------------------------------------
+  var lastCaptureRow = null;
+  function openCaptureForm() {
+    try {
+      openPanel();
+      if (lastCaptureRow && lastCaptureRow.parentNode === messagesEl) {
+        var existing = lastCaptureRow.querySelector('input[type="email"]');
+        lastCaptureRow.scrollIntoView({ block: 'nearest' });
+        if (existing) { try { existing.focus(); } catch (e) {} }
+        return;
+      }
+      clearWelcome();
+      var ar = assistantRow();
+      ar.content.appendChild(buildCaptureCard({ message: CONSENT_COPY.intro, productIds: null }));
+      messagesEl.appendChild(ar.row);
+      lastCaptureRow = ar.row;
+      scrollToBottom();
+      setTimeout(function () {
+        try { ar.row.querySelector('input[type="email"]').focus(); } catch (e) {}
+      }, 60);
+    } catch (e) {
+      try { console.error('[ms-chat] openCaptureForm failed', e); } catch (e2) {}
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Init.
   // ---------------------------------------------------------------------------
   function init() {
@@ -1291,6 +1505,7 @@
     updateInputState();
     window.MS_CHAT = window.MS_CHAT || {};
     window.MS_CHAT.openWithProduct = openWithProduct;
+    window.MS_CHAT.openEmailSummary = openCaptureForm;
     bindProductCtas();
   }
 

@@ -477,6 +477,37 @@
 .ms-chat-form-success h3 { margin: 0; font-size: 1.1rem; color: rgb(var(--msc-heading)); }
 .ms-chat-form-success p { margin: 0; color: var(--msc-muted); font-size: 0.9rem; }
 
+/* Email-capture consent rows. Two SEPARATE controls; each is a real
+   <label>+<input>. The full consent text always wraps and stays visible (never
+   truncated), and the padding keeps the tap target comfortable on mobile. */
+.ms-chat-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 2px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: rgb(var(--msc-fg) / 90%);
+}
+.ms-chat-consent input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: rgb(var(--msc-accent));
+  cursor: pointer;
+}
+.ms-chat-consent input[type="checkbox"]:focus-visible {
+  outline: 2px solid rgb(var(--msc-accent));
+  outline-offset: 2px;
+}
+.ms-chat-consent-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
 /* ---------- Input row ---------- */
 .ms-chat-inputbar {
   flex: 0 0 auto;

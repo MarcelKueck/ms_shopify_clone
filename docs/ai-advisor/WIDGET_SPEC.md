@@ -140,8 +140,9 @@ Persistence rules:
   message area, and an input row — i.e. the same three-part chat layout
   the old full-page UI had, shrunk into a panel.
 - **Header**: the "**motion**sports" wordmark (accent) + header buttons:
-  an **expand/enlarge toggle** (diagonal-double-arrow icon, desktop only —
-  see §7), a new-chat button, and a close button.
+  a **share button** (opens the email-summary capture form on demand — see
+  §6a), an **expand/enlarge toggle** (diagonal-double-arrow icon, desktop only
+  — see §7), a new-chat button, and a close button.
 - **Message area**: shows the **welcome state** (`BEHAVIOR_REFERENCE` §4)
   until the first message **and** when no persisted history exists. If a
   history was restored from `localStorage`, render it directly and skip
@@ -247,6 +248,76 @@ highest-value clicks and must look tappable. Labels: `"Zum Produkt"`
 (add-to-cart, links to `shopifyCartUrl`), `"Showroom ansehen"` (showroom).
 The render-nothing guards and link targets from `BEHAVIOR_REFERENCE` are
 unchanged — only the visual prominence.
+
+---
+
+## 6a. Email-summary capture form (GDPR double opt-in)
+
+The widget can email the shopper a summary of the conversation plus a
+prefilled cart, gated behind a GDPR-compliant consent flow. The wire
+protocol is `API_CONTRACT.md` §7 (`POST /api/capture-email` +
+`GET /api/confirm-marketing`). All UI lives in
+`assets/ms-chat-widget.{js,css}` (every selector prefixed `.ms-chat*`).
+
+### Two entry points, one form
+
+The **same** capture card is rendered from two places:
+
+1. **Assistant offer** — when the chat stream contains the
+   `offer_email_summary` tool part (`API_CONTRACT.md` §2), the widget renders
+   the card inline in the assistant message, using the tool's `message` as the
+   intro and its advisory `productIds` as a cart preview. It is added to
+   `VISIBLE_TOOLS` and keyed by `toolCallId` like the other tool cards.
+2. **Share icon** — a share button in the panel header (`§4.2`) calls
+   `openCaptureForm()`, which opens the panel and drops the same card into the
+   message area with a default intro, so the user can request the summary at
+   any time. A not-yet-submitted card already on screen is reused rather than
+   stacked. Also exposed as `window.MS_CHAT.openEmailSummary()`.
+
+### Card contents
+
+- An **email** input (real `<label for>` + `<input type="email">`),
+  client-side validated with `^[^@\s]+@[^@\s]+\.[^@\s]+$` before sending.
+- A **transactional** consent checkbox — *required* to submit; you can't email
+  a summary without consent to email it. The user can submit with **only** this
+  box ticked (get the summary without opting into marketing).
+- A **separate marketing** consent checkbox — **UNCHECKED by default**, never
+  pre-ticked, never bundled into the transactional control.
+- A submit button, an inline error line, and a privacy caption.
+
+**Legal copy.** The consent strings are PLACEHOLDER pending lawyer approval and
+live in **one place** — the `CONSENT_COPY` object near the top of
+`ms-chat-widget.js`. The exact `transactionalLabel` and `marketingLabel` shown
+to the user are sent verbatim (joined by `" | "`) as `consentTextShown` for
+Art. 7 proof, so editing the labels keeps the audit trail in sync.
+
+### Accessibility
+
+- Each checkbox is a real `<label>` wrapping a real `<input type="checkbox">`
+  (clicking the text toggles it), keyboard-operable with a visible focus ring.
+- The marketing consent text wraps freely and is **never truncated**
+  (`overflow-wrap: anywhere`), so the full legal text is always readable.
+- Tap targets and inputs are sized for mobile; the card flows within the panel.
+
+### Submit behaviour
+
+On submit the widget POSTs to `${apiBase}/api/capture-email` with headers
+`Content-Type`, `x-ms-chat-key`, `x-ms-session`, and body:
+
+```jsonc
+{ "sessionId", "email", "transactionalConsent": true, "marketingConsent", "consentTextShown" }
+```
+
+- On **success** (`200`): replace the form with a success state —
+  *"Zusammenfassung gesendet! Falls du Angebote abonniert hast, bestätige bitte
+  den Link in der E-Mail."*
+- On **error**: show an inline message and **keep the form populated for
+  retry** (re-enable the submit button). `429 rate_limited` →
+  *"Zu viele Anfragen — bitte kurz warten."*; `502/503 upstream_unavailable`
+  and network failures → *"Senden gerade nicht möglich — bitte später erneut
+  versuchen."*; otherwise the backend's user-safe message or a generic fallback.
+- Fires `track('email_capture_submitted', { marketing: <bool> })`
+  (fail-silent telemetry per §9b).
 
 ---
 
@@ -405,6 +476,11 @@ by the random session id.
       `shopifyCartUrl`.
 - [ ] Inline contact form posts to `/api/contact`; success + error +
       retry states.
+- [ ] Email-summary capture form (§6a) renders from both the
+      `offer_email_summary` tool part and the header share icon; two
+      SEPARATE consents with the marketing box unchecked by default; posts
+      to `/api/capture-email`; success + error + retry states; fires
+      `email_capture_submitted`.
 - [ ] Mobile full-screen behavior; safe-area aware; horizontal-scroll
       comparison table.
 - [ ] Handles 429 (Retry-After), 401/403 (config), 400 payload_too_large
