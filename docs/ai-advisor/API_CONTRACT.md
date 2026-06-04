@@ -8,13 +8,23 @@ wins — open an issue and we'll fix one or the other so they match.
 
 **Base URL (production):** `https://chat.motionsports.de`
 
-Three endpoints:
+Endpoints:
 
-| Method | Path             | Purpose                                                  |
-| ------ | ---------------- | -------------------------------------------------------- |
-| POST   | `/api/chat`      | Streaming Claude chat with persona-aware tools.          |
-| POST   | `/api/contact`   | Contact-form submission → email via Resend.              |
-| GET    | `/api/products`  | Public product hydration for widget cards.               |
+| Method | Path                     | Purpose                                                   |
+| ------ | ------------------------ | --------------------------------------------------------- |
+| POST   | `/api/chat`              | Streaming Claude chat with persona-aware tools.           |
+| POST   | `/api/contact`           | Contact-form submission → email via Resend.               |
+| GET    | `/api/products`          | Public product hydration for widget cards.                |
+| POST   | `/api/kpi`               | Pseudonymous telemetry ingestion (fire-and-forget).       |
+| POST   | `/api/capture-email`     | GDPR email capture + double opt-in (summary + marketing). |
+| GET    | `/api/confirm-marketing` | Marketing double-opt-in confirmation link (HTML page).    |
+| GET    | `/api/unsubscribe`       | Signed unsubscribe link → suppression (HTML page).        |
+
+> `/api/confirm-marketing` and `/api/unsubscribe` are **clicked from emails**
+> as top-level browser navigations — they return an HTML page, not JSON, and
+> have **no** CORS allowlist or shared-secret guard (a mail client sends no
+> `Origin` and no custom header). They're protected by unguessable / signed
+> tokens instead. The widget never calls them directly.
 
 ### Security model
 
@@ -61,11 +71,11 @@ Streams a Claude response as an AI SDK UI-message stream over SSE.
 
 ### Required request headers
 
-| Header          | Value                                                                  |
-| --------------- | ---------------------------------------------------------------------- |
-| `Content-Type`  | `application/json`                                                     |
-| `x-ms-chat-key` | The shared secret from `CHAT_SHARED_SECRET`.                           |
-| `x-ms-session`  | Client-generated stable session id (UUID stored in `localStorage`).    |
+| Header          | Value                                                               |
+| --------------- | ------------------------------------------------------------------- |
+| `Content-Type`  | `application/json`                                                  |
+| `x-ms-chat-key` | The shared secret from `CHAT_SHARED_SECRET`.                        |
+| `x-ms-session`  | Client-generated stable session id (UUID stored in `localStorage`). |
 
 Plus the browser-set `Origin` header, which must be one of
 `ALLOWED_ORIGINS`. The CORS preflight advertises `POST, OPTIONS` and
@@ -92,6 +102,59 @@ Plus the browser-set `Origin` header, which must be one of
 full history on every turn (the customer profile is a pure function of
 the messages, reconstructed by replaying `update_customer_profile` tool
 calls), so the widget must send the entire conversation each turn.
+
+#### Optional `context` — opening the chat "about" a product
+
+When the widget is opened from a specific product page (e.g. a "Frage zu
+diesem Produkt"/"Beratung" button on a product detail page), it MAY attach
+an optional `context` object alongside `messages`:
+
+```jsonc
+{
+  "messages": [],
+  "context": {
+    "type": "product",
+    "productId": "atx-treadmill-pro-fold",
+    "productTitle": "ATX Treadmill Pro Fold"   // optional, advisory only
+  }
+}
+```
+
+| Field          | Type    | Notes                                                             |
+| -------------- | ------- | ----------------------------------------------------------------- |
+| `type`         | string  | Must be `"product"`. Any other value is ignored.                  |
+| `productId`    | string  | Catalog product id. Validated server-side (see below).            |
+| `productTitle` | string? | Optional/advisory. The backend uses the catalog's canonical name. |
+
+**Validation.** `productId` is validated against the live catalog. If it is
+missing, not a known product, or `type` is not `"product"`, the context is
+**ignored gracefully** — the request behaves exactly as if no `context` was
+sent (no error). This means a stale storefront link can never inject a bogus
+product into the prompt.
+
+The backend keys its behavior off whether `messages` is empty:
+
+- **Fresh open (`messages: []` + valid `context`).** The backend seeds the
+  model with a system-level note ("the user is viewing product '<title>'
+  (id …) and chose to get advice about it — greet them warmly by the
+  product's name and invite their questions; do not repeat the full spec
+  unprompted"). The assistant then produces a **natural greeting as its
+  first streamed message**. The widget does NOT need to send a user message
+  to trigger this — it sends `messages: []` and renders the streamed
+  assistant greeting like any other turn. No fake user message is fabricated
+  in the history.
+
+- **Existing conversation (`messages` non-empty + valid `context`).** The
+  backend injects a lightweight in-conversation note ("Der Nutzer schaut
+  sich gerade <title> an") so the assistant can **pivot toward the product
+  without wiping the existing history**. The conversation continues
+  normally; the widget keeps sending the full `messages` array each turn as
+  usual.
+
+In both cases the **response is the same SSE UI-message stream** documented
+below — `context` only seeds the model, it does not change the response
+shape. The widget parses the stream identically whether or not `context`
+was sent.
 
 **40-message cap.** If `messages.length > 40` the route returns:
 
@@ -162,7 +225,7 @@ function isToolPart(type, name) {
 }
 ```
 
-The five renderable tools, in order of arrival likelihood:
+The renderable tools, in order of arrival likelihood:
 
 ##### `show_product` → product card
 
@@ -210,7 +273,11 @@ Widget action: `GET /api/products?ids=a,b`, render a table with image
 + name as column headers and rows for price, key spec rows, and
 `deliveryTime`. Show `comparisonContext` as a caption above the table.
 
-##### `add_to_cart` → add-to-cart CTA
+##### `add_to_cart` → direct-checkout CTA
+
+> Tool id stays `add_to_cart` for backwards-compat, but it now drives a
+> **direct checkout**: `shopifyCartUrl` is a one-unit cart permalink that
+> sends the shopper straight to Shopify's checkout for that product.
 
 Input schema:
 ```ts
@@ -224,13 +291,14 @@ Example part:
   "state": "result",
   "input": {
     "productId": "atx-treadmill-pro-fold",
-    "message": "Super Wahl — klappbar und leise für deine Wohnung."
+    "message": "Wenn das für dich passt, kannst du es hier direkt bestellen."
   }
 }
 ```
-Widget action: `GET /api/products?id=…`, render a confirmation card
-with `message` plus a button linking to `product.shopifyCartUrl`
-(`target="_blank"`).
+Widget action: `GET /api/products?id=…`, render a quick-checkout CTA card
+with `message` plus a primary button linking to `product.shopifyCartUrl`
+(`target="_blank" rel="noopener noreferrer"`). The button sends the shopper
+**directly to checkout** (one unit), not into a cart they must then manage.
 
 ##### `suggest_showroom` → showroom suggestion
 
@@ -281,6 +349,45 @@ present) `GET /api/products?ids=…` so the form can show which products
 are being asked about. Submission POSTs to `/api/contact` (section 4
 below).
 
+##### `offer_email_summary` → email-capture form
+
+The assistant calls this **once**, at a natural point after it has given solid
+recommendations, to offer emailing a summary of the chat + a prefilled cart. The
+widget turns the tool call into the **GDPR email-capture form** (see §7).
+
+Input schema:
+```ts
+{ message: string; productIds?: string[] }   // productIds advisory only
+```
+Example part:
+```json
+{
+  "type": "tool-offer_email_summary",
+  "toolCallId": "call_pqr678",
+  "state": "result",
+  "input": {
+    "message": "Wenn du magst, schicke ich dir die Zusammenfassung mit deinem Warenkorb per E-Mail.",
+    "productIds": ["atx-treadmill-pro-fold"]
+  }
+}
+```
+Widget action: render `message` as the intro, then the capture form with:
+
+- an **email** input,
+- a **transactional** consent checkbox (required to submit) — label from
+  `TRANSACTIONAL_CHECKBOX_LABEL`,
+- a **separate, unchecked-by-default** marketing consent checkbox — label from
+  `MARKETING_CHECKBOX_LABEL`.
+
+On submit, POST to `/api/capture-email` (§7) with the two booleans and the exact
+consent text strings shown (`consentTextShown`). The marketing box MUST start
+unchecked and MUST be visually independent of the transactional one — never one
+combined checkbox. `productIds` is advisory (cart preview); the backend
+determines the real products server-side from the conversation.
+
+> ⚠️ The checkbox labels are PLACEHOLDER copy pending lawyer approval — see
+> [`CONSENT_FLOW.md`](./CONSENT_FLOW.md).
+
 #### Tool parts the widget MUST NOT render
 
 These are background tools — skip them when their `type` matches:
@@ -310,12 +417,12 @@ a "zu viele Anfragen — bitte kurz warten" hint.
 
 ### Auth / origin errors
 
-| Status | Code           | When                                                  |
-| ------ | -------------- | ----------------------------------------------------- |
-| 401    | `unauthorized` | Missing or wrong `x-ms-chat-key`.                     |
-| 403    | `forbidden`    | Cross-origin request from an origin not in allowlist. |
-| 400    | `bad_request`  | Body isn't valid JSON / `messages` not an array.      |
-| 500    | `internal_error` | Anything else.                                      |
+| Status | Code             | When                                                  |
+| ------ | ---------------- | ----------------------------------------------------- |
+| 401    | `unauthorized`   | Missing or wrong `x-ms-chat-key`.                     |
+| 403    | `forbidden`      | Cross-origin request from an origin not in allowlist. |
+| 400    | `bad_request`    | Body isn't valid JSON / `messages` not an array.      |
+| 500    | `internal_error` | Anything else.                                        |
 
 ---
 
@@ -360,7 +467,7 @@ within a request are de-duplicated while preserving order.
         "https://cdn.shopify.com/s/files/1/0823/4896/6217/files/vp150-50-atx-gb_02.jpg?v=1715860325"
       ],
       "shopifyUrl": "https://motionsports.de/products/150-kg-atx®-gym-bumper-plates-vorteilspaket",
-      "shopifyCartUrl": "https://motionsports.de/cart/add?id=MS-VP150-50-ATX-GB",
+      "shopifyCartUrl": "https://motionsports.de/cart/40123456789:1",
       "inStock": true,
       "deliveryTime": "Nach Verfügbarkeit"
     },
@@ -389,7 +496,7 @@ type PublicProduct = {
   tags: string[];
   images: string[];
   shopifyUrl: string;
-  shopifyCartUrl: string;
+  shopifyCartUrl?: string; // optional — see note below
   inStock: boolean;
   deliveryTime: string;
 };
@@ -399,6 +506,15 @@ type ProductsResponse = { products: (PublicProduct | null)[] };
 
 Unknown ids return as `null` at the matching index — never a 404 — so
 the widget can render partial results without aborting.
+
+`shopifyCartUrl` is a Shopify storefront cart permalink for **one** unit of
+the product's variant, of the form `https://motionsports.de/cart/<numericVariantId>:1`
+(the equivalent `…/cart/add?id=<numericVariantId>` form also works). The `id`
+is always the **numeric** Shopify variant id — never the SKU, handle, or
+product id; a SKU-based URL 404s with "Cannot find variant". The field is
+**optional**: it is omitted when a product has no resolvable numeric variant
+id, so the widget should hide the quick-checkout button (or fall back to
+`shopifyUrl`) rather than render a broken checkout link.
 
 Response is cacheable for 60 s
 (`Cache-Control: public, max-age=60, stale-while-revalidate=300`).
@@ -418,11 +534,11 @@ stdout log when Resend env vars are unset.
 
 Same as `/api/chat`:
 
-| Header          | Value                                                                |
-| --------------- | -------------------------------------------------------------------- |
-| `Content-Type`  | `application/json`                                                   |
-| `x-ms-chat-key` | Shared secret.                                                       |
-| `x-ms-session`  | Stable session id (UUID).                                            |
+| Header          | Value                     |
+| --------------- | ------------------------- |
+| `Content-Type`  | `application/json`        |
+| `x-ms-chat-key` | Shared secret.            |
+| `x-ms-session`  | Stable session id (UUID). |
 
 ### Request body
 
@@ -457,18 +573,73 @@ Content-Type: application/json
 
 ### Error responses
 
-| Status | Code                   | When                                                                 |
-| ------ | ---------------------- | -------------------------------------------------------------------- |
-| 400    | `bad_request`          | Invalid JSON, or required field missing/invalid.                     |
-| 401    | `unauthorized`         | Missing / wrong shared secret.                                       |
-| 403    | `forbidden`            | Cross-origin request from an origin not in allowlist.                |
-| 429    | `rate_limited`         | Shares the chat bucket (20 req / 60 s).                              |
-| 502    | `upstream_unavailable` | Resend returned an error or threw.                                   |
-| 500    | `internal_error`       | Anything else.                                                       |
+| Status | Code                   | When                                                  |
+| ------ | ---------------------- | ----------------------------------------------------- |
+| 400    | `bad_request`          | Invalid JSON, or required field missing/invalid.      |
+| 401    | `unauthorized`         | Missing / wrong shared secret.                        |
+| 403    | `forbidden`            | Cross-origin request from an origin not in allowlist. |
+| 429    | `rate_limited`         | Shares the chat bucket (20 req / 60 s).               |
+| 502    | `upstream_unavailable` | Resend returned an error or threw.                    |
+| 500    | `internal_error`       | Anything else.                                        |
 
 ---
 
-## 5. Session lifecycle
+## 5. `POST /api/kpi`
+
+Pseudonymous telemetry ingestion — the endpoint the widget's fail-silent
+`track()` calls. Fire-and-forget: the widget does not need to read the
+response or retry.
+
+### Required request headers
+
+| Header         | Value                                             |
+| -------------- | ------------------------------------------------- |
+| `Content-Type` | `application/json`                                |
+| `x-ms-session` | Stable session id (UUID). Used for rate limiting. |
+
+No `x-ms-chat-key` — like `/api/products`, this endpoint is origin-allowlisted
+only. It accepts only pseudonymous data and stores no email.
+
+### Request body
+
+```jsonc
+{
+  "event": "product_card_click",          // required, ≤120 chars
+  "sessionId": "b3c1…",                    // optional, pseudonymous
+  "timestamp": 1733212800000,              // optional, client clock (number or ISO string)
+  "data": { "productId": "atx-rack-pro" }  // optional, arbitrary object
+}
+```
+
+- `event` is the only hard requirement (non-empty string, ≤120 chars).
+- `data` must be a plain object if present (arrays/primitives are dropped).
+  The client `timestamp` is preserved inside the stored payload; the server's
+  own `created_at` is authoritative.
+
+### Success response
+
+```http
+HTTP/1.1 202 Accepted
+```
+```json
+{ "ok": true }
+```
+
+Returns `202` even when no database is configured or the write fails —
+telemetry is best-effort and must never make `track()` care.
+
+### Error responses
+
+| Status | Code             | When                                           |
+| ------ | ---------------- | ---------------------------------------------- |
+| 400    | `bad_request`    | Invalid JSON, or `event` missing/too long.     |
+| 403    | `forbidden`      | Cross-origin from an origin not in allowlist.  |
+| 429    | `rate_limited`   | Dedicated `kpi` bucket (120 req / 60 s).       |
+| 500    | `internal_error` | Unexpected server error (not a DB write fail). |
+
+---
+
+## 6. Session lifecycle
 
 The widget must generate a stable per-browser session id and send it as
 `x-ms-session` on every chat / contact / products request:
@@ -492,6 +663,127 @@ Why it matters:
   it surfaces the "start a new chat" UX after a `payload_too_large`
   response.
 
-The backend does NOT persist anything keyed off the session id. The
-customer profile is reconstructed from `messages` on every turn, so
-the widget is the only thing holding conversation state.
+The backend does NOT persist anything keyed off the session id for the
+chat. (The email-capture flow in §7 is the one place a `session_id` is
+stored — and only because the user actively submitted their email with a
+consent choice.)
+
+---
+
+## 7. Email capture + double opt-in (GDPR)
+
+This is the only flow that handles an email address. Two **separate**
+consents, marketing requires a **double opt-in**. The full legal rationale,
+the data model, and the lawyer-review TODO are in
+[`CONSENT_FLOW.md`](./CONSENT_FLOW.md). The checkbox/email copy is PLACEHOLDER
+pending lawyer sign-off (`src/lib/consent-copy.ts`).
+
+### 7.1 `POST /api/capture-email`
+
+Triggered when the user submits the capture form rendered from the
+`offer_email_summary` tool call.
+
+#### Required request headers
+
+Same as `/api/chat` (origin allowlist + `x-ms-chat-key` + `x-ms-session`).
+
+#### Request body
+
+```jsonc
+{
+  "sessionId": "b3c1…",            // optional; falls back to the x-ms-session header
+  "email": "max@example.de",
+  "transactionalConsent": true,    // required to be true
+  "marketingConsent": false,       // separate, defaults unchecked in the UI
+  "consentTextShown": "Ja, sendet mir … | Ja, motion sports darf …"  // exact labels shown (audit)
+}
+```
+
+- `email` is validated with `^[^@\s]+@[^@\s]+\.[^@\s]+$` and normalised
+  (trim + lower-case) server-side.
+- `transactionalConsent` **must** be `true` — you can't email a summary
+  without consent to email the summary. `false`/missing → `400 bad_request`.
+- `marketingConsent` is independent. When `true` (and the address isn't
+  suppressed), the backend sets `marketing_doi_status='pending'`, issues a DOI
+  token, and sends the confirmation email. **No marketing** is sent until the
+  user clicks that link.
+- `consentTextShown` is stored verbatim as Art. 7 proof. Send the exact label
+  strings the user saw (both boxes).
+
+#### Behaviour
+
+1. Upserts one consent record per email (records `consentTextShown`).
+2. **Transactional:** sends the summary email immediately (German summary of the
+   conversation + a prefilled-cart permalink for the discussed products, **no
+   discount**).
+3. **Marketing:** if newly granted, sends the DOI confirmation email. A
+   suppressed/unsubscribed address is never re-pended; an already-confirmed
+   address isn't re-sent a DOI.
+
+#### Success response
+
+```http
+HTTP/1.1 200 OK
+```
+```jsonc
+{
+  "ok": true,
+  "transactional": { "summarySent": true },
+  "marketing": {
+    "status": "pending",        // "none" | "pending" | "confirmed"
+    "doiEmailSent": true,
+    "alreadyConfirmed": false
+  }
+}
+```
+
+The widget should show: "Wir haben dir die Zusammenfassung geschickt." and, when
+`marketing.status === "pending"`, "Bitte bestätige noch die Anmeldung über den
+Link in der E-Mail."
+
+#### Error responses
+
+| Status | Code                   | When                                                             |
+| ------ | ---------------------- | ---------------------------------------------------------------- |
+| 400    | `bad_request`          | Invalid JSON, invalid email, or `transactionalConsent` not true. |
+| 401    | `unauthorized`         | Missing / wrong shared secret.                                   |
+| 403    | `forbidden`            | Cross-origin from an origin not in allowlist.                    |
+| 429    | `rate_limited`         | Shares the chat bucket (20 req / 60 s).                          |
+| 502    | `upstream_unavailable` | The transactional summary email failed to deliver.               |
+| 503    | `upstream_unavailable` | No database configured — consent could not be stored.            |
+| 500    | `internal_error`       | Anything else.                                                   |
+
+### 7.2 `GET /api/confirm-marketing?token=...`
+
+The marketing double-opt-in confirmation link (in the DOI email). Clicked as a
+top-level navigation — returns an **HTML page**, no JSON, no auth guard.
+
+- Valid, unexpired token → flips `marketing_doi_status='confirmed'`, sets
+  `doi_confirmed_at`, renders **"Danke, deine Anmeldung ist bestätigt."** (200).
+  Idempotent for an already-confirmed token.
+- Invalid token → error page (400). Expired token (older than
+  `MARKETING_DOI_EXPIRY_DAYS`, default 7) → error page (410).
+
+### 7.3 `GET /api/unsubscribe?token=...`
+
+The unsubscribe link carried by **every** marketing email. The token is a
+signed, email-keyed value (`b64url(email).b64url(hmac-sha256)`) — unforgeable
+and verifiable without a DB lookup.
+
+- Valid signature → stamps `unsubscribed_at`, adds the address to the
+  `suppression_list`, revokes marketing DOI, renders **"Du wurdest
+  abgemeldet."** (200).
+- Invalid/forged token → error page (400). No DB → error page (503).
+
+`isSuppressed(email)` (suppression list OR unsubscribed, fail-closed) and
+`canSendMarketing(email)` (DOI confirmed AND not suppressed) gate every future
+marketing send. See [`CONSENT_FLOW.md`](./CONSENT_FLOW.md).
+
+### 7.4 New environment variables
+
+| Var                         | Purpose                                                                  |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `PUBLIC_BASE_URL`           | Absolute base for email links (falls back to Vercel host / origin).      |
+| `MARKETING_DOI_EXPIRY_DAYS` | DOI token validity window (default 7).                                   |
+| `UNSUBSCRIBE_SECRET`        | HMAC secret for unsubscribe tokens (falls back to `CHAT_SHARED_SECRET`). |
+| `CONTACT_FROM_EMAIL`        | Reused as the sender for summary + DOI emails.                           |
