@@ -477,43 +477,83 @@
     });
   }
 
-  // tool-add_to_cart -> quick-checkout CTA. The backend tool id is unchanged,
-  // but shopifyCartUrl is now a one-unit Shopify checkout permalink
-  // (/cart/<variantId>:1) and is optional. We link straight to checkout.
+  // tool-add_to_cart -> direct-checkout CTA. Per API_CONTRACT.md the tool id is
+  // unchanged but a single call can now cover ONE *or* SEVERAL products in one
+  // combined cart: read `productIds` when present, else fall back to the single
+  // `productId`. We render ONE card listing every resolved product and ONE
+  // checkout button pointing at the response's top-level `cartUrl` — a single
+  // permalink that puts all variants in one cart (never stitched client-side).
   function buildAddToCart(input) {
-    return hydrate([input.productId]).then(function (res) {
-      var p = res[0];
-      if (!p) return null; // can't hydrate -> render nothing
-      var card = el('div', { class: 'ms-chat-card' });
-      var body = el('div', { class: 'ms-chat-card-body' });
-      if (input.message) body.appendChild(el('div', { class: 'ms-chat-card-msg', text: input.message }));
+    var ids = (input.productIds && input.productIds.length)
+      ? input.productIds.slice()
+      : (input.productId != null ? [input.productId] : []);
+    ids = ids.map(function (s) { return String(s).trim(); }).filter(Boolean);
+    var seen = {}, uniq = [];
+    for (var i = 0; i < ids.length; i++) { if (!seen[ids[i]]) { seen[ids[i]] = 1; uniq.push(ids[i]); } }
+    ids = uniq;
+    if (!ids.length) return Promise.resolve(null);
 
-      // Compact line: name + price, so the shopper sees exactly what one click buys.
-      var summary = el('div', { class: 'ms-chat-checkout-summary' });
-      summary.appendChild(el('span', { class: 'ms-chat-checkout-name', text: p.name || 'Produkt' }));
-      summary.appendChild(priceNode(p));
-      body.appendChild(summary);
+    // Dedicated fetch (not the per-id hydrate cache) so we get the response's
+    // top-level `cartUrl` — the one combined permalink for exactly these ids.
+    var url = API_BASE + '/api/products?ids=' + encodeURIComponent(ids.join(','));
+    return fetch(url, { method: 'GET', headers: { 'x-ms-session': sid } })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        var prods = (data && data.products) || [];
+        var cartUrl = (data && data.cartUrl) || null;
+        // Warm the shared cache opportunistically (unknown ids come back null).
+        for (var j = 0; j < ids.length; j++) {
+          if (!(ids[j] in productCache)) productCache[ids[j]] = prods[j] != null ? prods[j] : null;
+        }
+        var resolved = prods.filter(function (p) { return !!p; });
+        if (!resolved.length) return null; // nothing resolvable -> render nothing
+        var multi = resolved.length > 1;
 
-      if (p.shopifyCartUrl) {
-        var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: p.shopifyCartUrl, target: '_blank', rel: 'noopener noreferrer' });
-        btn.appendChild(icon('cart'));
-        btn.appendChild(el('span', { text: 'In den Warenkorb' }));
-        btn.addEventListener('click', function () { track('add_to_cart_clicked', { productId: p.id }); });
-        body.appendChild(btn);
-        body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Direkt zur sicheren Kasse bei motionsports.de' }));
-      } else if (p.shopifyUrl) {
-        // No resolvable variant id -> degrade to the product page, never a broken
-        // checkout link.
-        var link = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: p.shopifyUrl, target: '_blank', rel: 'noopener noreferrer' });
-        link.appendChild(el('span', { text: 'Zum Produkt' }));
-        link.appendChild(icon('external'));
-        link.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id }); });
-        body.appendChild(link);
-      }
+        var card = el('div', { class: 'ms-chat-card' });
+        var body = el('div', { class: 'ms-chat-card-body' });
+        if (input.message) body.appendChild(el('div', { class: 'ms-chat-card-msg', text: input.message }));
 
-      card.appendChild(body);
-      return card;
-    });
+        // One row per product (thumb + name + price), so the shopper sees exactly
+        // what the single checkout click buys.
+        resolved.forEach(function (p) {
+          var item = el('div', { class: 'ms-chat-checkout-item' });
+          if (p.images && p.images[0]) {
+            item.appendChild(el('img', { class: 'ms-chat-checkout-thumb', src: p.images[0], alt: p.name || '', loading: 'lazy' }));
+          }
+          var meta = el('div', { class: 'ms-chat-checkout-meta' });
+          meta.appendChild(el('span', { class: 'ms-chat-checkout-name', text: p.name || 'Produkt' }));
+          meta.appendChild(priceNode(p));
+          item.appendChild(meta);
+          body.appendChild(item);
+        });
+
+        if (cartUrl) {
+          // ONE button -> the combined cart covering every resolved product.
+          var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: cartUrl, target: '_blank', rel: 'noopener noreferrer' });
+          btn.appendChild(icon('cart'));
+          btn.appendChild(el('span', { text: multi ? 'Alle in den Warenkorb' : 'In den Warenkorb' }));
+          btn.addEventListener('click', function () {
+            track('add_to_cart_clicked', { productId: resolved[0].id, productIds: resolved.map(function (p) { return p.id; }) });
+          });
+          body.appendChild(btn);
+          body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Direkt zur sicheren Kasse bei motionsports.de' }));
+        } else {
+          // No resolvable variant -> degrade to product-page link(s), never a
+          // broken checkout link.
+          resolved.forEach(function (p) {
+            if (!p.shopifyUrl) return;
+            var link = el('a', { class: 'ms-chat-btn ms-chat-btn--secondary', href: p.shopifyUrl, target: '_blank', rel: 'noopener noreferrer' });
+            link.appendChild(el('span', { text: multi ? (p.name || 'Zum Produkt') : 'Zum Produkt' }));
+            link.appendChild(icon('external'));
+            link.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id }); });
+            body.appendChild(link);
+          });
+        }
+
+        card.appendChild(body);
+        return card;
+      })
+      .catch(function () { return null; });
   }
 
   function buildShowroom(input) {
@@ -1501,6 +1541,7 @@
   // ---------------------------------------------------------------------------
   function init() {
     buildShell();
+    autoGrow(); // size the input to its clean single-line height up front
     renderAllMessages();
     updateInputState();
     window.MS_CHAT = window.MS_CHAT || {};
