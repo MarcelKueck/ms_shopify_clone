@@ -12,6 +12,103 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-06) — "Mo" rebrand, new avatar, bubble/font/input polish, multi-product checkout
+
+Seven changes across **three theme files** (re-upload all three) plus the
+already-replaced logo asset.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-logo.svg` | **REPLACED** (new multi-color face avatar) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** | ✅ Yes |
+| `templates/product.json` | **MODIFIED** | ✅ Yes (default product template) |
+| `assets/ms-chat-logo-white.svg` | **REMOVE** (no longer referenced) | 🗑️ Delete from theme |
+| `assets/ms-chat-logo-black.svg` | **REMOVE** (no longer referenced) | 🗑️ Delete from theme |
+
+> **Logo change:** the black/white contrast variants are gone; there is now a
+> single full-color `ms-chat-logo.svg` (a multi-color human-face avatar). It is
+> shown **AS-IS in full color** (no `currentColor`/mask tint) for both the
+> launcher and the assistant avatar. Upload the new `ms-chat-logo.svg` and delete
+> the two old `-white`/`-black` variants from the dev theme so nothing references
+> the missing files.
+
+### Task-by-task
+
+1. **"MOIA" → "Mo".** There are **no user-visible "MOIA" strings inside the
+   widget assets** — the assistant's greetings/messages come from the **backend**
+   (not in this repo), and the panel header is the "**motion**sports" wordmark.
+   The only "MOIA" reference in the theme was a code **comment** in
+   `templates/product.json`, now renamed to "Mo". ⚠️ **Action for the backend
+   team:** rename the assistant from "MOIA" to "Mo" in the backend system
+   prompt/greetings — that copy is not shippable from this theme repo.
+2. **New logo (full color).** CSS `--msc-logo` now points at `ms-chat-logo.svg`;
+   `.ms-chat-logo` uses `background-size: cover` (crisp when scaled down). The
+   launcher logo fills the round button as a circular avatar; the assistant
+   avatar is a 36px circle. No masking/tinting — the multi-color artwork shows
+   as-is.
+3. **Bubble colors (filled).** User bubbles keep the grey fill;
+   **assistant (Mo) bubbles dropped the black border** for a **light-blue fill**
+   = `rgb(var(--msc-secondary) / 14%)`, a low-alpha tint of the theme accent
+   (the brand blue `--button-secondary-background` = `#008ccb`; not hardcoded).
+   Dark foreground text keeps contrast. Typing indicator matches.
+4. **Smaller chat font.** `.ms-chat-bubble` font-size `0.95rem → 0.85rem`,
+   `line-height: 1.45`, padding `10/14 → 8/12`; typing padding scaled too. Still
+   ≥ ~13.6px for mobile readability.
+5. **Product-page CTA → subtle clickable bullet.** The big outlined button is
+   gone. The CTA now renders as the **final clickable bullet** appended to the
+   product highlight list (`.product-kurzinfo`), inheriting that list's bullet
+   typography: a small Mo logo + underlined "Detaillierte Beratung zu diesem
+   Produkt", `cursor:pointer` + hover (accent blue). It still calls the **same**
+   `window.MS_CHAT.openWithProduct(product.id, product.title)` via the existing
+   `.ms-chat-product-cta` data-attributes + delegated handler — identical
+   behavior. *(Chosen presentation: a real `<li>` in the highlight list so it
+   reads as "one more bullet", with the disc marker for list membership and the
+   logo as the interactive affordance. If the metafield list is empty the bullet
+   renders on its own in the same `.product-kurzinfo` box.)*
+6. **Compressed-view input.** The textarea now sits cleanly on **one line** by
+   default (`min-height: 44px` to match the round send button on the same row),
+   modern pill radius (`22px`), font `0.9rem`, and grows up to `max-height: 120px`
+   then scrolls internally (never the panel). `init()` calls `autoGrow()` so the
+   height is correct on first paint. The disclaimer below stays in the
+   fixed-height input bar (no panel scroll). Works in both compressed and
+   enlarged panel sizes.
+7. **Multi-product checkout card.** `buildAddToCart` now reads
+   `input.productIds ?? [input.productId]`, fetches `/api/products?ids=…` for the
+   whole set, and renders **ONE** card listing every resolved product
+   (thumb + name + price) with **ONE** checkout button → the response's top-level
+   **`cartUrl`** (the combined single-cart permalink — not stitched client-side).
+   Single-product still works (`cartUrl` == that product's permalink). Degrades
+   gracefully when `cartUrl` is null (per-product `shopifyUrl` links); unknown
+   ids are skipped. New CSS: `.ms-chat-checkout-item` / `-thumb` / `-meta`.
+
+### Dev-theme test checklist (this session)
+1. **Mo rename** — assistant no longer calls itself "MOIA" anywhere user-visible.
+   *(Greeting text is backend-driven; verify after the backend is updated.)*
+2. **New logo everywhere** — the launcher shows the full-color face avatar
+   (circular, crisp), and the same avatar sits next to every assistant (Mo)
+   message. No tinting/monochrome; no broken-image icons (old `-white`/`-black`
+   files deleted).
+3. **Bubbles** — your messages = grey fill; Mo's messages = **light-blue** fill,
+   **no black border**; text stays clearly readable; typing dots match.
+4. **Smaller font** — chat text is noticeably smaller/tighter but still
+   comfortable on a phone.
+5. **Product-page bullet CTA** — on a product page, the highlight list ends with
+   a discreet clickable bullet (Mo logo + "Detaillierte Beratung zu diesem
+   Produkt"); hover shows it's interactive; clicking opens the chat **primed
+   about that product** (same behavior as the old button). The old big button is
+   gone.
+6. **One-line input (compressed)** — open the panel at default size: the input is
+   a clean single line aligned with the send button; typing several lines grows
+   it to a cap then scrolls inside the box (panel doesn't scroll); the disclaimer
+   stays visible. Repeat with the panel **enlarged** — still clean.
+7. **Multi-product checkout** — drive the assistant to recommend buying **two**
+   products together ("beides nehme ich"): a **single** card lists both products
+   with **one** "Alle in den Warenkorb" button that opens a combined cart with
+   both. Single-product checkout still shows one product + "In den Warenkorb".
+
+---
+
 ## ⭐ Session update (2026-06-04) — in-chat email-capture form (GDPR double opt-in)
 
 Builds the in-chat consent UI for the backend's email-capture flow

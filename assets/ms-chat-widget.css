@@ -31,12 +31,10 @@
   --msc-z: 2147483000;
   --msc-font: var(--font-body-family, inherit);
 
-  /* Brand logo — black/white contrast variants in assets/. Referenced
-     relatively so they resolve to /assets/… on Shopify's CDN, where this
-     stylesheet lives. Shown as real artwork (not masked) so each context can
-     use the variant with the right contrast. */
-  --msc-logo-white: url('ms-chat-logo-white.svg');
-  --msc-logo-black: url('ms-chat-logo-black.svg');
+  /* Brand logo — the multi-color human-face avatar. Referenced relatively so it
+     resolves to /assets/… on Shopify's CDN, where this stylesheet lives. Shown
+     AS-IS in full color (NOT masked/tinted via currentColor) in every context. */
+  --msc-logo: url('ms-chat-logo.svg');
 
   font-family: var(--msc-font);
   color: rgb(var(--msc-fg));
@@ -77,28 +75,28 @@
 .ms-chat-launcher svg { width: 26px; height: 26px; display: block; }
 
 /* ---------- Brand logo (launcher + assistant avatar) ---------- */
-/* Real artwork (not masked): the white variant sits on the dark accent
-   launcher, the black variant on the light panel background — each picked for
-   contrast. */
+/* The new multi-color face avatar, shown AS-IS in full color (no mask/tint).
+   The same artwork is used in both spots; `cover` crops it to a clean circular
+   avatar and keeps it crisp when the high-res source is scaled down small. */
 .ms-chat-logo {
   display: inline-block;
   background-position: center;
-  /* The SVG has generous built-in padding (the mark fills ~65% of its
-     viewBox), so zoom past it to make the logo clearly visible. */
-  background-size: 150%;
+  background-size: cover;
   background-repeat: no-repeat;
+  background-image: var(--msc-logo);
 }
 .ms-chat-launcher-logo {
-  width: 60px;
-  height: 60px;
-  background-image: var(--msc-logo-white);
+  /* Fill the round launcher edge-to-edge as a circular avatar. */
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
 }
 .ms-chat-avatar {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
   margin-top: 2px;
-  background-image: var(--msc-logo-black);
+  border-radius: 999px;
 }
 /* When the panel is open the JS adds this class. Fully removed from layout and
    interaction so it can never overlap the panel (desktop or mobile full-screen). */
@@ -248,24 +246,24 @@
 }
 .ms-chat-bubble {
   max-width: 85%;
-  padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 0.95rem;
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  line-height: 1.45;
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
-/* Feature 7: user bubbles take the grey fill; assistant bubbles are unfilled
-   with a solid foreground (black) border. */
+/* User bubbles keep the grey fill. Assistant (Mo) bubbles drop the border for a
+   light-blue fill — a low-alpha tint of the theme accent (the brand blue from
+   --button-secondary-background). Foreground text stays dark for contrast. */
 .ms-chat-bubble--user {
   background: var(--msc-surface);
   color: rgb(var(--msc-fg));
   border-bottom-right-radius: 4px;
 }
 .ms-chat-bubble--assistant {
-  background: transparent;
+  background: rgb(var(--msc-secondary) / 14%);
   color: rgb(var(--msc-fg));
-  border: 1.5px solid rgb(var(--msc-fg));
-  padding: 9px 13px;
   border-bottom-left-radius: 4px;
 }
 .ms-chat-bubble p { margin: 0 0 6px; }
@@ -277,10 +275,9 @@
 .ms-chat-typing {
   display: inline-flex;
   gap: 4px;
-  padding: 12px 16px;
-  background: transparent;
-  border: 1.5px solid rgb(var(--msc-fg));
-  border-radius: 16px;
+  padding: 10px 14px;
+  background: rgb(var(--msc-secondary) / 14%);
+  border-radius: 14px;
   border-bottom-left-radius: 4px;
 }
 .ms-chat-typing span {
@@ -447,6 +444,12 @@
 .ms-chat-card-msg { font-weight: 700; color: rgb(var(--msc-heading)); }
 .ms-chat-checkout-summary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; max-width: 100%; }
 .ms-chat-checkout-name { font-weight: 600; color: rgb(var(--msc-heading)); min-width: 0; overflow-wrap: anywhere; }
+/* Multi-product checkout: one row per product (thumb + name + price), then a
+   single combined-cart button below. */
+.ms-chat-checkout-item { display: flex; align-items: center; gap: 10px; max-width: 100%; }
+.ms-chat-checkout-item + .ms-chat-checkout-item { padding-top: 8px; border-top: 1px solid var(--msc-border); }
+.ms-chat-checkout-thumb { width: 48px; height: 48px; flex: 0 0 auto; object-fit: contain; background: #fff; border-radius: 8px; }
+.ms-chat-checkout-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .ms-chat-card-head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: rgb(var(--msc-heading)); }
 .ms-chat-card-head svg { width: 20px; height: 20px; flex: 0 0 auto; color: rgb(var(--msc-accent)); }
 .ms-chat-card-text { font-size: 0.9rem; color: rgb(var(--msc-fg) / 85%); }
@@ -535,14 +538,17 @@
   appearance: none;
   background-image: none;
   border: 1px solid var(--msc-border-strong);
-  border-radius: var(--msc-input-radius);
-  padding: 10px 12px;
+  /* Pill that lines up with the round send button on the same row. */
+  border-radius: 22px;
+  padding: 10px 16px;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.4;
+  /* Sits on ONE line by default (matches the 44px send button); the JS grows it
+     to fit typed lines up to max-height, after which it scrolls internally —
+     never the panel. */
+  min-height: 44px;
   max-height: 120px;
-  /* Single-line height is auto-sized by JS to fit content, so a scrollbar only
-     appears once the box hits max-height. */
   overflow-y: auto;
   scrollbar-width: thin;
   background: rgb(var(--msc-bg));
