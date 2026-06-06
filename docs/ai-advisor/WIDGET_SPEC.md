@@ -233,6 +233,16 @@ Tool cards reference products by id only; the widget hydrates them from
   "render nothing" guards (missing product → no card; compare needs ≥2;
   showroom needs ≥1). Remember the comparison table **omits**
   dimensions/weight/target-group rows (not in the public response).
+- **Card styling.** All five tool cards (product, compare, quick-checkout/
+  add-to-cart, showroom, contact/email-capture) share Mo's **light-blue
+  accent background** — the same low-alpha tint of the theme secondary token
+  used by the assistant message bubbles — so they read as part of the
+  assistant's response rather than disconnected white panels. Card body text
+  uses the **same font size as the chat messages** (the reduced chat body
+  size). Legibility is preserved with inner white surfaces behind the product
+  image, comparison table, and form inputs; the primary CTA stays the dark
+  accent pill and the secondary button keeps a solid (non-transparent) surface
+  so both stay distinct and tappable against the blue.
 
 Cart action: the `add_to_cart` button is a **link to
 `product.shopifyCartUrl`** opening in a new tab — it does not call any

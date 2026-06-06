@@ -12,6 +12,62 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-06b) — tool cards adopt the light-blue accent + chat font size
+
+CSS-only polish so the in-chat **tool cards** stop looking disconnected from
+the rest of the (now blue-tinted) chat. **One theme file to re-upload**, plus a
+docs-only spec note.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** | ❌ No (docs only — §6 card-styling note) |
+
+> No JS change was needed: all five tool cards (product, compare,
+> quick-checkout/add-to-cart, showroom, contact/email-capture) already share the
+> single `.ms-chat-card` wrapper, so styling them once covers them all.
+
+### `assets/ms-chat-widget.css` — what changed
+- **Card background → Mo's light-blue accent.** `.ms-chat-card` now fills with
+  `rgb(var(--msc-secondary) / 14%)` — the **exact same** token/alpha used by
+  `.ms-chat-bubble--assistant` (no new hardcoded hex) — with a matching
+  `rgb(var(--msc-secondary) / 22%)` border. Applies to all five cards at once.
+- **Font size matched to the chat.** `.ms-chat-card` is pinned to
+  `font-size: 0.85rem; line-height: 1.45` (same as `.ms-chat-bubble`).
+  Oversized bits scaled down proportionally: product name `1rem → 0.92rem`,
+  prices `1.2rem → 1.05rem`, strike price `0.95 → 0.85rem`, reason/“why” blurb
+  `0.88 → 0.85rem`, card body text `0.9 → 0.85rem`, form inputs `0.9 → 0.85rem`.
+- **Buttons stay distinct/tappable on the blue.** Primary CTA is unchanged
+  (dark accent pill, pops on the blue). The **secondary** button was transparent
+  (would blend into the blue) → now a **solid** `rgb(var(--msc-bg))` surface with
+  its border, so it reads as a real tappable control.
+- **Legibility preserved with inner white surfaces.** Product image, comparison
+  thumbs, checkout thumbs and form inputs already sit on white (`#fff`/`--msc-bg`)
+  surfaces, so image/price/text contrast is kept. The **comparison table** now
+  has solid cells (`--msc-bg`) with a slightly darker header row
+  (`rgb(var(--msc-secondary) / 12%)`) so the table reads as a clean inset panel
+  on the blue card (header row, borders, cells all readable).
+- All values are `rem`/token-based, so it holds in the compressed and enlarged
+  desktop panel sizes and in the mobile near-full-screen view.
+
+### Dev-theme test checklist (this session)
+1. **Product card is blue** — ask for a product; the product card background is
+   the same light-blue as Mo's bubbles (not white), text/specs readable, the
+   product image still sits on its white tile.
+2. **Quick-checkout card is blue** — drive a quick-checkout / “Jetzt direkt
+   bestellen” card; it’s the same light-blue, the name + price line is readable.
+3. **Buttons stand out** — the primary CTA (e.g. “Zum Produkt”, “In den
+   Warenkorb”) is the dark pill; any secondary button is a solid white-surfaced
+   button — neither blends into the blue, both look tappable.
+4. **Font matches** — card text is the same size as the chat bubbles (no card
+   looks larger); prices/name still mildly emphasized but balanced.
+5. **Compare table** — trigger a comparison; the table is readable on the blue
+   (white cells, tinted header, visible borders) and still scrolls horizontally.
+6. **Sizes/mobile** — confirm 1–5 hold in the compressed panel, the enlarged
+   desktop panel, and the mobile near-full-screen panel.
+
+---
+
 ## ⭐ Session update (2026-06-06) — "Mo" rebrand, new avatar, bubble/font/input polish, multi-product checkout
 
 Seven changes across **three theme files** (re-upload all three) plus the
