@@ -295,14 +295,22 @@
 }
 
 /* ---------- Cards (shared) ---------- */
+/* Tool cards share Mo's light-blue accent fill (the same low-alpha tint of the
+   theme secondary used by .ms-chat-bubble--assistant) so they read as part of
+   the assistant's response rather than disconnected white panels. Body text is
+   pinned to the chat body font size (0.85rem/1.45, matching .ms-chat-bubble);
+   inner white surfaces (images, inputs) and solid buttons preserve legibility
+   and tappability against the blue. */
 .ms-chat-card {
   width: 100%;
   max-width: min(28rem, 100%);
   box-sizing: border-box;
-  border: 1px solid var(--msc-border);
+  border: 1px solid rgb(var(--msc-secondary) / 22%);
   border-radius: var(--msc-card-radius);
-  background: rgb(var(--msc-bg));
+  background: rgb(var(--msc-secondary) / 14%);
   overflow: hidden;
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
 .ms-chat-card-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; max-width: 100%; box-sizing: border-box; }
 /* Let flex/grid children shrink below their intrinsic content width instead of
@@ -331,7 +339,7 @@
   padding: 3px 8px;
   border-radius: 999px;
 }
-.ms-chat-prod-name { font-weight: 700; font-size: 1rem; color: rgb(var(--msc-heading)); }
+.ms-chat-prod-name { font-weight: 700; font-size: 0.92rem; color: rgb(var(--msc-heading)); }
 .ms-chat-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ms-chat-tag {
   font-size: 0.7rem;
@@ -346,9 +354,9 @@
 .ms-chat-tag--preistipp { background: rgb(var(--msc-accent) / 14%); color: rgb(var(--msc-accent)); }
 .ms-chat-tag--premium { background: rgb(147 51 234 / 18%); color: #7e22ce; }
 .ms-chat-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.ms-chat-price-sale { font-size: 1.2rem; font-weight: 700; color: rgb(var(--msc-sale)); }
-.ms-chat-price-regular { font-size: 1.2rem; font-weight: 700; color: rgb(var(--msc-heading)); }
-.ms-chat-price-strike { font-size: 0.95rem; color: var(--msc-muted); text-decoration: line-through; }
+.ms-chat-price-sale { font-size: 1.05rem; font-weight: 700; color: rgb(var(--msc-sale)); }
+.ms-chat-price-regular { font-size: 1.05rem; font-weight: 700; color: rgb(var(--msc-heading)); }
+.ms-chat-price-strike { font-size: 0.85rem; color: var(--msc-muted); text-decoration: line-through; }
 .ms-chat-specs {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -361,7 +369,7 @@
 .ms-chat-spec-val { color: rgb(var(--msc-fg)); overflow-wrap: anywhere; word-break: break-word; }
 .ms-chat-reason {
   font-style: italic;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: rgb(var(--msc-fg) / 80%);
   border-left: 3px solid rgb(var(--msc-accent));
   padding-left: 10px;
@@ -413,8 +421,10 @@
 }
 .ms-chat-btn--primary { background: rgb(var(--msc-accent)); color: rgb(var(--msc-accent-fg)); }
 .ms-chat-btn--primary:hover { filter: brightness(1.1); }
+/* Solid surface (not transparent) so the secondary button stays a distinct,
+   tappable control against the card's light-blue fill instead of blending in. */
 .ms-chat-btn--secondary {
-  background: transparent;
+  background: rgb(var(--msc-bg));
   color: rgb(var(--msc-fg));
   border-color: var(--msc-border-strong);
 }
@@ -434,8 +444,11 @@
   text-align: left;
   vertical-align: top;
   min-width: 120px;
+  /* Solid surface so the table reads as a clean inset panel on the blue card. */
+  background: rgb(var(--msc-bg));
 }
-.ms-chat-compare-table th { background: var(--msc-surface); }
+/* Header row sits a touch darker than the data cells for separation. */
+.ms-chat-compare-table th { background: rgb(var(--msc-secondary) / 12%); }
 .ms-chat-compare-rowlabel { font-weight: 600; color: var(--msc-muted); white-space: nowrap; }
 .ms-chat-compare-img { width: 64px; height: 64px; object-fit: contain; background: #fff; display: block; margin-bottom: 6px; border-radius: 6px; }
 .ms-chat-compare-name { font-weight: 700; color: rgb(var(--msc-heading)); }
@@ -452,7 +465,7 @@
 .ms-chat-checkout-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .ms-chat-card-head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: rgb(var(--msc-heading)); }
 .ms-chat-card-head svg { width: 20px; height: 20px; flex: 0 0 auto; color: rgb(var(--msc-accent)); }
-.ms-chat-card-text { font-size: 0.9rem; color: rgb(var(--msc-fg) / 85%); }
+.ms-chat-card-text { font-size: 0.85rem; color: rgb(var(--msc-fg) / 85%); }
 .ms-chat-card-refs { font-size: 0.85rem; color: var(--msc-muted); }
 .ms-chat-card-refs b { color: rgb(var(--msc-fg)); }
 
@@ -469,7 +482,7 @@
   background: rgb(var(--msc-bg));
   color: rgb(var(--msc-fg));
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 .ms-chat-field input:focus,
 .ms-chat-field textarea:focus { outline: 2px solid rgb(var(--msc-accent) / 50%); outline-offset: 0; border-color: rgb(var(--msc-accent)); }
