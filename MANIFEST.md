@@ -12,6 +12,47 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-07c) — avatar size revert, shorter composer placeholder, product CTA as inline link
+
+Three small polish fixes. **Re-upload both widget assets and the product
+template.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** | ✅ Yes |
+| `templates/product.json` | **MODIFIED** | ✅ Yes (default product template) |
+
+### What changed
+1. **In-chat avatar reverted to 36px.** The previous session doubled it to 72px;
+   reverted `.ms-chat-avatar` back to `36px` per feedback. The launcher zoom
+   (`background-size: 150%`) and the product CTA logo (36px) are **kept** as-is.
+2. **Shorter composer placeholder.** Adding the mic button narrowed the textarea,
+   so the old long placeholder ("Frag mich etwas über unser Sortiment…") wrapped
+   to two lines and scrolled. Shortened to **"Frag mich etwas …"** so it fits on
+   one line alongside the mic + send buttons (incl. mobile widths).
+3. **Product-page CTA → inline link below the bullets.** Previously rendered as a
+   separate `<ul><li>` "bullet", where the 36px Mo logo pushed the text right of
+   the disc, creating a visible offset/misalignment. Now rendered as a plain
+   `<button>` (no list/disc) directly under the highlight bullets: an inline-flex
+   link (Mo logo + underlined "Detaillierte Beratung zu diesem Produkt"),
+   `margin-top:10px`, left-aligned to the kurzinfo block. The `.ms-chat-product-
+   cta-list` / `-item` CSS rules were removed; `.ms-chat-product-cta` now sets its
+   own `font-size:0.8rem`/`line-height:1.35` to match the bullet typography.
+   **Behaviour unchanged** — same `data-ms-chat-product-*` attributes + delegated
+   handler open the chat primed about the product.
+
+### Dev-theme test checklist (this session)
+1. **Avatar** — the Mo avatar beside assistant messages is back to the smaller
+   (36px) size.
+2. **Placeholder** — open the panel: the placeholder sits on a single line with
+   no scrollbar, next to the mic and send buttons; check on a narrow phone too.
+3. **Product CTA** — on a product page, "Detaillierte Beratung zu diesem Produkt"
+   appears as a left-aligned link just below the highlight bullets (no stray disc,
+   no rightward offset); clicking it still opens the chat about that product.
+
+---
+
 ## ⭐ Session update (2026-06-07b) — larger logo everywhere it's used
 
 Increases the rendered size of the Mo logo (`ms-chat-logo.svg`) by 100% in

@@ -929,7 +929,7 @@
     inputbar.appendChild(noticeEl);
 
     var controls = el('div', { class: 'ms-chat-input-controls' });
-    textarea = el('textarea', { class: 'ms-chat-textarea', rows: '1', placeholder: 'Frag mich etwas über unser Sortiment...', 'aria-label': 'Nachricht' });
+    textarea = el('textarea', { class: 'ms-chat-textarea', rows: '1', placeholder: 'Frag mich etwas …', 'aria-label': 'Nachricht' });
     textarea.addEventListener('input', autoGrow);
     textarea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
