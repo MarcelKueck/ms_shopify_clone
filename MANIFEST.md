@@ -12,6 +12,38 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-07d) — rename logo asset to bust the CDN cache
+
+Re-uploading the logo under the **same filename** didn't update the floating
+launcher/avatar: the CSS references the logo with a relative, **unversioned**
+URL (`url('ms-chat-logo.svg')`) — a `.css` file can't use Shopify's `asset_url`
+filter, so there's no `?v=…` cache-buster, and Shopify's CDN kept serving the
+old cached bytes (browser cache clears don't touch the CDN edge). The
+product-page CTA used `asset_url` so it *did* update. Fix: **rename the asset**
+so the URL is brand-new.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-logo.svg` → `assets/ms-chat-logo-v2.svg` | **RENAMED** | ✅ Upload new name |
+| `assets/ms-chat-widget.css` | **MODIFIED** (`--msc-logo` → new name) | ✅ Yes |
+| `templates/product.json` | **MODIFIED** (`asset_url` → new name) | ✅ Yes |
+
+> **Action in Shopify:**
+> 1. Upload your **modified** artwork as **`assets/ms-chat-logo-v2.svg`** (new filename).
+> 2. Re-upload `assets/ms-chat-widget.css` and `templates/product.json`.
+> 3. Delete the old **`assets/ms-chat-logo.svg`** from the theme.
+>
+> **Note on this repo:** the renamed file in the repo still carries the *previous*
+> artwork bytes (this snapshot wasn't given the modified SVG). The live result is
+> driven by whatever you upload to Shopify under the new name; optionally drop the
+> modified SVG into the repo as `ms-chat-logo-v2.svg` so the snapshot matches.
+>
+> **Future logo edits:** uploading new bytes under the *same* name won't refresh
+> the launcher (same CDN-cache reason). Bump the filename again
+> (`-v3`, …) and update the two references, or wait out the CDN TTL.
+
+---
+
 ## ⭐ Session update (2026-06-07c) — avatar size revert, shorter composer placeholder, product CTA as inline link
 
 Three small polish fixes. **Re-upload both widget assets and the product
