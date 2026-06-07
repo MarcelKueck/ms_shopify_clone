@@ -12,6 +12,70 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-07) — voice input (Web Speech API) in the composer
+
+Adds an optional **mic button** to the chat input row that dictates German
+speech into the textarea. Pure front-end (browser Web Speech API) — **no
+backend/API change**, no audio sent to our servers. **Re-upload both widget
+assets**; the spec is docs-only.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** | ❌ No (docs only — §4.2 input row) |
+
+> **Browser support:** the mic button is **feature-detected** and only appears
+> where `SpeechRecognition`/`webkitSpeechRecognition` exists (Chrome, Edge,
+> Android Chrome). On Firefox and some iOS Safari versions it is simply not
+> rendered — typed input is unchanged. Voice recognition runs through the
+> **browser's own speech service** (in Chrome that means Google's); no audio is
+> sent to the motionsports backend.
+
+### `assets/ms-chat-widget.js` — what changed
+- New `mic` SVG in the `ICONS` table; new module var `micBtn`.
+- Mic button inserted **left of the send button** in `.ms-chat-input-controls`,
+  created **only when `voiceSupported()`** is true.
+- Voice block: `startVoice()` / `stopVoice()` / `toggleVoice()` / `setMicState()`
+  using `SpeechRecognition` (`lang: 'de-DE'`, `interimResults: true`,
+  `continuous: false`). Dictation **appends** to whatever is already typed, shows
+  **live interim** text, and re-sizes the textarea via `autoGrow()`. `onend`
+  resets the button and refocuses the textarea; `onerror` resets state and shows
+  an inline **mic-permission-denied** notice for `not-allowed` /
+  `service-not-allowed`.
+- `updateInputState()` now also disables the mic and calls `stopVoice()` while
+  streaming/rate-locked; `onSend()` calls `stopVoice()` so dictation can't keep
+  writing after a message is sent.
+
+### `assets/ms-chat-widget.css` — what changed
+- `.ms-chat-mic` (44px round, outlined secondary surface so it doesn't compete
+  with the accent send button) + hover/focus/disabled states.
+- `.ms-chat-mic--recording` (accent fill + `ms-chat-mic-pulse` keyframes) for the
+  live state; pulse disabled under `prefers-reduced-motion`.
+
+### Dev-theme test checklist (this session)
+1. **Button appears (supported browser)** — in Chrome/Edge/Android, open the
+   panel: a round mic button sits just left of the send button.
+2. **Dictation** — tap the mic, allow the permission prompt, speak in German →
+   words appear live in the textarea (interim updates, then finalised). Tap the
+   mic again to stop; the text remains, ready to edit/send.
+3. **Append behaviour** — type some text first, then dictate → speech is appended
+   after the typed text (not overwritten).
+4. **Send stops it** — start dictating, then press send/Enter → the message sends
+   and the mic stops (no leftover dictation writing into the next message).
+5. **Recording state** — while listening the mic shows the accent fill + pulse;
+   the pulse is absent if the OS has reduce-motion enabled.
+6. **Permission denied** — block the mic permission → an inline notice explains
+   to allow it; the button returns to idle.
+7. **Disabled while streaming** — send a message; during the streamed reply the
+   mic (like the textarea/send) is disabled and any active dictation stops.
+8. **Unsupported browser** — in Firefox (or an iOS Safari without the API) the
+   mic button is **absent** and typing works exactly as before.
+9. **Sizes/mobile** — confirm the mic fits the input row in the compressed and
+   enlarged desktop panels and the mobile near-full-screen panel.
+
+---
+
 ## ⭐ Session update (2026-06-06b) — tool cards adopt the light-blue accent + chat font size
 
 CSS-only polish so the in-chat **tool cards** stop looking disconnected from

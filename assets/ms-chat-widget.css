@@ -584,6 +584,39 @@
 .ms-chat-send:hover { filter: brightness(1.1); }
 .ms-chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
 .ms-chat-send svg { width: 20px; height: 20px; }
+
+/* Voice-input mic button — sits left of the send button. Secondary styling
+   (outlined surface, not the accent fill) so it doesn't compete with the
+   primary send action. Only rendered when the browser supports the Web Speech
+   API. The --recording state flips it to the accent fill with a soft pulse so
+   it's obvious the mic is live. */
+.ms-chat-mic {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--msc-border-strong);
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-fg));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ms-chat-mic:hover { background: var(--msc-surface); }
+.ms-chat-mic:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
+.ms-chat-mic:disabled { opacity: 0.5; cursor: not-allowed; }
+.ms-chat-mic svg { width: 20px; height: 20px; }
+.ms-chat-mic--recording {
+  background: rgb(var(--msc-accent));
+  color: rgb(var(--msc-accent-fg));
+  border-color: transparent;
+  animation: ms-chat-mic-pulse 1.4s infinite ease-in-out;
+}
+@keyframes ms-chat-mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--msc-accent) / 45%); }
+  50% { box-shadow: 0 0 0 6px rgb(var(--msc-accent) / 0%); }
+}
 .ms-chat-disclaimer { font-size: 0.72rem; color: var(--msc-muted); text-align: center; margin-top: 8px; }
 
 .ms-chat-visually-hidden {
@@ -597,5 +630,6 @@
 @media (prefers-reduced-motion: reduce) {
   .ms-chat-launcher,
   .ms-chat-backdrop,
-  .ms-chat-typing span { transition: none; animation: none; }
+  .ms-chat-typing span,
+  .ms-chat-mic--recording { transition: none; animation: none; }
 }

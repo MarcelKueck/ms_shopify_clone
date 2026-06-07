@@ -200,6 +200,7 @@
     expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
     shrink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+    mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
     truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
     external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
@@ -870,7 +871,7 @@
   // ---------------------------------------------------------------------------
   // Widget shell.
   // ---------------------------------------------------------------------------
-  var root, launcher, panel, backdrop, expandBtn, messagesEl, textarea, sendBtn, noticeEl, welcomeEl;
+  var root, launcher, panel, backdrop, expandBtn, messagesEl, textarea, sendBtn, micBtn, noticeEl, welcomeEl;
   var EXPAND_KEY = 'ms-chat-expanded';
   var state = { open: false, streaming: false, rateLocked: false, expanded: lsGet(EXPAND_KEY) === '1' };
   var typingEl = null;
@@ -937,6 +938,15 @@
     sendBtn.appendChild(icon('send'));
     sendBtn.addEventListener('click', onSend);
     controls.appendChild(textarea);
+    // Voice input: only render the mic button when the browser supports the Web
+    // Speech API (Chrome/Edge/Android). On unsupported browsers (Firefox, some
+    // iOS) it's simply absent — typed input is unaffected.
+    if (voiceSupported()) {
+      micBtn = el('button', { class: 'ms-chat-mic', type: 'button', 'aria-label': 'Spracheingabe starten', 'aria-pressed': 'false', title: 'Spracheingabe' });
+      micBtn.appendChild(icon('mic'));
+      micBtn.addEventListener('click', toggleVoice);
+      controls.appendChild(micBtn);
+    }
     controls.appendChild(sendBtn);
     inputbar.appendChild(controls);
     inputbar.appendChild(el('div', { class: 'ms-chat-disclaimer', text: 'KI-Fitnessberater – Antworten können Fehler enthalten' }));
@@ -1009,6 +1019,77 @@
     var disabled = state.streaming || state.rateLocked;
     if (textarea) textarea.disabled = disabled;
     if (sendBtn) sendBtn.disabled = disabled;
+    if (micBtn) micBtn.disabled = disabled;
+    if (disabled) stopVoice();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Voice input (Web Speech API). Dictates into the textarea in German; the
+  // mic button is only created when the API exists (see buildShell). Audio is
+  // handled by the browser's own speech service — no audio touches our backend.
+  // ---------------------------------------------------------------------------
+  var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = null;
+  var recognizing = false;
+
+  function voiceSupported() { return !!SpeechRec; }
+
+  function setMicState(on) {
+    recognizing = on;
+    if (!micBtn) return;
+    micBtn.classList.toggle('ms-chat-mic--recording', on);
+    micBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    micBtn.setAttribute('aria-label', on ? 'Spracheingabe beenden' : 'Spracheingabe starten');
+    micBtn.title = on ? 'Spracheingabe beenden' : 'Spracheingabe';
+  }
+
+  function stopVoice() {
+    if (recognition && recognizing) { try { recognition.stop(); } catch (e) {} }
+  }
+
+  function startVoice() {
+    if (!SpeechRec || recognizing) return;
+    if (state.streaming || state.rateLocked) return;
+    recognition = new SpeechRec();
+    recognition.lang = 'de-DE';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    // Append to whatever is already typed; live interim text updates as you talk.
+    var base = textarea.value.trim();
+    base = base ? base + ' ' : '';
+    var finalT = '';
+    recognition.onresult = function (e) {
+      var interim = '';
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        var seg = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalT += seg;
+        else interim += seg;
+      }
+      textarea.value = base + finalT + interim;
+      autoGrow();
+    };
+    recognition.onerror = function (e) {
+      setMicState(false);
+      if (e && (e.error === 'not-allowed' || e.error === 'service-not-allowed')) {
+        showNotice('warn', 'Mikrofonzugriff wurde blockiert. Bitte erlaube ihn in den Browser-Einstellungen.');
+      }
+    };
+    recognition.onend = function () {
+      setMicState(false);
+      try { textarea.focus(); } catch (e) {}
+    };
+    try {
+      recognition.start();
+      setMicState(true);
+      clearNotice();
+    } catch (e) {
+      setMicState(false);
+    }
+  }
+
+  function toggleVoice() {
+    if (recognizing) stopVoice();
+    else startVoice();
   }
 
   function showWelcome() {
@@ -1198,6 +1279,7 @@
   // ---------------------------------------------------------------------------
   function onSend() {
     if (state.streaming || state.rateLocked) return;
+    stopVoice();
     var text = textarea.value.trim();
     if (!text) return;
     sendMessage(text);
