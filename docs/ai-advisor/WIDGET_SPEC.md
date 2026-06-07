@@ -154,8 +154,19 @@ Persistence rules:
   `ms-chat-logo-black.svg`, for contrast on the light panel). The typing
   indicator uses the same unfilled-bordered treatment.
 - **Input row**: growing textarea, Enter-to-send (Shift+Enter = newline),
-  send button, the `"KI-Fitnessberater – Antworten können Fehler
-  enthalten"` disclaimer. Input disabled while a response streams.
+  an optional **voice-input mic button**, the send button, and the
+  `"KI-Fitnessberater – Antworten können Fehler enthalten"` disclaimer. Input
+  disabled while a response streams.
+- **Voice input** (Web Speech API): a mic button left of send dictates German
+  (`de-DE`) speech into the textarea, with live interim text and append-to-typed
+  behaviour; tap again (or send) to stop. It is **feature-detected** — only
+  rendered where `SpeechRecognition`/`webkitSpeechRecognition` exists
+  (Chrome/Edge/Android); on unsupported browsers (Firefox, some iOS) the button
+  is simply absent and typing is unaffected. The mic shows a recording state
+  (accent fill + pulse) and is disabled alongside the rest of the composer while
+  streaming/rate-limited. Audio is processed by the browser's own speech service
+  — **no audio reaches our backend**. Mic-permission denial surfaces an inline
+  notice.
 - **Typing indicator**: three-dot bounce in an assistant bubble while
   submitted but no visible assistant content yet.
 
