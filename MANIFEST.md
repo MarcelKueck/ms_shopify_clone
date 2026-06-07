@@ -12,6 +12,21 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-07e) — white floating launcher with black frame
+
+Restyle the floating launcher button: background **black → white**, plus a
+**2px black border** as a thin-but-noticeable frame (the logo artwork still sits
+inside, edge-to-edge). CSS-only.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (`.ms-chat-launcher`) | ✅ Yes |
+
+> Uses theme tokens: `background: rgb(var(--msc-bg))` (white) and
+> `border: 2px solid rgb(var(--msc-accent))` (black).
+
+---
+
 ## ⭐ Session update (2026-06-07d) — rename logo asset to bust the CDN cache
 
 Re-uploading the logo under the **same filename** didn't update the floating

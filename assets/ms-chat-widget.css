@@ -57,15 +57,17 @@
   min-width: 44px;
   min-height: 44px;
   border-radius: 999px;
-  border: none;
+  /* White button with a thin but noticeable black frame (the logo artwork sits
+     inside, edge-to-edge). */
+  border: 2px solid rgb(var(--msc-accent));
   cursor: pointer;
   /* Sit just below the panel so it can never peek over the open panel. */
   z-index: calc(var(--msc-z) - 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(var(--msc-accent));
-  color: rgb(var(--msc-accent-fg));
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-accent));
   box-shadow: 0 6px 24px rgb(0 0 0 / 22%);
   transition: transform 150ms ease, box-shadow 150ms ease;
   padding: 0;
