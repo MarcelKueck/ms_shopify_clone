@@ -34,7 +34,7 @@
   /* Brand logo — the multi-color human-face avatar. Referenced relatively so it
      resolves to /assets/… on Shopify's CDN, where this stylesheet lives. Shown
      AS-IS in full color (NOT masked/tinted via currentColor) in every context. */
-  --msc-logo: url('ms-chat-logo.svg');
+  --msc-logo: url('ms-chat-logo-v2.svg');
 
   font-family: var(--msc-font);
   color: rgb(var(--msc-fg));
