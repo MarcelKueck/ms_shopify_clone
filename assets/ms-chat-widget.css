@@ -86,14 +86,17 @@
   background-image: var(--msc-logo);
 }
 .ms-chat-launcher-logo {
-  /* Fill the round launcher edge-to-edge as a circular avatar. */
+  /* Fill the round launcher edge-to-edge as a circular avatar. The artwork has
+     built-in whitespace, so zoom the background past `cover` to crop that margin
+     and make the face read bigger inside the (unchanged 68px) button. */
   width: 100%;
   height: 100%;
   border-radius: inherit;
+  background-size: 150%;
 }
 .ms-chat-avatar {
-  width: 36px;
-  height: 36px;
+  width: 72px;
+  height: 72px;
   flex: 0 0 auto;
   margin-top: 2px;
   border-radius: 999px;
