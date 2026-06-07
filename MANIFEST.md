@@ -12,6 +12,39 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-07b) — larger logo everywhere it's used
+
+Increases the rendered size of the Mo logo (`ms-chat-logo.svg`) by 100% in
+every place it appears. **Re-upload both widget assets and the product
+template.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
+| `templates/product.json` | **MODIFIED** | ✅ Yes (default product template) |
+
+> The launcher button keeps its 68px size by request — instead of enlarging the
+> button, the logo artwork is zoomed to crop its built-in whitespace so the face
+> reads bigger inside the same button.
+
+### What changed
+- **In-chat assistant avatar** (`.ms-chat-avatar`): `36px → 72px` (doubled).
+- **Launcher logo** (`.ms-chat-launcher-logo`): button stays **68px**; added
+  `background-size: 150%` so the artwork is zoomed past `cover`, trimming the
+  whitespace baked into the SVG so the face fills more of the button.
+- **Product-page CTA bullet logo** (`.ms-chat-product-cta__logo`, inline in
+  `templates/product.json`): `18px → 36px` (doubled).
+
+### Dev-theme test checklist (this session)
+1. **Launcher** — the floating button is still 68px, but the face now fills more
+   of it (less empty margin) and isn't cropped awkwardly.
+2. **Assistant avatar** — the Mo avatar beside each assistant message is visibly
+   larger (≈2×) and still circular/crisp.
+3. **Product CTA** — on a product page, the Mo logo in the "Detaillierte Beratung
+   zu diesem Produkt" bullet is ≈2× larger.
+
+---
+
 ## ⭐ Session update (2026-06-07) — voice input (Web Speech API) in the composer
 
 Adds an optional **mic button** to the chat input row that dictates German
