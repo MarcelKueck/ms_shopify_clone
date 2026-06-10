@@ -133,16 +133,34 @@ Persistence rules:
   background.)
 - Clicking it toggles the panel open/closed. While the panel is open the
   launcher is hidden (the close (×) lives in the panel header).
+- **Beta badge (feature 10):** a small, subtle "Beta" pill sits on the
+  launcher's top edge (accent fill, uppercase, ~0.6rem) so users know the
+  advisor is in development. It lives *inside* the launcher button
+  (decorative, `aria-hidden`; the launcher's `aria-label` is
+  "Chat öffnen (Beta)"), so it hides with the launcher while the panel is
+  open, never blocks the click, and stays within the launcher's safe-area
+  offsets on mobile.
 
 ### 4.2 Expandable panel
 
 - An anchored panel that expands from the launcher: a header, a scrollable
   message area, and an input row — i.e. the same three-part chat layout
   the old full-page UI had, shrunk into a panel.
-- **Header**: the "**motion**sports" wordmark (accent) + header buttons:
-  a **share button** (opens the email-summary capture form on demand — see
-  §6a), an **expand/enlarge toggle** (diagonal-double-arrow icon, desktop only
-  — see §7), a new-chat button, and a close button.
+- **Header**: the chatbot's name "**Mo**" (feature 11 — same wordmark type
+  treatment, bold accent; replaces the "**motion**sports" wordmark, which
+  remains in the welcome state) + header buttons: a **"Per E-Mail teilen"
+  text button** (feature 7 — opens the email-summary capture form on demand,
+  see §6a; hidden until the first user message, see below), an
+  **expand/enlarge toggle** (diagonal-double-arrow icon, desktop only — see
+  §7), a new-chat button, and a close button.
+- **Share button visibility (feature 7):** in a new conversation with no
+  message sent the share button is **hidden**. As soon as the first user
+  message is sent (and whenever a non-empty history is restored from
+  `localStorage`), it appears in the header with a subtle fade/scale
+  blend-in (~420ms, disabled under `prefers-reduced-motion`) and stays
+  available for the rest of the conversation. It is a real `<button>`,
+  keyboard-focusable, with an `aria-label`; clicking it does exactly what
+  the old share icon did (`openCaptureForm()`).
 - **Message area**: shows the **welcome state** (`BEHAVIOR_REFERENCE` §4)
   until the first message **and** when no persisted history exists. If a
   history was restored from `localStorage`, render it directly and skip
@@ -175,9 +193,15 @@ Persistence rules:
 ### 4.4 Enlarge / expand (feature 6)
 
 - The header expand toggle switches the **desktop** panel between its
-  normal size and a larger size (wider + taller), capped to the viewport
-  via sensible `max-width`/`max-height`. The icon flips between an
-  expand (diagonal-double-arrow) and a shrink glyph.
+  normal size and a larger size, capped to the viewport via sensible
+  `max-width`/`max-height`. The icon flips between an expand
+  (diagonal-double-arrow) and a shrink glyph.
+- **Desktop heights are viewport-relative:** the default panel keeps its
+  width (410px) at **~2/3 of the viewport height** (`66dvh`); the enlarged
+  panel keeps its width (560px) at **the full available viewport height**
+  minus the design's 20px top/bottom safe margin
+  (`calc(100dvh - 40px)`, matching the existing `max-height`). The message
+  area scrolls within these heights and the input row stays pinned.
 - The chosen size is **persisted for the session** (`localStorage` key
   `ms-chat-expanded`) and re-applied on init.
 - **No effect on mobile**: the expanded rule is scoped to a desktop media
@@ -188,8 +212,9 @@ Persistence rules:
 
 - While the panel is **open**, a semi-transparent dark **backdrop**
   (`rgba(0,0,0,0.4)`) is rendered over the storefront so the chat comes
-  into focus like a modal. `backdrop-filter: blur(...)` is layered on as a
-  **progressive enhancement** that degrades to just-dim where unsupported.
+  into focus like a modal. `backdrop-filter: blur(6px)` (feature 5 — raised
+  ~50% from the original 4px) is layered on as a **progressive
+  enhancement** that degrades to just-dim where unsupported.
 - **Clicking the backdrop closes the panel.**
 - **z-index ordering**: storefront < backdrop < panel; the launcher is
   hidden while open. The backdrop also provides the dimmed surround that
@@ -289,7 +314,8 @@ The **same** capture card is rendered from two places:
    the card inline in the assistant message, using the tool's `message` as the
    intro and its advisory `productIds` as a cart preview. It is added to
    `VISIBLE_TOOLS` and keyed by `toolCallId` like the other tool cards.
-2. **Share icon** — a share button in the panel header (`§4.2`) calls
+2. **"Per E-Mail teilen" header button** — the text button in the panel
+   header (`§4.2`; visible once the first user message is sent) calls
    `openCaptureForm()`, which opens the panel and drops the same card into the
    message area with a default intro, so the user can request the summary at
    any time. A not-yet-submitted card already on screen is reused rather than
@@ -498,7 +524,8 @@ by the random session id.
 - [ ] Inline contact form posts to `/api/contact`; success + error +
       retry states.
 - [ ] Email-summary capture form (§6a) renders from both the
-      `offer_email_summary` tool part and the header share icon; two
+      `offer_email_summary` tool part and the header "Per E-Mail teilen"
+      button (hidden until the first user message); two
       SEPARATE consents with the marketing box unchecked by default; posts
       to `/api/capture-email`; success + error + retry states; fires
       `email_capture_submitted`.
