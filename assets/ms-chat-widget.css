@@ -31,11 +31,6 @@
   --msc-z: 2147483000;
   --msc-font: var(--font-body-family, inherit);
 
-  /* Brand logo — the multi-color human-face avatar. Referenced relatively so it
-     resolves to /assets/… on Shopify's CDN, where this stylesheet lives. Shown
-     AS-IS in full color (NOT masked/tinted via currentColor) in every context. */
-  --msc-logo: url('ms-chat-logo-v2.svg');
-
   font-family: var(--msc-font);
   color: rgb(var(--msc-fg));
   line-height: 1.5;
@@ -76,33 +71,95 @@
 .ms-chat-launcher:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 3px; }
 .ms-chat-launcher svg { width: 26px; height: 26px; display: block; }
 
-/* ---------- Brand logo (launcher + assistant avatar) ---------- */
-/* The new multi-color face avatar, shown AS-IS in full color (no mask/tint).
-   The same artwork is used in both spots; `cover` crops it to a clean circular
-   avatar and keeps it crisp when the high-res source is scaled down small. */
+/* ---------- Brand mark: animated "Mo orb" (launcher + avatar + product CTA) ---------- */
+/* Siri-style animated mark: soft, glowing multi-color light ribbons (sky blue,
+   violet, pink, teal + a warm amber accent) flowing over a dark rounded bubble.
+   Pure CSS — no image asset, no external request — so it stays crisp at every
+   size and can't go stale on the CDN like the old SVG did. Self-contained
+   under the `.ms-chat-logo` root (drop the class on any empty span): the root
+   carries the dark bubble, the two pseudo-elements carry the light layers.
+   NOTE: intentionally does NOT depend on the --msc-* theme tokens above, so it
+   also works outside `.ms-chat-root` (the product-page CTA).
+   Per-context tunables:
+     --msc-logo-dur   base loop duration (longer = calmer; the glow layer
+                      derives its own slower cycle from it)
+     --msc-logo-blur  glow softness — scale roughly with the rendered size */
 .ms-chat-logo {
+  --msc-logo-dur: 9s;
+  --msc-logo-blur: 7px;
+  position: relative;
   display: inline-block;
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-image: var(--msc-logo);
+  overflow: hidden;
+  border-radius: 999px;
+  background: radial-gradient(120% 120% at 30% 22%, #2a3158 0%, #11152e 48%, #05060f 100%);
 }
+.ms-chat-logo::before,
+.ms-chat-logo::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+/* Layer 1 — the ribbon: a multi-color conic gradient cropped to a soft ring by
+   a radial mask, rotating slowly. The gradient starts AND ends transparent so
+   a travelling gap keeps it reading as flowing light, not a spinning disc; a
+   full 360° linear rotation makes the loop seamless. (Where mask-image is
+   unsupported it gracefully degrades to a blurred full-disc gradient.) */
+.ms-chat-logo::before {
+  background: conic-gradient(from 230deg,
+    rgb(56 189 248 / 0%) 0deg,
+    rgb(56 189 248 / 90%) 60deg,
+    rgb(129 140 248 / 95%) 125deg,
+    rgb(236 72 153 / 90%) 190deg,
+    rgb(251 146 60 / 70%) 240deg,
+    rgb(45 212 191 / 85%) 305deg,
+    rgb(56 189 248 / 0%) 360deg);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 30%, #000 55%, #000 74%, transparent 92%);
+  mask-image: radial-gradient(closest-side, transparent 30%, #000 55%, #000 74%, transparent 92%);
+  filter: blur(var(--msc-logo-blur));
+  animation: ms-chat-logo-flow var(--msc-logo-dur) linear infinite;
+}
+/* Layer 2 — drifting glows: four soft color pools that counter-rotate and
+   gently breathe (symmetric keyframes -> seamless loop). */
+.ms-chat-logo::after {
+  background:
+    radial-gradient(40% 34% at 30% 28%, rgb(45 212 191 / 55%), transparent 70%),
+    radial-gradient(44% 38% at 70% 70%, rgb(236 72 153 / 50%), transparent 70%),
+    radial-gradient(32% 28% at 68% 26%, rgb(129 140 248 / 55%), transparent 70%),
+    radial-gradient(24% 22% at 36% 74%, rgb(251 146 60 / 40%), transparent 70%);
+  filter: blur(calc(var(--msc-logo-blur) * 0.7));
+  animation: ms-chat-logo-breathe calc(var(--msc-logo-dur) * 1.9) ease-in-out infinite;
+}
+@keyframes ms-chat-logo-flow { to { transform: rotate(360deg); } }
+@keyframes ms-chat-logo-breathe {
+  0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.85; }
+  50% { transform: rotate(-160deg) scale(1.14); opacity: 1; }
+}
+/* Launcher = the FULL-motion variant (drawing attention is the goal here),
+   plus a soft pulsing halo that bleeds past the orb's clipped edge. */
 .ms-chat-launcher-logo {
-  /* Fill the round launcher edge-to-edge as a circular avatar. The artwork has
-     built-in whitespace, so zoom the background past `cover` to crop that margin
-     and make the face read bigger inside the (unchanged 68px) button. */
   width: 100%;
   height: 100%;
   border-radius: inherit;
-  background-size: 150%;
+  animation: ms-chat-logo-halo calc(var(--msc-logo-dur) * 0.66) ease-in-out infinite;
 }
+@keyframes ms-chat-logo-halo {
+  0%, 100% { box-shadow: 0 0 12px 0 rgb(99 102 241 / 35%); }
+  50% { box-shadow: 0 0 18px 3px rgb(236 72 153 / 45%); }
+}
+/* In-chat assistant avatar = the CALM variant: a STILL gradient frame. A
+   constantly-animating element next to every message hurts readability, so
+   the avatar keeps the orb look with the motion switched off. */
 .ms-chat-avatar {
   width: 36px;
   height: 36px;
   flex: 0 0 auto;
   margin-top: 2px;
-  border-radius: 999px;
+  --msc-logo-blur: 4px;
 }
+.ms-chat-avatar::before,
+.ms-chat-avatar::after { animation: none; }
 /* Small "Beta" badge pinned to the launcher's top edge (feature 10). Lives
    inside the launcher button so it hides/shows with it automatically and never
    blocks the click. Sits within the launcher's fixed offsets, so it can't
@@ -693,4 +750,9 @@
   .ms-chat-typing span,
   .ms-chat-share--visible,
   .ms-chat-mic--recording { transition: none; animation: none; }
+  /* Freeze the animated brand mark EVERYWHERE (launcher + halo + product CTA)
+     to its static gradient frame. Accessibility beats flair. */
+  .ms-chat-logo::before,
+  .ms-chat-logo::after,
+  .ms-chat-launcher-logo { animation: none; }
 }

@@ -124,13 +124,11 @@ Persistence rules:
 
 - A floating circular button, fixed to a bottom corner (bottom-right by
   default), above storefront content (high `z-index`, but below modals if
-  the theme has any). Brand-accent color — pull from the theme's own
-  brand token (e.g. a `settings_schema.json` color setting), do not
-  hardcode a hex. The button shows the **MOIA brand logo**: the
-  **white** artwork variant (`assets/ms-chat-logo-white.svg`) for contrast
-  on the dark accent launcher. (Black/white contrast variants live in
-  `assets/`; each context picks the one that contrasts with its
-  background.)
+  the theme has any). Frame colors come from theme tokens (white surface +
+  2px accent/black border), do not hardcode a hex. The button shows the
+  **animated brand mark** (§4.1a) in its **full-motion** variant, filling
+  the button edge-to-edge, plus a soft pulsing halo — the launcher is the
+  one place where drawing the eye is the goal.
 - Clicking it toggles the panel open/closed. While the panel is open the
   launcher is hidden (the close (×) lives in the panel header).
 - **Beta badge (feature 10):** a small, subtle "Beta" pill sits on the
@@ -140,6 +138,39 @@ Persistence rules:
   "Chat öffnen (Beta)"), so it hides with the launcher while the panel is
   open, never blocks the click, and stays within the launcher's safe-area
   offsets on mobile.
+
+### 4.1a The animated brand mark (`.ms-chat-logo`)
+
+- The Mo logo is **no longer an image asset**: it is a self-contained,
+  pure-CSS, Siri-style **orb** — soft, glowing multi-color light ribbons
+  (sky blue, violet, pink, teal, plus a warm amber accent) that gently
+  flow and breathe over a dark rounded bubble. Implementation: the
+  `.ms-chat-logo` root span carries the dark bubble (radial gradient,
+  `overflow: hidden`, pill radius); two pseudo-elements carry the light
+  layers — a slowly rotating conic-gradient **ribbon ring** (cropped by a
+  radial `mask-image`) and a counter-rotating set of drifting radial
+  **glows** — softened with `filter: blur(...)`. No image file, no
+  external request, no library; drop the class on any empty `<span>`.
+- **Seamless loop:** the ribbon rotates a full 360° linearly and the glow
+  layer uses symmetric keyframes, so there is no visible loop seam.
+- **Crisp at any size:** everything is gradient-based, so the mark scales
+  from the 68px launcher down to the 36px avatar/CTA. Two custom
+  properties tune it per context: `--msc-logo-dur` (base loop duration;
+  longer = calmer) and `--msc-logo-blur` (glow softness; scale roughly
+  with rendered size). The component intentionally does not depend on the
+  `--msc-*` theme tokens, so it also works outside `.ms-chat-root` (the
+  product-page CTA).
+- **Placement rules — animated where it helps, calm where it doesn't:**
+  - **Launcher:** full motion (~9s base loop) + a soft pulsing outer halo.
+  - **Product-page CTA:** the same orb slowed to a gentle ~22s loop, so it
+    reads as alive without being noisy next to body copy.
+  - **In-chat assistant avatar:** **static** — animation disabled, leaving
+    a still gradient frame. A constantly-moving element next to every
+    message would hurt readability.
+- **Reduced motion:** under `prefers-reduced-motion: reduce` **all**
+  variants (launcher, halo, CTA) freeze to the static gradient frame.
+- The previous artwork (`assets/ms-chat-logo-v2.svg`) is no longer
+  referenced by the widget or the product template.
 
 ### 4.2 Expandable panel
 
@@ -168,8 +199,8 @@ Persistence rules:
 - **Bubble styling** (feature 7): **user** messages take the subtle grey
   fill (the theme's foreground token at low alpha); **assistant** messages
   are **unfilled** with a solid 1.5px foreground/black border, and are
-  preceded by a small **logo avatar** (the **black** artwork variant,
-  `ms-chat-logo-black.svg`, for contrast on the light panel). The typing
+  preceded by a small **logo avatar** (the **static** variant of the
+  animated brand mark, §4.1a — calm by design next to message text). The typing
   indicator uses the same unfilled-bordered treatment.
 - **Input row**: growing textarea, Enter-to-send (Shift+Enter = newline),
   an optional **voice-input mic button**, the send button, and the
@@ -477,7 +508,8 @@ window.MS_CHAT.openWithProduct(productId, productTitle)
 - It fires `track('product_cta_opened', { productId })` (see §9b).
 - The product detail template (`templates/product.json`, the "USPs" /
   Kurzinfo block) renders an **outlined/bordered** button immediately
-  **below the product bullet points**: the MOIA logo (black variant) + the
+  **below the product bullet points**: the animated brand mark (the
+  slow ~22s orb variant, §4.1a — gently alive, never noisy) + the
   text *"Detaillierte Beratung zu diesem Produkt"*, calling
   `openWithProduct(product.id, product.title)`. It is gated by
   `settings.ai_advisor_enabled` and styled distinct from (secondary to)
@@ -507,6 +539,9 @@ by the random session id.
 - [ ] Brand colors come from theme tokens, not hardcoded hexes.
 - [ ] Launcher + expandable panel; welcome state on first open with no
       persisted history.
+- [ ] Animated CSS logo orb (§4.1a): full motion + halo on the launcher,
+      slow variant on the product CTA, static avatar in chat; all variants
+      freeze under `prefers-reduced-motion: reduce`.
 - [ ] Generates/persists `x-ms-session`; sends it + `x-ms-chat-key` on
       the right requests.
 - [ ] Conversation history is persisted to `localStorage` and restored
