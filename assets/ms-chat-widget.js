@@ -871,7 +871,7 @@
   // ---------------------------------------------------------------------------
   // Widget shell.
   // ---------------------------------------------------------------------------
-  var root, launcher, panel, backdrop, expandBtn, messagesEl, textarea, sendBtn, micBtn, noticeEl, welcomeEl;
+  var root, launcher, panel, backdrop, expandBtn, shareBtn, messagesEl, textarea, sendBtn, micBtn, noticeEl, welcomeEl;
   var EXPAND_KEY = 'ms-chat-expanded';
   var state = { open: false, streaming: false, rateLocked: false, expanded: lsGet(EXPAND_KEY) === '1' };
   var typingEl = null;
@@ -887,8 +887,11 @@
   function buildShell() {
     root = el('div', { class: 'ms-chat-root' });
 
-    launcher = el('button', { class: 'ms-chat-launcher', type: 'button', 'aria-label': 'Chat öffnen' });
+    launcher = el('button', { class: 'ms-chat-launcher', type: 'button', 'aria-label': 'Chat öffnen (Beta)' });
     launcher.appendChild(logoEl('ms-chat-launcher-logo'));
+    // Feature 10: subtle "Beta" badge on the launcher (decorative; the
+    // aria-label above carries it for screen readers).
+    launcher.appendChild(el('span', { class: 'ms-chat-beta', text: 'Beta', 'aria-hidden': 'true' }));
     launcher.addEventListener('click', togglePanel);
 
     backdrop = el('div', { class: 'ms-chat-backdrop', 'aria-hidden': 'true' });
@@ -897,12 +900,18 @@
     panel = el('div', { class: 'ms-chat-panel', role: 'dialog', 'aria-label': 'AI Fitnessberater', 'aria-modal': 'false' });
 
     var header = el('div', { class: 'ms-chat-header' });
-    header.appendChild(wordmark());
+    // Feature 11: the header shows the chatbot's name "Mo" (same type
+    // treatment as the wordmark; the welcome state keeps the brand wordmark).
+    var headerTitle = el('span', { class: 'ms-chat-wordmark' });
+    headerTitle.appendChild(el('b', { text: 'Mo' }));
+    header.appendChild(headerTitle);
     var actions = el('div', { class: 'ms-chat-header-actions' });
-    // Share icon: opens the email-capture form on demand (proactive entry point,
-    // same form the assistant's offer_email_summary tool renders inline).
-    var shareBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Zusammenfassung per E-Mail', title: 'Zusammenfassung per E-Mail' });
-    shareBtn.appendChild(icon('share'));
+    // Feature 7: "Per E-Mail teilen" text button (replaces the share icon).
+    // Same action as before — opens the email-capture form (same form the
+    // assistant's offer_email_summary tool renders inline). Hidden in a fresh
+    // conversation; updateShareBtn() reveals it once the first user message is
+    // sent (or a history with messages is restored).
+    shareBtn = el('button', { class: 'ms-chat-share', type: 'button', text: 'Per E-Mail teilen', 'aria-label': 'Zusammenfassung per E-Mail teilen', title: 'Zusammenfassung per E-Mail' });
     shareBtn.addEventListener('click', function () { openCaptureForm(); });
     actions.appendChild(shareBtn);
     // Feature 6: enlarge/expand toggle (desktop only; no-op styling on mobile).
@@ -960,6 +969,14 @@
     document.body.appendChild(root);
 
     applyExpanded();
+  }
+
+  // Feature 7: the share button is hidden until the conversation has at least
+  // one message; once shown it stays for the rest of the conversation (the CSS
+  // animates the reveal). Re-evaluated on send, restore, new chat and rollback.
+  function updateShareBtn() {
+    if (!shareBtn) return;
+    shareBtn.classList.toggle('ms-chat-share--visible', messages.length > 0);
   }
 
   function applyExpanded() {
@@ -1215,6 +1232,7 @@
 
   function renderAllMessages() {
     messagesEl.replaceChildren();
+    updateShareBtn();
     if (!messages.length) { showWelcome(); return; }
     for (var i = 0; i < messages.length; i++) {
       var m = messages[i];
@@ -1292,6 +1310,7 @@
     messages.push(userMsg);
     var userRow = renderUserMessage(userMsg);
     saveHistory();
+    updateShareBtn(); // first user message reveals the share button
     track('message_sent', {}); // event only — never the message text
 
     textarea.value = '';
@@ -1328,6 +1347,7 @@
       if (ctx && ctx.row && ctx.row.parentNode) ctx.row.parentNode.removeChild(ctx.row);
       removeTyping();
       saveHistory();
+      updateShareBtn();
       if (!messages.length) showWelcome();
       if (restoreText) { textarea.value = restoreText; autoGrow(); }
     }

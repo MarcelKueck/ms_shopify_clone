@@ -12,6 +12,97 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-10) — stronger blur, desktop heights, animated share button, Beta badge, "Mo" header
+
+Five UI changes (features 5, 6, 7, 10, 11). **Re-upload both widget assets.**
+The spec was updated to match (`docs/ai-advisor/WIDGET_SPEC.md`, not a theme
+file — nothing to upload for it).
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (docs only) | ❌ No (not a theme asset) |
+
+### What changed
+1. **Backdrop blur +50% (feature 5).** `.ms-chat-backdrop` blur raised
+   `4px → 6px` (both `backdrop-filter` and `-webkit-backdrop-filter`). The
+   `rgba(0,0,0,0.4)` dim is unchanged and remains the graceful fallback where
+   `backdrop-filter` is unsupported.
+2. **Desktop panel heights (feature 6).** Desktop only — mobile inset
+   untouched (the ≤640px media query still overrides height):
+   - Default panel: width stays 410px; `height: 640px → 66dvh` (~2/3 of the
+     viewport height).
+   - Enlarged panel: width stays 560px; `height: 780px → calc(100dvh - 40px)`
+     (full viewport height minus the existing 20px top/bottom safe margin,
+     matching the existing `max-height`).
+   The flex layout is unchanged, so the message area scrolls inside the panel
+   and the input row stays pinned at the bottom.
+3. **Share icon → animated "Per E-Mail teilen" button (feature 7).** The
+   header share *icon* is replaced by a small pill *text button*
+   (`.ms-chat-share`, real `<button>`, keyboard-focusable, `aria-label`
+   "Zusammenfassung per E-Mail teilen"). It is **hidden** in a new
+   conversation; as soon as the first user message is sent (and whenever a
+   non-empty history is restored on init), `updateShareBtn()` reveals it with
+   a subtle ~420ms fade + scale blend-in (suppressed under
+   `prefers-reduced-motion`), and it stays for the rest of the conversation.
+   It hides again on "new chat" (and if a failed send rolls the only message
+   back). Click behaviour is identical to the old icon: `openCaptureForm()`.
+4. **Beta badge on the launcher (feature 10).** A small uppercase "Beta" pill
+   (`.ms-chat-beta`, accent fill, white keyline) sits on the launcher's top
+   edge. It lives inside the launcher button, so it shows/hides with the
+   launcher, never intercepts clicks (`pointer-events: none`), and stays
+   within the launcher's safe-area offsets on mobile. Screen readers get it
+   via the launcher's `aria-label` ("Chat öffnen (Beta)"); the pill itself is
+   `aria-hidden`.
+5. **"Mo" header wordmark (feature 11).** The panel header now shows the
+   chatbot's name **"Mo"** (same `.ms-chat-wordmark` type treatment, bold
+   accent) instead of "motionsports". The welcome state keeps the
+   motionsports brand wordmark.
+
+### Dev-theme test checklist (this session)
+
+**Desktop, compressed (default) panel**
+1. Open the panel: the storefront behind is dimmed AND noticeably blurrier
+   than before (6px); clicking the backdrop still closes the panel.
+2. The panel is ~2/3 of the viewport height (resize the browser window
+   vertically — the panel height follows), width unchanged (410px).
+3. Header shows "**Mo**" (bold, accent color) — no "motionsports" wordmark in
+   the header (the welcome screen still shows it).
+4. Fresh conversation (use "Neuen Chat starten" first): NO share control in
+   the header. Send a message: "Per E-Mail teilen" fades/scales in next to
+   the enlarge toggle while Mo responds, and stays visible from then on.
+   Clicking it opens the email-capture card (same as the old share icon);
+   Tab reaches it and Enter activates it.
+5. Reload mid-conversation: the button is already visible (restored history).
+   "Neuen Chat starten": it disappears again.
+6. With long conversations, messages scroll inside the panel and the input
+   row stays pinned at the bottom.
+
+**Desktop, enlarged panel**
+7. Click the enlarge toggle: the panel grows to the full viewport height
+   minus a small (20px) margin top and bottom, width 560px. Toggle back
+   restores the 2/3-height default. The choice still persists across reloads.
+8. The share button, "Mo" header, blur, scrolling messages and pinned input
+   all behave the same as in the compressed view.
+
+**Mobile (≤640px viewport)**
+9. The near-full-screen inset is UNCHANGED (small margin on all sides, dimmed
+   + blurred sliver of storefront visible around the edges).
+10. The "Beta" pill sits on the launcher's top edge without being cut off by
+    the viewport edge or overlapping other sticky elements; tapping anywhere
+    on the launcher (including the pill) opens the chat; the pill disappears
+    with the launcher while the panel is open.
+11. Header fits: "Mo" + "Per E-Mail teilen" (after first message) + the
+    remaining header buttons don't wrap or overflow on a ~360px-wide phone
+    (note the enlarge toggle is desktop-only in behaviour but still rendered;
+    verify no overflow).
+12. Blur fallback: on a browser without `backdrop-filter` (e.g. older
+    Firefox/WebViews), the backdrop is dim-only — no errors, panel still
+    works.
+
+---
+
 ## ⭐ Session update (2026-06-07e) — white floating launcher with black frame
 
 Restyle the floating launcher button: background **black → white**, plus a

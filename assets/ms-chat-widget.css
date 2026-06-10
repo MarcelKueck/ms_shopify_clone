@@ -103,6 +103,27 @@
   margin-top: 2px;
   border-radius: 999px;
 }
+/* Small "Beta" badge pinned to the launcher's top edge (feature 10). Lives
+   inside the launcher button so it hides/shows with it automatically and never
+   blocks the click. Sits within the launcher's fixed offsets, so it can't
+   collide with mobile safe-areas. */
+.ms-chat-beta {
+  position: absolute;
+  top: -7px;
+  right: -4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgb(var(--msc-accent));
+  color: rgb(var(--msc-accent-fg));
+  border: 1px solid rgb(var(--msc-bg));
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
 /* When the panel is open the JS adds this class. Fully removed from layout and
    interaction so it can never overlap the panel (desktop or mobile full-screen). */
 .ms-chat-launcher--hidden { display: none !important; visibility: hidden; pointer-events: none; }
@@ -114,7 +135,9 @@
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   width: 410px;
   max-width: calc(100vw - 32px);
-  height: 640px;
+  /* Desktop default: ~2/3 of the viewport height (width unchanged). Mobile
+     overrides this in the ≤640px media query below. */
+  height: 66dvh;
   max-height: calc(100dvh - 40px);
   background: rgb(var(--msc-bg));
   border: 1px solid var(--msc-border);
@@ -136,8 +159,8 @@
   position: fixed;
   inset: 0;
   background: rgb(0 0 0 / 40%);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   z-index: var(--msc-z);
   opacity: 0;
   pointer-events: none;
@@ -152,7 +175,9 @@
 @media (min-width: 641px) {
   .ms-chat-panel--expanded {
     width: 560px;
-    height: 780px;
+    /* Enlarged: full available viewport height, minus the same 20px top/bottom
+       safe margin the max-height already enforces (width unchanged). */
+    height: calc(100dvh - 40px);
   }
 }
 
@@ -210,6 +235,36 @@
 .ms-chat-iconbtn:hover { background: var(--msc-surface); }
 .ms-chat-iconbtn:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
 .ms-chat-iconbtn svg { width: 20px; height: 20px; }
+
+/* "Per E-Mail teilen" header button (replaces the old share icon). Hidden in a
+   fresh conversation; the JS adds --visible once the first user message is
+   sent, with a subtle fade/scale blend-in to draw the eye without flashing. */
+.ms-chat-share {
+  display: none;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: 999px;
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-fg));
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ms-chat-share--visible {
+  display: inline-flex;
+  animation: ms-chat-share-in 420ms ease-out both;
+}
+.ms-chat-share:hover { background: var(--msc-surface); }
+.ms-chat-share:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
+@keyframes ms-chat-share-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: scale(1); }
+}
 
 /* ---------- Messages area ---------- */
 .ms-chat-messages {
@@ -636,5 +691,6 @@
   .ms-chat-launcher,
   .ms-chat-backdrop,
   .ms-chat-typing span,
+  .ms-chat-share--visible,
   .ms-chat-mic--recording { transition: none; animation: none; }
 }
