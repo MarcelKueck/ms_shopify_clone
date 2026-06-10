@@ -12,6 +12,82 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-10b) — animated Siri-style logo orb (pure CSS, no image asset)
+
+Mo's logo is replaced everywhere in the widget by a **self-contained, pure-CSS
+animated mark**: soft, glowing multi-color light ribbons (sky blue, violet,
+pink, teal + a warm amber accent) flowing over a dark rounded bubble —
+Siri-orb style. No GIF, no SVG file, no external request: the `.ms-chat-logo`
+root span carries the dark bubble; two pseudo-elements carry a rotating
+conic-gradient ribbon ring (radial-masked) and counter-rotating drifting
+glows, blurred for softness. Seamless infinite loop, crisp at every size.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (orb component replaces SVG logo) | ✅ Yes |
+| `templates/product.json` | **MODIFIED** (CTA logo → orb, slow variant) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **UNCHANGED** | ❌ No |
+| `assets/ms-chat-logo-v2.svg` | **NO LONGER REFERENCED** by widget or template | 🗑️ Optional: delete from the live theme (kept in this repo for history) |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (docs only, new §4.1a) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+1. **CSS (`assets/ms-chat-widget.css`).** The `--msc-logo` URL token and the
+   `background-image` logo rules are gone. `.ms-chat-logo` is now the animated
+   orb component (new keyframes `ms-chat-logo-flow`, `ms-chat-logo-breathe`,
+   `ms-chat-logo-halo`). Per-context tunables: `--msc-logo-dur` (base loop
+   duration) and `--msc-logo-blur` (glow softness). Placement variants:
+   - **Launcher** (`.ms-chat-launcher-logo`): FULL motion, ~9s base loop, plus
+     a soft pulsing box-shadow halo — this is where "draw attention" applies.
+   - **Assistant avatar** (`.ms-chat-avatar`): **static** — `animation: none`
+     on the orb layers leaves a calm, still gradient frame so a moving element
+     doesn't sit next to every message.
+   - **Reduced motion:** `prefers-reduced-motion: reduce` freezes ALL variants
+     (including the launcher and its halo) to the static gradient state.
+   The component deliberately uses literal colors (not `--msc-*` tokens), so
+   it also works outside `.ms-chat-root` — which the product CTA relies on.
+2. **Product CTA (`templates/product.json`, "USPs" custom-liquid block).** The
+   CTA's logo span now carries the `ms-chat-logo` class (markup) and its
+   inline CSS swaps the `url(ms-chat-logo-v2.svg)` background for orb
+   overrides only: same 36px size, `--msc-logo-dur: 22s` (gentle, calm
+   variant), `--msc-logo-blur: 4px`. CTA behavior/markup is otherwise
+   unchanged. (The orb styles come from `ms-chat-widget.css`, which the
+   AI-advisor snippet loads on product pages whenever the CTA renders.)
+3. **No JS change.** `logoEl()` already emits `<span class="ms-chat-logo …">`,
+   which is exactly the orb's root — do **not** re-upload the JS for this.
+4. **Old asset unused.** Nothing references `ms-chat-logo-v2.svg` anymore
+   (the CSS and the product template were its only two consumers). You can
+   delete it from the live theme; it stays in this repo as history. The
+   "rename to bust the CDN cache" workaround (2026-06-07d) is obsolete — a
+   CSS-only logo has no CDN-cached artwork to go stale.
+
+### Dev-theme test checklist (this session)
+
+1. **Launcher animates and draws the eye:** dark orb fills the round button;
+   multicolor ribbons rotate smoothly with gently breathing glows and a soft
+   pulsing halo; the loop never visibly "jumps" (watch ≥30s). Beta badge,
+   open/close behavior and hover lift unchanged.
+2. **Avatar stays calm:** open the chat, send a message — the 36px avatar next
+   to assistant bubbles shows the SAME orb look but completely still (no
+   motion while reading/streaming text).
+3. **Product CTA looks clean:** on a product page, the 36px orb next to
+   "Detaillierte Beratung zu diesem Produkt" drifts very slowly (~22s loop) —
+   alive on a second look, not distracting next to the bullets; click still
+   opens the chat with the product primer.
+4. **Reduced motion freezes it:** enable "reduce motion" in OS settings (or
+   DevTools → Rendering → emulate `prefers-reduced-motion`): launcher, halo,
+   CTA and avatar all show the identical static gradient frame — zero
+   movement anywhere.
+5. **Sizes/edges:** orb stays a crisp circle with no square blur-bleed at
+   68px (launcher), 36px (avatar, CTA); colors don't band on a dark/light
+   storefront background.
+6. **Fallback sanity:** in a browser without `mask-image` support the ribbon
+   degrades to a soft blurred color disc inside the bubble (still branded,
+   no errors).
+
+---
+
 ## ⭐ Session update (2026-06-10) — stronger blur, desktop heights, animated share button, Beta badge, "Mo" header
 
 Five UI changes (features 5, 6, 7, 10, 11). **Re-upload both widget assets.**
