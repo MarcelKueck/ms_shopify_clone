@@ -570,20 +570,19 @@ html.ms-chat-page-anim {
 }
 
 /* ---------- Cards (shared) ---------- */
-/* Tool cards KEEP their light-blue accent fill (a low-alpha tint of the theme
-   secondary). With the plain-text messages now borderless, the cards are the
-   only filled blocks in the assistant column — they stand out deliberately as
-   Mo's interactive content while still sitting cleanly in the document flow.
-   Body text is pinned to the chat body font size (0.85rem); inner white
-   surfaces (images, inputs) and solid buttons preserve legibility and
-   tappability against the blue. */
+/* Tool cards are monochrome, matching the borderless document style (the
+   light-blue accent fill is gone): a clean white surface with a hairline
+   neutral border, black text, and the dark accent pill as the single strong
+   element. The hairline is what separates a card from the plain-text flow
+   around it — calm and premium, never a colored panel. Body text is pinned
+   to the chat body font size (0.85rem). */
 .ms-chat-card {
   width: 100%;
   max-width: min(28rem, 100%);
   box-sizing: border-box;
-  border: 1px solid rgb(var(--msc-secondary) / 22%);
+  border: 1px solid var(--msc-border);
   border-radius: var(--msc-card-radius);
-  background: rgb(var(--msc-secondary) / 14%);
+  background: rgb(var(--msc-bg));
   overflow: hidden;
   font-size: 0.85rem;
   line-height: 1.45;
@@ -602,6 +601,9 @@ html.ms-chat-page-anim {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* On the now-white card the image area needs a hairline to separate it
+     from the body (the blue fill used to do that job). */
+  border-bottom: 1px solid var(--msc-border);
 }
 .ms-chat-prod-imgwrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .ms-chat-series-badge {
@@ -697,8 +699,8 @@ html.ms-chat-page-anim {
 }
 .ms-chat-btn--primary { background: rgb(var(--msc-accent)); color: rgb(var(--msc-accent-fg)); }
 .ms-chat-btn--primary:hover { filter: brightness(1.1); }
-/* Solid surface (not transparent) so the secondary button stays a distinct,
-   tappable control against the card's light-blue fill instead of blending in. */
+/* The border (not a fill) is what makes the secondary button read as a
+   distinct, tappable control on the white card. */
 .ms-chat-btn--secondary {
   background: rgb(var(--msc-bg));
   color: rgb(var(--msc-fg));
@@ -720,11 +722,11 @@ html.ms-chat-page-anim {
   text-align: left;
   vertical-align: top;
   min-width: 120px;
-  /* Solid surface so the table reads as a clean inset panel on the blue card. */
   background: rgb(var(--msc-bg));
 }
-/* Header row sits a touch darker than the data cells for separation. */
-.ms-chat-compare-table th { background: rgb(var(--msc-secondary) / 12%); }
+/* Header row sits a touch darker than the data cells for separation —
+   neutral grey now, matching the monochrome card. */
+.ms-chat-compare-table th { background: var(--msc-surface); }
 .ms-chat-compare-rowlabel { font-weight: 600; color: var(--msc-muted); white-space: nowrap; }
 .ms-chat-compare-img { width: 64px; height: 64px; object-fit: contain; background: #fff; display: block; margin-bottom: 6px; border-radius: 6px; }
 .ms-chat-compare-name { font-weight: 700; color: rgb(var(--msc-heading)); }
