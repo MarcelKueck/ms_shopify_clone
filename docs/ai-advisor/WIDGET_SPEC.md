@@ -124,10 +124,13 @@ Persistence rules:
 
 - A floating circular button, fixed to a bottom corner (bottom-right by
   default), above storefront content (high `z-index`, but below modals if
-  the theme has any). Frame colors come from theme tokens (white surface +
-  2px accent/black border), do not hardcode a hex. The button shows the
-  **animated brand mark** (§4.1a) in its **full-motion** variant, filling
-  the button edge-to-edge, plus a soft pulsing halo — the launcher is the
+  the theme has any). It is styled as a **liquid-glass button**: a thin
+  light keyline over a translucent dark fill with a frosted
+  `backdrop-filter: blur + saturate` (degrading to the translucent fill
+  alone where unsupported). The button shows the **animated brand mark**
+  (§4.1a) in its **full-motion** variant filling it edge-to-edge — with a
+  translucent bubble base in this context, so the storefront glows through
+  the dark glass sphere — plus a soft pulsing halo. The launcher is the
   one place where drawing the eye is the goal.
 - Clicking it toggles the panel open/closed. While the panel is open the
   launcher is hidden (the close (×) lives in the panel header).
@@ -142,24 +145,34 @@ Persistence rules:
 ### 4.1a The animated brand mark (`.ms-chat-logo`)
 
 - The Mo logo is **no longer an image asset**: it is a self-contained,
-  pure-CSS, Siri-style **orb** — soft, glowing multi-color light ribbons
-  (sky blue, violet, pink, teal, plus a warm amber accent) that gently
-  flow and breathe over a dark rounded bubble. Implementation: the
-  `.ms-chat-logo` root span carries the dark bubble (radial gradient,
-  `overflow: hidden`, pill radius); two pseudo-elements carry the light
-  layers — a slowly rotating conic-gradient **ribbon ring** (cropped by a
-  radial `mask-image`) and a counter-rotating set of drifting radial
-  **glows** — softened with `filter: blur(...)`. No image file, no
-  external request, no library; drop the class on any empty `<span>`.
-- **Seamless loop:** the ribbon rotates a full 360° linearly and the glow
-  layer uses symmetric keyframes, so there is no visible loop seam.
+  pure-CSS, Siri-style **glass sphere** — a dark liquid-glass bubble with
+  a **chromatic rim light** (mint at the top, red bottom-left, blue
+  bottom-right, via layered inset shadows), faint **dust specks** inside
+  the glass, and a horizontal **braid of glowing, fibrous light-ribbons**
+  (red/orange → magenta → warm white → mint → violet → blue) that gently
+  undulates across the middle. Implementation: the `.ms-chat-logo` root
+  span carries the bubble + rim + specks (`overflow: hidden`, pill
+  radius); two pseudo-elements carry the wave layers — wide, thin
+  **ellipses** laid across the middle whose curved edges, clipped by the
+  orb's circle, read as waves meeting the glass; tilted against each
+  other they cross like a braid, feathered into glow by a vertical
+  `mask-image` and a fibre-texture stripe overlay, softened with
+  `filter: blur(...)`. No image file, no external request, no library;
+  drop the class on any empty `<span>`.
+- **Seamless loop:** both wave layers use symmetric keyframes
+  (0% == 100%) and run at different speeds, so the braid keeps
+  recombining with no visible loop seam; a gentle `hue-rotate` shifts
+  the colors as the waves move.
 - **Crisp at any size:** everything is gradient-based, so the mark scales
-  from the 68px launcher down to the 36px avatar/CTA. Two custom
-  properties tune it per context: `--msc-logo-dur` (base loop duration;
-  longer = calmer) and `--msc-logo-blur` (glow softness; scale roughly
-  with rendered size). The component intentionally does not depend on the
-  `--msc-*` theme tokens, so it also works outside `.ms-chat-root` (the
-  product-page CTA).
+  from the 68px launcher down to the 36px avatar/CTA. Custom properties
+  tune it per context: `--msc-logo-dur` (wave cycle; longer = calmer),
+  `--msc-logo-blur` (ribbon softness), `--msc-logo-rim` (rim-light
+  thickness — both scale roughly with rendered size) and
+  `--msc-logo-base` (bubble fill; the launcher swaps in a translucent one
+  so the frosted-glass button shows through). The component intentionally
+  does not depend on the `--msc-*` theme tokens, so it also works outside
+  `.ms-chat-root` (the product-page CTA, which re-asserts the rim
+  `box-shadow` past the kurzinfo block's reset).
 - **Placement rules — animated where it helps, calm where it doesn't:**
   - **Launcher:** full motion (~9s base loop) + a soft pulsing outer halo.
   - **Product-page CTA:** the same orb slowed to a gentle ~22s loop, so it
