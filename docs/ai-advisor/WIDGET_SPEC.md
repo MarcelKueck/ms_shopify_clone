@@ -232,10 +232,45 @@ Persistence rules:
   preceded by a small **logo avatar** (the **static** variant of the
   animated brand mark, §4.1a — calm by design next to message text). The typing
   indicator uses the same unfilled-bordered treatment.
-- **Input row**: growing textarea, Enter-to-send (Shift+Enter = newline),
-  an optional **voice-input mic button**, the send button, and the
-  `"KI-Fitnessberater – Antworten können Fehler enthalten"` disclaimer. Input
-  disabled while a response streams.
+- **Input area — unified composer** (supersedes the earlier "input row"
+  and the compressed-view input tweak; identical in sidebar, modal and
+  mobile fullscreen):
+  - **One unified container:** the textarea and the action buttons live
+    inside a SINGLE rounded surface with ONE shared border
+    (`.ms-chat-composer`) — not a bordered textarea plus separate buttons.
+    The textarea itself is **borderless and transparent** on the
+    container's light surface; the focus ring is on the container
+    (`:focus-within` accent border + soft glow), not the field. Clicking
+    the container's padding focuses the textarea.
+  - **Two-row internal layout:** the text sits on top (full width); a
+    bottom control row holds the right-aligned actions — the mic
+    (when Web Speech is supported) and the send button. The bottom row
+    keeps a stable height whether or not send is shown.
+  - **Soft large radius + generous padding:** corner radius is the block
+    radius token + 8px (≈24px — soft, not a pill, not sharp) with
+    comfortable internal padding; light theme tokens throughout (no dark
+    input).
+  - **Send appears on typing:** with an EMPTY input there is no visible
+    send button (the mic is the persistent action). As soon as the input
+    has ≥1 non-whitespace character the send button blends in (subtle
+    fade/scale, ~160ms, collapsed-width so the mic glides over); emptying
+    the input hides it again. Toggled centrally in `autoGrow()`
+    (`.ms-chat-send--hidden`), so typing, voice dictation, send-clear and
+    error-restore all stay in sync. Hidden = `visibility:hidden`, so it
+    also leaves the tab order. Transition disabled under
+    `prefers-reduced-motion`.
+  - **Capped auto-grow + internal scroll:** the textarea auto-grows with
+    typed lines up to a max height (120px ≈ 5 lines, the JS cap matches
+    the CSS `max-height`), after which the container STOPS growing and
+    the textarea scrolls internally (`overflow-y: auto`). It never grows
+    unbounded and never pushes the panel layout.
+  - **Quiet chrome:** muted placeholder, low-contrast ghost mic (accent
+    fill + pulse only while recording), the dark accent send circle (↑)
+    as the single strong element.
+  - Enter sends, Shift+Enter inserts a newline; the whole composer is
+    disabled while a response streams. The
+    `"KI-Fitnessberater – Antworten können Fehler enthalten"` disclaimer
+    sits centered directly beneath the container.
 - **Voice input** (Web Speech API): a mic button left of send dictates German
   (`de-DE`) speech into the textarea, with live interim text and append-to-typed
   behaviour; tap again (or send) to stop. It is **feature-detected** — only

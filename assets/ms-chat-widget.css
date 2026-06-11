@@ -786,12 +786,15 @@ html.ms-chat-page-anim {
   line-height: 1.4;
 }
 
-/* ---------- Input row ---------- */
+/* ---------- Input area (unified composer) ---------- */
+/* ONE rounded surface holds the borderless textarea (top, full width) and a
+   bottom control row (right-aligned mic + send) — the modern Claude/ChatGPT
+   composer structure, rendered in this light theme's tokens. No divider line
+   above: the container's own border is the only edge. */
 .ms-chat-inputbar {
   flex: 0 0 auto;
-  border-top: 1px solid var(--msc-border);
-  padding: 12px 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 16px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   background: rgb(var(--msc-bg));
 }
 .ms-chat-notice {
@@ -803,37 +806,64 @@ html.ms-chat-page-anim {
 .ms-chat-notice--warn { background: rgb(var(--msc-danger) / 10%); color: rgb(var(--msc-danger)); }
 .ms-chat-notice--info { background: var(--msc-surface); color: rgb(var(--msc-fg) / 80%); }
 .ms-chat-notice button { margin-top: 6px; }
-.ms-chat-input-controls { display: flex; align-items: flex-end; gap: 8px; }
+/* The unified container: single shared border, soft large radius (block
+   radius token + 8px ≈ 24px), generous padding. The focus ring lives HERE
+   (:focus-within), not on the textarea. */
+.ms-chat-composer {
+  --msc-composer-radius: calc(var(--msc-card-radius) + 8px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: var(--msc-composer-radius);
+  background: rgb(var(--msc-bg));
+  padding: 10px 10px 8px 14px;
+  cursor: text;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.ms-chat-composer:focus-within {
+  border-color: rgb(var(--msc-accent) / 60%);
+  box-shadow: 0 0 0 3px rgb(var(--msc-accent) / 10%);
+}
+/* Top row: borderless, transparent textarea on the container's surface. Sits
+   on ONE line by default; the JS grows it to fit typed lines up to max-height,
+   after which it scrolls INTERNALLY — the container and panel never grow past
+   the cap (the 120px here must match the cap in autoGrow()). */
 .ms-chat-textarea {
-  flex: 1 1 auto;
-  min-width: 0;
+  width: 100%;
   resize: none;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
   background-image: none;
-  border: 1px solid var(--msc-border-strong);
-  /* Pill that lines up with the round send button on the same row. */
-  border-radius: 22px;
-  padding: 10px 16px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 2px 4px 6px 0;
   font-family: inherit;
   font-size: 0.9rem;
   line-height: 1.4;
-  /* Sits on ONE line by default (matches the 44px send button); the JS grows it
-     to fit typed lines up to max-height, after which it scrolls internally —
-     never the panel. */
-  min-height: 44px;
+  min-height: 26px;
   max-height: 120px;
   overflow-y: auto;
   scrollbar-width: thin;
-  background: rgb(var(--msc-bg));
   color: rgb(var(--msc-fg));
 }
-.ms-chat-textarea:focus { outline: 2px solid rgb(var(--msc-accent) / 50%); outline-offset: 0; border-color: rgb(var(--msc-accent)); }
+.ms-chat-textarea:focus { outline: none; }
+.ms-chat-textarea::placeholder { color: var(--msc-muted); }
+/* Bottom row: right-aligned actions (mic + send). min-height keeps the row
+   stable whether or not the send button is currently shown. */
+.ms-chat-input-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 36px;
+  cursor: auto;
+}
 .ms-chat-send {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
   border: none;
   background: rgb(var(--msc-accent));
@@ -842,33 +872,58 @@ html.ms-chat-page-anim {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  transition: opacity 160ms ease, transform 160ms ease, width 160ms ease,
+    margin-left 160ms ease, visibility 160ms;
 }
 .ms-chat-send:hover { filter: brightness(1.1); }
 .ms-chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
-.ms-chat-send svg { width: 20px; height: 20px; }
+.ms-chat-send svg { width: 18px; height: 18px; }
 
-/* Voice-input mic button — sits left of the send button. Secondary styling
-   (outlined surface, not the accent fill) so it doesn't compete with the
-   primary send action. Only rendered when the browser supports the Web Speech
-   API. The --recording state flips it to the accent fill with a soft pulse so
-   it's obvious the mic is live. */
+/* Voice-input mic button — the persistent, low-contrast utility action in the
+   control row (ghost styling so it never competes with content or send). Only
+   rendered when the browser supports the Web Speech API. The --recording state
+   flips it to the accent fill with a soft pulse so it's obvious the mic is
+   live. */
 .ms-chat-mic {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
-  border: 1px solid var(--msc-border-strong);
-  background: rgb(var(--msc-bg));
-  color: rgb(var(--msc-fg));
+  border: none;
+  background: transparent;
+  color: var(--msc-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.ms-chat-mic:hover { background: var(--msc-surface); }
+.ms-chat-mic:hover { background: var(--msc-surface); color: rgb(var(--msc-fg)); }
 .ms-chat-mic:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
 .ms-chat-mic:disabled { opacity: 0.5; cursor: not-allowed; }
-.ms-chat-mic svg { width: 20px; height: 20px; }
+.ms-chat-mic svg { width: 19px; height: 19px; }
+
+/* Bigger thumb targets inside the composer on mobile. (Kept ABOVE the
+   --hidden rule so the collapse below still wins on width.) */
+@media (max-width: 640px) {
+  .ms-chat-mic,
+  .ms-chat-send { width: 40px; height: 40px; }
+}
+
+/* Appear-on-type send: while the input has no non-whitespace character the
+   send button is fully hidden — collapsed (width 0 + gap swallowed so the mic
+   sits flush right), faded and scaled down. Typing blends it in; emptying
+   hides it again. Toggled by autoGrow() in the JS. visibility:hidden also
+   removes it from the tab order. */
+.ms-chat-send--hidden {
+  width: 0;
+  min-width: 0;
+  margin-left: -8px;
+  opacity: 0;
+  transform: scale(0.55);
+  visibility: hidden;
+  pointer-events: none;
+}
 .ms-chat-mic--recording {
   background: rgb(var(--msc-accent));
   color: rgb(var(--msc-accent-fg));
@@ -895,6 +950,8 @@ html.ms-chat-page-anim {
   .ms-chat-typing span,
   .ms-chat-share--visible,
   .ms-chat-panel--open,
+  .ms-chat-send,
+  .ms-chat-composer,
   .ms-chat-mic--recording { transition: none; animation: none; }
   html.ms-chat-page-anim { transition: none; }
   /* Freeze the animated brand mark EVERYWHERE (launcher + halo + welcome +
