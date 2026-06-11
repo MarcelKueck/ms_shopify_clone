@@ -12,6 +12,74 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11j) — borderless document-style messages, new generating animation, mobile view-switch button removed
+
+Visual polish only — streaming logic, tool cards' internal design and all
+behavior untouched. **Re-upload both widget assets.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (message/bubble block rewritten; typing-dots block → `.ms-chat-row--gen` orb animation; mobile `.ms-chat-mode` hide fixed; reduced-motion list updated) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** (`showTyping()` renders the animated-avatar generating row instead of three dots) | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (§4.1a avatar exception, §4.2 message styling + generating indicator, §6 card styling) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+- **Mobile view-switch button actually hidden (bug fix):** the sidebar ⇄
+  modal toggle does nothing on mobile (always fullscreen) but still rendered
+  as a dead header button. Root cause: the mobile
+  `.ms-chat-mode { display: none }` rule was overridden by the LATER
+  `.ms-chat-iconbtn { display: flex }` base rule (equal single-class
+  specificity → source order wins). The hide rule is now
+  `.ms-chat-iconbtn.ms-chat-mode` (doubled class out-specifies the base
+  rule). Desktop unchanged; the header flex row simply closes the gap, so
+  share / new-chat / X keep their placement.
+- **Borderless document-style messages** (intentionally REPLACES the filled
+  light-blue/grey bubble design): assistant (Mo) messages are now plain
+  flowing text directly on the panel surface — no fill, no border — with the
+  small static logo avatar as the speaker marker. User messages keep only a
+  very light low-contrast fill (foreground at 6%, soft 18px radius, no
+  corner tail), right-aligned. Turn spacing widened (12 → 20px), line-height
+  eased to 1.55, and the assistant column gets a 7px top inset so the first
+  text line optically centers on the avatar. Tool cards keep their light-blue
+  styling and now read as the only filled blocks in the assistant flow.
+- **New generating animation** (replaces the three bouncing dots): while a
+  reply is pending, the assistant-slot avatar itself animates — the brand
+  orb's wave bundles run at a calm 3.6s pace plus a gentle breathing pulse
+  (`.ms-chat-row--gen`). The row carries `role="status"` /
+  `aria-label="Mo antwortet"`. When the first tokens stream in, the row is
+  swapped in place for the regular static-avatar message row, so the orb
+  reads as settling beside the text. `prefers-reduced-motion` freezes it to
+  the static orb (selectors added to the reduced-motion block).
+
+### Test checklist (after copying to the live theme)
+
+- [ ] **Mobile header:** on a phone / ≤640px viewport the view-switch button
+      is GONE (only share-when-visible, new-chat and X remain); the X stays
+      correctly placed at the right edge and all targets are still ≥44px.
+      On desktop (both sidebar and modal) the toggle still shows and works.
+- [ ] **Assistant messages:** Mo's replies render as plain text on the panel
+      surface — no fill, no border — with the static orb avatar beside them;
+      links/bold inside replies still styled.
+- [ ] **User messages:** right-aligned with only a faint grey rounded
+      surface; clearly distinguishable from Mo's plain text but never a
+      heavy bubble.
+- [ ] **All three views:** the borderless look is identical in the docked
+      sidebar, the centered modal and mobile fullscreen, with readable
+      contrast and generous spacing between turns.
+- [ ] **Tool cards:** product / compare / checkout / showroom / contact /
+      email-capture cards keep their light-blue card styling and sit cleanly
+      in the new flow (restored history included).
+- [ ] **Generating animation:** send a message → the avatar orb in the
+      pending row animates (calm waves + gentle pulse), no dots; when the
+      first tokens arrive it transitions smoothly into the streamed text
+      with the static avatar (no jump in position).
+- [ ] **Reduced motion:** with `prefers-reduced-motion: reduce` the
+      generating orb is frozen (static frame), everything else still works.
+
+---
+
 ## ⭐ Session update (2026-06-11i) — composer polish: placeholder = welcome prompt, no scrollbar UI
 
 Small follow-up to 2026-06-11h. **Re-upload both widget assets.**

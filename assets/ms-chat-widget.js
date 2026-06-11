@@ -1409,12 +1409,19 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Typing indicator.
+  // Generating indicator. Instead of the old three bouncing dots, the
+  // assistant-slot avatar itself animates while a reply is pending (calm wave
+  // motion + a gentle breathing pulse — the .ms-chat-row--gen CSS). When the
+  // first tokens arrive this row is removed and the real assistant row takes
+  // the same position, so the orb reads as settling into the static avatar
+  // beside the streaming text. Reduced motion freezes it via CSS.
   // ---------------------------------------------------------------------------
   function showTyping() {
     removeTyping();
     var ar = assistantRow();
-    ar.content.appendChild(el('div', { class: 'ms-chat-typing' }, [el('span'), el('span'), el('span')]));
+    ar.row.classList.add('ms-chat-row--gen');
+    ar.row.setAttribute('role', 'status');
+    ar.row.setAttribute('aria-label', 'Mo antwortet');
     typingEl = ar.row;
     messagesEl.appendChild(typingEl);
     scrollToBottom();
