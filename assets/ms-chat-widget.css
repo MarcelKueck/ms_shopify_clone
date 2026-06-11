@@ -75,7 +75,9 @@
 }
 .ms-chat-launcher:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgb(0 0 0 / 28%); }
 .ms-chat-launcher:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 3px; }
-.ms-chat-launcher svg { width: 26px; height: 26px; display: block; }
+/* NOTE: no `.ms-chat-launcher svg` size rule here. The launcher's only SVG is
+   the wave bundle inside the orb; a legacy 26px icon rule used to match it
+   and shrank it into the top-left corner. */
 
 /* ---------- Brand mark: animated "Mo orb" (launcher + avatar + welcome + CTA) ---------- */
 /* v5 "liquid glass + sine waves" — a CLEAR frosted-glass bubble (no dark
@@ -129,7 +131,10 @@
    gradients that fade out at both ends, so the bundle converges and
    dissolves at its shared origins. Replaces the v4 radial-arc masks, which
    could only bow one way (half-circles, no sine inflection). */
-.ms-chat-logo-waves {
+/* Doubled selector on purpose: ancestor icon-sizing rules (e.g. a theme's or
+   a container's `... svg { width/height }`) must never shrink the wave SVG. */
+.ms-chat-logo-waves,
+.ms-chat-logo .ms-chat-logo-waves {
   position: absolute;
   inset: 0;
   width: 100%;

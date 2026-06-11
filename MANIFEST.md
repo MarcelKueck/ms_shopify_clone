@@ -12,6 +12,34 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11e) — FIX: launcher orb clipped to its top-left corner
+
+One-rule CSS bug fix. The legacy icon rule `.ms-chat-launcher svg { width:
+26px; height: 26px; }` (from when the launcher held a chat icon) outranked
+`.ms-chat-logo-waves` and shrank the injected wave SVG to 26×26px anchored at
+the bubble's top-left — on the floating button only, the orb appeared as a
+static clipped corner while every other placement was fine.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (one rule removed, one hardened) | ✅ Yes |
+
+### What changed
+1. Removed the dead `.ms-chat-launcher svg` sizing rule (nothing else in the
+   launcher uses an SVG anymore).
+2. Hardened the wave-SVG sizing with a doubled selector
+   (`.ms-chat-logo .ms-chat-logo-waves`, specificity 0,2,0) so no ancestor
+   `... svg { width/height }` rule — ours or the theme's — can shrink the
+   bundle again in any placement.
+
+### Dev-theme test checklist (this session)
+1. The floating launcher shows the FULL glass orb edge-to-edge with the sine
+   bundle animating (amplitude breathing + crest lean), identical to the
+   welcome orb — not a static top-left fragment.
+2. Welcome orb, avatar and product CTA unchanged.
+
+---
+
 ## ⭐ Session update (2026-06-11d) — true sine waves (inline SVG strands)
 
 The wave strands are no longer circle arcs (which can only bow one way — they
