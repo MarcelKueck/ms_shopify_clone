@@ -240,8 +240,8 @@ Persistence rules:
   The asymmetry (assistant = plain text, user = lightly marked) is
   intentional. Generous vertical spacing between turns and a slightly airier
   line-height keep it calm and readable; identical in sidebar, modal and
-  mobile fullscreen. Tool cards keep their own light-blue card styling and
-  sit inline in this borderless flow as the only filled blocks.
+  mobile fullscreen. Tool cards sit inline in this borderless flow as
+  monochrome hairline-bordered blocks (see §6 card styling).
 - **Input area — unified composer** (supersedes the earlier "input row"
   and the compressed-view input tweak; identical in sidebar, modal and
   mobile fullscreen):
@@ -408,16 +408,15 @@ Tool cards reference products by id only; the widget hydrates them from
   showroom needs ≥1). Remember the comparison table **omits**
   dimensions/weight/target-group rows (not in the public response).
 - **Card styling.** All five tool cards (product, compare, quick-checkout/
-  add-to-cart, showroom, contact/email-capture) share Mo's **light-blue
-  accent background** — a low-alpha tint of the theme secondary token. With
-  the plain-text messages now borderless (§4.2), the cards are the only
-  filled blocks in the assistant column: they stand out deliberately as Mo's
-  interactive content while sitting cleanly in the document-style flow.
-  Card body text uses the **same font size as the chat messages** (the
-  reduced chat body size). Legibility is preserved with inner white surfaces behind the product
-  image, comparison table, and form inputs; the primary CTA stays the dark
-  accent pill and the secondary button keeps a solid (non-transparent) surface
-  so both stay distinct and tappable against the blue.
+  add-to-cart, showroom, contact/email-capture) are **monochrome**,
+  matching the borderless document style of §4.2 (supersedes the earlier
+  light-blue accent background): a clean **white surface with a hairline
+  neutral border**, black text, neutral grey accents (table header row,
+  image-area separator), and the **dark accent pill** as the single strong
+  element per card. The hairline border is what separates a card from the
+  plain-text flow around it — calm, never a colored panel. Card body text
+  uses the **same font size as the chat messages** (the reduced chat body
+  size); the secondary button stays a distinct bordered control.
 
 Cart action: the `add_to_cart` button is a **link to
 `product.shopifyCartUrl`** opening in a new tab — it does not call any

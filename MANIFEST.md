@@ -12,6 +12,52 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11k) — monochrome tool cards (blue fill removed)
+
+Follow-up to 2026-06-11j after client review: the tool cards still had the
+light-blue accent background, clashing with the new borderless look. Cards
+are now black & white. CSS-only — **re-upload `assets/ms-chat-widget.css`
+only** (the JS did not change in this update).
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (card surface/border, product image hairline, compare header row, secondary-button comment) | ✅ Yes |
+| `assets/ms-chat-widget.js` | unchanged in this update | ❌ No (unless still pending from 2026-06-11j) |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (§4.2 + §6 card styling → monochrome) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+- **Card surface:** all five tool cards (product, compare, checkout,
+  showroom, contact/email-capture) drop the light-blue fill + blue border
+  for a clean **white surface with a hairline neutral border**
+  (`--msc-border`, foreground at 12%). The hairline alone separates a card
+  from the plain-text flow.
+- **Product card:** the image area gets a hairline bottom border (the blue
+  body fill used to provide that separation on an all-white card).
+- **Compare table:** the header row's blue tint becomes the neutral grey
+  surface token (foreground at 4%).
+- Buttons unchanged in form: the dark accent pill stays the single strong
+  element; the secondary button stays bordered. Semantic tag colors
+  (Bestseller/Neu/Sale…) and the sale-price red are kept — they're product
+  information, not card chrome.
+
+### Test checklist (after copying to the live theme)
+
+- [ ] Ask Mo for a product / a comparison / checkout / showroom / the
+      contact and email forms: every card is white with a thin grey border —
+      no blue anywhere in the card chrome.
+- [ ] Product card: image area and body are visually separated by the
+      hairline; the black "Zum Produkt" pill stands out.
+- [ ] Compare table: header row is light grey, cells white, still scrolls
+      horizontally on mobile.
+- [ ] Forms (contact + email capture): inputs/checkboxes still clearly
+      visible (bordered) on the white card; error/success states unchanged.
+- [ ] Cards still read cleanly in sidebar, modal and mobile fullscreen next
+      to the borderless messages.
+
+---
+
 ## ⭐ Session update (2026-06-11j) — borderless document-style messages, new generating animation, mobile view-switch button removed
 
 Visual polish only — streaming logic, tool cards' internal design and all
