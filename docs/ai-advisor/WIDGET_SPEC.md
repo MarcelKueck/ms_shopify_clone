@@ -125,13 +125,13 @@ Persistence rules:
 - A floating circular button, fixed to a bottom corner (bottom-right by
   default), above storefront content (high `z-index`, but below modals if
   the theme has any). It is styled as a **liquid-glass button**: a thin
-  light keyline over a translucent dark fill with a frosted
-  `backdrop-filter: blur + saturate` (degrading to the translucent fill
-  alone where unsupported). The button shows the **animated brand mark**
-  (§4.1a) in its **full-motion** variant filling it edge-to-edge — with a
-  translucent bubble base in this context, so the storefront glows through
-  the dark glass sphere — plus a soft pulsing halo. The launcher is the
-  one place where drawing the eye is the goal.
+  light keyline over a barely-there translucent fill with a strong frosted
+  `backdrop-filter: blur + saturate` (degrading to the faint translucent
+  fill alone where unsupported). The **animated brand mark** (§4.1a) in
+  its **full-motion** variant fills it edge-to-edge, so the button IS the
+  clear glass sphere with the light-strands floating inside, plus a soft
+  pulsing halo. The launcher is the prime place where drawing the eye is
+  the goal.
 - Clicking it toggles the panel open/closed. While the panel is open the
   launcher is hidden (the close (×) lives in the panel header).
 - **Beta badge (feature 10):** a small, subtle "Beta" pill sits on the
@@ -145,43 +145,48 @@ Persistence rules:
 ### 4.1a The animated brand mark (`.ms-chat-logo`)
 
 - The Mo logo is **no longer an image asset**: it is a self-contained,
-  pure-CSS, Siri-style **glass sphere** — a dark liquid-glass bubble with
-  a **chromatic rim light** (mint at the top, red bottom-left, blue
-  bottom-right, via layered inset shadows), faint **dust specks** inside
-  the glass, and a horizontal **braid of glowing, fibrous light-ribbons**
-  (red/orange → magenta → warm white → mint → violet → blue) that gently
-  undulates across the middle. Implementation: the `.ms-chat-logo` root
-  span carries the bubble + rim + specks (`overflow: hidden`, pill
-  radius); two pseudo-elements carry the wave layers — wide, thin
-  **ellipses** laid across the middle whose curved edges, clipped by the
-  orb's circle, read as waves meeting the glass; tilted against each
-  other they cross like a braid, feathered into glow by a vertical
-  `mask-image` and a fibre-texture stripe overlay, softened with
-  `filter: blur(...)`. No image file, no external request, no library;
-  drop the class on any empty `<span>`.
-- **Seamless loop:** both wave layers use symmetric keyframes
+  pure-CSS, Siri-style **liquid-glass sphere** — a CLEAR frosted bubble
+  (no dark fill) with a **chromatic rim light** (mint at the top, red
+  bottom-left, blue bottom-right, via layered inset shadows) and
+  **distinct, curved light-strands** floating inside: thin multi-color
+  lines (red/orange → magenta → warm white → mint → violet → blue) that
+  arc across the middle and braid as they move. Implementation: the
+  `.ms-chat-logo` root span carries the glass (a faint translucent fill +
+  `backdrop-filter: blur + saturate` frost + the rim, `overflow: hidden`,
+  pill radius); each pseudo-element paints one horizontal color gradient
+  and **masks it into thin radial-gradient ARC rings** (mask layers union
+  by default), so every strand is a genuinely curved line, not a blurred
+  band — `::before` bulges upward (3 crisp strands + 1 faint glow arc),
+  `::after` bulges downward (2 strands), counter-tilted so they cross.
+  Only a sub-pixel `blur(...)` is applied: the strands stay **distinct**.
+  No image file, no external request, no library; drop the class on any
+  empty `<span>`.
+- **Seamless loop:** both strand layers use symmetric keyframes
   (0% == 100%) and run at different speeds, so the braid keeps
-  recombining with no visible loop seam; a gentle `hue-rotate` shifts
-  the colors as the waves move.
+  recombining with no visible loop seam; a `hue-rotate` swing shifts the
+  colors as the strands move. Motion is deliberately livelier than v2
+  (wider rotation swing + vertical drift) while each individual movement
+  stays slow and smooth.
 - **Crisp at any size:** everything is gradient-based, so the mark scales
-  from the 68px launcher down to the 36px avatar/CTA. Custom properties
-  tune it per context: `--msc-logo-dur` (wave cycle; longer = calmer),
-  `--msc-logo-blur` (ribbon softness), `--msc-logo-rim` (rim-light
-  thickness — both scale roughly with rendered size) and
-  `--msc-logo-base` (bubble fill; the launcher swaps in a translucent one
-  so the frosted-glass button shows through). The component intentionally
-  does not depend on the `--msc-*` theme tokens, so it also works outside
-  `.ms-chat-root` (the product-page CTA, which re-asserts the rim
-  `box-shadow` past the kurzinfo block's reset).
+  from the 96px welcome hero down to the 36px avatar/CTA. Custom
+  properties tune it per context: `--msc-logo-dur` (wave cycle; longer =
+  calmer), `--msc-logo-blur` (strand softness — keep small),
+  `--msc-logo-rim` (rim-light thickness — scale roughly with rendered
+  size) and `--msc-logo-base` (the translucent glass fill). The component
+  intentionally does not depend on the `--msc-*` theme tokens, so it also
+  works outside `.ms-chat-root` (the product-page CTA, which re-asserts
+  the rim `box-shadow` past the kurzinfo block's reset).
 - **Placement rules — animated where it helps, calm where it doesn't:**
-  - **Launcher:** full motion (~9s base loop) + a soft pulsing outer halo.
-  - **Product-page CTA:** the same orb slowed to a gentle ~22s loop, so it
+  - **Launcher:** full motion (~7s base cycle) + a soft pulsing outer halo.
+  - **Welcome state (empty chat):** a 96px full-motion orb is the hero of
+    the panel — there is nothing to read yet, so motion is welcome here.
+  - **Product-page CTA:** the same orb slowed to a gentle ~22s cycle, so it
     reads as alive without being noisy next to body copy.
   - **In-chat assistant avatar:** **static** — animation disabled, leaving
     a still gradient frame. A constantly-moving element next to every
     message would hurt readability.
 - **Reduced motion:** under `prefers-reduced-motion: reduce` **all**
-  variants (launcher, halo, CTA) freeze to the static gradient frame.
+  variants (launcher, halo, welcome, CTA) freeze to the static frame.
 - The previous artwork (`assets/ms-chat-logo-v2.svg`) is no longer
   referenced by the widget or the product template.
 
@@ -191,8 +196,8 @@ Persistence rules:
   message area, and an input row — i.e. the same three-part chat layout
   the old full-page UI had, shrunk into a panel.
 - **Header**: the chatbot's name "**Mo**" (feature 11 — same wordmark type
-  treatment, bold accent; replaces the "**motion**sports" wordmark, which
-  remains in the welcome state) + header buttons: a **"Per E-Mail teilen"
+  treatment, bold accent; replaces the "**motion**sports" wordmark) +
+  header buttons: a **"Per E-Mail teilen"
   text button** (feature 7 — opens the email-summary capture form on demand,
   see §6a; hidden until the first user message, see below), an
   **expand/enlarge toggle** (diagonal-double-arrow icon, desktop only — see
@@ -205,10 +210,13 @@ Persistence rules:
   available for the rest of the conversation. It is a real `<button>`,
   keyboard-focusable, with an `aria-label`; clicking it does exactly what
   the old share icon did (`openCaptureForm()`).
-- **Message area**: shows the **welcome state** (`BEHAVIOR_REFERENCE` §4)
-  until the first message **and** when no persisted history exists. If a
-  history was restored from `localStorage`, render it directly and skip
-  the welcome state.
+- **Message area**: shows the **welcome state** until the first message
+  **and** when no persisted history exists. The welcome state is the
+  **96px animated brand orb** (§4.1a, full motion) with a single subtle
+  prompt line beneath it ("Wie kann ich dir helfen?") — no wordmark, no
+  further copy (visual replacement for the `BEHAVIOR_REFERENCE` §4
+  text-based welcome). If a history was restored from `localStorage`,
+  render it directly and skip the welcome state.
 - **Bubble styling** (feature 7): **user** messages take the subtle grey
   fill (the theme's foreground token at low alpha); **assistant** messages
   are **unfilled** with a solid 1.5px foreground/black border, and are
