@@ -12,6 +12,61 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11c) — anchored wave bundle (waves share one origin left & right)
+
+Wave geometry + motion rework only (CSS, one file). The strands now form a
+**single converging bundle**: every wave runs from the **left edge to the
+right edge** of the bubble and **all waves share the same two anchor points**
+on the bubble's horizontal midline, differing only in amplitude, bow
+direction and phase — like the reference artwork. The animation reads as the
+waves flowing left-to-right: the wave parameters (amplitude, crest position,
+hue) drift organically while both ends stay cleanly pinned.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (wave masks + keyframes) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **UNCHANGED** | ❌ No |
+| `templates/product.json` | **UNCHANGED** | ❌ No |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (§4.1a, docs only) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+1. **Shared anchors (geometry).** Each strand is still a thin radial-gradient
+   arc ring in the pseudo-elements' masks, but every arc's circle is now
+   calibrated to pass through the SAME two points — (0%, 50%) and
+   (100%, 50%) — using center (50%, 50±d), radius R = √(50² + d²). Cool
+   bundle (`::before`, bows up): d = 35/70/130 + a glow arc; warm bundle
+   (`::after`, bows down): d = 45/90 + a glow arc. The color gradients fade
+   to transparent at both ends, so the bundle converges and dissolves at its
+   shared origins.
+2. **Pinned-anchor animation.** Rotation/translation (which moved the ends)
+   are gone; the keyframes animate ONLY `scaleY` (amplitude breathing,
+   0.62–1.35) and `skewX` (crest lean, ±10°) about the centre — both leave
+   the midline, and with it both anchor points, mathematically fixed. Three
+   unevenly spaced stops per loop, two layer speeds (7s / ~10s) and an offset
+   phase make the parameter drift feel random/natural; 0% == 100% keeps each
+   loop seamless. Subtle `hue-rotate` retained.
+3. **Palette nudged toward the reference:** cool bundle blue → cyan → mint
+   (faint warm origin on the left), warm bundle cream → amber → orange → red.
+4. Glass bubble, rim, launcher, welcome state, avatar/CTA variants and
+   reduced-motion behaviour are all untouched from v3.
+
+### Dev-theme test checklist (this session)
+
+1. **Anchored bundle:** all waves emanate from one point at the bubble's left
+   edge and converge to one point at its right edge (mid-height); no strand
+   end drifts up or down during the whole animation.
+2. **Wave look:** strands bow with different amplitudes (blue/cyan family up,
+   warm family down), crossing near the middle like the reference.
+3. **Motion:** amplitudes swell/shrink and crests lean left/right at
+   different rhythms — feels like the wave is travelling left-to-right;
+   no sudden jumps over ≥30s.
+4. **Everything else unchanged:** clear glass + rim, welcome orb, static
+   avatar, slow CTA, reduced-motion freeze.
+
+---
+
 ## ⭐ Session update (2026-06-11b) — clear liquid-glass orb v3, distinct light-strands, orb welcome state
 
 Three changes to the (still pure-CSS) brand mark and the chat welcome screen.

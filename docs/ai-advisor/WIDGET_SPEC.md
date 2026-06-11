@@ -156,17 +156,26 @@ Persistence rules:
   pill radius); each pseudo-element paints one horizontal color gradient
   and **masks it into thin radial-gradient ARC rings** (mask layers union
   by default), so every strand is a genuinely curved line, not a blurred
-  band — `::before` bulges upward (3 crisp strands + 1 faint glow arc),
-  `::after` bulges downward (2 strands), counter-tilted so they cross.
+  band. **All arcs share the same two anchor points** — the left and right
+  ends of the bubble's horizontal midline — because each arc's circle is
+  calibrated to pass through both (center `(50%, 50±d)`, radius
+  `R = √(50² + d²)`): the strands form one converging bundle that runs
+  edge-to-edge and fades out at its shared origins, differing only in
+  amplitude and bow direction. `::before` is the cool bundle bowing up
+  (blue → cyan → mint, 3 strands + a faint glow arc), `::after` the warm
+  bundle bowing down (cream → amber → orange → red, 2 strands + glow).
   Only a sub-pixel `blur(...)` is applied: the strands stay **distinct**.
   No image file, no external request, no library; drop the class on any
   empty `<span>`.
-- **Seamless loop:** both strand layers use symmetric keyframes
-  (0% == 100%) and run at different speeds, so the braid keeps
-  recombining with no visible loop seam; a `hue-rotate` swing shifts the
-  colors as the strands move. Motion is deliberately livelier than v2
-  (wider rotation swing + vertical drift) while each individual movement
-  stays slow and smooth.
+- **Pinned-anchor motion / seamless loop:** the animation reads as the
+  waves flowing left-to-right while staying attached at both ends. Only
+  `scaleY` (amplitude breathing) and `skewX` (crest lean) are animated,
+  about the centre — both transforms leave the midline, and therefore
+  both anchor points, mathematically fixed. Three unevenly spaced
+  keyframe stops per loop, two different layer speeds and an offset phase
+  make the wavelength/amplitude/phase drift feel random and organic,
+  while symmetric keyframes (0% == 100%) keep each loop seamless; a
+  `hue-rotate` swing shifts the colors as the strands move.
 - **Crisp at any size:** everything is gradient-based, so the mark scales
   from the 96px welcome hero down to the 36px avatar/CTA. Custom
   properties tune it per context: `--msc-logo-dur` (wave cycle; longer =
