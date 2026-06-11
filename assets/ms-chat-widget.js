@@ -1010,7 +1010,7 @@
     // Unified composer: textarea (top, borderless) + control row (bottom,
     // right-aligned mic + send) inside ONE bordered rounded surface.
     var composer = el('div', { class: 'ms-chat-composer' });
-    textarea = el('textarea', { class: 'ms-chat-textarea', rows: '1', placeholder: 'Frag mich etwas …', 'aria-label': 'Nachricht' });
+    textarea = el('textarea', { class: 'ms-chat-textarea', rows: '1', placeholder: 'Wie kann ich dir helfen?', 'aria-label': 'Nachricht' });
     textarea.addEventListener('input', autoGrow);
     textarea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
@@ -1151,12 +1151,11 @@
 
   // Welcome state: the animated brand orb is the hero (an empty chat has
   // nothing to read, so full motion is fine here — reduced-motion still
-  // freezes it via CSS), with a single subtle prompt line beneath it. No
-  // wordmark, no further copy.
+  // freezes it via CSS). No copy at all — the prompt line lives in the
+  // composer placeholder ("Wie kann ich dir helfen?") instead.
   function buildWelcome() {
     var w = el('div', { class: 'ms-chat-welcome' });
     w.appendChild(logoEl('ms-chat-welcome-logo'));
-    w.appendChild(el('p', { class: 'ms-chat-welcome-hint', text: 'Wie kann ich dir helfen?' }));
     return w;
   }
 
@@ -1178,6 +1177,10 @@
     panel.classList.add('ms-chat-panel--open');
     launcher.classList.add('ms-chat-launcher--hidden');
     syncChrome(); // backdrop (modal) / page shift (sidebar) / mobile lock+size
+    // Re-measure the textarea now that the panel is visible — the init-time
+    // autoGrow() ran on a hidden panel (scrollHeight 0), which left the field
+    // mis-sized (internally overflowing) on first open.
+    autoGrow();
     scrollToBottom();
     setTimeout(function () { try { textarea.focus(); } catch (e) {} }, 50);
     track('chat_opened', {});
