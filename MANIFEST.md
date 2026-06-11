@@ -12,6 +12,34 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11f) — FIX: welcome/avatar orbs lose their waves while the panel is open
+
+One-cause JS bug fix. All orb SVGs shared the same gradient ids
+(`#ms-chat-lg-cool/-warm`); `url(#id)` resolves to the FIRST matching id in
+the document — usually the launcher's copy. Opening the panel hides the
+launcher with `display: none`, and WebKit/Blink fail to paint gradients
+defined inside a `display:none` subtree → every other orb's strokes lost
+their paint and the waves vanished (the empty glass bubble remained). On
+product pages it happened to keep working because the CTA's SVG comes first
+in the DOM there and stays visible.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (unique gradient ids per orb) | ✅ Yes |
+
+### What changed
+`logoWaves()` now stamps a unique id prefix into each injected SVG
+(`__UID__` placeholder → `ms-chat-lg<seq>-<rand>`), so every orb references
+its OWN `<defs>` and never depends on another instance's visibility.
+
+### Dev-theme test checklist (this session)
+1. On a NON-product page (e.g. home): open the chat — the 96px welcome orb
+   shows its animated sine waves (launcher hidden at the same time).
+2. Send a message: the static avatar orb next to Mo's reply shows its waves.
+3. Launcher (panel closed), product CTA: unchanged.
+
+---
+
 ## ⭐ Session update (2026-06-11e) — FIX: launcher orb clipped to its top-left corner
 
 One-rule CSS bug fix. The legacy icon rule `.ms-chat-launcher svg { width:
