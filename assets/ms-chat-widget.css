@@ -474,8 +474,8 @@ html.ms-chat-page-anim {
 }
 
 /* Welcome state: the animated glass orb itself is the hero (full motion —
-   an empty chat has nothing to read, so the mark may live here), with one
-   subtle prompt line beneath it. No wordmark, no further copy. */
+   an empty chat has nothing to read, so the mark may live here). No copy —
+   the prompt line lives in the composer placeholder. */
 .ms-chat-welcome {
   margin: auto;
   text-align: center;
@@ -486,11 +486,9 @@ html.ms-chat-page-anim {
   width: 96px;
   height: 96px;
   display: inline-block;
-  margin-bottom: 18px;
   --msc-logo-rim: 2.5px;
   --msc-logo-blur: 0.6px;
 }
-.ms-chat-welcome-hint { margin: 0; color: var(--msc-muted); font-size: 0.95rem; }
 
 /* Bubbles */
 .ms-chat-row { display: flex; flex-direction: column; gap: 8px; max-width: 100%; min-width: 0; }
@@ -845,9 +843,12 @@ html.ms-chat-page-anim {
   min-height: 26px;
   max-height: 120px;
   overflow-y: auto;
-  scrollbar-width: thin;
+  /* No scrollbar UI inside the composer (clean look) — past the max-height
+     cap the field still scrolls via wheel/touch/caret, just without the bar. */
+  scrollbar-width: none;
   color: rgb(var(--msc-fg));
 }
+.ms-chat-textarea::-webkit-scrollbar { display: none; }
 .ms-chat-textarea:focus { outline: none; }
 .ms-chat-textarea::placeholder { color: var(--msc-muted); }
 /* Bottom row: right-aligned actions (mic + send). min-height keeps the row

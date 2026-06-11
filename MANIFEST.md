@@ -12,6 +12,45 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11i) — composer polish: placeholder = welcome prompt, no scrollbar UI
+
+Small follow-up to 2026-06-11h. **Re-upload both widget assets.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (welcome hint rule removed; textarea scrollbar hidden) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** (placeholder text, welcome hint removed, re-measure on open) | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (§4.2 welcome + composer bullets) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+- **"Wie kann ich dir helfen?" moved into the composer:** the welcome state
+  is now the 96px orb alone (the hint line below it is gone, incl. its CSS
+  rule); the prompt is the textarea placeholder (replaces "Frag mich
+  etwas …").
+- **No scrollbar UI in the composer:** `scrollbar-width: none` +
+  `::-webkit-scrollbar { display: none }` on the textarea — past the
+  120px cap it still scrolls (wheel/touch/caret), just without the bar.
+- **Stray scrollbar on first open fixed at the root:** init-time
+  `autoGrow()` measured the textarea inside the still-hidden panel
+  (scrollHeight 0 → mis-sized, internally overflowing field, which showed
+  scrollbar arrows until the next keystroke). `openPanel()` now re-runs
+  `autoGrow()` once the panel is visible.
+
+### Test checklist
+
+- [ ] Fresh chat: welcome area shows ONLY the orb; the input shows the
+      muted "Wie kann ich dir helfen?" placeholder.
+- [ ] Reload the page → open the chat via the launcher: no scrollbar
+      arrows/track in the input, before typing anything (the screenshot
+      bug).
+- [ ] Paste many lines: field caps at ~5 lines and scrolls internally
+      with NO visible scrollbar; wheel/touch/arrow keys still scroll it.
+- [ ] Sidebar, modal and mobile fullscreen all show the same clean field.
+
+---
+
 ## ⭐ Session update (2026-06-11h) — unified chat composer (Claude/ChatGPT-style input area)
 
 Contained restyle of the chat INPUT AREA only — message list, tool cards,

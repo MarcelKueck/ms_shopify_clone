@@ -221,10 +221,11 @@ Persistence rules:
   the old share icon did (`openCaptureForm()`).
 - **Message area**: shows the **welcome state** until the first message
   **and** when no persisted history exists. The welcome state is the
-  **96px animated brand orb** (§4.1a, full motion) with a single subtle
-  prompt line beneath it ("Wie kann ich dir helfen?") — no wordmark, no
-  further copy (visual replacement for the `BEHAVIOR_REFERENCE` §4
-  text-based welcome). If a history was restored from `localStorage`,
+  **96px animated brand orb** (§4.1a, full motion) alone — no wordmark, no
+  copy at all; the prompt ("Wie kann ich dir helfen?") lives in the
+  composer's placeholder instead (visual replacement for the
+  `BEHAVIOR_REFERENCE` §4 text-based welcome). If a history was restored
+  from `localStorage`,
   render it directly and skip the welcome state.
 - **Bubble styling** (feature 7): **user** messages take the subtle grey
   fill (the theme's foreground token at low alpha); **assistant** messages
@@ -264,9 +265,14 @@ Persistence rules:
     the CSS `max-height`), after which the container STOPS growing and
     the textarea scrolls internally (`overflow-y: auto`). It never grows
     unbounded and never pushes the panel layout.
-  - **Quiet chrome:** muted placeholder, low-contrast ghost mic (accent
-    fill + pulse only while recording), the dark accent send circle (↑)
-    as the single strong element.
+  - **Quiet chrome:** muted placeholder ("Wie kann ich dir helfen?" — it
+    doubles as the welcome prompt), **no scrollbar UI** inside the field
+    (`scrollbar-width: none` / hidden `::-webkit-scrollbar`; past the cap
+    it still scrolls via wheel/touch/caret), low-contrast ghost mic
+    (accent fill + pulse only while recording), the dark accent send
+    circle (↑) as the single strong element. On open the field is
+    re-measured (`autoGrow()`) because the init-time measurement ran on a
+    hidden panel.
   - Enter sends, Shift+Enter inserts a newline; the whole composer is
     disabled while a response streams. The
     `"KI-Fitnessberater – Antworten können Fehler enthalten"` disclaimer
