@@ -208,9 +208,9 @@ Persistence rules:
   treatment, bold accent; replaces the "**motion**sports" wordmark) +
   header buttons: a **"Per E-Mail teilen"
   text button** (feature 7 — opens the email-summary capture form on demand,
-  see §6a; hidden until the first user message, see below), an
-  **expand/enlarge toggle** (diagonal-double-arrow icon, desktop only — see
-  §7), a new-chat button, and a close button.
+  see §6a; hidden until the first user message, see below), a
+  **layout-mode toggle** (desktop only — switches sidebar ⇄ centered modal,
+  see §4.4; hidden on mobile), a new-chat button, and a close button.
 - **Share button visibility (feature 7):** in a new conversation with no
   message sent the share button is **hidden**. As soon as the first user
   message is sent (and whenever a non-empty history is restored from
@@ -251,35 +251,56 @@ Persistence rules:
 
 ### 4.3 Desktop vs mobile (see §7).
 
-### 4.4 Enlarge / expand (feature 6)
+### 4.4 Desktop layout modes (feature 6, reworked)
 
-- The header expand toggle switches the **desktop** panel between its
-  normal size and a larger size, capped to the viewport via sensible
-  `max-width`/`max-height`. The icon flips between an expand
-  (diagonal-double-arrow) and a shrink glyph.
-- **Desktop heights are viewport-relative:** the default panel keeps its
-  width (410px) at **~2/3 of the viewport height** (`66dvh`); the enlarged
-  panel keeps its width (560px) at **the full available viewport height**
-  minus the design's 20px top/bottom safe margin
-  (`calc(100dvh - 40px)`, matching the existing `max-height`). The message
-  area scrolls within these heights and the input row stays pinned.
-- The chosen size is **persisted for the session** (`localStorage` key
-  `ms-chat-expanded`) and re-applied on init.
-- **No effect on mobile**: the expanded rule is scoped to a desktop media
-  query, so on narrow viewports the near-full-screen inset (§7) always
-  wins.
+> Supersedes the earlier enlarge/expand spec (410px × `66dvh` default,
+> 560px enlarged, `ms-chat-expanded` key). The desktop panel now has two
+> **layout modes** instead of two sizes.
 
-### 4.5 Backdrop (feature 8)
+- **MODE 1 — COMPACT = docked sidebar** (the default for new users): the
+  panel docks to the **right edge**, **full viewport height**, compact
+  width (410px). **No backdrop, no blur** — the storefront stays visible
+  and interactive. The **page makes room**: while the sidebar is open the
+  JS puts `ms-chat-page-shift` on `<html>` (`margin-right: 410px` +
+  `overflow-x: hidden`), so the storefront reflows next to the chat with a
+  smooth margin transition (an `ms-chat-page-anim` class is present only
+  around the change, so a closed chat leaves `<html>` untouched). Sticky
+  elements (the theme's desktop header is `position: sticky`) reflow with
+  the layout; in the 641–749px band, where the theme switches its header
+  to `position: fixed`, a companion rule pins the header's right edge to
+  the sidebar so it shifts too. *(Fallback: if page reflow ever causes
+  unresolvable layout breakage on the live theme, drop the page-shift
+  rules and let the sidebar float over the right edge as an overlay.)*
+- **MODE 2 — FULL = centered modal**: centered, near-fullscreen with a
+  generous margin (`min(900px, 100vw - 128px)` × `calc(100dvh - 112px)`)
+  so the **blurred + dimmed backdrop** (§4.5) shows at the edges and is
+  **click-to-close**. The site is not interactive behind it.
+- The header **mode toggle** switches sidebar ⇄ modal; its icon shows the
+  *target* layout (a centered-window glyph in sidebar mode, a docked-panel
+  glyph in modal mode), so it reads as a mode switch, not a zoom.
+- The chosen mode is **persisted** (`localStorage` key
+  `ms-chat-view-mode`, values `sidebar` | `modal`; a legacy
+  `ms-chat-expanded=1` migrates to `modal`) and the launcher reopens the
+  chat in the last-used mode. Toggling mid-conversation preserves the
+  message-list scroll position (distance from the bottom is kept across
+  the relayout).
+- In both modes the message area scrolls inside the panel and the input
+  row stays pinned. **No effect on mobile** (mode classes are scoped to a
+  ≥641px media query and the toggle button is hidden on mobile).
 
-- While the panel is **open**, a semi-transparent dark **backdrop**
-  (`rgba(0,0,0,0.4)`) is rendered over the storefront so the chat comes
-  into focus like a modal. `backdrop-filter: blur(6px)` (feature 5 — raised
-  ~50% from the original 4px) is layered on as a **progressive
-  enhancement** that degrades to just-dim where unsupported.
-- **Clicking the backdrop closes the panel.**
-- **z-index ordering**: storefront < backdrop < panel; the launcher is
-  hidden while open. The backdrop also provides the dimmed surround that
-  shows around the mobile inset (§7).
+### 4.5 Backdrop (feature 8, reworked)
+
+- The backdrop (`rgba(0,0,0,0.4)` + `backdrop-filter: blur(6px)` as a
+  progressive enhancement, degrading to just-dim) now appears **only
+  behind the desktop centered modal** (§4.4 MODE 2). Clicking it closes
+  the panel.
+- The **sidebar mode renders no backdrop** — the storefront must stay
+  interactive next to the docked panel.
+- **Mobile renders no backdrop** — the fullscreen panel (§7) covers the
+  site completely, so dim/blur would be invisible work and tap-outside
+  cannot exist (close = the header X).
+- **z-index ordering** unchanged: storefront < backdrop < panel; the
+  launcher is hidden while open.
 
 ---
 
@@ -431,19 +452,39 @@ On submit the widget POSTs to `${apiBase}/api/capture-email` with headers
 
 ## 7. Mobile responsiveness
 
-- On narrow viewports (≈ ≤ 640px) the panel goes **near-full-screen**
-  (feature 8) — **not** true full-screen: a small inset/margin on **all
-  sides** (respecting `env(safe-area-inset-*)`) so a sliver of the dimmed
-  storefront backdrop (§4.5) shows around the edges, matching the
-  modal-in-focus look. The panel keeps a rounded corner + border. The
-  close button stays reachable.
+> Supersedes the earlier "near-full-screen with a small inset" spec: on
+> mobile the panel is now **true fullscreen** with visual-viewport
+> keyboard handling.
+
+- On narrow viewports (≤ 640px) the panel is **TRUE fullscreen**: edge to
+  edge, **no margin, no rounded corner, no visible storefront behind, no
+  backdrop/blur** (§4.5). Close only via the header **X**. While open,
+  `ms-chat-mobile-open` on `<html>` freezes page scrolling behind the
+  chat (scoped to the mobile media query).
+- **Keyboard handling (visual viewport):** the panel's height tracks the
+  **visual viewport** — `100vh` → `100dvh` as CSS fallbacks, and while
+  open the JS pins an inline px height from the `visualViewport` API
+  (listening to its `resize`/`scroll` events) plus a
+  `translateY(visualViewport.offsetTop)` re-pin for iOS's
+  focus-auto-scroll. When the on-screen keyboard opens, the **input row
+  stays just above the keyboard and the message list shrinks** and
+  remains scrollable — the panel is never pushed up with the site showing
+  through. If the user was reading the bottom, the list re-pins so the
+  latest message + input stay in view (sending keeps both visible).
+- **Safe areas:** the header keeps its `env(safe-area-inset-top)` padding
+  (notch), the input bar its `env(safe-area-inset-bottom)` padding (home
+  bar), and the fullscreen panel pads `env(safe-area-inset-left/right)`
+  for landscape notches — nothing is clipped or hidden.
+- **UX tuning:** tap targets ≥ 44px (header icon buttons are enlarged to
+  44px on mobile), momentum scrolling in the message list
+  (`-webkit-overflow-scrolling: touch`) with `overscroll-behavior:
+  contain` so scrolling never chains to the page.
 - The launcher stays out of the way of Shopify's own sticky elements
   (cart drawer, mobile nav). Respect safe-area insets
   (`env(safe-area-inset-*)`) so it isn't hidden behind the iOS home bar.
-- Tap targets ≥ 44px; the input must not be obscured by the mobile
-  keyboard (let the panel scroll / use `dvh` units).
 - The comparison table scrolls horizontally inside the panel rather than
-  overflowing it.
+  overflowing it; all tool cards, the capture form and the share button
+  work unchanged in fullscreen.
 
 ---
 

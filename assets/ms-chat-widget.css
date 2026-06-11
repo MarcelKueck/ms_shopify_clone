@@ -41,6 +41,9 @@
 .ms-chat-root *::after {
   box-sizing: border-box;
 }
+/* On :root (not .ms-chat-root) because the page-shift rules live on <html>,
+   outside the widget tree. Single source of truth for the sidebar width. */
+:root { --ms-chat-sidebar-w: 410px; }
 
 /* ---------- Launcher ---------- */
 .ms-chat-launcher {
@@ -233,10 +236,11 @@
   position: fixed;
   right: calc(20px + env(safe-area-inset-right, 0px));
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  /* Fallback geometry only: on desktop one of the mode classes
+     (--sidebar / --modal) always overrides this, and the ≤640px media query
+     below replaces it with true fullscreen on mobile. */
   width: 410px;
   max-width: calc(100vw - 32px);
-  /* Desktop default: ~2/3 of the viewport height (width unchanged). Mobile
-     overrides this in the ≤640px media query below. */
   height: 66dvh;
   max-height: calc(100dvh - 40px);
   background: rgb(var(--msc-bg));
@@ -268,35 +272,123 @@
 }
 .ms-chat-backdrop--open { opacity: 1; pointer-events: auto; }
 
-/* ---------- Enlarged desktop panel (expand toggle, persisted per session) ---------- */
-/* Desktop-only: on mobile the panel uses the near-full-screen inset below, so
-   the expand state must not affect it. Capped to the viewport via the existing
-   max-width/max-height on .ms-chat-panel. */
+/* ---------- Desktop layout modes: docked sidebar ⇄ centered modal ---------- */
+/* Desktop-only (the mobile true-fullscreen block below always wins on narrow
+   viewports). The JS keeps exactly one mode class on the panel, driven by the
+   persisted `ms-chat-view-mode` (default: sidebar). */
 @media (min-width: 641px) {
-  .ms-chat-panel--expanded {
-    width: 560px;
-    /* Enlarged: full available viewport height, minus the same 20px top/bottom
-       safe margin the max-height already enforces (width unchanged). */
-    height: calc(100dvh - 40px);
+  /* MODE 1 — COMPACT = docked sidebar: right edge, full viewport height, no
+     backdrop. The storefront makes room (html.ms-chat-page-shift below) and
+     stays fully visible and interactive next to it. */
+  .ms-chat-panel--sidebar {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: var(--ms-chat-sidebar-w, 410px);
+    max-width: calc(100vw - 48px);
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    border: 0;
+    border-left: 1px solid var(--msc-border);
+    box-shadow: -10px 0 36px rgb(0 0 0 / 12%);
+  }
+  .ms-chat-panel--sidebar.ms-chat-panel--open {
+    animation: ms-chat-sidebar-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* MODE 2 — FULL = centered modal: near-fullscreen with a generous margin so
+     the blurred + dimmed storefront shows at the edges (the backdrop is
+     click-to-close; the site is not otherwise interactive behind it). */
+  .ms-chat-panel--modal {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    width: min(900px, calc(100vw - 128px));
+    height: calc(100dvh - 112px);
+    max-width: none;
+    max-height: none;
+  }
+  .ms-chat-panel--modal.ms-chat-panel--open {
+    animation: ms-chat-modal-in 240ms ease-out;
+  }
+}
+@keyframes ms-chat-sidebar-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes ms-chat-modal-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* The page MAKES ROOM for the docked sidebar (the chat sits alongside the
+   site, not on top): the JS puts these classes on <html> while the sidebar is
+   open on desktop. margin-right shrinks the layout the page reflows into, so
+   normal-flow AND sticky elements (the theme's desktop header is
+   position: sticky) shift left together; overflow-x swallows any 100vw-sized
+   element that would otherwise cause a horizontal scrollbar. The -anim class
+   is only present around the open/close moment (added/removed by the JS), so
+   a closed chat leaves <html> with no leftover transition or offset. */
+html.ms-chat-page-shift {
+  margin-right: var(--ms-chat-sidebar-w, 410px) !important;
+  overflow-x: hidden;
+}
+html.ms-chat-page-anim {
+  transition: margin-right 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* 641–749px band: the theme switches its header to position: fixed
+   (sections/header.liquid), which ignores the html margin — pin its right
+   edge to the sidebar so the header shifts cleanly too. */
+@media (min-width: 641px) and (max-width: 749px) {
+  html.ms-chat-page-shift sticky-header {
+    width: auto !important;
+    right: var(--ms-chat-sidebar-w, 410px) !important;
   }
 }
 
 @media (max-width: 640px) {
-  /* Near-full-screen (not true full-screen): a small inset on all sides,
-     respecting safe-area, so a sliver of the dimmed storefront shows around
-     the edges (modal-in-focus look). Anchored to the bottom inset with a dvh
-     height so the mobile keyboard doesn't obscure the input. */
+  /* MOBILE = TRUE fullscreen: edge to edge, no margin, no rounded corner, no
+     storefront visible behind. The height tracks the VISUAL viewport: while
+     open the JS pins an inline px height (visualViewport API) so the input
+     row stays just above the on-screen keyboard and the message list shrinks
+     to fit — the panel is never pushed up off-screen. 100vh → 100dvh are the
+     no-JS / no-API fallbacks. Close via the header X only. */
   .ms-chat-panel {
-    left: calc(10px + env(safe-area-inset-left, 0px));
-    right: calc(10px + env(safe-area-inset-right, 0px));
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    top: auto;
-    width: auto;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    width: 100%;
     max-width: none;
-    height: calc(100dvh - 20px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    max-height: calc(100dvh - 20px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    border-radius: var(--msc-card-radius);
-    border: 1px solid var(--msc-border);
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    border: 0;
+    /* Landscape notch: keep header/messages/input out of the side strips.
+       (Top/bottom insets are handled by the header/inputbar paddings.) */
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /* The site is fully covered — a backdrop/blur is pointless, and removing it
+     also removes tap-outside-to-close (close = X only). */
+  .ms-chat-backdrop { display: none; }
+  /* The sidebar/modal layout toggle is a desktop-only concept. */
+  .ms-chat-mode { display: none; }
+  /* Comfortable thumb targets for the header buttons (>=44px). */
+  .ms-chat-iconbtn { width: 44px; height: 44px; min-width: 44px; }
+}
+/* While the mobile fullscreen chat is open, freeze the page behind it: no
+   rubber-band scrolling, and iOS can't scroll the site into view under the
+   keyboard. Scoped to mobile so desktop modes never touch page scrolling. */
+@media (max-width: 640px) {
+  html.ms-chat-mobile-open,
+  html.ms-chat-mobile-open body {
+    overflow: hidden !important;
+    height: 100%;
   }
 }
 
@@ -373,6 +465,8 @@
   overflow-x: hidden;
   min-width: 0;
   -webkit-overflow-scrolling: touch;
+  /* Don't chain scrolling out of the message list into the page. */
+  overscroll-behavior: contain;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -800,7 +894,9 @@
   .ms-chat-backdrop,
   .ms-chat-typing span,
   .ms-chat-share--visible,
+  .ms-chat-panel--open,
   .ms-chat-mic--recording { transition: none; animation: none; }
+  html.ms-chat-page-anim { transition: none; }
   /* Freeze the animated brand mark EVERYWHERE (launcher + halo + welcome +
      product CTA) to its static wave frame. Accessibility beats flair. */
   .ms-chat-logo .ms-chat-logo-bundle,

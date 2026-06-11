@@ -12,6 +12,110 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11g) — desktop sidebar ⇄ modal layout modes + mobile TRUE fullscreen with keyboard handling
+
+Two independent reworks of the panel's shipping form. **Re-upload both widget
+assets.** Supersedes the "2/3 desktop height / enlarged 560px"
+(`ms-chat-expanded`) and "mobile near-fullscreen with inset" behaviors.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (desktop mode blocks, page-shift rules, mobile fullscreen block) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** (view-mode state/toggle, page shift, visualViewport handling) | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (§4.2/§4.4/§4.5/§7 rewritten) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### Part 1 — DESKTOP (≥641px): two layout modes
+
+- **Sidebar (COMPACT, default for new users):** docked to the right edge,
+  full viewport height, 410px wide, **no backdrop/blur** — the site stays
+  visible and interactive. **Page-reflow was used (NOT the overlay
+  fallback):** while open, `ms-chat-page-shift` on `<html>` applies
+  `margin-right: 410px` (+ `overflow-x: hidden`), so the storefront reflows
+  next to the chat with a smooth 360ms margin transition (a temporary
+  `ms-chat-page-anim` class carries the transition only around the change).
+  The desktop header is `position: sticky`, so it reflows/shifts with the
+  layout; in the 641–749px band, where the theme makes `sticky-header`
+  `position: fixed`, a companion rule pins its right edge to the sidebar.
+  Known cosmetic tradeoff: the page's own scrollbar sits under the docked
+  panel (wheel/touch scrolling unaffected); viewport-`fixed` toasts/overlays
+  (e.g. the notification bar) stay viewport-relative beneath the panel.
+- **Modal (FULL):** centered `min(900px, 100vw - 128px)` ×
+  `calc(100dvh - 112px)` over the existing dimmed + 6px-blurred backdrop;
+  backdrop click closes. Site not interactive behind.
+- The header **mode toggle** (replaces enlarge) switches sidebar ⇄ modal;
+  its icon shows the *target* layout (centered-window / docked-panel glyph).
+  Mode persists in `localStorage` `ms-chat-view-mode` (legacy
+  `ms-chat-expanded=1` migrates to `modal`); the launcher reopens in the
+  last-used mode. Toggling preserves the message list's distance-from-bottom
+  across the relayout. Open/close/toggle are animated (slide-in for the
+  sidebar, fade/scale for the modal; all disabled under reduced motion).
+  Closing removes every page-side class — no leftover offset or backdrop.
+
+### Part 2 — MOBILE (≤640px): true fullscreen + keyboard handling
+
+- **True fullscreen:** top/left/right 0, 100% width, no margin, no border or
+  radius, **backdrop hidden** (site fully covered) → close via the X only.
+  While open, `ms-chat-mobile-open` on `<html>` freezes page scroll behind
+  the chat (scoped to ≤640px).
+- **Keyboard:** panel height = the **visual viewport** — CSS fallbacks
+  `100vh` → `100dvh`, plus the JS pins an inline px height from the
+  `visualViewport` API on its `resize`/`scroll` events and re-pins with
+  `translateY(visualViewport.offsetTop)` (iOS focus auto-scroll). The input
+  row stays just above the keyboard, the message list shrinks and stays
+  scrollable, and if the user was at the bottom the list re-pins so the
+  latest message + input remain in view.
+- **UX:** header icon buttons enlarged to 44px on mobile; the layout-mode
+  toggle is hidden (desktop concept); `overscroll-behavior: contain` +
+  momentum scrolling on the message list; safe-area insets respected (header
+  top, input-bar bottom, new left/right padding for landscape notches).
+- Desktop and mobile branches are cleanly separated: all desktop side
+  effects (page shift, backdrop) and mobile side effects (scroll lock,
+  viewport sizing) gate on one `matchMedia('(min-width: 641px)')`, which is
+  re-synced when the viewport crosses the breakpoint while open.
+
+### Dev-theme test checklist — DESKTOP
+
+1. **Sidebar opens with page reflow:** fresh browser profile (no
+   localStorage) → launcher opens a full-height right-docked sidebar, no
+   dim/blur; the storefront slides/reflows left by 410px (sticky header
+   included) and remains scrollable and clickable (add to cart, nav, etc.).
+2. **Modal mode:** click the mode toggle (centered-window icon) → panel
+   animates to a centered near-fullscreen window with a generous margin;
+   storefront behind is dimmed + blurred; clicking the blurred edge closes
+   the chat; the toggle now shows the docked-panel icon.
+3. **Persistence:** pick modal, reload, reopen → opens as modal. Switch to
+   sidebar, reload, reopen → opens as sidebar.
+4. **Scroll keeps on toggle:** in a long conversation, scroll mid-history,
+   toggle modes both ways → reading position (distance from bottom) is kept.
+5. **Clean close:** close from sidebar mode → the page animates back to full
+   width with no leftover right offset, horizontal scrollbar, or stuck
+   backdrop; close from modal mode → backdrop gone, page untouched.
+6. **641–749px band:** at ~700px width, opening the sidebar also shifts the
+   (fixed) header left so it doesn't run beneath the panel.
+
+### Dev-theme test checklist — MOBILE (real device, esp. iOS Safari)
+
+1. **True fullscreen:** tap the launcher → chat covers the entire screen
+   edge-to-edge; no margin, no website sliver, no blur ring; page behind
+   does not scroll; the only way out is the header X (which works).
+2. **Keyboard:** focus the input → the input row stays pinned directly
+   above the keyboard, the message list shrinks and scrolls above it, and
+   NO website is visible behind/below the panel (the old push-up bug).
+   Dismiss the keyboard → panel returns to full height.
+3. **Send flow:** with the keyboard open, send a message → the latest
+   message and the input stay in view while the reply streams.
+4. **Safe areas:** on a notched phone, the header clears the notch, the
+   disclaimer/input clear the home bar, and in landscape nothing hides
+   under the rounded corners/notch strips.
+5. **Tap targets:** header X / new-chat are comfortably tappable (44px);
+   the mode-toggle button is absent on mobile.
+6. **Features intact:** product/compare/checkout/showroom cards, the
+   contact + email-capture forms, share button and voice input all render
+   and work in fullscreen (compare table scrolls horizontally inside).
+
+---
+
 ## ⭐ Session update (2026-06-11f) — FIX: welcome/avatar orbs lose their waves while the panel is open
 
 One-cause JS bug fix. All orb SVGs shared the same gradient ids
