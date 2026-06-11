@@ -12,6 +12,69 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11b) — clear liquid-glass orb v3, distinct light-strands, orb welcome state
+
+Three changes to the (still pure-CSS) brand mark and the chat welcome screen.
+**Re-upload all three theme files** — this round touches the JS too.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (orb v3 + welcome styles) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** (orb welcome state) | ✅ Yes |
+| `templates/product.json` | **MODIFIED** (CTA strand blur 1px → 0.4px) | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (docs only) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+1. **Clear liquid glass (no dark fill, no specks).** The orb's bubble is now a
+   barely-there translucent white fill + `backdrop-filter: blur(6px)
+   saturate(150%)` frost on the orb itself, so whatever sits behind it shows
+   through — actual liquid glass. The dust-speck layers are gone. The
+   chromatic rim (mint/red/blue inset shadows) stays as the glass edge. The
+   launcher button matches: near-transparent fill (`rgb(255 255 255 / 10%)`),
+   stronger frost (14px), lighter drop shadow.
+2. **Distinct light-strands instead of blurred bands.** Each pseudo-element
+   now paints one horizontal color gradient and **masks it into thin
+   radial-gradient ARC rings** (union of mask layers), producing genuinely
+   curved, crisp lines: 3 strands + 1 faint glow arc bulging up (red →
+   magenta → warm white → violet → blue), 2 strands bulging down (orange →
+   cream → mint → blue). Blur is sub-pixel (default 0.5px) so lines stay
+   distinct. Motion is livelier: base cycle 9s → **7s**, wider rotation swing
+   (±7–8°), added vertical drift (±3–4%) and stronger hue-rotate (±24–30°) —
+   still smooth/subtle, just more alive. Fallback: without `mask-image`
+   support the strands degrade to a soft full-gradient disc.
+3. **Orb welcome state (JS + CSS).** `buildWelcome()` no longer renders the
+   "motionsports" wordmark + heading + paragraph. A fresh chat now shows the
+   **96px full-motion orb** centered with a single muted line beneath it:
+   *"Wie kann ich dir helfen?"* — nothing else. (The now-unused `wordmark()`
+   helper was removed; the header's "Mo" wordmark is unaffected.) New CSS:
+   `.ms-chat-welcome-logo`, `.ms-chat-welcome-hint`.
+4. Avatar still static; CTA still the calm 22s variant (its inline CSS now
+   passes `--msc-logo-blur: 0.4px` to keep the strands crisp at 36px);
+   `prefers-reduced-motion` still freezes every variant including the
+   welcome orb.
+
+### Dev-theme test checklist (this session)
+
+1. **Liquid glass:** the launcher has NO dark/black fill — the storefront is
+   visible, frosted, through the sphere; the colorful rim + strands define it.
+   Same on the product page CTA (white page shows through).
+2. **Distinct strands:** the light-waves read as separate thin curved LINES
+   (count ~5 plus a faint glow arc), not a blurred ribbon; they cross and
+   braid as they float; noticeably more motion than before but still calm.
+3. **Welcome state:** open a fresh chat ("Neuen Chat starten" if needed): a
+   large animated orb sits centered with only "Wie kann ich dir helfen?"
+   below it — no motionsports wordmark, no paragraph copy. Sending the first
+   message clears it as before; restored histories skip it.
+4. **Avatar stays calm** (still frame); **reduced-motion** freezes launcher,
+   welcome orb and CTA to the same static braid frame.
+5. **Fallbacks:** no `backdrop-filter` → orb/launcher lose the frost but keep
+   the faint fill + rim + strands; no `mask-image` → strands soften to a
+   gradient disc; no errors in either case.
+
+---
+
 ## ⭐ Session update (2026-06-11) — glass-sphere orb v2 + liquid-glass launcher
 
 Visual redesign of the (still pure-CSS) animated mark, modelled on a Siri-orb

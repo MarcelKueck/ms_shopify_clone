@@ -215,8 +215,9 @@
     return tpl.content.firstElementChild;
   }
 
-  // Brand logo element. The variant (white on the dark launcher, black on the
-  // light panel) is chosen per context in CSS via the extra class.
+  // Brand logo element: an empty span the CSS turns into the animated glass
+  // orb (.ms-chat-logo); the variant (full motion on launcher/welcome, static
+  // avatar) is chosen per context via the extra class.
   function logoEl(extraClass) {
     return el('span', { class: 'ms-chat-logo ' + (extraClass || ''), 'aria-hidden': 'true' });
   }
@@ -877,13 +878,6 @@
   var typingEl = null;
   var rateTimer = null;
 
-  function wordmark() {
-    var w = el('span', { class: 'ms-chat-wordmark' });
-    w.appendChild(el('b', { text: 'motion' }));
-    w.appendChild(el('span', { text: 'sports' }));
-    return w;
-  }
-
   function buildShell() {
     root = el('div', { class: 'ms-chat-root' });
 
@@ -900,8 +894,8 @@
     panel = el('div', { class: 'ms-chat-panel', role: 'dialog', 'aria-label': 'AI Fitnessberater', 'aria-modal': 'false' });
 
     var header = el('div', { class: 'ms-chat-header' });
-    // Feature 11: the header shows the chatbot's name "Mo" (same type
-    // treatment as the wordmark; the welcome state keeps the brand wordmark).
+    // Feature 11: the header shows the chatbot's name "Mo" (same wordmark
+    // type treatment; the welcome state shows the animated brand orb).
     var headerTitle = el('span', { class: 'ms-chat-wordmark' });
     headerTitle.appendChild(el('b', { text: 'Mo' }));
     header.appendChild(headerTitle);
@@ -995,11 +989,14 @@
     applyExpanded();
   }
 
+  // Welcome state: the animated brand orb is the hero (an empty chat has
+  // nothing to read, so full motion is fine here — reduced-motion still
+  // freezes it via CSS), with a single subtle prompt line beneath it. No
+  // wordmark, no further copy.
   function buildWelcome() {
     var w = el('div', { class: 'ms-chat-welcome' });
-    w.appendChild(wordmark());
-    w.appendChild(el('h2', { text: 'Wie kann ich dir helfen?' }));
-    w.appendChild(el('p', { text: 'Frag mich nach Empfehlungen, vergleiche Produkte oder beschreib einfach deine Trainingssituation.' }));
+    w.appendChild(logoEl('ms-chat-welcome-logo'));
+    w.appendChild(el('p', { class: 'ms-chat-welcome-hint', text: 'Wie kann ich dir helfen?' }));
     return w;
   }
 
