@@ -12,6 +12,59 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11d) — true sine waves (inline SVG strands)
+
+The wave strands are no longer circle arcs (which can only bow one way — they
+read as half-circles changing amplitude). Each strand is now a **true sine
+S-curve**: it rises into a crest on one side of the bubble, swings through
+the midline, troughs on the other side, and still starts/ends at the **same
+two anchor points** on the bubble's left and right. Implemented as a tiny
+**inline SVG** (cubic-bézier paths with gradient strokes) that the widget JS
+injects into every `.ms-chat-logo` span — still self-contained: no image
+asset, no external request, no library. The glass bubble, rim, pinned-anchor
+animation, variants and reduced-motion behaviour are unchanged.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (strand masks → SVG styling) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** (LOGO_WAVES SVG + injection) | ✅ Yes |
+| `templates/product.json` | **UNCHANGED** (CTA span filled by the JS) | ❌ No |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (§4.1a, docs only) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+1. **JS:** new trusted-markup constant `LOGO_WAVES` — an SVG (`viewBox
+   0 0 100 100`) with two `<g>` bundles of sine paths: cool (blue → cyan →
+   mint; big/medium/subtle strands + a wide low-opacity glow copy; crest left,
+   trough right) and warm (cream → amber → orange → red; mirrored). Every
+   path is `M0 50 … 100 50` → shared anchors. `logoEl()` appends it; `init()`
+   also fills any server-rendered empty `.ms-chat-logo` span (the product
+   CTA). Gradient stops fade to transparent at both ends.
+2. **CSS:** the radial-arc `mask-image` pseudo-element strands are gone;
+   `.ms-chat-logo-waves` / `.ms-chat-logo-bundle--cool/--warm` style and
+   animate the SVG groups instead. The existing pinned-anchor keyframes
+   (`ms-chat-logo-wave-a/b`: scaleY breathing + skewX crest lean +
+   hue-rotate, uneven stops, two speeds, offset phase) apply as-is via
+   `transform-box: view-box`. Avatar-static and reduced-motion rules now
+   target `.ms-chat-logo-bundle`.
+3. **Fallback note:** if the widget JS doesn't run, orb spans show the empty
+   glass bubble (rim + frost, no waves) — the CTA is inert without the JS
+   anyway.
+
+### Dev-theme test checklist (this session)
+
+1. **Sine shape:** strands clearly rise above AND dip below the midline (an
+   S, not a half-circle): cool bundle crests left-of-center and troughs
+   right; warm bundle mirrored; all converge at the same left/right points.
+2. **Motion:** amplitudes breathe and crests lean as before; ends stay
+   pinned; no jumps over ≥30s.
+3. **All four placements** (launcher, 96px welcome, static avatar, slow CTA)
+   show the sine bundle; the CTA orb gets its waves once the widget JS loads.
+4. **Reduced motion** freezes everything to the static sine frame.
+
+---
+
 ## ⭐ Session update (2026-06-11c) — anchored wave bundle (waves share one origin left & right)
 
 Wave geometry + motion rework only (CSS, one file). The strands now form a

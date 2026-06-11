@@ -145,38 +145,38 @@ Persistence rules:
 ### 4.1a The animated brand mark (`.ms-chat-logo`)
 
 - The Mo logo is **no longer an image asset**: it is a self-contained,
-  pure-CSS, Siri-style **liquid-glass sphere** — a CLEAR frosted bubble
-  (no dark fill) with a **chromatic rim light** (mint at the top, red
-  bottom-left, blue bottom-right, via layered inset shadows) and
-  **distinct, curved light-strands** floating inside: thin multi-color
-  lines (red/orange → magenta → warm white → mint → violet → blue) that
-  arc across the middle and braid as they move. Implementation: the
-  `.ms-chat-logo` root span carries the glass (a faint translucent fill +
-  `backdrop-filter: blur + saturate` frost + the rim, `overflow: hidden`,
-  pill radius); each pseudo-element paints one horizontal color gradient
-  and **masks it into thin radial-gradient ARC rings** (mask layers union
-  by default), so every strand is a genuinely curved line, not a blurred
-  band. **All arcs share the same two anchor points** — the left and right
-  ends of the bubble's horizontal midline — because each arc's circle is
-  calibrated to pass through both (center `(50%, 50±d)`, radius
-  `R = √(50² + d²)`): the strands form one converging bundle that runs
-  edge-to-edge and fades out at its shared origins, differing only in
-  amplitude and bow direction. `::before` is the cool bundle bowing up
-  (blue → cyan → mint, 3 strands + a faint glow arc), `::after` the warm
-  bundle bowing down (cream → amber → orange → red, 2 strands + glow).
-  Only a sub-pixel `blur(...)` is applied: the strands stay **distinct**.
-  No image file, no external request, no library; drop the class on any
-  empty `<span>`.
-- **Pinned-anchor motion / seamless loop:** the animation reads as the
-  waves flowing left-to-right while staying attached at both ends. Only
-  `scaleY` (amplitude breathing) and `skewX` (crest lean) are animated,
-  about the centre — both transforms leave the midline, and therefore
-  both anchor points, mathematically fixed. Three unevenly spaced
-  keyframe stops per loop, two different layer speeds and an offset phase
-  make the wavelength/amplitude/phase drift feel random and organic,
-  while symmetric keyframes (0% == 100%) keep each loop seamless; a
-  `hue-rotate` swing shifts the colors as the strands move.
-- **Crisp at any size:** everything is gradient-based, so the mark scales
+  Siri-style **liquid-glass sphere** — a CLEAR frosted bubble (no dark
+  fill) with a **chromatic rim light** (mint at the top, red bottom-left,
+  blue bottom-right, via layered inset shadows) and a bundle of **true
+  sine waves** flowing left-to-right inside. Implementation: the
+  `.ms-chat-logo` root span carries the glass in pure CSS (a faint
+  translucent fill + `backdrop-filter: blur + saturate` frost + the rim,
+  `overflow: hidden`, pill radius); the waves are a tiny **inline SVG**
+  (`LOGO_WAVES` in the JS — injected by `logoEl()` and, for the
+  server-rendered product-CTA span, at `init()`): cubic-bézier
+  **S-curves** that all start at `(0, 50)` and end at `(100, 50)` — the
+  **same two anchor points** on the bubble's midline — and crest/trough
+  in between with different amplitudes and phases. The cool bundle
+  (blue → cyan → mint, 3 strands + a wide faint glow copy) crests left
+  and troughs right; the warm bundle (cream → amber → orange → red,
+  2 strands + glow) is mirrored, so the bundles cross like the reference.
+  Strokes are painted by horizontal gradients that fade out at both ends
+  (the bundle converges and dissolves at its shared origins); only a
+  sub-pixel `blur(...)` is applied, so the strands stay **distinct**.
+  No image file, no external request, no library.
+- **Pinned-anchor motion / seamless loop:** the two `<g>` bundles are
+  animated with CSS keyframes; the animation reads as the waves flowing
+  left-to-right while staying attached at both ends. Only `scaleY`
+  (amplitude breathing) and `skewX` (crest lean) are animated, about the
+  viewBox centre (`transform-box: view-box`) — both transforms leave the
+  midline, and therefore both anchor points, mathematically fixed. Three
+  unevenly spaced keyframe stops per loop, two different bundle speeds
+  and an offset phase make the wavelength/amplitude/phase drift feel
+  random and organic, while symmetric keyframes (0% == 100%) keep each
+  loop seamless; a `hue-rotate` swing shifts the colors as they move.
+- **Crisp at any size:** everything is vector- and gradient-based (the
+  SVG scales with its span; stroke widths are viewBox-relative), so the
+  mark scales
   from the 96px welcome hero down to the 36px avatar/CTA. Custom
   properties tune it per context: `--msc-logo-dur` (wave cycle; longer =
   calmer), `--msc-logo-blur` (strand softness — keep small),

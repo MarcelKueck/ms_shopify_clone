@@ -215,11 +215,60 @@
     return tpl.content.firstElementChild;
   }
 
-  // Brand logo element: an empty span the CSS turns into the animated glass
-  // orb (.ms-chat-logo); the variant (full motion on launcher/welcome, static
-  // avatar) is chosen per context via the extra class.
+  // The wave bundle inside the brand orb (trusted, internal markup — never
+  // model output). True sine S-curves: every path starts at (0,50) and ends
+  // at (100,50) — the shared anchor points on the bubble's midline — and
+  // crests/troughs in between with different amplitudes and phases. Strokes
+  // are painted by the horizontal gradients; the CSS animates the two <g>
+  // bundles with scaleY/skewX about the centre, which keeps both anchors
+  // pinned. Glow = a wide low-opacity copy of each bundle's main strand.
+  // Duplicate gradient ids across orb instances are fine (the defs are
+  // identical, and url(#...) resolves to the first match in the document).
+  var LOGO_WAVES =
+    '<svg class="ms-chat-logo-waves" viewBox="0 0 100 100" aria-hidden="true" focusable="false">' +
+      '<defs>' +
+        '<linearGradient id="ms-chat-lg-cool" x1="0" y1="0" x2="1" y2="0">' +
+          '<stop offset="0" stop-color="#ff8a5e" stop-opacity="0"/>' +
+          '<stop offset="0.08" stop-color="#ff8a5e" stop-opacity="0.5"/>' +
+          '<stop offset="0.3" stop-color="#4678ff"/>' +
+          '<stop offset="0.55" stop-color="#3cc3ff"/>' +
+          '<stop offset="0.78" stop-color="#7bffcd"/>' +
+          '<stop offset="1" stop-color="#96ffbe" stop-opacity="0"/>' +
+        '</linearGradient>' +
+        '<linearGradient id="ms-chat-lg-warm" x1="0" y1="0" x2="1" y2="0">' +
+          '<stop offset="0" stop-color="#ffc896" stop-opacity="0"/>' +
+          '<stop offset="0.1" stop-color="#ffe2be" stop-opacity="0.6"/>' +
+          '<stop offset="0.35" stop-color="#ffb43c"/>' +
+          '<stop offset="0.62" stop-color="#ff7a32"/>' +
+          '<stop offset="0.85" stop-color="#ff4646"/>' +
+          '<stop offset="1" stop-color="#ff4646" stop-opacity="0"/>' +
+        '</linearGradient>' +
+      '</defs>' +
+      '<g class="ms-chat-logo-bundle ms-chat-logo-bundle--cool" stroke="url(#ms-chat-lg-cool)">' +
+        '<path d="M0 50 C 16 18, 36 14, 52 40 S 82 74, 100 50" stroke-width="6.5" opacity="0.3"/>' +
+        '<path d="M0 50 C 16 18, 36 14, 52 40 S 82 74, 100 50" stroke-width="2.2"/>' +
+        '<path d="M0 50 C 18 28, 38 24, 54 44 S 84 66, 100 50" stroke-width="1.7" opacity="0.85"/>' +
+        '<path d="M0 50 C 20 38, 42 34, 58 48 S 86 60, 100 50" stroke-width="1.3" opacity="0.7"/>' +
+      '</g>' +
+      '<g class="ms-chat-logo-bundle ms-chat-logo-bundle--warm" stroke="url(#ms-chat-lg-warm)">' +
+        '<path d="M0 50 C 16 76, 36 84, 54 60 S 82 26, 100 50" stroke-width="6.5" opacity="0.28"/>' +
+        '<path d="M0 50 C 16 76, 36 84, 54 60 S 82 26, 100 50" stroke-width="2.2"/>' +
+        '<path d="M0 50 C 20 64, 40 68, 58 54 S 86 38, 100 50" stroke-width="1.6" opacity="0.85"/>' +
+      '</g>' +
+    '</svg>';
+  function logoWaves() {
+    var tpl = document.createElement('template');
+    tpl.innerHTML = LOGO_WAVES;
+    return tpl.content.firstElementChild;
+  }
+
+  // Brand logo element: the glass bubble (CSS on .ms-chat-logo) with the
+  // sine-wave SVG inside; the variant (full motion on launcher/welcome,
+  // static avatar) is chosen per context via the extra class.
   function logoEl(extraClass) {
-    return el('span', { class: 'ms-chat-logo ' + (extraClass || ''), 'aria-hidden': 'true' });
+    var s = el('span', { class: 'ms-chat-logo ' + (extraClass || ''), 'aria-hidden': 'true' });
+    s.appendChild(logoWaves());
+    return s;
   }
 
   // ---------------------------------------------------------------------------
@@ -1643,6 +1692,15 @@
     autoGrow(); // size the input to its clean single-line height up front
     renderAllMessages();
     updateInputState();
+    // Server-rendered orb spans (the product-page CTA renders an empty
+    // .ms-chat-logo span in the template) get the same wave SVG as the
+    // JS-built ones.
+    try {
+      var orbs = document.querySelectorAll('.ms-chat-logo');
+      for (var oi = 0; oi < orbs.length; oi++) {
+        if (!orbs[oi].firstElementChild) orbs[oi].appendChild(logoWaves());
+      }
+    } catch (e) {}
     window.MS_CHAT = window.MS_CHAT || {};
     window.MS_CHAT.openWithProduct = openWithProduct;
     window.MS_CHAT.openEmailSummary = openCaptureForm;
