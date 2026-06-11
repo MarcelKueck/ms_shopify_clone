@@ -197,8 +197,11 @@
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
-    expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
-    shrink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
+    // Desktop layout-mode toggle glyphs (the icon shows the TARGET mode):
+    // `modal` = a centered window inside the viewport frame, `sidebar` = a
+    // panel docked to the right edge of the viewport frame.
+    modal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>',
+    sidebar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
     mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
@@ -926,11 +929,29 @@
   // ---------------------------------------------------------------------------
   // Widget shell.
   // ---------------------------------------------------------------------------
-  var root, launcher, panel, backdrop, expandBtn, shareBtn, messagesEl, textarea, sendBtn, micBtn, noticeEl, welcomeEl;
-  var EXPAND_KEY = 'ms-chat-expanded';
-  var state = { open: false, streaming: false, rateLocked: false, expanded: lsGet(EXPAND_KEY) === '1' };
+  var root, launcher, panel, backdrop, modeBtn, shareBtn, messagesEl, textarea, sendBtn, micBtn, noticeEl, welcomeEl;
+  // Desktop layout mode, persisted across page loads. 'sidebar' = docked
+  // right-edge sidebar (page makes room, site stays interactive); 'modal' =
+  // centered near-fullscreen modal over the blurred backdrop. Mobile ignores
+  // this entirely (true fullscreen, see the ≤640px CSS + syncMobileViewport).
+  var VIEW_MODE_KEY = 'ms-chat-view-mode';
+  function loadViewMode() {
+    var v = lsGet(VIEW_MODE_KEY);
+    if (v === 'sidebar' || v === 'modal') return v;
+    // Migration: the old enlarged state was the focused/large layout, which
+    // maps to the modal; everyone else starts in the default sidebar.
+    return lsGet('ms-chat-expanded') === '1' ? 'modal' : 'sidebar';
+  }
+  var state = { open: false, streaming: false, rateLocked: false, viewMode: loadViewMode() };
   var typingEl = null;
   var rateTimer = null;
+
+  // Desktop/mobile branch point — matches the CSS breakpoint (641px). All
+  // desktop-mode side effects (page shift, backdrop) and all mobile side
+  // effects (scroll lock, visual-viewport sizing) are gated on this so the
+  // two parts can never bleed into each other.
+  var desktopMq = window.matchMedia ? window.matchMedia('(min-width: 641px)') : null;
+  function isDesktop() { return desktopMq ? desktopMq.matches : true; }
 
   function buildShell() {
     root = el('div', { class: 'ms-chat-root' });
@@ -962,11 +983,12 @@
     shareBtn = el('button', { class: 'ms-chat-share', type: 'button', text: 'Per E-Mail teilen', 'aria-label': 'Zusammenfassung per E-Mail teilen', title: 'Zusammenfassung per E-Mail' });
     shareBtn.addEventListener('click', function () { openCaptureForm(); });
     actions.appendChild(shareBtn);
-    // Feature 6: enlarge/expand toggle (desktop only; no-op styling on mobile).
-    expandBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Chat vergrößern', title: 'Vergrößern' });
-    expandBtn.appendChild(icon(state.expanded ? 'shrink' : 'expand'));
-    expandBtn.addEventListener('click', toggleExpand);
-    actions.appendChild(expandBtn);
+    // Feature 6 (reworked): desktop layout-mode toggle, sidebar ⇄ modal.
+    // Hidden on mobile via CSS (.ms-chat-mode); icon/labels set by
+    // applyViewMode().
+    modeBtn = el('button', { class: 'ms-chat-iconbtn ms-chat-mode', type: 'button' });
+    modeBtn.addEventListener('click', toggleViewMode);
+    actions.appendChild(modeBtn);
     var newBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Neuen Chat starten', title: 'Neuen Chat starten' });
     newBtn.appendChild(icon('refresh'));
     newBtn.addEventListener('click', function () { startNewChat(); });
@@ -1016,7 +1038,21 @@
     root.appendChild(panel);
     document.body.appendChild(root);
 
-    applyExpanded();
+    applyViewMode();
+
+    // Mobile keyboard handling: the visual viewport shrinks/scrolls when the
+    // on-screen keyboard opens — re-pin the panel to the visible area so the
+    // input stays just above the keyboard (no-ops while closed / on desktop).
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', syncMobileViewport);
+      window.visualViewport.addEventListener('scroll', syncMobileViewport);
+    }
+    // Crossing the desktop/mobile breakpoint while open: re-sync the page
+    // shift, backdrop and scroll lock for the new branch.
+    if (desktopMq) {
+      if (desktopMq.addEventListener) desktopMq.addEventListener('change', syncChrome);
+      else if (desktopMq.addListener) desktopMq.addListener(syncChrome);
+    }
   }
 
   // Feature 7: the share button is hidden until the conversation has at least
@@ -1027,20 +1063,81 @@
     shareBtn.classList.toggle('ms-chat-share--visible', messages.length > 0);
   }
 
-  function applyExpanded() {
+  // Keep exactly one desktop mode class on the panel and the toggle button's
+  // icon/labels in sync (the icon shows the TARGET mode, so it reads as a
+  // layout switch, not a zoom).
+  function applyViewMode() {
     if (!panel) return;
-    panel.classList.toggle('ms-chat-panel--expanded', !!state.expanded);
-    if (expandBtn) {
-      expandBtn.replaceChildren(icon(state.expanded ? 'shrink' : 'expand'));
-      expandBtn.title = state.expanded ? 'Verkleinern' : 'Vergrößern';
-      expandBtn.setAttribute('aria-label', state.expanded ? 'Chat verkleinern' : 'Chat vergrößern');
+    panel.classList.toggle('ms-chat-panel--sidebar', state.viewMode === 'sidebar');
+    panel.classList.toggle('ms-chat-panel--modal', state.viewMode === 'modal');
+    panel.setAttribute('aria-modal', state.viewMode === 'modal' ? 'true' : 'false');
+    if (modeBtn) {
+      var toModal = state.viewMode === 'sidebar';
+      modeBtn.replaceChildren(icon(toModal ? 'modal' : 'sidebar'));
+      modeBtn.title = toModal ? 'Als zentriertes Fenster öffnen' : 'Als Seitenleiste andocken';
+      modeBtn.setAttribute('aria-label', modeBtn.title);
     }
+    syncChrome();
   }
 
-  function toggleExpand() {
-    state.expanded = !state.expanded;
-    lsSet(EXPAND_KEY, state.expanded ? '1' : '0');
-    applyExpanded();
+  function toggleViewMode() {
+    // The relayout changes the message area's width AND height — preserve the
+    // reading position by keeping the distance from the bottom constant.
+    var fromBottom = messagesEl
+      ? (messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight)
+      : 0;
+    state.viewMode = state.viewMode === 'sidebar' ? 'modal' : 'sidebar';
+    lsSet(VIEW_MODE_KEY, state.viewMode);
+    applyViewMode();
+    requestAnimationFrame(function () {
+      if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight - messagesEl.clientHeight - fromBottom;
+    });
+  }
+
+  // Everything OUTSIDE the panel that depends on open-state + mode + viewport:
+  // the modal backdrop, the desktop page shift, the mobile scroll lock and the
+  // mobile visual-viewport sizing. Single place, so open/close/toggle/resize
+  // can never leave a stray backdrop, offset or lock behind.
+  function syncChrome() {
+    var desktop = isDesktop();
+    if (backdrop) backdrop.classList.toggle('ms-chat-backdrop--open', state.open && desktop && state.viewMode === 'modal');
+    setPageShift(state.open && desktop && state.viewMode === 'sidebar');
+    document.documentElement.classList.toggle('ms-chat-mobile-open', state.open && !desktop);
+    syncMobileViewport();
+  }
+
+  // Desktop sidebar "make room": margin-right on <html> reflows the storefront
+  // next to the docked panel. The -anim class only lives around the change so
+  // the page never keeps a permanent transition (or offset) once closed.
+  var pageShiftTimer = null;
+  function setPageShift(on) {
+    var de = document.documentElement;
+    if (de.classList.contains('ms-chat-page-shift') === on) return;
+    de.classList.add('ms-chat-page-anim');
+    de.classList.toggle('ms-chat-page-shift', on);
+    if (pageShiftTimer) clearTimeout(pageShiftTimer);
+    pageShiftTimer = setTimeout(function () { de.classList.remove('ms-chat-page-anim'); pageShiftTimer = null; }, 420);
+  }
+
+  // Mobile keyboard handling: size the OPEN panel to the visual viewport so
+  // the input row sits just above the on-screen keyboard and the message list
+  // shrinks to fit. translateY(offsetTop) re-pins the fixed panel when iOS
+  // scrolls the layout viewport to reveal the focused input. On desktop (or
+  // closed) all inline styles are cleared so the CSS modes rule alone.
+  function syncMobileViewport() {
+    if (!panel) return;
+    var vv = window.visualViewport;
+    if (state.open && !isDesktop() && vv) {
+      var pinned = messagesEl && (messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight) < 120;
+      panel.style.height = Math.round(vv.height) + 'px';
+      panel.style.transform = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
+      // Keyboard opening shrinks the list — keep the latest message + input
+      // in view if the user was already reading the bottom.
+      if (pinned && messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+    } else {
+      panel.style.height = '';
+      panel.style.transform = '';
+    }
   }
 
   // Welcome state: the animated brand orb is the hero (an empty chat has
@@ -1064,8 +1161,8 @@
     if (state.open) return;
     state.open = true;
     panel.classList.add('ms-chat-panel--open');
-    if (backdrop) backdrop.classList.add('ms-chat-backdrop--open');
     launcher.classList.add('ms-chat-launcher--hidden');
+    syncChrome(); // backdrop (modal) / page shift (sidebar) / mobile lock+size
     scrollToBottom();
     setTimeout(function () { try { textarea.focus(); } catch (e) {} }, 50);
     track('chat_opened', {});
@@ -1074,8 +1171,8 @@
     if (!state.open) return;
     state.open = false;
     panel.classList.remove('ms-chat-panel--open');
-    if (backdrop) backdrop.classList.remove('ms-chat-backdrop--open');
     launcher.classList.remove('ms-chat-launcher--hidden');
+    syncChrome(); // restores the page: no leftover offset, backdrop or lock
     track('chat_closed', {});
   }
 
