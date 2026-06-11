@@ -376,8 +376,12 @@ html.ms-chat-page-anim {
   /* The site is fully covered — a backdrop/blur is pointless, and removing it
      also removes tap-outside-to-close (close = X only). */
   .ms-chat-backdrop { display: none; }
-  /* The sidebar/modal layout toggle is a desktop-only concept. */
-  .ms-chat-mode { display: none; }
+  /* The sidebar/modal layout toggle is a desktop-only concept — mobile is
+     always fullscreen, so the button would be a dead control. Doubled class
+     on purpose: the base `.ms-chat-iconbtn { display: flex }` rule comes
+     LATER in the file with equal single-class specificity and used to win on
+     source order, leaving the button visible (and useless) on mobile. */
+  .ms-chat-iconbtn.ms-chat-mode { display: none; }
   /* Comfortable thumb targets for the header buttons (>=44px). */
   .ms-chat-iconbtn { width: 44px; height: 44px; min-width: 44px; }
 }
@@ -470,7 +474,9 @@ html.ms-chat-page-anim {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  /* Generous spacing between turns — the borderless document style relies on
+     whitespace (not bubble edges) to separate speakers. */
+  gap: 20px;
 }
 
 /* Welcome state: the animated glass orb itself is the hero (full motion —
@@ -490,11 +496,15 @@ html.ms-chat-page-anim {
   --msc-logo-blur: 0.6px;
 }
 
-/* Bubbles */
+/* Messages — borderless / document style (supersedes the filled-bubble
+   design): assistant (Mo) text renders as plain flowing text directly on the
+   panel surface — no fill, no border — with the small static avatar as the
+   speaker marker; user turns keep only a very light low-contrast fill so the
+   turns stay readable. The asymmetry is intentional (modern AI-chat look). */
 .ms-chat-row { display: flex; flex-direction: column; gap: 8px; max-width: 100%; min-width: 0; }
 .ms-chat-row--user { align-items: flex-end; }
 /* Assistant rows put the small brand avatar to the left of a stacked content
-   column (text bubbles + tool cards). */
+   column (plain text runs + tool cards). */
 .ms-chat-row--assistant { flex-direction: row; align-items: flex-start; gap: 8px; }
 .ms-chat-asst-content {
   display: flex;
@@ -503,64 +513,70 @@ html.ms-chat-page-anim {
   min-width: 0;
   flex: 1 1 auto;
   max-width: 100%;
+  /* Optically centers the first text line on the 36px avatar beside it. */
+  padding-top: 7px;
 }
 .ms-chat-bubble {
-  max-width: 85%;
-  padding: 8px 12px;
-  border-radius: 14px;
   font-size: 0.85rem;
-  line-height: 1.45;
+  line-height: 1.55;
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
-/* User bubbles keep the grey fill. Assistant (Mo) bubbles drop the border for a
-   light-blue fill — a low-alpha tint of the theme accent (the brand blue from
-   --button-secondary-background). Foreground text stays dark for contrast. */
+/* User: a soft, low-contrast surface — enough to mark the turn, never a heavy
+   colored bubble. No corner "tail" (calmer than the old chat-bubble look). */
 .ms-chat-bubble--user {
-  background: var(--msc-surface);
+  max-width: 85%;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: rgb(var(--msc-fg) / 6%);
   color: rgb(var(--msc-fg));
-  border-bottom-right-radius: 4px;
 }
+/* Assistant: NO bubble at all — clean document-style text on the panel. */
 .ms-chat-bubble--assistant {
-  background: rgb(var(--msc-secondary) / 14%);
+  max-width: 100%;
+  padding: 0;
+  background: none;
   color: rgb(var(--msc-fg));
-  border-bottom-left-radius: 4px;
 }
-.ms-chat-bubble p { margin: 0 0 6px; }
+.ms-chat-bubble p { margin: 0 0 8px; }
 .ms-chat-bubble p:last-child { margin-bottom: 0; }
 .ms-chat-bubble a { color: rgb(var(--msc-accent)); text-decoration: underline; }
 .ms-chat-bubble strong { font-weight: 700; }
 
-/* Typing indicator */
-.ms-chat-typing {
-  display: inline-flex;
-  gap: 4px;
-  padding: 10px 14px;
-  background: rgb(var(--msc-secondary) / 14%);
-  border-radius: 14px;
-  border-bottom-left-radius: 4px;
+/* Generating state (replaces the three bouncing dots): while a reply is
+   pending, the assistant-slot avatar itself comes alive — the orb's wave
+   bundles run at a calm pace and the whole mark breathes (a gentle scale +
+   opacity pulse). It sits in exactly the avatar slot the real message row
+   renders into, so the first streamed tokens read as the mark settling into
+   the static avatar beside the text. Calm by design; reduced motion freezes
+   it to the static orb (media query at the bottom of this file). */
+.ms-chat-row--gen .ms-chat-avatar {
+  --msc-logo-dur: 3.6s;
+  animation: ms-chat-gen-pulse 2.4s ease-in-out infinite;
 }
-.ms-chat-typing span {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--msc-muted);
-  animation: ms-chat-bounce 1.2s infinite ease-in-out;
+/* Re-enable the wave motion that .ms-chat-avatar normally switches off (equal
+   specificity — these win on source order; the reduced-motion block at the
+   end of the file still out-orders them and freezes everything). */
+.ms-chat-row--gen .ms-chat-logo-bundle--cool {
+  animation: ms-chat-logo-wave-a var(--msc-logo-dur) ease-in-out infinite;
 }
-.ms-chat-typing span:nth-child(2) { animation-delay: 0.15s; }
-.ms-chat-typing span:nth-child(3) { animation-delay: 0.3s; }
-@keyframes ms-chat-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-  30% { transform: translateY(-4px); opacity: 1; }
+.ms-chat-row--gen .ms-chat-logo-bundle--warm {
+  animation: ms-chat-logo-wave-b calc(var(--msc-logo-dur) * 1.45) ease-in-out infinite;
+  animation-delay: calc(var(--msc-logo-dur) * -0.4);
+}
+@keyframes ms-chat-gen-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.08); opacity: 1; }
 }
 
 /* ---------- Cards (shared) ---------- */
-/* Tool cards share Mo's light-blue accent fill (the same low-alpha tint of the
-   theme secondary used by .ms-chat-bubble--assistant) so they read as part of
-   the assistant's response rather than disconnected white panels. Body text is
-   pinned to the chat body font size (0.85rem/1.45, matching .ms-chat-bubble);
-   inner white surfaces (images, inputs) and solid buttons preserve legibility
-   and tappability against the blue. */
+/* Tool cards KEEP their light-blue accent fill (a low-alpha tint of the theme
+   secondary). With the plain-text messages now borderless, the cards are the
+   only filled blocks in the assistant column — they stand out deliberately as
+   Mo's interactive content while still sitting cleanly in the document flow.
+   Body text is pinned to the chat body font size (0.85rem); inner white
+   surfaces (images, inputs) and solid buttons preserve legibility and
+   tappability against the blue. */
 .ms-chat-card {
   width: 100%;
   max-width: min(28rem, 100%);
@@ -948,7 +964,9 @@ html.ms-chat-page-anim {
 @media (prefers-reduced-motion: reduce) {
   .ms-chat-launcher,
   .ms-chat-backdrop,
-  .ms-chat-typing span,
+  .ms-chat-row--gen .ms-chat-avatar,
+  .ms-chat-row--gen .ms-chat-logo-bundle--cool,
+  .ms-chat-row--gen .ms-chat-logo-bundle--warm,
   .ms-chat-share--visible,
   .ms-chat-panel--open,
   .ms-chat-send,

@@ -193,7 +193,9 @@ Persistence rules:
     reads as alive without being noisy next to body copy.
   - **In-chat assistant avatar:** **static** — animation disabled, leaving
     a still gradient frame. A constantly-moving element next to every
-    message would hurt readability.
+    message would hurt readability. (One exception: while a reply is
+    *generating*, the pending row's avatar animates as the loading
+    indicator — see §4.2 "Generating indicator".)
 - **Reduced motion:** under `prefers-reduced-motion: reduce` **all**
   variants (launcher, halo, welcome, CTA) freeze to the static frame.
 - The previous artwork (`assets/ms-chat-logo-v2.svg`) is no longer
@@ -227,12 +229,19 @@ Persistence rules:
   `BEHAVIOR_REFERENCE` §4 text-based welcome). If a history was restored
   from `localStorage`,
   render it directly and skip the welcome state.
-- **Bubble styling** (feature 7): **user** messages take the subtle grey
-  fill (the theme's foreground token at low alpha); **assistant** messages
-  are **unfilled** with a solid 1.5px foreground/black border, and are
-  preceded by a small **logo avatar** (the **static** variant of the
-  animated brand mark, §4.1a — calm by design next to message text). The typing
-  indicator uses the same unfilled-bordered treatment.
+- **Message styling — borderless / document style** (supersedes BOTH earlier
+  designs: the bordered-assistant bubbles and the later filled light-blue
+  bubbles): **assistant (Mo)** messages render as plain flowing text directly
+  on the panel surface — **no bubble, no fill, no border** — like a modern AI
+  UI's responses, preceded by the small **static logo avatar** (§4.1a) as the
+  speaker marker. **User** messages keep only a **very light, low-contrast
+  fill** (foreground token at low alpha, soft radius, right-aligned, no
+  corner "tail") — enough to mark the turn, never a heavy colored bubble.
+  The asymmetry (assistant = plain text, user = lightly marked) is
+  intentional. Generous vertical spacing between turns and a slightly airier
+  line-height keep it calm and readable; identical in sidebar, modal and
+  mobile fullscreen. Tool cards keep their own light-blue card styling and
+  sit inline in this borderless flow as the only filled blocks.
 - **Input area — unified composer** (supersedes the earlier "input row"
   and the compressed-view input tweak; identical in sidebar, modal and
   mobile fullscreen):
@@ -287,8 +296,14 @@ Persistence rules:
   streaming/rate-limited. Audio is processed by the browser's own speech service
   — **no audio reaches our backend**. Mic-permission denial surfaces an inline
   notice.
-- **Typing indicator**: three-dot bounce in an assistant bubble while
-  submitted but no visible assistant content yet.
+- **Generating indicator** (supersedes the three-dot bounce): while a
+  message is submitted but no assistant content is visible yet, the
+  assistant-slot **avatar itself animates** — the brand orb's waves run at a
+  calm pace with a gentle breathing (scale/opacity) pulse, tying the loading
+  state to the brand. The first streamed tokens replace it in place with the
+  regular static-avatar message row, so the animation transitions smoothly
+  into the text. Under `prefers-reduced-motion: reduce` it freezes to the
+  static orb.
 
 ### 4.3 Desktop vs mobile (see §7).
 
@@ -394,11 +409,12 @@ Tool cards reference products by id only; the widget hydrates them from
   dimensions/weight/target-group rows (not in the public response).
 - **Card styling.** All five tool cards (product, compare, quick-checkout/
   add-to-cart, showroom, contact/email-capture) share Mo's **light-blue
-  accent background** — the same low-alpha tint of the theme secondary token
-  used by the assistant message bubbles — so they read as part of the
-  assistant's response rather than disconnected white panels. Card body text
-  uses the **same font size as the chat messages** (the reduced chat body
-  size). Legibility is preserved with inner white surfaces behind the product
+  accent background** — a low-alpha tint of the theme secondary token. With
+  the plain-text messages now borderless (§4.2), the cards are the only
+  filled blocks in the assistant column: they stand out deliberately as Mo's
+  interactive content while sitting cleanly in the document-style flow.
+  Card body text uses the **same font size as the chat messages** (the
+  reduced chat body size). Legibility is preserved with inner white surfaces behind the product
   image, comparison table, and form inputs; the primary CTA stays the dark
   accent pill and the secondary button keeps a solid (non-transparent) surface
   so both stay distinct and tappable against the blue.
