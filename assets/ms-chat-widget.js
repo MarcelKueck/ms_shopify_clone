@@ -202,7 +202,7 @@
     // panel docked to the right edge of the viewport frame.
     modal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>',
     sidebar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>',
-    send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+    send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
     mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
     truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
@@ -1007,16 +1007,19 @@
     noticeEl = el('div', { style: 'display:none' });
     inputbar.appendChild(noticeEl);
 
-    var controls = el('div', { class: 'ms-chat-input-controls' });
+    // Unified composer: textarea (top, borderless) + control row (bottom,
+    // right-aligned mic + send) inside ONE bordered rounded surface.
+    var composer = el('div', { class: 'ms-chat-composer' });
     textarea = el('textarea', { class: 'ms-chat-textarea', rows: '1', placeholder: 'Frag mich etwas …', 'aria-label': 'Nachricht' });
     textarea.addEventListener('input', autoGrow);
     textarea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
     });
-    sendBtn = el('button', { class: 'ms-chat-send', type: 'button', 'aria-label': 'Senden' });
+    composer.appendChild(textarea);
+    var controls = el('div', { class: 'ms-chat-input-controls' });
+    sendBtn = el('button', { class: 'ms-chat-send ms-chat-send--hidden', type: 'button', 'aria-label': 'Senden' });
     sendBtn.appendChild(icon('send'));
     sendBtn.addEventListener('click', onSend);
-    controls.appendChild(textarea);
     // Voice input: only render the mic button when the browser supports the Web
     // Speech API (Chrome/Edge/Android). On unsupported browsers (Firefox, some
     // iOS) it's simply absent — typed input is unaffected.
@@ -1027,7 +1030,13 @@
       controls.appendChild(micBtn);
     }
     controls.appendChild(sendBtn);
-    inputbar.appendChild(controls);
+    composer.appendChild(controls);
+    // The whole surface reads as the input — clicking its padding (not the
+    // buttons) focuses the textarea.
+    composer.addEventListener('click', function (e) {
+      if (e.target === composer || e.target === controls) { try { textarea.focus(); } catch (err) {} }
+    });
+    inputbar.appendChild(composer);
     inputbar.appendChild(el('div', { class: 'ms-chat-disclaimer', text: 'KI-Fitnessberater – Antworten können Fehler enthalten' }));
     panel.appendChild(inputbar);
 
@@ -1151,9 +1160,15 @@
     return w;
   }
 
+  // Auto-grow up to the cap (must match the CSS max-height), then the textarea
+  // scrolls internally — the composer/panel never grow past it. Also the single
+  // sync point for the appear-on-type send button: every path that changes the
+  // input's value (typing, voice dictation, send-clear, error-restore) already
+  // calls autoGrow().
   function autoGrow() {
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    if (sendBtn) sendBtn.classList.toggle('ms-chat-send--hidden', !textarea.value.trim());
   }
 
   function togglePanel() { state.open ? closePanel() : openPanel(); }

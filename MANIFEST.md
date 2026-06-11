@@ -12,6 +12,64 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11h) — unified chat composer (Claude/ChatGPT-style input area)
+
+Contained restyle of the chat INPUT AREA only — message list, tool cards,
+streaming and all logic untouched. **Re-upload both widget assets.**
+Supersedes the earlier compressed-view input tweak; the composer is identical
+in sidebar, modal and mobile fullscreen.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (input-area block rewritten: `.ms-chat-composer` + send/mic restyle) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **MODIFIED** (composer DOM in `buildShell`, send toggle in `autoGrow`, ↑ send icon) | ✅ Yes |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (§4.2 input bullet rewritten as "unified composer") | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+- **One unified container:** textarea + actions now live inside a single
+  rounded surface with one shared border (`.ms-chat-composer`); the textarea
+  is borderless/transparent inside it. Focus ring moved to the container
+  (`:focus-within`). The old divider line above the input bar is gone.
+- **Two-row layout:** text on top (full width); bottom row holds the
+  right-aligned mic + send. Buttons shrank to quiet in-composer size
+  (36px desktop / 40px mobile); the mic is now a low-contrast ghost button
+  (recording state unchanged: accent fill + pulse).
+- **Send appears on typing:** empty input → no send button (mic stays). ≥1
+  non-whitespace char → send fades/scales in (~160ms); emptying hides it
+  again. Toggled in `autoGrow()` so typing, voice dictation, send-clear and
+  error-restore stay in sync; hidden state leaves the tab order; reduced
+  motion disables the transition. Send icon is now an ↑ arrow.
+- **Capped auto-grow:** unchanged 120px cap, now documented as the contract —
+  the textarea grows to ~5 lines then scrolls internally; the panel never
+  grows. Light theme tokens only; Enter/Shift+Enter and the
+  streaming-disabled state preserved; disclaimer sits beneath the container.
+
+### Test checklist (after copying to the live theme)
+
+- [ ] **Unified look:** input reads as ONE rounded bordered surface — no
+      inner border around the text field, no separator line above the bar;
+      clicking anywhere on the surface focuses the text; focus shows the
+      accent ring on the container.
+- [ ] **Appear-on-type send:** open fresh → only the mic shows (flush
+      right). Type one character → send blends in next to the mic. Delete
+      everything (also: whitespace only) → send hides again. Dictating via
+      mic also reveals it.
+- [ ] **Grow then scroll:** type/paste many lines → composer grows a few
+      lines (to ~120px), then STOPS and the text scrolls inside; the panel,
+      message list and disclaimer don't move further. Sending resets it to
+      one line.
+- [ ] **Keys:** Enter sends; Shift+Enter inserts a newline; while a reply
+      streams the whole composer (text, mic, send) is disabled.
+- [ ] **All three views:** composer looks and behaves the same in the docked
+      sidebar, the centered modal, and mobile fullscreen.
+- [ ] **Mobile keyboard:** focus the input on a phone → the composer stays
+      pinned just above the keyboard; multi-line input still caps + scrolls
+      internally and never pushes the header/panel off-screen.
+
+---
+
 ## ⭐ Session update (2026-06-11g) — desktop sidebar ⇄ modal layout modes + mobile TRUE fullscreen with keyboard handling
 
 Two independent reworks of the panel's shipping form. **Re-upload both widget
