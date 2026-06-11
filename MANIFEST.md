@@ -12,6 +12,66 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-11) — glass-sphere orb v2 + liquid-glass launcher
+
+Visual redesign of the (still pure-CSS) animated mark, modelled on a Siri-orb
+reference screenshot: instead of the rotating conic ribbon ring, the orb is
+now a **dark liquid-glass sphere** with a **chromatic rim light** (mint top,
+red bottom-left, blue bottom-right), faint **dust specks** in the glass, and a
+horizontal **braid of glowing, fibrous light-waves** (red/orange → magenta →
+warm white → mint → violet → blue) gently undulating across the middle. The
+floating launcher itself becomes a **frosted liquid-glass button**.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.css` | **MODIFIED** (orb v2 + glass launcher) | ✅ Yes |
+| `templates/product.json` | **MODIFIED** (CTA orb vars + rim re-assert) | ✅ Yes |
+| `assets/ms-chat-widget.js` | **UNCHANGED** | ❌ No |
+| `docs/ai-advisor/WIDGET_SPEC.md` | **MODIFIED** (§4.1/§4.1a, docs only) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+1. **Orb v2 (`.ms-chat-logo`).** Root carries the glass bubble (translucent-
+   capable `--msc-logo-base` fill), the chromatic rim (`--msc-logo-rim-shadow`,
+   layered inset shadows scaled by `--msc-logo-rim`), dust specks, a top sheen
+   and a soft glow pool. The two pseudo-elements are now wide, thin **ellipses**
+   laid across the middle — clipped by the circle their curved edges read as
+   waves; tilted against each other (+8°/−9°) they braid like the reference.
+   A vertical mask feathers them into glow; a repeating-stripe overlay adds the
+   fibre texture. New keyframes `ms-chat-logo-wave-a/b` (symmetric, different
+   speeds → seamless, non-repeating braid; subtle `hue-rotate` color shift).
+   Old keyframes `ms-chat-logo-flow`/`-breathe` are gone.
+2. **Liquid-glass launcher (`.ms-chat-launcher`).** White-with-black-frame is
+   replaced by: 1px light keyline, translucent dark fill,
+   `backdrop-filter: blur(12px) saturate(150%)` (with `-webkit-` prefix;
+   degrades to the translucent fill where unsupported), deeper drop shadow.
+   The launcher's orb uses a translucent bubble base so the storefront glows
+   through the sphere. Halo keyframes now re-state the rim shadows (box-shadow
+   animates as one property).
+3. **Variants unchanged in spirit:** avatar still static (`animation: none`),
+   product CTA still the calm 22s wave; reduced-motion still freezes
+   everything. CTA inline CSS additionally re-asserts the rim
+   (`box-shadow: var(--msc-logo-rim-shadow) !important`) because the kurzinfo
+   block resets box-shadows.
+4. **No JS change.**
+
+### Dev-theme test checklist (this session)
+
+1. **Launcher (glass + waves):** dark glass sphere with colorful rim; the
+   storefront is faintly visible/frosted through the button; the wave braid
+   undulates smoothly and the halo pulses; loop never visibly jumps (≥30s).
+2. **Avatar:** same glass-sphere look, completely still.
+3. **Product CTA:** rim light visible (not stripped by the kurzinfo reset);
+   waves drift very slowly; clean next to the bullets.
+4. **Reduced motion:** launcher/halo/CTA/avatar all freeze to the same static
+   braid frame; the glass look (rim, specks, frost) is unaffected.
+5. **Fallbacks:** browser without `backdrop-filter` → launcher is simply a
+   darker translucent button, no errors; without `mask-image` → wave bands
+   show with harder vertical edges but still read as the braid.
+
+---
+
 ## ⭐ Session update (2026-06-10b) — animated Siri-style logo orb (pure CSS, no image asset)
 
 Mo's logo is replaced everywhere in the widget by a **self-contained, pure-CSS
