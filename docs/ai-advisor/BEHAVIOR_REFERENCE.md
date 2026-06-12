@@ -15,10 +15,13 @@ out explicitly. Pair this with `API_CONTRACT.md` (the wire format) and
 
 ## 1. The stream: text parts vs tool parts
 
-`POST /api/chat` returns an **AI SDK UI-message stream over SSE**. The UI
-maintains a single "current assistant message" whose `parts` array grows
-as events arrive. Each event is one *part* of that message. There are
-two kinds the UI cares about:
+`POST /api/chat` returns an **AI SDK UI-message stream over SSE**. The
+wire carries lower-level stream *chunks* (`text-delta`,
+`tool-input-available`, … — the chunk protocol is specified in
+`API_CONTRACT.md` §2); assembled client-side, they grow the `parts`
+array of a single "current assistant message". This document describes
+rendering in terms of those assembled parts. There are two kinds the UI
+cares about:
 
 - **Text parts** (`part.type === "text"`) — the assistant's prose,
   streamed token by token. Multiple text deltas for the same message are
@@ -43,21 +46,25 @@ bottom.
 
 ### Matching tool parts robustly
 
-The AI SDK streams a tool call through intermediate states and may prefix
-the type (e.g. `tool-show_product`, `tool-show_product-partial`,
-`tool-show_product-result`). The old UI matched with a helper equivalent
-to:
+An assembled tool part's `type` is always exactly `tool-<name>` (never
+suffixed — `tool-<name>-partial` / `tool-<name>-result` types do not
+exist in the pinned AI SDK v6), and its `state` progresses
+`input-streaming → input-available → output-available` (an erroring tool
+yields `output-error`; there is no `"partial"`/`"result"` state). On the
+wire this corresponds to the
+`tool-input-start → tool-input-delta → tool-input-available →
+tool-output-available` chunk sequence — see `API_CONTRACT.md` §2 for the
+chunk protocol; the wire's `toolName` is the bare name (`show_product`).
 
-```
-isToolPart(type, name)  ⇔  type === "tool-<name>"  OR  type startsWith "tool-<name>"
-```
+Crucially, **a tool part is only renderable once its args are complete —
+i.e. once the `tool-input-available` chunk has arrived and `input` is
+present**. The dispatcher rendered nothing whenever `input` was missing.
+So:
 
-Crucially, **a tool part is only renderable once `part.input` is
-present** (i.e. past the partial/streaming-args state). The dispatcher
-returned `null` (rendered nothing) whenever `input` was missing. So:
-
-- While args are still streaming → render nothing for that part yet.
-- Once `input` is populated → render the card.
+- While args are still streaming (`tool-input-start` /
+  `tool-input-delta` chunks) → render nothing for that part yet.
+- Once the `tool-input-available` chunk populates `input` → render the
+  card.
 
 ### De-duplication / keying
 
@@ -65,8 +72,9 @@ Each tool part carries a stable `toolCallId`. The old UI used it as the
 render key, so re-emitted states of the *same* call **replace** the
 existing card rather than appending a second one. The vanilla widget must
 do the same: key rendered tool cards by `toolCallId` and update in place,
-not push a duplicate when a later state (`-result`) of the same call
-arrives.
+not push a duplicate when a later state of the same call arrives (e.g.
+when its `tool-output-available` chunk flips the part to
+`output-available`).
 
 ### Tools that render nothing (consume silently)
 
@@ -83,7 +91,7 @@ should ignore both tools entirely.)
 
 ---
 
-## 2. The five visible tools → UI cards
+## 2. The six visible tools → UI cards
 
 Each renderable tool maps to one card. The old UI looked products up in a
 **bundled local catalog** by id; the widget instead **hydrates from
@@ -164,21 +172,37 @@ Behavior:
     these three rows.** (If equivalent values appear inside
     `specifications`, they'll already surface via the spec rows.)
 
-### 2.3 `add_to_cart` → add-to-cart CTA card
+### 2.3 `add_to_cart` → quick-checkout CTA card
 
-Input: `{ productId: string; message: string }`.
+Input: `{ productId?: string; productIds?: string[]; message: string }`
+(at least one of `productId`/`productIds` — see `API_CONTRACT.md` §2 for
+the multi-product form, which postdates the old UI).
+
+> The tool id is still `add_to_cart`, but it now drives a **direct
+> checkout** and can cover one or several products in a single cart. Frame
+> the card as a low-friction "order now", not an
+> add-to-cart-and-keep-shopping action.
 
 Behavior:
-- Hydrate the one product. **Render nothing if unknown.**
+- Normalise to an id list (`input.productIds ?? [input.productId]`) and
+  hydrate. **Render nothing if no product resolves**, and also **render
+  nothing if there is no checkout link** (single: `shopifyCartUrl` absent;
+  multi: top-level `cartUrl` null) — the multi-product checkout button
+  always uses the server-built top-level `cartUrl`, never a client-side
+  stitched permalink.
 - Card layout:
   - The assistant's `message` as a short bold line at the top.
+  - Each resolved product's name + price as a compact line so the shopper
+    sees exactly what one click will buy.
   - A **full-width primary button** (accent fill) labeled
-    `"<product.name> in den Warenkorb"` with a cart icon. The button is a
-    **link to `product.shopifyCartUrl`**, opening in a new tab
-    (`target="_blank" rel="noopener noreferrer"`). It does **not** do an
-    in-page fetch — it sends the shopper to the Shopify cart-add URL.
+    `"Jetzt direkt bestellen"` with a cart/checkout icon. The button is a
+    **link to the checkout permalink** (`product.shopifyCartUrl` for a
+    single product, the response's top-level `cartUrl` for several),
+    opening in a new tab (`target="_blank" rel="noopener noreferrer"`).
+    It does **not** do an in-page fetch — it sends the shopper straight
+    to Shopify checkout.
   - A small muted caption beneath:
-    `"Du wirst zu motionsports.de weitergeleitet"`.
+    `"Direkt zur sicheren Kasse bei motionsports.de"`.
 
 ### 2.4 `suggest_showroom` → showroom prompt card
 
@@ -217,15 +241,15 @@ standalone `/contact` page.
 **Reason → German labels** (the old teaser used a title + subline per
 reason; reuse the title as the form heading):
 
-| reason                | Title (heading)                  | Subline                                                       |
-| --------------------- | -------------------------------- | ------------------------------------------------------------- |
-| `studio_consultation` | Persönliche Studio-Beratung      | Ein Studio-Spezialist meldet sich für ein individuelles Konzept. |
-| `public_sector_quote` | Formelles Angebot anfordern      | Mit Kauf auf Rechnung, Zahlungsziel und CE-Doku.              |
-| `physio_consultation` | Physio- / Reha-Beratung          | Persönliche Beratung zu Reha-Einsatz und Medizinprodukten.    |
-| `bulk_discount`       | Mengenrabatt anfragen            | Wir erstellen ein individuelles Angebot.                      |
-| `leasing`             | Leasing-Anfrage                  | Flexible Finanzierung für gewerbliche Kunden.                 |
-| `maintenance`         | Wartungsvertrag                  | Langfristige Wartung und Ersatzteilversorgung.                |
-| `general`             | Persönliche Beratung             | Wir helfen dir gerne weiter.                                  |
+| reason                | Title (heading)             | Subline                                                          |
+| --------------------- | --------------------------- | ---------------------------------------------------------------- |
+| `studio_consultation` | Persönliche Studio-Beratung | Ein Studio-Spezialist meldet sich für ein individuelles Konzept. |
+| `public_sector_quote` | Formelles Angebot anfordern | Mit Kauf auf Rechnung, Zahlungsziel und CE-Doku.                 |
+| `physio_consultation` | Physio- / Reha-Beratung     | Persönliche Beratung zu Reha-Einsatz und Medizinprodukten.       |
+| `bulk_discount`       | Mengenrabatt anfragen       | Wir erstellen ein individuelles Angebot.                         |
+| `leasing`             | Leasing-Anfrage             | Flexible Finanzierung für gewerbliche Kunden.                    |
+| `maintenance`         | Wartungsvertrag             | Langfristige Wartung und Ersatzteilversorgung.                   |
+| `general`             | Persönliche Beratung        | Wir helfen dir gerne weiter.                                     |
 
 Unknown reason → fall back to the `general` label.
 
@@ -260,6 +284,37 @@ Card / form behavior:
 - Footer caption under the form: `"Wir melden uns innerhalb von 1-2
   Werktagen. Deine Daten werden nur für die Bearbeitung deiner Anfrage
   verwendet."`
+
+### 2.6 `offer_email_summary` → email-capture form (GDPR)
+
+Input:
+`{ message: string; trigger: string; productIds?: string[] }`.
+
+> **New behavior — no old-React equivalent.** This tool postdates the old
+> UI, so unlike the other cards there is no legacy rendering to mirror.
+> The normative spec is `API_CONTRACT.md` §2 ("`offer_email_summary` →
+> email-capture form") + §7; `WIDGET_SPEC.md` §7 summarises the widget
+> obligations. Key behavior:
+
+- The assistant calls this at a value-triggered moment (at most twice per
+  conversation, enforced server-side). Render `message` as the intro,
+  then the capture form: an email input, **two separate consent
+  checkboxes**, and imprint/privacy links.
+- **All consent copy comes from the backend** — the tool part's `output`
+  carries `consentCopy` (labels, marketing benefit hint, imprint/privacy
+  URLs, and the pre-composed `consentTextShown` audit string). Render it
+  verbatim; never hard-code these strings. A form shown without a tool
+  call fetches the same payload from `GET /api/consent-copy`.
+- The transactional box (required) MAY be pre-checked; the marketing box
+  MUST start **unchecked**, with the benefit hint directly beneath its
+  label.
+- Submit → `POST /api/capture-email` with the two booleans, the
+  backend-provided `consentTextShown` echoed **verbatim**, and the tool's
+  `trigger`. Success → confirmation line (+ "bitte bestätige…" when
+  marketing DOI is pending). Dismissed without submit → one
+  `email_capture_declined` KPI event.
+- `productIds` is advisory only (optional cart preview); the backend
+  determines the real summary/cart products server-side.
 
 ---
 
