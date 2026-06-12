@@ -491,7 +491,11 @@
       var url = API_BASE + '/api/products?ids=' + encodeURIComponent(batch.join(','));
       return fetch(url, { method: 'GET', headers: { 'x-ms-session': sid } })
         .then(function (res) {
-          if (!res.ok) { batch.forEach(function (id) { productCache[id] = null; }); return; }
+          // Cache ONLY what a successful response asserts. The contract
+          // reserves null for UNKNOWN ids — a transient 429/network failure
+          // must cache NOTHING, so a later tool call retries instead of
+          // rendering nothing for the rest of the session.
+          if (!res.ok) return;
           return res.json().then(function (data) {
             var prods = (data && data.products) || [];
             for (var j = 0; j < batch.length; j++) {
@@ -499,7 +503,7 @@
             }
           });
         })
-        .catch(function () { batch.forEach(function (id) { productCache[id] = null; }); });
+        .catch(function () { /* failed fetch: cache nothing -> retried later */ });
     });
 
     return Promise.all(jobs).then(function () {
@@ -753,9 +757,13 @@
       .then(function (data) {
         var prods = (data && data.products) || [];
         var cartUrl = (data && data.cartUrl) || null;
-        // Warm the shared cache opportunistically (unknown ids come back null).
-        for (var j = 0; j < ids.length; j++) {
-          if (!(ids[j] in productCache)) productCache[ids[j]] = prods[j] != null ? prods[j] : null;
+        // Warm the shared cache opportunistically (unknown ids come back
+        // null) — but only from a successful response; a failed fetch must
+        // not mark the ids unknown for the rest of the session.
+        if (data) {
+          for (var j = 0; j < ids.length; j++) {
+            if (!(ids[j] in productCache)) productCache[ids[j]] = prods[j] != null ? prods[j] : null;
+          }
         }
         var resolved = prods.filter(function (p) { return !!p; });
         if (!resolved.length) return null; // nothing resolvable -> render nothing
@@ -951,6 +959,17 @@
         return res.json().catch(function () { return null; }).then(function (data) {
           var code = data && data.error && data.error.code;
           var msg = (data && data.error && data.error.message) || '';
+          if (res.status === 429 || code === 'rate_limited') {
+            // Mirror the chat path: German hint + submit locked for the
+            // Retry-After window (same 30s default when the header is
+            // missing/unreadable).
+            var retry = parseInt(res.headers.get('Retry-After'), 10);
+            if (!isFinite(retry) || retry <= 0) retry = 30;
+            showError('Zu viele Anfragen — bitte kurz warten.');
+            submit.textContent = 'Anfrage senden';
+            setTimeout(function () { submit.disabled = false; }, retry * 1000);
+            return;
+          }
           if (code === 'upstream_unavailable' || res.status === 502) {
             msg = 'Senden gerade nicht möglich — bitte später erneut versuchen.';
           } else if (!msg) {
@@ -1188,8 +1207,17 @@
           var code = data && data.error && data.error.code;
           var msg = (data && data.error && data.error.message) || '';
           if (res.status === 429 || code === 'rate_limited') {
-            msg = CONSENT_COPY.errRate;
-          } else if (res.status === 502 || res.status === 503 || code === 'upstream_unavailable') {
+            // Honor Retry-After: keep submit locked for the window (mirrors
+            // the chat path; same 30s default when the header is unreadable)
+            // instead of allowing an instant re-submission.
+            var retry = parseInt(res.headers.get('Retry-After'), 10);
+            if (!isFinite(retry) || retry <= 0) retry = 30;
+            showError(CONSENT_COPY.errRate);
+            submit.textContent = CONSENT_COPY.submit;
+            setTimeout(function () { submit.disabled = false; }, retry * 1000);
+            return;
+          }
+          if (res.status === 502 || res.status === 503 || code === 'upstream_unavailable') {
             msg = CONSENT_COPY.errUpstream;
           } else if (!msg) {
             msg = CONSENT_COPY.errGeneric;
@@ -1828,8 +1856,15 @@
     }
     if (existing) {
       if (input != null) { existing.input = input; existing.state = 'output-available'; }
+      // Persist the tool RESULT (tool-output-available) too, so restored
+      // histories carry { state: "output-available", input, output } like a
+      // genuine AI-SDK history. Never rendered.
+      if (part.output !== undefined) { existing.output = part.output; existing.state = 'output-available'; }
     } else {
-      parts.push({ type: 'tool-' + name, toolCallId: id, state: input != null ? 'output-available' : 'input-streaming', input: input != null ? input : undefined });
+      // An output without any accumulated call to attach it to: ignore
+      // (outputs only ever follow tool-input-available on the wire).
+      if (input == null && part.output !== undefined) return;
+      parts.push({ type: 'tool-' + name, toolCallId: id, state: input != null ? 'output-available' : 'input-streaming', input: input != null ? input : undefined, output: part.output !== undefined ? part.output : undefined });
     }
   }
 
@@ -1925,7 +1960,11 @@
       }
       state.streaming = false;
       updateInputState();
-      if (streamErrored && !gotContent) {
+      if (streamErrored) {
+        // With partial content already rendered the notice is appended AFTER
+        // it (showMessageError adds a new row at the end) — the partial
+        // answer is kept, never discarded. With nothing rendered it is the
+        // whole response, as before.
         showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
       }
     }
@@ -2055,6 +2094,11 @@
                 ev.output && ev.output.consentCopy) {
               seedConsentCopy(ev.output.consentCopy);
             }
+            // Persist the output on the accumulated HISTORY part (renderless
+            // — accumulatePart only, never feedCanonical).
+            if (ev.toolCallId && toolNames[ev.toolCallId]) {
+              accumulatePart(asstParts, { type: 'tool-' + toolNames[ev.toolCallId], toolCallId: ev.toolCallId, output: ev.output != null ? ev.output : null });
+            }
             return;
           case 'tool-output-error':
             return;
@@ -2079,8 +2123,11 @@
       removeTyping();
       if (gotContent) {
         // Keep partial content; just surface a soft error and re-enable.
+        // (finalizeStream already shows the notice when an `error` chunk was
+        // seen — don't double it.)
+        var notified = streamErrored;
         finalizeStream();
-        showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
+        if (!notified) showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
       } else {
         rollback();
         showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
@@ -2330,17 +2377,25 @@
       openPanel();
       var pid = id != null ? String(id) : '';
       var ptitle = title != null ? String(title) : '';
-      track('product_cta_opened', { productId: pid });
+      track('product_cta_opened', { productId: pid }); // numeric id stays for KPI
       if (state.streaming || state.rateLocked) return; // busy -> just open; user can ask
-      var context = { type: 'product', productId: pid, productTitle: ptitle };
+      // Context grounding: the catalog's ids are handles/slugs, so a numeric
+      // Shopify product.id is dropped server-side. The CTA only renders on
+      // its own product page, where the snippet injects productHandle — use
+      // it (guarded against a CTA for a different product), falling back to
+      // the passed id only when no handle is present.
+      var ctxId = pid;
+      if (PAGE_CTX.type === 'product' && PAGE_CTX.productHandle &&
+          (!pid || !PAGE_CTX.productId || pid === PAGE_CTX.productId)) {
+        ctxId = PAGE_CTX.productHandle;
+      }
+      var context = { type: 'product', productId: ctxId, productTitle: ptitle };
       var rv = recentlyViewedPayload();
       if (rv) context.recentlyViewed = rv;
       // Deliberately a primer user message, NOT the messages:[] greeting:
-      // the theme CTA passes the NUMERIC Shopify product.id, whose validity
-      // against the backend catalog's slug ids is unconfirmed — the primer
-      // carries the title in text, so the consultation works even when the
-      // context's productId is dropped server-side. (With existing history
-      // this is also the contract's pivot path.)
+      // the primer carries the title in text, so the consultation works even
+      // if the context's productId were ever dropped server-side. (With
+      // existing history this is also the contract's pivot path.)
       var prompt = ptitle
         ? ('Ich interessiere mich für „' + ptitle + '". Kannst du mich zu diesem Produkt beraten?')
         : 'Kannst du mich zu diesem Produkt beraten?';
