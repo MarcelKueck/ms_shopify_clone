@@ -377,15 +377,32 @@ For each user send:
      `{ id, role, parts: [{ type: "text", text }] }`.
 3. Read the response as a **stream** and parse the AI SDK UI-message
    stream (SSE). Use `fetch` + `response.body.getReader()` +
-   `TextDecoder`, buffering by lines and parsing each `data:` JSON event
-   into a *part*. (Do **not** use `EventSource` — it can't send custom
-   headers or a POST body.)
-4. Maintain a "current assistant message" and apply each incoming part:
-   - text part → append `text` to the assistant bubble (re-render the
-     markdown subset, `BEHAVIOR_REFERENCE` §3).
-   - tool part → dispatch per `BEHAVIOR_REFERENCE` §2, keyed by
-     `toolCallId` (update in place, render only once `input` exists, skip
-     the two silent tools).
+   `TextDecoder`, buffering by lines. Each `data:` line carries a JSON
+   **chunk** — the wire protocol streams chunks, NOT assembled message
+   parts (see `API_CONTRACT.md` §2) — and the stream ends with the
+   literal `data: [DONE]`. (Do **not** use `EventSource` — it can't send
+   custom headers or a POST body.)
+4. Maintain a "current assistant message" and dispatch on each chunk's
+   `type`:
+   - `text-start` / `text-delta` / `text-end` — one text run per visible
+     bubble: `text-start` opens a fresh bubble, each `text-delta` appends
+     its `delta` (re-rendering the markdown subset, `BEHAVIOR_REFERENCE`
+     §3), `text-end` closes the run.
+   - `tool-input-start` — record `toolCallId → toolName`;
+     `tool-input-delta` (partial args) can be ignored.
+   - `tool-input-available` — the tool call's full `input`: render the
+     tool card per `BEHAVIOR_REFERENCE` §2, keyed by `toolCallId`
+     (duplicate chunks update in place; the two silent tools are skipped).
+   - `tool-output-available` — the tool's `output`. Consumed without
+     rendering (the `offer_email_summary` result seeds the consent-copy
+     cache, §6a) and persisted onto the accumulated history part
+     (`state: "output-available"`, `input`, `output`).
+   - `error` — show the friendly retry message. If partial content was
+     already rendered, the notice is appended **after** it; the partial
+     answer is kept, never discarded.
+   - `finish` (and the `[DONE]` terminator / socket close) — finalize the
+     assistant message, idempotently. `start` / `start-step` /
+     `finish-step` and unknown chunk types are ignored defensively.
 5. On stream end, finalize the assistant message, persist the updated
    history to `localStorage` (§3), and re-enable input.
 
@@ -427,9 +444,13 @@ Tool cards reference products by id only; the widget hydrates them from
   uses the **same font size as the chat messages** (the reduced chat body
   size); the secondary button stays a distinct bordered control.
 
-Cart action: the `add_to_cart` button is a **link to
-`product.shopifyCartUrl`** opening in a new tab — it does not call any
-API. Product/showroom links go to `shopifyUrl` /
+Cart action: the `add_to_cart` card's checkout button is a **link to the
+TOP-LEVEL `cartUrl`** of its `/api/products` response — one combined
+multi-product cart permalink covering every resolved in-stock product in
+the call (never stitched client-side) — opening in a new tab; it does
+not call any API. When `cartUrl` is `null` the card **degrades** to
+per-product `shopifyUrl` links instead of a broken checkout link.
+Product/showroom links go to `shopifyUrl` /
 `https://motionsports.de/pages/showroom-munchen-grobenzell`, new tab,
 `rel="noopener noreferrer"`.
 
@@ -437,8 +458,10 @@ API. Product/showroom links go to `shopifyUrl` /
 in each tool card is a clearly styled **primary button** (theme pill,
 brand color, prominent/full-width), not a subtle text link — these are the
 highest-value clicks and must look tappable. Labels: `"Zum Produkt"`
-(product card + each comparison column), `"In den Warenkorb"`
-(add-to-cart, links to `shopifyCartUrl`), `"Showroom ansehen"` (showroom).
+(product card + each comparison column), `"In den Warenkorb"` — or
+`"Alle in den Warenkorb"` when the card covers several products —
+(add-to-cart, links to the top-level `cartUrl`), `"Showroom ansehen"`
+(showroom).
 The render-nothing guards and link targets from `BEHAVIOR_REFERENCE` are
 unchanged — only the visual prominence.
 
@@ -840,8 +863,10 @@ conversation; the email ask stays where it is (§6a, after value).
 - [ ] Renders all five tool cards per `BEHAVIOR_REFERENCE`, keyed by
       `toolCallId`, with the render-nothing guards; silently consumes
       `search_products` + `update_customer_profile`.
-- [ ] Hydrates products via `GET /api/products`; cart button links to
-      `shopifyCartUrl`.
+- [ ] Hydrates products via `GET /api/products`; the add-to-cart checkout
+      button links to the response's **top-level `cartUrl`** (the
+      multi-product cart permalink), degrading to product-page links when
+      `cartUrl` is `null`.
 - [ ] Inline contact form posts to `/api/contact`; success + error +
       retry states.
 - [ ] Email-summary capture form (§6a) renders from both the
