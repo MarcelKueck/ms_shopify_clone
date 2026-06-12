@@ -591,29 +591,6 @@
     return wrap;
   }
 
-  var TAG_CLASS = {
-    bestseller: 'ms-chat-tag--bestseller',
-    neu: 'ms-chat-tag--new',
-    'new': 'ms-chat-tag--new',
-    sale: 'ms-chat-tag--sale',
-    'preis-tipp': 'ms-chat-tag--preistipp',
-    premium: 'ms-chat-tag--premium'
-  };
-
-  function specsGrid(product, limit) {
-    var specs = product.specifications || {};
-    var keys = Object.keys(specs).slice(0, limit);
-    if (!keys.length) return null;
-    var grid = el('div', { class: 'ms-chat-specs' });
-    keys.forEach(function (key) {
-      grid.appendChild(el('div', { class: 'ms-chat-spec' }, [
-        el('span', { class: 'ms-chat-spec-key', text: key }),
-        el('span', { class: 'ms-chat-spec-val', text: String(specs[key]) })
-      ]));
-    });
-    return grid;
-  }
-
   function productLink(product, label) {
     var a = el('a', { class: 'ms-chat-link', href: product.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer' }, [label || 'Zum Produkt']);
     a.appendChild(icon('external'));
@@ -634,49 +611,30 @@
   // ---------------------------------------------------------------------------
   // Tool card builders. Each returns Promise<Element|null> (null = render nothing).
   // ---------------------------------------------------------------------------
+  // Compact product card (client direction: "only what's needed"): small
+  // thumb + name + price + CTA, reusing the checkout row layout. Specs, tag
+  // chips, series badge, reason and delivery time live on the product page.
   function buildShowProduct(input) {
     return hydrate([input.productId]).then(function (res) {
       var p = res[0];
       if (!p) return null; // render-nothing guard
       var card = el('div', { class: 'ms-chat-card' });
-
-      var imgwrap = el('div', { class: 'ms-chat-prod-imgwrap' });
-      if (p.images && p.images[0]) {
-        imgwrap.appendChild(el('img', { src: p.images[0], alt: p.name || '', loading: 'lazy' }));
-      }
-      if (p.series) imgwrap.appendChild(el('span', { class: 'ms-chat-series-badge', text: p.series }));
-      // Sync-fresh stock flag (API_CONTRACT.md §3): subtle badge, card renders
-      // normally otherwise.
-      if (p.inStock === false) imgwrap.appendChild(el('span', { class: 'ms-chat-soldout-badge', text: 'Ausverkauft' }));
-      card.appendChild(imgwrap);
-
       var body = el('div', { class: 'ms-chat-card-body' });
-      body.appendChild(el('div', { class: 'ms-chat-prod-name', text: p.name || '' }));
 
-      if (p.tags && p.tags.length) {
-        var tags = el('div', { class: 'ms-chat-tags' });
-        p.tags.forEach(function (t) {
-          var cls = 'ms-chat-tag';
-          var extra = TAG_CLASS[String(t).toLowerCase()];
-          if (extra) cls += ' ' + extra;
-          tags.appendChild(el('span', { class: cls, text: t }));
-        });
-        body.appendChild(tags);
+      var item = el('div', { class: 'ms-chat-checkout-item' });
+      if (p.images && p.images[0]) {
+        item.appendChild(el('img', { class: 'ms-chat-checkout-thumb', src: p.images[0], alt: p.name || '', loading: 'lazy' }));
       }
+      var meta = el('div', { class: 'ms-chat-checkout-meta' });
+      meta.appendChild(el('div', { class: 'ms-chat-prod-name', text: p.name || '' }));
+      meta.appendChild(priceNode(p));
+      // Sync-fresh stock flag (API_CONTRACT.md §3) — functional, not
+      // decorative, so it survives the compact-card cut.
+      if (p.inStock === false) meta.appendChild(el('span', { class: 'ms-chat-soldout-badge', text: 'Ausverkauft' }));
+      item.appendChild(meta);
+      body.appendChild(item);
 
-      body.appendChild(priceNode(p));
-
-      var specs = specsGrid(p, 4);
-      if (specs) body.appendChild(specs);
-
-      if (input.reason) body.appendChild(el('div', { class: 'ms-chat-reason', text: input.reason }));
-
-      var footer = el('div', { class: 'ms-chat-prod-footer' });
-      var delivery = el('span', { class: 'ms-chat-delivery' }, [p.deliveryTime || '']);
-      delivery.insertBefore(icon('truck'), delivery.firstChild);
-      footer.appendChild(delivery);
-      body.appendChild(footer);
-      // Prominent primary CTA below the meta row.
+      // Prominent primary CTA below the product row.
       body.appendChild(productButton(p, 'Zum Produkt'));
 
       card.appendChild(body);
@@ -806,9 +764,12 @@
 
         if (cartUrl) {
           // ONE button -> the combined cart covering every resolved product.
-          var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: cartUrl, target: '_blank', rel: 'noopener noreferrer' });
+          // Labeled "Zur Kasse": the permalink lands in checkout, so an
+          // add-to-cart label would be misleading. Brand-blue checkout
+          // styling makes it the unmistakable primary action.
+          var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--checkout', href: cartUrl, target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Zur Kasse' });
           btn.appendChild(icon('cart'));
-          btn.appendChild(el('span', { text: multi ? 'Alle in den Warenkorb' : 'In den Warenkorb' }));
+          btn.appendChild(el('span', { text: 'Zur Kasse' }));
           btn.addEventListener('click', function () {
             track('add_to_cart_clicked', { productId: resolved[0].id, productIds: resolved.map(function (p) { return p.id; }) });
           });
