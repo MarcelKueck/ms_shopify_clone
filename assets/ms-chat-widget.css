@@ -231,6 +231,78 @@
    interaction so it can never overlap the panel (desktop or mobile full-screen). */
 .ms-chat-launcher--hidden { display: none !important; visibility: hidden; pointer-events: none; }
 
+/* One-time launcher attention motion (engagement layer): a single gentle
+   bounce shortly after load, added by the JS once per session, removed on
+   animationend. The reduced-motion block at the end of the file freezes it
+   (the JS also skips it entirely there). */
+.ms-chat-launcher--attn {
+  animation: ms-chat-attn 1.1s cubic-bezier(0.34, 1.3, 0.5, 1) 1 both;
+}
+@keyframes ms-chat-attn {
+  0%, 100% { transform: translateY(0) scale(1); }
+  22% { transform: translateY(-8px) scale(1.06); }
+  45% { transform: translateY(0) scale(1); }
+  62% { transform: translateY(-4px) scale(1.03); }
+  80% { transform: translateY(0) scale(1); }
+}
+
+/* ---------- Contextual proactive nudge (engagement layer) ---------- */
+/* A small dismissible speech bubble anchored above the launcher — NEVER a
+   blocking overlay (no backdrop, nothing else is covered). The flattened
+   bottom-right corner points it at the launcher. The message body is one big
+   tappable button (opens the chat); the small x dismisses for good. */
+.ms-chat-nudge {
+  position: fixed;
+  right: calc(20px + env(safe-area-inset-right, 0px));
+  /* 20px launcher offset + 68px launcher + 8px gap. */
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: calc(var(--msc-z) - 1);
+  display: flex;
+  align-items: flex-start;
+  max-width: min(300px, calc(100vw - 40px));
+  background: rgb(var(--msc-bg));
+  border: 1px solid var(--msc-border-strong);
+  border-radius: var(--msc-card-radius);
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 12px 36px rgb(0 0 0 / 18%);
+  animation: ms-chat-nudge-in 240ms ease-out both;
+}
+.ms-chat-nudge-msg {
+  min-width: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  text-align: left;
+  color: rgb(var(--msc-fg));
+  padding: 12px 2px 12px 14px;
+  border-radius: inherit;
+}
+.ms-chat-nudge-msg:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: -2px; }
+.ms-chat-nudge-x {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin: 6px 6px 0 2px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--msc-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ms-chat-nudge-x:hover { background: var(--msc-surface); color: rgb(var(--msc-fg)); }
+.ms-chat-nudge-x:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
+.ms-chat-nudge-x svg { width: 14px; height: 14px; }
+@keyframes ms-chat-nudge-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
 /* ---------- Panel ---------- */
 .ms-chat-panel {
   position: fixed;
@@ -495,6 +567,34 @@ html.ms-chat-page-anim {
   --msc-logo-rim: 2.5px;
   --msc-logo-blur: 0.6px;
 }
+/* Context-seeded starter prompts beneath the welcome orb (engagement layer —
+   deliberately supersedes the "no copy at all" welcome rule): 2-3 tappable
+   pill chips; tapping one sends it as the first user message. Quiet bordered
+   chips so the orb stays the hero. */
+.ms-chat-starters {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.ms-chat-starter {
+  width: 100%;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: 14px;
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-fg));
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+  padding: 10px 14px;
+  min-height: 44px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.ms-chat-starter:hover { background: var(--msc-surface); }
+.ms-chat-starter:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
 
 /* Messages — borderless / document style (supersedes the filled-bubble
    design): assistant (Mo) text renders as plain flowing text directly on the
@@ -997,6 +1097,8 @@ html.ms-chat-page-anim {
 
 @media (prefers-reduced-motion: reduce) {
   .ms-chat-launcher,
+  .ms-chat-launcher--attn,
+  .ms-chat-nudge,
   .ms-chat-backdrop,
   .ms-chat-row--gen .ms-chat-avatar,
   .ms-chat-row--gen .ms-chat-logo-bundle--cool,

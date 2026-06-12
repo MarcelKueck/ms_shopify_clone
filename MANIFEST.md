@@ -12,6 +12,111 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-12, later) — context-aware engagement layer: browsing trail, contextual nudge, context-seeded starters, one-time launcher attention, new KPI events
+
+An ambient, client-side engagement layer that makes opening Mo more likely
+**without an interrupting popup**. Everything is gathered client-side and
+used only in-session; the browsing trail lives only in the user's
+`localStorage` and is **never transmitted** (the only backend call remains
+the existing fail-silent `/api/kpi` beacon — event names + page type,
+never browsed product names, never message text). Spec: new §9c in
+`docs/WIDGET_SPEC.md`. **Re-upload both widget assets AND the snippet.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (page context + trail, nudge, starters, attention motion, new KPI events) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (`.ms-chat-nudge*`, `.ms-chat-starter*`, `.ms-chat-launcher--attn`, reduced-motion guards) | ✅ Yes |
+| `snippets/ms-chat-widget.liquid` | **MODIFIED** (adds `pageContext` to `window.MS_CHAT_CONFIG` — see below) | ✅ Yes |
+| `docs/WIDGET_SPEC.md` | **MODIFIED** (new §9c; §4.2 welcome note; §9b events; checklist) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### Snippet edit (the only Liquid change)
+
+`snippets/ms-chat-widget.liquid` now injects a `pageContext` object into
+`window.MS_CHAT_CONFIG`: `pageType` (`request.page_type`) always, plus
+`productId`/`productTitle`/`productType` on product pages and
+`collectionTitle`/`collectionHandle` on collection pages. Server-rendered
+page facts only — no user data. If you hand-edit instead of overwriting,
+add the `pageContext: { … }` block after `allowedFromTheme: true,`.
+
+### What changed
+
+- **Page context + browsing trail (client-side only).** The JS normalizes
+  `pageContext` to product / collection / cart / home / other (+ category =
+  product type or collection title) and keeps a trail of the last **5**
+  products/collections viewed (`ms-chat-trail` in `localStorage`:
+  id + name + type + category + timestamp, deduped, pruned after ~3 days).
+- **Contextual proactive nudge** — a small dismissible speech bubble above
+  the launcher (never a blocking overlay). Copy by priority, all grammar-safe
+  (names quoted): product page → „Fragen zum Produkt „X“? Ich helf dir gern
+  weiter.“; collection page → „Unsicher, was aus „X“ zu dir passt? Lass es
+  uns klären.“; ≥2 trail products in one category → „Du schaust dir ein paar
+  Produkte aus „X“ an — soll ich beim Vergleich helfen?“; otherwise a
+  friendly generic offer. **Triggers** (first one wins): dwell ~24s on
+  product/collection pages, scroll past ~85% of a product page, exit intent
+  (desktop only — mobile degrades to dwell/scroll). **Frequency:** once per
+  session; dismissing (the small ×) persists forever
+  (`ms-chat-nudge-dismissed`); never shown once the chat was opened this
+  session; clicking the bubble opens the chat.
+- **Context-seeded starter prompts** in the welcome state: 3 tappable chips
+  under the orb, seeded current/last product → category (collection page or
+  trail streak) → strong general starters. Tapping sends the text as the
+  first user message carrying the same `context` shape `openWithProduct`
+  already sends (smart backend handling of it is BE-NUDGE, separate).
+- **One-time launcher attention animation:** a single gentle bounce ~1.4s
+  after load, once per session (in-session navigation never replays it),
+  skipped under `prefers-reduced-motion`.
+- **New KPI events** (existing fail-silent `track()` → `POST /api/kpi`,
+  session-keyed, no personal data): `nudge_shown` (pageType, contextual,
+  trigger), `nudge_dismissed`, `nudge_clicked`, `starter_shown` (variant,
+  count), `starter_clicked` (variant, index), `launcher_attention_played`.
+- **Unchanged on purpose:** the nudge and starters never ask for an email —
+  the email ask stays in the capture form (§6a, after value). The
+  consent/canonical-copy rework from the earlier session entry below is
+  untouched.
+
+### Test checklist (after copying to the live theme)
+
+- [ ] **Contextual message per page type:** on a product page the nudge says
+      „Fragen zum Produkt „<Titel>“?…“; on a collection page „Unsicher, was
+      aus „<Kategorie>“ zu dir passt?…“; after viewing ≥2 products of one
+      category, on a context-free page (e.g. home) it offers comparison help
+      for that category; otherwise the generic greeting.
+- [ ] **Each trigger fires:** stay ~24s on a product/collection page (nudge
+      appears); reload a fresh session and instead scroll to the bottom of a
+      product page; reload again and on desktop move the pointer up out of
+      the viewport (exit intent). On mobile, exit intent never fires —
+      dwell/scroll still do.
+- [ ] **Frequency rules:** the nudge appears at most once per tab session;
+      after clicking its ×, it never appears again (also after reload —
+      `ms-chat-nudge-dismissed` in localStorage); it never appears once the
+      chat was opened this session; opening the panel removes a visible
+      nudge; clicking the bubble opens the chat.
+- [ ] **Context-seeded starters:** with an empty conversation, the welcome
+      state shows 3 tappable chips matching the context (product on/after a
+      product page, category after browsing a collection/category, strong
+      general ones otherwise); tapping one sends it as the first user
+      message and the assistant answers about that product/category.
+- [ ] **Trail privacy:** `ms-chat-trail` in localStorage holds ≤5 entries;
+      watch the network tab — no request ever contains the trail; the only
+      new requests are the `/api/kpi` beacons; product context goes out only
+      inside `/api/chat` when a starter (or product CTA) message is sent.
+- [ ] **Launcher animates once:** one gentle bounce shortly after load; not
+      again on the next page navigation in the same tab; with
+      "Reduce motion" enabled it never plays (and no
+      `launcher_attention_played` beacon fires).
+- [ ] **KPI events fire** (fail-silent): `nudge_shown` / `nudge_dismissed` /
+      `nudge_clicked` with pageType + contextual flag, `starter_shown` /
+      `starter_clicked` with variant, `launcher_attention_played` — visible
+      as `/api/kpi` beacons; no console errors when the endpoint is absent.
+- [ ] **Nothing asks for email:** neither the nudge nor any starter mentions
+      email/newsletter; the capture form still only appears via the
+      assistant's offer or the header "Per E-Mail teilen" button.
+- [ ] **Modes:** nudge + starters work in desktop sidebar AND modal modes and
+      in mobile fullscreen; the nudge never overlaps the open panel.
+
+---
+
 ## ⭐ Session update (2026-06-12) — capture form: canonical consent copy from the backend (Art. 7), benefit hint, pre-checked transactional box, prominent marketing box, imprint/privacy links
 
 GDPR/legal rework of the email-capture form per the re-synced root docs

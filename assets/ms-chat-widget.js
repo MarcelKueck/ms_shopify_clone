@@ -87,6 +87,14 @@
   function lsSet(k, v) { try { if (hasLS) window.localStorage.setItem(k, v); else memStore[k] = v; } catch (e) { memStore[k] = v; } }
   function lsDel(k) { try { if (hasLS) window.localStorage.removeItem(k); else delete memStore[k]; } catch (e) { delete memStore[k]; } }
 
+  // Session-scoped flags (engagement layer "once per session" caps: nudge,
+  // launcher attention, chat-opened). sessionStorage so they reset when the
+  // tab session ends; silent in-memory fallback degrades to "once per page
+  // load" — still capped, never throws.
+  var memSession = {};
+  function ssGet(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return k in memSession ? memSession[k] : null; } }
+  function ssSet(k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) { memSession[k] = v; } }
+
   function uuid() {
     try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -149,6 +157,83 @@
       }
       fetch(url, { method: 'POST', mode: 'no-cors', keepalive: true, body: payload }).catch(function () {});
     } catch (e) {}
+  }
+
+  // ---------------------------------------------------------------------------
+  // Page context + browsing trail (engagement layer).
+  //
+  // PRIVACY POSTURE (do not change): everything here is gathered CLIENT-SIDE
+  // and used only in-session to tailor copy. The trail lives ONLY in the
+  // user's localStorage, is capped and pruned, and is NEVER transmitted —
+  // no backend call carries it (the only telemetry is the existing
+  // fail-silent track() events: names + page type, never names of products
+  // browsed, never message text). Context (productId/title) leaves the
+  // browser only when the USER sends a chat message that carries it — the
+  // same mechanism the product-page CTA already uses.
+  //
+  // TONE RULE for any copy built from this data: reference the PAGE or
+  // CATEGORY ("Fragen zum Produkt …?"), never the user's behavior ("ich habe
+  // gesehen, dass du …"). Helpful salesperson, not surveillant.
+  // ---------------------------------------------------------------------------
+  var PAGE_CTX = (function () {
+    var pc = (CFG.pageContext && typeof CFG.pageContext === 'object') ? CFG.pageContext : {};
+    var t = String(pc.pageType || '');
+    var type = (t === 'product' || t === 'collection' || t === 'cart') ? t : (t === 'index' ? 'home' : 'other');
+    return {
+      type: type,
+      productId: pc.productId != null ? String(pc.productId) : null,
+      productName: pc.productTitle != null ? String(pc.productTitle) : null,
+      collectionHandle: pc.collectionHandle != null ? String(pc.collectionHandle) : null,
+      // Category: the product's type on product pages, the collection title
+      // on collection pages.
+      category: pc.productType ? String(pc.productType) : (pc.collectionTitle ? String(pc.collectionTitle) : null)
+    };
+  })();
+
+  // Lightweight browsing trail: the last few products/collections viewed
+  // (ids + names + type + timestamp), capped at TRAIL_MAX, entries pruned
+  // after TRAIL_TTL_MS. localStorage only — see the privacy posture above.
+  var TRAIL_KEY = 'ms-chat-trail';
+  var TRAIL_MAX = 5;
+  var TRAIL_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
+  function loadTrail() {
+    var raw = lsGet(TRAIL_KEY);
+    if (!raw) return [];
+    try {
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      var now = Date.now();
+      return arr.filter(function (e) {
+        return e && typeof e === 'object' && typeof e.ts === 'number' && (now - e.ts) < TRAIL_TTL_MS;
+      }).slice(0, TRAIL_MAX);
+    } catch (e) { return []; }
+  }
+
+  function recordTrail() {
+    if (PAGE_CTX.type !== 'product' && PAGE_CTX.type !== 'collection') return;
+    var id = PAGE_CTX.type === 'product' ? PAGE_CTX.productId : PAGE_CTX.collectionHandle;
+    var name = PAGE_CTX.type === 'product' ? PAGE_CTX.productName : PAGE_CTX.category;
+    if (!id && !name) return;
+    var entry = { id: id || '', name: name || '', type: PAGE_CTX.type, category: PAGE_CTX.category || '', ts: Date.now() };
+    var trail = loadTrail().filter(function (e) { return !(e.type === entry.type && e.id === entry.id); });
+    trail.unshift(entry);
+    try { lsSet(TRAIL_KEY, JSON.stringify(trail.slice(0, TRAIL_MAX))); } catch (e) {}
+  }
+
+  // ">= 2 products viewed in one category" -> that category (the strongest
+  // streak wins). Used for the comparison-offer nudge and category starters.
+  function trailCategoryStreak(trail) {
+    trail = trail || loadTrail();
+    var counts = {};
+    var best = null;
+    for (var i = 0; i < trail.length; i++) {
+      var e = trail[i];
+      if (e.type !== 'product' || !e.category) continue;
+      counts[e.category] = (counts[e.category] || 0) + 1;
+      if (counts[e.category] >= 2 && (best == null || counts[e.category] > counts[best])) best = e.category;
+    }
+    return best;
   }
 
   // ---------------------------------------------------------------------------
@@ -1267,13 +1352,75 @@
     }
   }
 
+  // Context-seeded starter prompts for the welcome state. Seeding order:
+  // current/last product -> current category or a trail category streak ->
+  // strong general starters. Copy is page/category-referencing (tone rule),
+  // grammar-safe for any product/category name, and NEVER asks for an email —
+  // a starter's only job is to start the conversation.
+  var starterMeta = null; // { variant, count, tracked } — for the starter_shown KPI
+  function starterSeed() {
+    var trail = loadTrail();
+    var prod = null;
+    if (PAGE_CTX.type === 'product' && PAGE_CTX.productName) {
+      prod = { id: PAGE_CTX.productId || '', name: PAGE_CTX.productName };
+    } else {
+      for (var i = 0; i < trail.length; i++) {
+        if (trail[i].type === 'product' && trail[i].name) { prod = { id: trail[i].id, name: trail[i].name }; break; }
+      }
+    }
+    if (prod) {
+      // Same context shape the product-page CTA (openWithProduct) sends.
+      var pctx = { type: 'product', productId: prod.id, productTitle: prod.name };
+      return { variant: 'product', items: [
+        { text: 'Ist „' + prod.name + '“ gut für Zuhause geeignet?', context: pctx },
+        { text: 'Gibt es eine günstigere Alternative zu „' + prod.name + '“?', context: pctx },
+        { text: 'Wie groß und wie laut ist „' + prod.name + '“?', context: pctx }
+      ] };
+    }
+    var cat = (PAGE_CTX.type === 'collection' && PAGE_CTX.category) ? PAGE_CTX.category : trailCategoryStreak(trail);
+    if (!cat) {
+      for (var j = 0; j < trail.length; j++) {
+        if (trail[j].type === 'collection' && trail[j].name) { cat = trail[j].name; break; }
+      }
+    }
+    if (cat) {
+      var cctx = { type: 'category', category: cat };
+      return { variant: 'category', items: [
+        { text: 'Worauf sollte ich bei „' + cat + '“ achten?', context: cctx },
+        { text: 'Hilf mir, das richtige Modell aus „' + cat + '“ zu finden.', context: cctx },
+        { text: 'Was sind eure Bestseller bei „' + cat + '“?', context: cctx }
+      ] };
+    }
+    return { variant: 'generic', items: [
+      { text: 'Hilf mir, das richtige Trainingsgerät zu finden.', context: null },
+      { text: 'Was sind eure Bestseller?', context: null },
+      { text: 'Ich trainiere zuhause — was empfiehlst du mir?', context: null }
+    ] };
+  }
+
   // Welcome state: the animated brand orb is the hero (an empty chat has
   // nothing to read, so full motion is fine here — reduced-motion still
-  // freezes it via CSS). No copy at all — the prompt line lives in the
-  // composer placeholder ("Wie kann ich dir helfen?") instead.
+  // freezes it via CSS). The prompt line lives in the composer placeholder
+  // ("Wie kann ich dir helfen?"); beneath the orb, 2-3 TAPPABLE context-seeded
+  // starters (deliberately supersedes the earlier "no copy at all" rule —
+  // WIDGET_SPEC §9c). Tapping one sends it as the first user message,
+  // carrying the same context shape openWithProduct already sends.
   function buildWelcome() {
     var w = el('div', { class: 'ms-chat-welcome' });
     w.appendChild(logoEl('ms-chat-welcome-logo'));
+    var seed = starterSeed();
+    starterMeta = { variant: seed.variant, count: seed.items.length, tracked: false };
+    var list = el('div', { class: 'ms-chat-starters' });
+    seed.items.forEach(function (item, idx) {
+      var b = el('button', { class: 'ms-chat-starter', type: 'button', text: item.text });
+      b.addEventListener('click', function () {
+        if (state.streaming || state.rateLocked) return;
+        track('starter_clicked', { variant: seed.variant, index: idx });
+        sendMessage(item.text, item.context);
+      });
+      list.appendChild(b);
+    });
+    w.appendChild(list);
     return w;
   }
 
@@ -1292,6 +1439,14 @@
   function openPanel() {
     if (state.open) return;
     state.open = true;
+    // Engagement layer: an opened chat ends the nudge's eligibility for this
+    // session, and a visible welcome state means the starters are shown.
+    ssSet(SS_CHAT_OPENED, '1');
+    removeNudge();
+    if (starterMeta && !starterMeta.tracked && welcomeEl && welcomeEl.parentNode === messagesEl) {
+      starterMeta.tracked = true;
+      track('starter_shown', { variant: starterMeta.variant, count: starterMeta.count });
+    }
     panel.classList.add('ms-chat-panel--open');
     launcher.classList.add('ms-chat-launcher--hidden');
     syncChrome(); // backdrop (modal) / page shift (sidebar) / mobile lock+size
@@ -1885,6 +2040,153 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Contextual proactive nudge (engagement layer, WIDGET_SPEC §9c).
+  //
+  // A small dismissible speech bubble next to the launcher — NEVER a blocking
+  // overlay/modal. Copy is tailored to the page/category (tone rule above);
+  // it never asks for an email. Frequency: at most ONCE per session
+  // (sessionStorage), never again once dismissed (localStorage), never if the
+  // chat was already opened this session. Triggers: dwell on product/
+  // collection pages, scroll near the bottom of a product page, exit intent
+  // on desktop only (mobile = dwell/scroll only). First applicable wins.
+  // ---------------------------------------------------------------------------
+  var NUDGE_DISMISSED_KEY = 'ms-chat-nudge-dismissed'; // persists: dismissed once = never again
+  var SS_NUDGE_SHOWN = 'ms-chat-nudge-shown';          // once per session
+  var SS_CHAT_OPENED = 'ms-chat-opened';               // chat opened this session
+  var SS_ATTN = 'ms-chat-attn-played';                 // launcher attention played this session
+  var NUDGE_DWELL_MS = 24000;
+  var nudgeEl = null;
+
+  function prefersReducedMotion() {
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
+  }
+
+  function nudgeEligible() {
+    return !state.open &&
+      lsGet(NUDGE_DISMISSED_KEY) !== '1' &&
+      !ssGet(SS_NUDGE_SHOWN) &&
+      !ssGet(SS_CHAT_OPENED);
+  }
+
+  // Copy priority: current product page -> current collection page -> a
+  // category streak in the trail -> friendly generic offer. All variants are
+  // grammar-safe for any product/category name (quoted, no gender/number
+  // agreement) and reference only the page/category — never behavior.
+  function nudgeCopy() {
+    if (PAGE_CTX.type === 'product' && PAGE_CTX.productName) {
+      return { text: 'Fragen zum Produkt „' + PAGE_CTX.productName + '“? Ich helf dir gern weiter.', contextual: true };
+    }
+    if (PAGE_CTX.type === 'collection' && PAGE_CTX.category) {
+      return { text: 'Unsicher, was aus „' + PAGE_CTX.category + '“ zu dir passt? Lass es uns klären.', contextual: true };
+    }
+    var streak = trailCategoryStreak();
+    if (streak) {
+      return { text: 'Du schaust dir ein paar Produkte aus „' + streak + '“ an — soll ich beim Vergleich helfen?', contextual: true };
+    }
+    return { text: 'Hi, ich bin Mo! Wenn du Fragen hast, helfe ich dir gern bei der Auswahl.', contextual: false };
+  }
+
+  function removeNudge() {
+    if (nudgeEl && nudgeEl.parentNode) nudgeEl.parentNode.removeChild(nudgeEl);
+    nudgeEl = null;
+  }
+
+  function showNudge(trigger) {
+    if (!nudgeEligible() || nudgeEl) return;
+    var copy = nudgeCopy();
+    ssSet(SS_NUDGE_SHOWN, '1');
+    nudgeEl = el('div', { class: 'ms-chat-nudge' });
+    var msg = el('button', { class: 'ms-chat-nudge-msg', type: 'button', text: copy.text });
+    msg.addEventListener('click', function () {
+      track('nudge_clicked', { pageType: PAGE_CTX.type, contextual: copy.contextual });
+      removeNudge();
+      openPanel();
+    });
+    var x = el('button', { class: 'ms-chat-nudge-x', type: 'button', 'aria-label': 'Hinweis schließen' });
+    x.appendChild(icon('close'));
+    x.addEventListener('click', function () {
+      lsSet(NUDGE_DISMISSED_KEY, '1'); // dismissed once -> persists, never shown again
+      track('nudge_dismissed', { pageType: PAGE_CTX.type, contextual: copy.contextual });
+      removeNudge();
+    });
+    nudgeEl.appendChild(msg);
+    nudgeEl.appendChild(x);
+    root.appendChild(nudgeEl);
+    track('nudge_shown', { pageType: PAGE_CTX.type, contextual: copy.contextual, trigger: trigger || '' });
+  }
+
+  // Behavior-based triggers; the first applicable one fires, then all are
+  // torn down. showNudge() re-checks eligibility, so a chat opened after
+  // arming silently wins.
+  function initNudgeTriggers() {
+    if (!nudgeEligible()) return;
+    var fired = false;
+    var dwellTimer = null;
+    var scrollBound = false;
+    var mouseBound = false;
+
+    function cleanup() {
+      if (dwellTimer) { clearTimeout(dwellTimer); dwellTimer = null; }
+      if (scrollBound) { window.removeEventListener('scroll', onScroll); scrollBound = false; }
+      if (mouseBound) { document.removeEventListener('mouseout', onMouseOut); mouseBound = false; }
+    }
+    function fire(trigger) {
+      if (fired) return;
+      fired = true;
+      cleanup();
+      showNudge(trigger);
+    }
+    // Dwell on a product/collection page.
+    if (PAGE_CTX.type === 'product' || PAGE_CTX.type === 'collection') {
+      dwellTimer = setTimeout(function () { fire('dwell'); }, NUDGE_DWELL_MS);
+    }
+    // Scroll near the bottom of a product page.
+    function onScroll() {
+      var doc = document.documentElement;
+      var max = Math.max(doc.scrollHeight || 0, document.body ? document.body.scrollHeight : 0);
+      if (max <= window.innerHeight) return;
+      if ((window.pageYOffset + window.innerHeight) / max >= 0.85) fire('scroll');
+    }
+    if (PAGE_CTX.type === 'product') {
+      window.addEventListener('scroll', onScroll, { passive: true });
+      scrollBound = true;
+    }
+    // Exit intent — DESKTOP only (pointer leaving toward the top/URL bar).
+    // Mobile has no pointer-out: dwell/scroll above are the mobile triggers.
+    function onMouseOut(e) {
+      if (e.relatedTarget) return;
+      if (typeof e.clientY === 'number' && e.clientY > 16) return;
+      fire('exit');
+    }
+    if (isDesktop()) {
+      document.addEventListener('mouseout', onMouseOut);
+      mouseBound = true;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // One-time launcher attention animation: a single gentle bounce shortly
+  // after load, then rest. Once per SESSION (not per navigation), skipped
+  // entirely under prefers-reduced-motion (the CSS also freezes it as a
+  // belt-and-braces guard).
+  // ---------------------------------------------------------------------------
+  function playLauncherAttention() {
+    if (ssGet(SS_ATTN)) return;
+    ssSet(SS_ATTN, '1'); // consumed even when skipped — never replays this session
+    if (prefersReducedMotion()) return;
+    setTimeout(function () {
+      if (state.open || !launcher) return;
+      launcher.classList.add('ms-chat-launcher--attn');
+      launcher.addEventListener('animationend', function onEnd(e) {
+        if (e.target !== launcher) return; // ignore bubbled orb/halo animation ends
+        launcher.classList.remove('ms-chat-launcher--attn');
+        launcher.removeEventListener('animationend', onEnd);
+      });
+      track('launcher_attention_played', {});
+    }, 1400);
+  }
+
+  // ---------------------------------------------------------------------------
   // Public API: product-page CTA (feature 2). Opens the panel and sends a
   // product-primed message so the assistant advises about that product. This
   // works whether the conversation is fresh or already going — it appends a
@@ -1958,6 +2260,11 @@
     window.MS_CHAT.openWithProduct = openWithProduct;
     window.MS_CHAT.openEmailSummary = openCaptureForm;
     bindProductCtas();
+    // Engagement layer: record this page in the local browsing trail, arm the
+    // contextual nudge triggers, play the one-time launcher attention motion.
+    recordTrail();
+    initNudgeTriggers();
+    playLauncherAttention();
   }
 
   // Delegated handler for storefront product-page CTAs. Reading product id +
