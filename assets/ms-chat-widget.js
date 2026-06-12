@@ -25,19 +25,23 @@
   // ---------------------------------------------------------------------------
   // Email-capture form — widget-owned UI CHROME strings only.
   //
-  // The LEGAL consent copy (checkbox labels, marketing benefit hint,
-  // imprint/privacy link targets, and the pre-composed `consentTextShown`
-  // audit string) is deliberately NOT hard-coded here. It is served by the
-  // backend — attached to every offer_email_summary tool result and available
-  // via GET /api/consent-copy — and rendered verbatim, so the stored Art. 7
-  // audit text can never diverge from what was displayed, and a lawyer copy
-  // change ships as a backend deploy with no widget release. See
-  // docs/{API_CONTRACT,CONSENT_FLOW}.md (§2 + §7.4).
+  // The LEGAL consent copy (checkbox labels, the shared consent footer, the
+  // returning-customer hint, imprint/privacy link targets, and the
+  // pre-composed `consentTextShown` audit string) is deliberately NOT
+  // hard-coded here. It is served by the backend — attached to every
+  // offer_email_summary tool result and available via GET /api/consent-copy —
+  // and rendered verbatim, so the stored Art. 7 audit text can never diverge
+  // from what was displayed, and a lawyer copy change ships as a backend
+  // deploy with no widget release. See docs/{API_CONTRACT,CONSENT_FLOW}.md
+  // (§2 + §7.4).
   //
   // LEGAL INVARIANTS (do not "optimise" away):
   //   * The two consents are SEPARATE — one transactional, one marketing.
-  //   * The marketing checkbox is UNCHECKED by default and is NEVER pre-ticked
-  //     or bundled into the same control/action as the transactional one.
+  //   * BOTH checkboxes start UNCHECKED (consent copy v2 — the earlier
+  //     allowance to pre-check the transactional box is revoked).
+  //   * The marketing checkbox is NEVER pre-ticked, never auto-toggled by any
+  //     other interaction, and never bundled into the same control/action as
+  //     the transactional one.
   //   * `consentTextShown` is the backend's pre-composed string echoed back
   //     byte-for-byte — never recomposed or hard-coded by the widget.
   // ---------------------------------------------------------------------------
@@ -53,7 +57,7 @@
     loading: 'Einwilligungstexte werden geladen…',
     privacy: 'Wir verwenden deine E-Mail nur wie oben angegeben. Für Angebote ist eine Bestätigung über den Doppel-Opt-in-Link in der E-Mail nötig.',
     errEmail: 'Bitte gib eine gültige E-Mail-Adresse an.',
-    errTransactional: 'Bitte bestätige, dass wir dir die Zusammenfassung per E-Mail senden dürfen.',
+    errTransactional: 'Bitte wähle mindestens die Zusammenfassung aus.',
     errCopyLoad: 'Die Einwilligungstexte konnten nicht geladen werden.',
     retry: 'Erneut versuchen',
     errRate: 'Zu viele Anfragen — bitte kurz warten.',
@@ -534,6 +538,16 @@
     if (validConsentCopy(c)) consentCopyCache = { copy: c, at: Date.now() };
   }
 
+  // Returning-customer hint (consent copy v2): backend-served AND
+  // backend-gated. Returns the hint text ONLY when the backend explicitly
+  // marks it enabled; an absent field (older backend) or a disabled
+  // server-side switch -> null, and the caller renders NOTHING — the widget
+  // carries no fallback hint copy.
+  function returningHintText(c) {
+    var h = c && c.returningHint;
+    return (h && h.enabled === true && typeof h.text === 'string' && h.text) ? h.text : null;
+  }
+
   function fetchConsentCopy() {
     if (consentCopyCache && (Date.now() - consentCopyCache.at) < CONSENT_COPY_TTL_MS) {
       return Promise.resolve(consentCopyCache.copy);
@@ -997,8 +1011,9 @@
   // Returns the card Element synchronously; the consent block fills in once
   // the CANONICAL backend copy resolves (submit stays disabled until then —
   // the audit string must be the served text, never a widget fallback). The
-  // two consents are SEPARATE; the marketing box starts UNCHECKED and is never
-  // bundled with the transactional one. POSTs to /api/capture-email
+  // two consents are SEPARATE; BOTH boxes start UNCHECKED (v2) and the
+  // marketing box is never bundled with the transactional one. POSTs to
+  // /api/capture-email
   // (API_CONTRACT.md §7) echoing the backend's `consentTextShown` verbatim.
   // opts.productIds is advisory cart-preview only — the backend resolves the
   // real products. opts.trigger is the offer's value moment, echoed back on
@@ -1039,6 +1054,14 @@
     }
 
     var form = el('form', { class: 'ms-chat-form ms-chat-capture', novalidate: 'novalidate' });
+
+    // Returning-customer hint (backend-served, v2) directly ABOVE the email
+    // field — the "why give my email" answer where the decision happens.
+    // Filled in renderConsent ONLY when the backend marks it enabled;
+    // informational UI copy, NOT part of the consent block or of
+    // `consentTextShown`. No fallback text lives in the widget.
+    var returnHintEl = el('div', { class: 'ms-chat-returning-hint ms-chat-returning-hint--form', style: 'display:none' });
+    form.appendChild(returnHintEl);
 
     // Email field (real <label> tied to the input via for/id).
     var emailId = 'msc-' + Math.random().toString(36).slice(2, 8);
@@ -1086,16 +1109,14 @@
 
     // Two SEPARATE consent controls. Each is a real <label> wrapping a real
     // <input type=checkbox> (keyboard-usable, clicking the text toggles it) with
-    // the full consent text always visible (never truncated). `hint` renders as
-    // a small supporting line directly beneath the label, inside the same
-    // consent block.
-    function consentRow(checked, labelText, hint) {
+    // the full consent text always visible (never truncated). v2: EVERY box
+    // starts UNCHECKED — there is deliberately no way to construct a
+    // pre-ticked row here.
+    function consentRow(labelText) {
       var row = el('label', { class: 'ms-chat-consent' });
       var input = el('input', { type: 'checkbox' });
-      if (checked) input.checked = true;
       row.appendChild(input);
       var text = el('span', { class: 'ms-chat-consent-text' }, [labelText]);
-      if (hint) text.appendChild(el('span', { class: 'ms-chat-consent-hint', text: hint }));
       row.appendChild(text);
       return { row: row, input: input };
     }
@@ -1106,26 +1127,65 @@
     var copy = null;
     var txn = null;
     var mkt = null;
+    var consentGroup = null;
+    var attnActive = false;
+
+    // Unchecked-transactional attention treatment: accent outline + a brief
+    // shake on the checkbox group (the shake is disabled via CSS under
+    // prefers-reduced-motion) plus ONE inline hint line. No request is sent.
+    // Cleared as soon as the user checks a box.
+    function flagConsentAttention() {
+      showError(CONSENT_COPY.errTransactional);
+      attnActive = true;
+      if (consentGroup) {
+        consentGroup.classList.remove('ms-chat-consent-group--attn');
+        void consentGroup.offsetWidth; // restart the shake on repeat clicks
+        consentGroup.classList.add('ms-chat-consent-group--attn');
+      }
+      if (txn) { try { txn.input.focus(); } catch (e) {} }
+    }
+    function clearConsentAttention() {
+      if (!attnActive) return;
+      attnActive = false;
+      if (consentGroup) consentGroup.classList.remove('ms-chat-consent-group--attn');
+      clearError();
+    }
 
     function renderConsent(c) {
       copy = c;
       consentArea.replaceChildren();
-      // TRANSACTIONAL box: PRE-CHECKED by default — permitted (API_CONTRACT.md
-      // §2, CONSENT_FLOW.md): it is the requested service itself
-      // (Art. 6(1)(b), not marketing); submitting the form is the user's
-      // affirmative request.
-      txn = consentRow(true, c.transactionalLabel);
-      // MARKETING box: PROMINENT (own highlighted block + benefit hint
-      // beneath the label) but ALWAYS UNCHECKED. DELIBERATE LEGAL DECISION —
-      // never pre-check this box: pre-ticked marketing consent is invalid
-      // under the GDPR's clear-affirmative-act requirement (CJEU C-673/17
-      // "Planet49") and a German UWG Abmahnung trigger. The opt-in is won
-      // through placement and copy, never through a pre-tick. Do not
-      // "optimise" this.
-      mkt = consentRow(false, c.marketingLabel, c.marketingBenefitHint);
+      // BOTH boxes start UNCHECKED (consent copy v2 — API_CONTRACT.md §2/§7.4;
+      // the v1 allowance to pre-check the transactional box is revoked).
+      // TRANSACTIONAL box: required to submit, but the user actively ticks it
+      // — the submit button stays clickable and an unchecked submit triggers
+      // the attention treatment instead of a request.
+      txn = consentRow(c.transactionalLabel);
+      // MARKETING box: PROMINENT (own accent-edged block) but ALWAYS
+      // UNCHECKED and never auto-toggled by any other interaction.
+      // DELIBERATE LEGAL DECISION — never pre-check this box: pre-ticked
+      // marketing consent is invalid under the GDPR's clear-affirmative-act
+      // requirement (CJEU C-673/17 "Planet49") and a German UWG Abmahnung
+      // trigger. The opt-in is won through placement and copy, never through
+      // a pre-tick. Do not "optimise" this.
+      mkt = consentRow(c.marketingLabel);
       mkt.row.classList.add('ms-chat-consent--marketing');
-      consentArea.appendChild(txn.row);
-      consentArea.appendChild(mkt.row);
+      consentGroup = el('div', { class: 'ms-chat-consent-group' });
+      consentGroup.appendChild(txn.row);
+      consentGroup.appendChild(mkt.row);
+      consentArea.appendChild(consentGroup);
+      // Checking a box resolves the unchecked-transactional highlight.
+      txn.input.addEventListener('change', function () { if (txn.input.checked) clearConsentAttention(); });
+      mkt.input.addEventListener('change', function () { if (mkt.input.checked) clearConsentAttention(); });
+      // Shared footer line beneath BOTH checkboxes (v2) — backend-served,
+      // rendered verbatim (part of the consentTextShown audit text).
+      if (typeof c.consentFooter === 'string' && c.consentFooter) {
+        consentArea.appendChild(el('div', { class: 'ms-chat-consent-footer', text: c.consentFooter }));
+      }
+      // Returning-customer hint above the email field — backend-gated; an
+      // absent field or enabled:false renders nothing.
+      var rh = returningHintText(c);
+      returnHintEl.textContent = rh || '';
+      returnHintEl.style.display = rh ? '' : 'none';
 
       legalEl.replaceChildren();
       var impHref = safeHref(c.imprintUrl);
@@ -1160,7 +1220,9 @@
       // Client-side validation before sending.
       var email = emailInput.value.trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { showError(CONSENT_COPY.errEmail); try { emailInput.focus(); } catch (e) {} return; }
-      if (!txn.input.checked) { showError(CONSENT_COPY.errTransactional); try { txn.input.focus(); } catch (e) {} return; }
+      // v2: the transactional box starts unchecked. An unchecked submit sends
+      // NOTHING — it highlights the checkbox group with one inline hint.
+      if (!txn.input.checked) { flagConsentAttention(); return; }
 
       var marketing = !!mkt.input.checked;
       var payload = {
@@ -1168,7 +1230,7 @@
         email: email,
         transactionalConsent: true,
         marketingConsent: marketing,
-        // The backend's pre-composed audit string (labels + benefit hint),
+        // The backend's pre-composed audit string (labels + shared footer),
         // echoed back VERBATIM — byte-for-byte the text rendered above. Never
         // recomposed or hard-coded client-side (Art. 7 proof of consent).
         consentTextShown: copy.consentTextShown
@@ -1206,6 +1268,15 @@
         return res.json().catch(function () { return null; }).then(function (data) {
           var code = data && data.error && data.error.code;
           var msg = (data && data.error && data.error.message) || '';
+          if (code === 'transactional_consent_required') {
+            // Defensive: the widget already blocks an unchecked submit
+            // client-side; if the backend still rejects (§7.1), surface the
+            // same targeted checkbox attention instead of a generic error.
+            submit.disabled = false;
+            submit.textContent = CONSENT_COPY.submit;
+            flagConsentAttention();
+            return;
+          }
           if (res.status === 429 || code === 'rate_limited') {
             // Honor Retry-After: keep submit locked for the window (mirrors
             // the chat path; same 30s default when the header is unreadable)
@@ -1551,6 +1622,26 @@
     return w;
   }
 
+  // Returning-customer hint in the welcome state: small, unobtrusive line
+  // BELOW the starters, backend-served via GET /api/consent-copy (same
+  // payload the capture form uses) and rendered ONLY when the backend marks
+  // it enabled. Fetched lazily on the first open of the welcome state — never
+  // at page load, so visitors who never open the chat trigger no request. An
+  // older backend without the field, the server-side switch off, or a failed
+  // fetch all render NOTHING — the widget has no fallback hint text.
+  var welcomeHintRequested = false;
+  function loadWelcomeHint() {
+    if (welcomeHintRequested || !welcomeEl) return;
+    welcomeHintRequested = true;
+    fetchConsentCopy().then(function (c) {
+      var rh = returningHintText(c);
+      if (!rh || welcomeEl.querySelector('.ms-chat-returning-hint')) return;
+      welcomeEl.appendChild(el('div', { class: 'ms-chat-returning-hint ms-chat-returning-hint--welcome', text: rh }));
+    }).catch(function () {
+      welcomeHintRequested = false; // transient failure -> retry on a later open
+    });
+  }
+
   // Auto-grow up to the cap (must match the CSS max-height), then the textarea
   // scrolls internally — the composer/panel never grow past it. Also the single
   // sync point for the appear-on-type send button: every path that changes the
@@ -1574,6 +1665,7 @@
       starterMeta.tracked = true;
       track('starter_shown', { variant: starterMeta.variant, count: starterMeta.count });
     }
+    if (welcomeEl && welcomeEl.parentNode === messagesEl) loadWelcomeHint();
     panel.classList.add('ms-chat-panel--open');
     launcher.classList.add('ms-chat-launcher--hidden');
     syncChrome(); // backdrop (modal) / page shift (sidebar) / mobile lock+size
@@ -1677,6 +1769,10 @@
 
   function showWelcome() {
     messagesEl.replaceChildren(welcomeEl);
+    // Welcome (re)shown while the panel is open (e.g. "new chat"): load the
+    // backend-served returning hint now. Gated on open so the page-load
+    // render of an empty history fetches nothing.
+    if (state.open) loadWelcomeHint();
   }
   function clearWelcome() {
     if (welcomeEl && welcomeEl.parentNode === messagesEl) messagesEl.removeChild(welcomeEl);

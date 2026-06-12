@@ -595,6 +595,17 @@ html.ms-chat-page-anim {
 }
 .ms-chat-starter:hover { background: var(--msc-surface); }
 .ms-chat-starter:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
+/* Returning-customer hint — BACKEND-SERVED text, rendered only when the
+   backend marks it enabled (no widget fallback copy). Small + unobtrusive:
+   below the starters in the welcome state, above the email field in the
+   capture form. */
+.ms-chat-returning-hint {
+  font-size: 0.78rem;
+  color: var(--msc-muted);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.ms-chat-returning-hint--welcome { margin-top: 14px; padding: 0 4px; }
 
 /* Messages — borderless / document style (supersedes the filled-bubble
    design): assistant (Mo) text renders as plain flowing text directly on the
@@ -925,10 +936,29 @@ html.ms-chat-page-anim {
    then this placeholder shows and submit stays disabled. */
 .ms-chat-consent-area { display: flex; flex-direction: column; gap: 8px; }
 .ms-chat-consent-loading { font-size: 0.85rem; color: var(--msc-muted); padding: 6px 2px; }
+/* v2: BOTH boxes start unchecked. The group wrapper holds the two consent
+   rows and is the target of the unchecked-transactional attention treatment:
+   accent outline + one brief shake when submit is clicked without the
+   (required) transactional box — JS removes the class as soon as a box is
+   checked. Under prefers-reduced-motion only the outline appears. */
+.ms-chat-consent-group { display: flex; flex-direction: column; gap: 8px; }
+.ms-chat-consent-group--attn {
+  outline: 2px solid rgb(var(--msc-accent) / 75%);
+  outline-offset: 4px;
+  border-radius: 12px;
+  animation: ms-chat-consent-shake 0.36s ease;
+}
+@keyframes ms-chat-consent-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  45% { transform: translateX(4px); }
+  70% { transform: translateX(-3px); }
+  85% { transform: translateX(2px); }
+}
 /* Marketing consent: PROMINENT block (surface tint, accent left edge, bolder
-   label, benefit hint) but ALWAYS UNCHECKED by default — prominence and copy
-   sell the opt-in, a pre-tick never may (Planet49 / UWG; see the deliberate-
-   decision comment in ms-chat-widget.js). */
+   label) but ALWAYS UNCHECKED — prominence and copy sell the opt-in, a
+   pre-tick never may (Planet49 / UWG; see the deliberate-decision comment in
+   ms-chat-widget.js). */
 .ms-chat-consent--marketing {
   background: var(--msc-surface);
   border: 1px solid var(--msc-border-strong);
@@ -937,15 +967,14 @@ html.ms-chat-page-anim {
   padding: 10px 12px;
 }
 .ms-chat-consent--marketing .ms-chat-consent-text { font-weight: 600; color: rgb(var(--msc-heading)); }
-/* Benefit hint: small supporting line directly beneath the marketing label —
-   part of the same consent block (and of the consentTextShown audit string). */
-.ms-chat-consent-hint {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.78rem;
-  font-weight: 400;
+/* Shared consent footer (v2): the backend-served one-liner beneath both
+   checkboxes — part of the consentTextShown audit string. */
+.ms-chat-consent-footer {
+  font-size: 0.75rem;
   color: var(--msc-muted);
-  line-height: 1.4;
+  line-height: 1.45;
+  padding: 0 2px;
+  overflow-wrap: anywhere;
 }
 /* Imprint/Datenschutz links next to the capture form (compliance); targets
    are backend-served. */
@@ -1141,7 +1170,8 @@ html.ms-chat-page-anim {
   .ms-chat-panel--open,
   .ms-chat-send,
   .ms-chat-composer,
-  .ms-chat-mic--recording { transition: none; animation: none; }
+  .ms-chat-mic--recording,
+  .ms-chat-consent-group--attn { transition: none; animation: none; }
   html.ms-chat-page-anim { transition: none; }
   /* Freeze the animated brand mark EVERYWHERE (launcher + halo + welcome +
      product CTA) to its static wave frame. Accessibility beats flair. */
