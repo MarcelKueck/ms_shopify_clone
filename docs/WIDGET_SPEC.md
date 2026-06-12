@@ -223,10 +223,13 @@ Persistence rules:
   the old share icon did (`openCaptureForm()`).
 - **Message area**: shows the **welcome state** until the first message
   **and** when no persisted history exists. The welcome state is the
-  **96px animated brand orb** (§4.1a, full motion) alone — no wordmark, no
-  copy at all; the prompt ("Wie kann ich dir helfen?") lives in the
+  **96px animated brand orb** (§4.1a, full motion) — no wordmark; the prompt
+  ("Wie kann ich dir helfen?") lives in the
   composer's placeholder instead (visual replacement for the
-  `BEHAVIOR_REFERENCE` §4 text-based welcome). If a history was restored
+  `BEHAVIOR_REFERENCE` §4 text-based welcome). Beneath the orb, **2-3
+  context-seeded tappable starter prompts** render (§9c — this deliberately
+  supersedes the earlier "no copy at all" welcome rule; the orb stays the
+  hero, the chips are quiet bordered pills). If a history was restored
   from `localStorage`,
   render it directly and skip the welcome state.
 - **Message styling — borderless / document style** (supersedes BOTH earlier
@@ -681,8 +684,96 @@ in the **body** (beacons can't set an `x-ms-session` header). It sends
 **event names + ids only — never message text**. Events: `chat_opened`,
 `chat_closed`, `message_sent`, `product_cta_clicked` (`productId`),
 `add_to_cart_clicked` (`productId`), `showroom_clicked` (`productIds`),
-`product_cta_opened` (`productId`). This is pseudonymous analytics keyed
+`product_cta_opened` (`productId`). The engagement layer (§9c) adds:
+`nudge_shown` (`pageType`, `contextual` true/false, `trigger`
+dwell/scroll/exit), `nudge_dismissed` (`pageType`, `contextual`),
+`nudge_clicked` (`pageType`, `contextual`), `starter_shown` (`variant`
+product/category/generic + `count`), `starter_clicked` (`variant` +
+`index` — which starter), `launcher_attention_played`. All are
+session-keyed and carry **no personal data and no browsed product names**
+(page type + variant flags only). This is pseudonymous analytics keyed
 by the random session id.
+
+## 9c. Context-aware engagement layer (BE-NUDGE client side)
+
+A set of ambient, client-side features that make opening Mo more likely —
+**without a classic interrupting popup**. Implemented entirely in
+`assets/ms-chat-widget.{js,css}` plus a `pageContext` object the snippet
+injects into `window.MS_CHAT_CONFIG`.
+
+**Privacy posture (load-bearing):** everything is gathered client-side and
+used only in-session. The browsing trail lives **only** in the user's
+`localStorage`, is capped and pruned, and is **never transmitted** — the
+only backend call remains the existing fail-silent `track()` KPI beacon
+(event names + page type, never product names browsed, never message
+text). Product context (`productId`/`productTitle`) leaves the browser
+only when the **user sends a chat message** that carries it — the same
+`context` mechanism `openWithProduct` (§9a) already uses. The smart
+backend handling of that context is BE-NUDGE (separate); the widget just
+sends text + context.
+
+**Tone rule:** copy references the **page/category** ("Fragen zum Produkt
+…?"), never the user's behavior ("ich habe gesehen, dass du …"). Helpful
+salesperson, not creepy watcher. The nudge and the starters **never ask
+for an email or push marketing** — their only job is to start the
+conversation; the email ask stays where it is (§6a, after value).
+
+### Page context + browsing trail
+
+- The snippet injects `pageContext` (server-rendered page facts only):
+  `pageType` (`request.page_type`), plus `productId`/`productTitle`/
+  `productType` on product pages and `collectionTitle`/`collectionHandle`
+  on collection pages. The JS normalizes this to
+  product / collection / cart / home / other, with `category` = the
+  product's type or the collection's title.
+- A lightweight **browsing trail** in `localStorage` (`ms-chat-trail`):
+  the last **5** products/collections viewed as
+  `{ id, name, type, category, ts }`, deduped per page, entries pruned
+  after ~3 days. Recorded on init of product/collection pages.
+
+### Contextual proactive nudge
+
+- A small **dismissible speech bubble** (`.ms-chat-nudge`) anchored above
+  the launcher — never a blocking overlay, no backdrop. The message body
+  is one tappable button that **opens the chat**; a small **x** dismisses.
+- **Copy priority** (grammar-safe — names are quoted, no gender/number
+  agreement): product page → *"Fragen zum Produkt „X“? Ich helf dir gern
+  weiter."*; collection page → *"Unsicher, was aus „X“ zu dir passt? Lass
+  es uns klären."*; ≥2 trail products in one category → *"Du schaust dir
+  ein paar Produkte aus „X“ an — soll ich beim Vergleich helfen?"*;
+  otherwise the friendly generic *"Hi, ich bin Mo! Wenn du Fragen hast,
+  helfe ich dir gern bei der Auswahl."*
+- **Triggers** (first applicable fires, then all tear down): **dwell**
+  ~24s on a product/collection page, OR **scroll** past ~85% of a product
+  page, OR **exit intent** on desktop only (pointer leaving toward the
+  top/URL bar). Mobile degrades to dwell/scroll only.
+- **Frequency:** at most **once per session** (`sessionStorage`); once
+  dismissed, a `localStorage` flag (`ms-chat-nudge-dismissed`) suppresses
+  it **forever**; never shown if the chat was already opened this session;
+  removed the moment the panel opens.
+
+### Context-seeded starter prompts (welcome state)
+
+- The welcome state shows **3 tappable starters** (`.ms-chat-starter`)
+  beneath the orb, seeded in priority order: **current/last product**
+  (e.g. *"Ist „X“ gut für Zuhause geeignet?"*, *"Gibt es eine günstigere
+  Alternative zu „X“?"*, *"Wie groß und wie laut ist „X“?"*) → **current
+  collection or a trail category streak** (e.g. *"Worauf sollte ich bei
+  „X“ achten?"*) → **strong general starters** (*"Hilf mir, das richtige
+  Trainingsgerät zu finden."* …).
+- Tapping one **sends it as the first user message**, carrying the same
+  `context` shape `openWithProduct` sends (`{ type: "product", productId,
+  productTitle }` for product starters; `{ type: "category", category }`
+  for category starters; none for generic). Disabled while
+  streaming/rate-locked, exactly like the composer.
+
+### One-time launcher attention animation
+
+- Shortly after load the launcher plays **one** gentle bounce
+  (`.ms-chat-launcher--attn`, ~1.1s), then rests. Played at most **once
+  per session** (`sessionStorage`), so in-session navigation never
+  replays it. Skipped entirely under `prefers-reduced-motion` (JS check
+  + CSS freeze), and skipped while the panel is open.
 
 ## 10. Acceptance checklist
 
@@ -730,3 +821,13 @@ by the random session id.
 - [ ] Secret only ever shipped to the allowlisted storefront origin;
       no false-auth claims; relies on backend origin allowlist + rate
       limit.
+- [ ] Engagement layer (§9c): browsing trail stays in `localStorage`
+      (capped 5, pruned, never transmitted); contextual nudge shows the
+      right copy per page type, fires on dwell/scroll/exit-intent
+      (desktop) with mobile degrading to dwell/scroll, at most once per
+      session, never after dismiss or an opened chat; welcome state shows
+      2-3 context-seeded tappable starters that send as the first user
+      message with the existing context shape; launcher attention motion
+      plays once per session and respects reduced motion; the new KPI
+      events fire fail-silently; neither the nudge nor the starters ever
+      ask for an email.
