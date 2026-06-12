@@ -12,6 +12,87 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-12) — capture form: canonical consent copy from the backend (Art. 7), benefit hint, pre-checked transactional box, prominent marketing box, imprint/privacy links
+
+GDPR/legal rework of the email-capture form per the re-synced root docs
+(`docs/API_CONTRACT.md` §2 + §7, `docs/CONSENT_FLOW.md`). The widget **no
+longer hard-codes any consent strings** — the consent checkbox labels, the
+new marketing benefit hint, the imprint/privacy link targets and the
+`consentTextShown` audit string all come from the backend, so the stored
+Art. 7 proof can never diverge from what was displayed. **Re-upload both
+widget assets.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (consent copy fetched from backend; capture-card rework; trigger echo) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (marketing-prominence block, benefit hint, loading line, legal links) | ✅ Yes |
+| `docs/WIDGET_SPEC.md` | **MODIFIED** (§6a rewritten + checklist) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed
+
+- **Canonical consent copy from the backend (legally load-bearing).** The
+  hard-coded `transactionalLabel`/`marketingLabel` strings were removed from
+  the JS. The capture card now renders the backend-served strings: the
+  `offer_email_summary` tool **result** seeds an in-memory cache as it streams
+  in, and `GET /api/consent-copy` covers every other path (share-button entry
+  point, restored history, cache expiry; 60s TTL matching the endpoint's
+  `Cache-Control`, never persisted). While the copy loads the card shows
+  "Einwilligungstexte werden geladen…" and **submit is disabled**; a load
+  failure shows an error + "Erneut versuchen" — the form can never submit
+  fallback/stale consent text.
+- **`consentTextShown` is now the backend's pre-composed audit string echoed
+  back verbatim** (it was previously composed client-side by joining the two
+  hard-coded labels) — byte-for-byte what the user saw.
+- **Marketing benefit hint** (`marketingBenefitHint`) renders as a small
+  supporting line directly beneath the marketing label, inside the same
+  consent block (it is part of the served `consentTextShown`).
+- **Transactional box is PRE-CHECKED by default** — contractually permitted:
+  it is the requested service (Art. 6(1)(b)), not marketing; submitting the
+  form is the affirmative request.
+- **Marketing box is PROMINENT but stays UNCHECKED** — highlighted block
+  (surface tint, accent left edge, bolder label) + the benefit hint. Never
+  pre-checked: deliberate, documented legal decision (CJEU *Planet49*, UWG
+  Abmahnung risk) — noted as a code comment in both JS and CSS. The two
+  consents remain separate/unbundled; submit works with only the
+  transactional box.
+- **Imprint/Datenschutz links** next to the form (below the privacy caption),
+  pointing at the backend-served `imprintUrl`/`privacyUrl`
+  (`target="_blank" rel="noopener noreferrer"`).
+- **`trigger` echoed to `/api/capture-email`** when the form came from an
+  `offer_email_summary` call (telemetry-only, per contract §7.1).
+- **Removed the widget-side `email_capture_submitted` KPI event** — the
+  contract (§5) records it server-side and forbids widget duplicates.
+
+### Test checklist (after copying to the live theme)
+
+- [ ] **Canonical marketing label:** trigger the capture form (ask Mo for an
+      email summary, or the header "Per E-Mail teilen" button) — the marketing
+      checkbox label matches the canonical backend string EXACTLY (compare
+      with `GET /api/consent-copy`; welcome-discount framing, "Mo darf sich
+      mich merken…"), not the old hard-coded copy.
+- [ ] **Benefit hint shows:** the "Dein Vorteil: …" line renders directly
+      beneath the marketing label as a small supporting line inside the same
+      highlighted block.
+- [ ] **Checkbox defaults:** transactional box is PRE-CHECKED; marketing box
+      is UNCHECKED (also after reload/restored history and via the share
+      button). Marketing block is visually prominent but never pre-ticked.
+- [ ] **Unbundled:** submitting with only the transactional box ticked works
+      (summary email arrives, no DOI email); unticking transactional blocks
+      submit with the inline error.
+- [ ] **Imprint/privacy links:** "Impressum" and "Datenschutz" links render
+      next to the form and open the backend-provided targets in a new tab.
+- [ ] **Audit string:** submit the form and verify (backend DB/logs) the
+      stored `consentTextShown` equals the displayed strings — i.e. the
+      served `consentTextShown` (labels + benefit hint), echoed verbatim.
+- [ ] **Loading/failure path:** with the network throttled/blocked, the card
+      shows the loading line then the error + "Erneut versuchen"; submit stays
+      disabled until the copy loads; retry recovers.
+- [ ] **Trigger echo:** a tool-triggered submit sends the offer's `trigger`
+      in the POST body (check the request payload in DevTools).
+
+---
+
 ## ⭐ Session update (2026-06-11k) — monochrome tool cards (blue fill removed)
 
 Follow-up to 2026-06-11j after client review: the tool cards still had the

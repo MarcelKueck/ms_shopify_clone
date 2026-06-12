@@ -23,18 +23,23 @@
   var SHOWROOM_URL = CFG.showroomUrl || 'https://motionsports.de/pages/showroom-munchen-grobenzell';
 
   // ---------------------------------------------------------------------------
-  // Email-capture / consent copy — PLACEHOLDER pending lawyer approval.
-  // ALL user-facing strings for the GDPR capture form live here, in one place,
-  // so legal can retune them without touching the rendering code. See
-  // docs/ai-advisor/{API_CONTRACT,WIDGET_SPEC}.md §7 / CONSENT_FLOW.md.
+  // Email-capture form — widget-owned UI CHROME strings only.
+  //
+  // The LEGAL consent copy (checkbox labels, marketing benefit hint,
+  // imprint/privacy link targets, and the pre-composed `consentTextShown`
+  // audit string) is deliberately NOT hard-coded here. It is served by the
+  // backend — attached to every offer_email_summary tool result and available
+  // via GET /api/consent-copy — and rendered verbatim, so the stored Art. 7
+  // audit text can never diverge from what was displayed, and a lawyer copy
+  // change ships as a backend deploy with no widget release. See
+  // docs/{API_CONTRACT,CONSENT_FLOW}.md (§2 + §7.4).
   //
   // LEGAL INVARIANTS (do not "optimise" away):
   //   * The two consents are SEPARATE — one transactional, one marketing.
   //   * The marketing checkbox is UNCHECKED by default and is NEVER pre-ticked
   //     or bundled into the same control/action as the transactional one.
-  //   * `transactionalLabel` / `marketingLabel` are the EXACT strings shown to
-  //     the user; both are sent verbatim (joined by " | ") as `consentTextShown`
-  //     for Art. 7 proof — so edit them here and the audit trail stays in sync.
+  //   * `consentTextShown` is the backend's pre-composed string echoed back
+  //     byte-for-byte — never recomposed or hard-coded by the widget.
   // ---------------------------------------------------------------------------
   var CONSENT_COPY = {
     title: 'Zusammenfassung per E-Mail',
@@ -43,16 +48,14 @@
     intro: 'Ich schicke dir gerne die Zusammenfassung deiner Beratung samt Warenkorb per E-Mail.',
     emailLabel: 'E-Mail',
     emailPlaceholder: 'deine@email.de',
-    // Transactional consent — REQUIRED to submit (you can't email a summary
-    // without consent to email it). Submittable on its own, without marketing.
-    transactionalLabel: 'Ja, sendet mir die Zusammenfassung meiner Beratung und meinen Warenkorb per E-Mail.',
-    // Marketing consent — SEPARATE, UNCHECKED by default, double opt-in.
-    marketingLabel: 'Ja, motion sports darf mir personalisierte Angebote und Produktempfehlungen per E-Mail senden. Diese Einwilligung kann ich jederzeit widerrufen.',
     submit: 'Zusammenfassung senden',
     sending: 'Wird gesendet…',
+    loading: 'Einwilligungstexte werden geladen…',
     privacy: 'Wir verwenden deine E-Mail nur wie oben angegeben. Für Angebote ist eine Bestätigung über den Doppel-Opt-in-Link in der E-Mail nötig.',
     errEmail: 'Bitte gib eine gültige E-Mail-Adresse an.',
     errTransactional: 'Bitte bestätige, dass wir dir die Zusammenfassung per E-Mail senden dürfen.',
+    errCopyLoad: 'Die Einwilligungstexte konnten nicht geladen werden.',
+    retry: 'Erneut versuchen',
     errRate: 'Zu viele Anfragen — bitte kurz warten.',
     errUpstream: 'Senden gerade nicht möglich — bitte später erneut versuchen.',
     errGeneric: 'Senden fehlgeschlagen. Bitte versuch es erneut.',
@@ -361,6 +364,52 @@
     return Promise.all(jobs).then(function () {
       return ids.map(function (id) { return id in productCache ? productCache[id] : null; });
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Canonical consent copy for the capture form (API_CONTRACT.md §7.4).
+  // Sourced ONLY from the backend: seeded from the offer_email_summary tool
+  // result and/or fetched from GET /api/consent-copy — both serve the
+  // identical payload. Held in memory for 60s (matching the endpoint's
+  // Cache-Control) so a lawyer copy change reaches live widgets quickly;
+  // never persisted across sessions.
+  // ---------------------------------------------------------------------------
+  var CONSENT_COPY_TTL_MS = 60 * 1000;
+  var consentCopyCache = null;    // { copy, at }
+  var consentCopyInflight = null; // de-duped GET while a fetch is pending
+
+  function validConsentCopy(c) {
+    return !!(c && typeof c === 'object' &&
+      typeof c.transactionalLabel === 'string' && c.transactionalLabel &&
+      typeof c.marketingLabel === 'string' && c.marketingLabel &&
+      typeof c.consentTextShown === 'string' && c.consentTextShown);
+  }
+
+  function seedConsentCopy(c) {
+    if (validConsentCopy(c)) consentCopyCache = { copy: c, at: Date.now() };
+  }
+
+  function fetchConsentCopy() {
+    if (consentCopyCache && (Date.now() - consentCopyCache.at) < CONSENT_COPY_TTL_MS) {
+      return Promise.resolve(consentCopyCache.copy);
+    }
+    if (consentCopyInflight) return consentCopyInflight;
+    consentCopyInflight = fetch(API_BASE + '/api/consent-copy', { method: 'GET', headers: { 'x-ms-session': sid } })
+      .then(function (res) {
+        if (!res.ok) throw new Error('consent-copy ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        consentCopyInflight = null;
+        if (!validConsentCopy(data)) throw new Error('consent-copy: invalid payload');
+        consentCopyCache = { copy: data, at: Date.now() };
+        return data;
+      })
+      .catch(function (err) {
+        consentCopyInflight = null;
+        throw err;
+      });
+    return consentCopyInflight;
   }
 
   // ---------------------------------------------------------------------------
@@ -779,10 +828,15 @@
   // GDPR email-capture form. Shared by BOTH entry points:
   //   (a) the assistant's offer_email_summary tool part (inline in the chat),
   //   (b) the header share icon (proactive, on demand).
-  // Returns the card Element synchronously. The two consents are SEPARATE; the
-  // marketing box starts UNCHECKED and is never bundled with the transactional
-  // one. POSTs to /api/capture-email (API_CONTRACT.md §7). opts.productIds is
-  // advisory cart-preview only — the backend resolves the real products.
+  // Returns the card Element synchronously; the consent block fills in once
+  // the CANONICAL backend copy resolves (submit stays disabled until then —
+  // the audit string must be the served text, never a widget fallback). The
+  // two consents are SEPARATE; the marketing box starts UNCHECKED and is never
+  // bundled with the transactional one. POSTs to /api/capture-email
+  // (API_CONTRACT.md §7) echoing the backend's `consentTextShown` verbatim.
+  // opts.productIds is advisory cart-preview only — the backend resolves the
+  // real products. opts.trigger is the offer's value moment, echoed back on
+  // submit (telemetry only).
   // ---------------------------------------------------------------------------
   function buildCaptureCard(opts) {
     opts = opts || {};
@@ -821,31 +875,90 @@
     emailField.appendChild(emailInput);
     form.appendChild(emailField);
 
-    // Two SEPARATE consent controls. Each is a real <label> wrapping a real
-    // <input type=checkbox> (keyboard-usable, clicking the text toggles it) with
-    // the full consent text always visible (never truncated).
-    function consentRow(checked, labelText) {
-      var row = el('label', { class: 'ms-chat-consent' });
-      var input = el('input', { type: 'checkbox' });
-      if (checked) input.checked = true;
-      row.appendChild(input);
-      row.appendChild(el('span', { class: 'ms-chat-consent-text', text: labelText }));
-      return { row: row, input: input };
-    }
-
-    var txn = consentRow(false, CONSENT_COPY.transactionalLabel);  // required
-    var mkt = consentRow(false, CONSENT_COPY.marketingLabel);      // UNCHECKED — never pre-tick
-    form.appendChild(txn.row);
-    form.appendChild(mkt.row);
+    // Consent block — populated with the CANONICAL backend-served copy once it
+    // resolves (loadConsent below). Nothing legal is hard-coded here.
+    var consentArea = el('div', { class: 'ms-chat-consent-area' });
+    form.appendChild(consentArea);
 
     var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
     form.appendChild(errEl);
 
     var submit = el('button', { type: 'submit', class: 'ms-chat-btn ms-chat-btn--primary' }, [CONSENT_COPY.submit]);
+    submit.disabled = true; // enabled only once the served consent copy is rendered
     form.appendChild(submit);
     body.appendChild(form);
 
     body.appendChild(el('div', { class: 'ms-chat-caption', text: CONSENT_COPY.privacy }));
+
+    // Imprint/Privacy links next to the form (compliance requirement —
+    // CONSENT_FLOW.md). Targets are backend-served; filled in renderConsent.
+    var legalEl = el('div', { class: 'ms-chat-legal-links' });
+    body.appendChild(legalEl);
+
+    // Two SEPARATE consent controls. Each is a real <label> wrapping a real
+    // <input type=checkbox> (keyboard-usable, clicking the text toggles it) with
+    // the full consent text always visible (never truncated). `hint` renders as
+    // a small supporting line directly beneath the label, inside the same
+    // consent block.
+    function consentRow(checked, labelText, hint) {
+      var row = el('label', { class: 'ms-chat-consent' });
+      var input = el('input', { type: 'checkbox' });
+      if (checked) input.checked = true;
+      row.appendChild(input);
+      var text = el('span', { class: 'ms-chat-consent-text' }, [labelText]);
+      if (hint) text.appendChild(el('span', { class: 'ms-chat-consent-hint', text: hint }));
+      row.appendChild(text);
+      return { row: row, input: input };
+    }
+
+    // The backend-served copy currently rendered. Submitting is impossible
+    // until this is set: `consentTextShown` must be the served audit string
+    // verbatim (Art. 7 proof), so there is no client-side fallback text.
+    var copy = null;
+    var txn = null;
+    var mkt = null;
+
+    function renderConsent(c) {
+      copy = c;
+      consentArea.replaceChildren();
+      // TRANSACTIONAL box: PRE-CHECKED by default — permitted (API_CONTRACT.md
+      // §2, CONSENT_FLOW.md): it is the requested service itself
+      // (Art. 6(1)(b), not marketing); submitting the form is the user's
+      // affirmative request.
+      txn = consentRow(true, c.transactionalLabel);
+      // MARKETING box: PROMINENT (own highlighted block + benefit hint
+      // beneath the label) but ALWAYS UNCHECKED. DELIBERATE LEGAL DECISION —
+      // never pre-check this box: pre-ticked marketing consent is invalid
+      // under the GDPR's clear-affirmative-act requirement (CJEU C-673/17
+      // "Planet49") and a German UWG Abmahnung trigger. The opt-in is won
+      // through placement and copy, never through a pre-tick. Do not
+      // "optimise" this.
+      mkt = consentRow(false, c.marketingLabel, c.marketingBenefitHint);
+      mkt.row.classList.add('ms-chat-consent--marketing');
+      consentArea.appendChild(txn.row);
+      consentArea.appendChild(mkt.row);
+
+      legalEl.replaceChildren();
+      var impHref = safeHref(c.imprintUrl);
+      var privHref = safeHref(c.privacyUrl);
+      if (impHref) legalEl.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: 'Impressum' }));
+      if (privHref) legalEl.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: 'Datenschutz' }));
+
+      submit.disabled = false;
+    }
+
+    function loadConsent() {
+      consentArea.replaceChildren(el('div', { class: 'ms-chat-consent-loading', text: CONSENT_COPY.loading }));
+      fetchConsentCopy().then(renderConsent).catch(function () {
+        // Without the served copy the form must not submit — offer a retry.
+        consentArea.replaceChildren();
+        consentArea.appendChild(el('div', { class: 'ms-chat-form-error', text: CONSENT_COPY.errCopyLoad }));
+        var retry = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--secondary' }, [CONSENT_COPY.retry]);
+        retry.addEventListener('click', loadConsent);
+        consentArea.appendChild(retry);
+      });
+    }
+    loadConsent();
 
     function showError(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
     function clearError() { errEl.textContent = ''; errEl.style.display = 'none'; }
@@ -853,6 +966,7 @@
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       clearError();
+      if (!copy || !txn || !mkt) return; // canonical copy not loaded -> cannot submit
 
       // Client-side validation before sending.
       var email = emailInput.value.trim();
@@ -860,19 +974,23 @@
       if (!txn.input.checked) { showError(CONSENT_COPY.errTransactional); try { txn.input.focus(); } catch (e) {} return; }
 
       var marketing = !!mkt.input.checked;
-      // Exact labels the user saw (BOTH boxes), stored verbatim as Art. 7 proof.
-      var consentTextShown = CONSENT_COPY.transactionalLabel + ' | ' + CONSENT_COPY.marketingLabel;
       var payload = {
         sessionId: sid,
         email: email,
         transactionalConsent: true,
         marketingConsent: marketing,
-        consentTextShown: consentTextShown
+        // The backend's pre-composed audit string (labels + benefit hint),
+        // echoed back VERBATIM — byte-for-byte the text rendered above. Never
+        // recomposed or hard-coded client-side (Art. 7 proof of consent).
+        consentTextShown: copy.consentTextShown
       };
+      // Echo of the offer's value moment (telemetry only — opt-in funnel split).
+      if (opts.trigger) payload.trigger = opts.trigger;
 
       submit.disabled = true;
       submit.textContent = CONSENT_COPY.sending;
-      track('email_capture_submitted', { marketing: marketing }); // fail-silent
+      // No widget-side "submitted" KPI event: email_capture_submitted is
+      // recorded server-side by /api/capture-email (API_CONTRACT.md §5).
 
       fetch(API_BASE + '/api/capture-email', {
         method: 'POST',
@@ -921,7 +1039,7 @@
       case 'add_to_cart': return buildAddToCart(input);
       case 'suggest_showroom': return buildShowroom(input);
       case 'show_contact_form': return buildContactForm(input);
-      case 'offer_email_summary': return Promise.resolve(buildCaptureCard({ message: input.message, productIds: input.productIds }));
+      case 'offer_email_summary': return Promise.resolve(buildCaptureCard({ message: input.message, productIds: input.productIds, trigger: input.trigger }));
       default: return Promise.resolve(null);
     }
   }
@@ -1657,9 +1775,17 @@
             return;
           }
           case 'tool-output-available':
+            // The offer_email_summary RESULT carries the canonical consent
+            // copy for the capture form (API_CONTRACT.md §2) — seed the
+            // consent-copy cache so the card renders the exact served strings.
+            // All other tool results carry nothing extra to render (the
+            // widget hydrates its own product data). Consumed silently.
+            if (ev.toolCallId && toolNames[ev.toolCallId] === 'offer_email_summary' &&
+                ev.output && ev.output.consentCopy) {
+              seedConsentCopy(ev.output.consentCopy);
+            }
+            return;
           case 'tool-output-error':
-            // Tool results: the widget hydrates its own product data, so these
-            // carry nothing extra to render. Consumed silently.
             return;
 
           // --- Error event. ---
