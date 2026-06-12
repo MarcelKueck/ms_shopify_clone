@@ -703,38 +703,16 @@ html.ms-chat-page-anim {
    forcing the card wider than the panel. */
 .ms-chat-card-body > * { min-width: 0; max-width: 100%; }
 
-/* Product card */
-.ms-chat-prod-imgwrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* On the now-white card the image area needs a hairline to separate it
-     from the body (the blue fill used to do that job). */
-  border-bottom: 1px solid var(--msc-border);
-}
-.ms-chat-prod-imgwrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.ms-chat-series-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgb(var(--msc-accent));
-  color: rgb(var(--msc-accent-fg));
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 999px;
-}
-/* Subtle sold-out flag (inStock:false from /api/products — sync-fresh, not
-   live): a quiet dark pill on the image, and a small note in checkout rows
-   whose product the server-built cartUrl excludes. */
+/* Product card — compact (client direction "only what's needed"): a single
+   product row (small thumb + name + price, shared .ms-chat-checkout-* row
+   classes below) and the CTA. The old full-width image, series badge, tag
+   chips, spec grid, reason line and delivery footer are gone. */
+/* Sold-out flag (inStock:false from /api/products — sync-fresh, not live):
+   a quiet dark pill in the product row, and a small note in checkout rows
+   whose product the server-built cartUrl excludes. Functional, not
+   decorative — it survives the compact-card cut. */
 .ms-chat-soldout-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+  align-self: flex-start;
   background: rgb(0 0 0 / 62%);
   color: #fff;
   font-size: 0.7rem;
@@ -748,52 +726,10 @@ html.ms-chat-page-anim {
   color: rgb(var(--msc-sale));
 }
 .ms-chat-prod-name { font-weight: 700; font-size: 0.92rem; color: rgb(var(--msc-heading)); }
-.ms-chat-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.ms-chat-tag {
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgb(var(--msc-fg) / 8%);
-  color: rgb(var(--msc-fg) / 75%);
-}
-.ms-chat-tag--bestseller { background: rgb(245 158 11 / 18%); color: #b45309; }
-.ms-chat-tag--new { background: rgb(59 130 246 / 18%); color: #1d4ed8; }
-.ms-chat-tag--sale { background: rgb(239 68 68 / 18%); color: #b91c1c; }
-.ms-chat-tag--preistipp { background: rgb(var(--msc-accent) / 14%); color: rgb(var(--msc-accent)); }
-.ms-chat-tag--premium { background: rgb(147 51 234 / 18%); color: #7e22ce; }
 .ms-chat-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .ms-chat-price-sale { font-size: 1.05rem; font-weight: 700; color: rgb(var(--msc-sale)); }
 .ms-chat-price-regular { font-size: 1.05rem; font-weight: 700; color: rgb(var(--msc-heading)); }
 .ms-chat-price-strike { font-size: 0.85rem; color: var(--msc-muted); text-decoration: line-through; }
-.ms-chat-specs {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 6px 12px;
-  font-size: 0.82rem;
-  max-width: 100%;
-}
-.ms-chat-spec { display: flex; flex-direction: column; min-width: 0; }
-.ms-chat-spec-key { color: var(--msc-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; overflow-wrap: anywhere; word-break: break-word; }
-.ms-chat-spec-val { color: rgb(var(--msc-fg)); overflow-wrap: anywhere; word-break: break-word; }
-.ms-chat-reason {
-  font-style: italic;
-  font-size: 0.85rem;
-  color: rgb(var(--msc-fg) / 80%);
-  border-left: 3px solid rgb(var(--msc-accent));
-  padding-left: 10px;
-}
-.ms-chat-prod-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--msc-border);
-  font-size: 0.82rem;
-}
-.ms-chat-delivery { display: inline-flex; align-items: center; gap: 6px; color: var(--msc-muted); min-width: 0; }
-.ms-chat-delivery svg { width: 16px; height: 16px; flex: 0 0 auto; }
 
 /* Links / buttons */
 .ms-chat-link {
@@ -829,6 +765,17 @@ html.ms-chat-page-anim {
 }
 .ms-chat-btn--primary { background: rgb(var(--msc-accent)); color: rgb(var(--msc-accent-fg)); }
 .ms-chat-btn--primary:hover { filter: brightness(1.1); }
+/* Direct-checkout "Zur Kasse" CTA: the one brand-blue action in the chat.
+   Uses the theme's secondary-button blue (#008ccb on this storefront) via
+   tokens — full width + 44px tap height come from .ms-chat-btn — louder
+   than the black primary pill so it stays easy to spot while scrolling a
+   long conversation. Hover/active follow the theme's computed shades. */
+.ms-chat-btn--checkout {
+  background: rgb(var(--msc-secondary));
+  color: rgb(var(--msc-secondary-fg));
+}
+.ms-chat-btn--checkout:hover { background: rgb(var(--button-secondary-background-hover, 0 161 234)); }
+.ms-chat-btn--checkout:active { background: rgb(var(--button-secondary-background-active, 0 119 172)); }
 /* The border (not a fill) is what makes the secondary button read as a
    distinct, tappable control on the white card. */
 .ms-chat-btn--secondary {
@@ -865,11 +812,13 @@ html.ms-chat-page-anim {
 .ms-chat-card-msg { font-weight: 700; color: rgb(var(--msc-heading)); }
 .ms-chat-checkout-summary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; max-width: 100%; }
 .ms-chat-checkout-name { font-weight: 600; color: rgb(var(--msc-heading)); min-width: 0; overflow-wrap: anywhere; }
-/* Multi-product checkout: one row per product (thumb + name + price), then a
-   single combined-cart button below. */
+/* Compact product row (thumb + name + price) — shared by the show_product
+   card and the quick-checkout rows, with the CTA button below. */
 .ms-chat-checkout-item { display: flex; align-items: center; gap: 10px; max-width: 100%; }
 .ms-chat-checkout-item + .ms-chat-checkout-item { padding-top: 8px; border-top: 1px solid var(--msc-border); }
-.ms-chat-checkout-thumb { width: 48px; height: 48px; flex: 0 0 auto; object-fit: contain; background: #fff; border-radius: 8px; }
+/* Products are shot on white; the hairline keeps the thumb readable on the
+   white card. */
+.ms-chat-checkout-thumb { width: 68px; height: 68px; flex: 0 0 auto; object-fit: contain; background: #fff; border: 1px solid var(--msc-border); border-radius: 8px; }
 .ms-chat-checkout-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .ms-chat-card-head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: rgb(var(--msc-heading)); }
 .ms-chat-card-head svg { width: 20px; height: 20px; flex: 0 0 auto; color: rgb(var(--msc-accent)); }
