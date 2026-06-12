@@ -717,6 +717,25 @@ html.ms-chat-page-anim {
   padding: 3px 8px;
   border-radius: 999px;
 }
+/* Subtle sold-out flag (inStock:false from /api/products — sync-fresh, not
+   live): a quiet dark pill on the image, and a small note in checkout rows
+   whose product the server-built cartUrl excludes. */
+.ms-chat-soldout-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgb(0 0 0 / 62%);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.ms-chat-soldout-note {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgb(var(--msc-sale));
+}
 .ms-chat-prod-name { font-weight: 700; font-size: 0.92rem; color: rgb(var(--msc-heading)); }
 .ms-chat-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ms-chat-tag {
@@ -933,6 +952,21 @@ html.ms-chat-page-anim {
 .ms-chat-legal-links { display: flex; justify-content: center; gap: 14px; font-size: 0.75rem; }
 .ms-chat-legal-links a { color: var(--msc-muted); text-decoration: underline; }
 .ms-chat-legal-links a:hover { color: rgb(var(--msc-fg)); }
+/* Quiet decline link under the capture form: dismissing it fires the
+   email_capture_declined KPI event (the backend can't see a dismissal). */
+.ms-chat-capture-decline {
+  align-self: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--msc-muted);
+  text-decoration: underline;
+  padding: 4px 8px;
+}
+.ms-chat-capture-decline:hover { color: rgb(var(--msc-fg)); }
+.ms-chat-capture-decline:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
 
 /* ---------- Input area (unified composer) ---------- */
 /* ONE rounded surface holds the borderless textarea (top, full width) and a

@@ -60,7 +60,12 @@
     errUpstream: 'Senden gerade nicht möglich — bitte später erneut versuchen.',
     errGeneric: 'Senden fehlgeschlagen. Bitte versuch es erneut.',
     successTitle: 'Erledigt!',
-    success: 'Zusammenfassung gesendet! Falls du Angebote abonniert hast, bestätige bitte den Link in der E-Mail.'
+    success: 'Wir haben dir die Zusammenfassung geschickt.',
+    // Appended only when the response says marketing.status === "pending"
+    // (API_CONTRACT.md §7.1 — the DOI mail went out and needs confirming).
+    successPending: 'Bitte bestätige noch die Anmeldung über den Link in der E-Mail.',
+    decline: 'Nein danke, vielleicht später',
+    declined: 'Alles klar! Du findest die Option jederzeit oben unter „Per E-Mail teilen“.'
   };
 
   // Fail gracefully: no secret -> log a warning, do not render the launcher.
@@ -135,12 +140,13 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Fail-silent KPI telemetry (Phase 3 prep). Fire-and-forget beacon to
-  // /api/kpi with the pseudonymous session id in the BODY (never message text).
-  // Sent via sendBeacon / fetch(no-cors) so it never triggers a CORS preflight
-  // and produces no console errors — it harmlessly no-ops until the backend
-  // endpoint exists. (Session id travels in the body since beacons can't set
-  // the x-ms-session header.)
+  // Fail-silent KPI telemetry. Fire-and-forget POST to /api/kpi, contract-
+  // exact per API_CONTRACT.md §5: Content-Type: application/json + the
+  // x-ms-session header (sendBeacon can set neither, so fetch is primary).
+  // keepalive:true lets events survive page unloads (exit-intent, outbound
+  // CTA clicks). Failures are swallowed and the response is never read —
+  // telemetry must never make a caller care. The body carries the
+  // pseudonymous session id and event names/ids only — never message text.
   // ---------------------------------------------------------------------------
   function track(event, data) {
     try {
@@ -151,11 +157,16 @@
         data: data || {}
       });
       var url = API_BASE + '/api/kpi';
-      if (navigator && typeof navigator.sendBeacon === 'function') {
-        navigator.sendBeacon(url, payload);
+      if (window.fetch) {
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-ms-session': sid },
+          body: payload,
+          keepalive: true
+        }).catch(function () {});
         return;
       }
-      fetch(url, { method: 'POST', mode: 'no-cors', keepalive: true, body: payload }).catch(function () {});
+      if (navigator && typeof navigator.sendBeacon === 'function') navigator.sendBeacon(url, payload);
     } catch (e) {}
   }
 
@@ -182,6 +193,11 @@
     return {
       type: type,
       productId: pc.productId != null ? String(pc.productId) : null,
+      // The handle is the slug-shaped id — the form most likely to match the
+      // backend catalog's product ids (API_CONTRACT.md §3 example ids are
+      // slugs, not numeric Shopify ids). Used for context/trail ids; the
+      // numeric id stays for our own KPI events.
+      productHandle: pc.productHandle != null ? String(pc.productHandle) : null,
       productName: pc.productTitle != null ? String(pc.productTitle) : null,
       collectionHandle: pc.collectionHandle != null ? String(pc.collectionHandle) : null,
       // Category: the product's type on product pages, the collection title
@@ -212,7 +228,7 @@
 
   function recordTrail() {
     if (PAGE_CTX.type !== 'product' && PAGE_CTX.type !== 'collection') return;
-    var id = PAGE_CTX.type === 'product' ? PAGE_CTX.productId : PAGE_CTX.collectionHandle;
+    var id = PAGE_CTX.type === 'product' ? (PAGE_CTX.productHandle || PAGE_CTX.productId) : PAGE_CTX.collectionHandle;
     var name = PAGE_CTX.type === 'product' ? PAGE_CTX.productName : PAGE_CTX.category;
     if (!id && !name) return;
     var entry = { id: id || '', name: name || '', type: PAGE_CTX.type, category: PAGE_CTX.category || '', ts: Date.now() };
@@ -234,6 +250,46 @@
       if (counts[e.category] >= 2 && (best == null || counts[e.category] > counts[best])) best = e.category;
     }
     return best;
+  }
+
+  // Trail -> the wire shape `context.recentlyViewed` accepts (API_CONTRACT.md
+  // §2): { type:"product", id, name } / { type:"category", id?, name }, most
+  // recent first, pre-capped to the server's own cap (3 products +
+  // 2 categories — anything more is dropped server-side anyway). The backend
+  // validates ids/names against the catalog and silently drops mismatches.
+  // Returns null when there is nothing worth sending. Sent ONLY inside a
+  // user-initiated chat request (open / first message) — never as a
+  // background heartbeat.
+  function recentlyViewedPayload() {
+    var out = [];
+    var prods = 0;
+    var cats = 0;
+    var trail = loadTrail();
+    for (var i = 0; i < trail.length; i++) {
+      var e = trail[i];
+      if (e.type === 'product' && e.id && prods < 3) {
+        out.push({ type: 'product', id: e.id, name: e.name || '' });
+        prods++;
+      } else if (e.type === 'collection' && e.name && cats < 2) {
+        var c = { type: 'category', name: e.name };
+        if (e.id) c.id = e.id;
+        out.push(c);
+        cats++;
+      }
+    }
+    return out.length ? out : null;
+  }
+
+  // A `type: "browsing"` chat context from the trail, optionally led by a
+  // specific category (categories are matched by NAME server-side, tolerant
+  // of German storefront labels). Null when there is nothing to send.
+  function browsingContext(leadCategory) {
+    var rv = recentlyViewedPayload() || [];
+    if (leadCategory) {
+      rv = rv.filter(function (e) { return !(e.type === 'category' && e.name === leadCategory); });
+      rv.unshift({ type: 'category', name: leadCategory });
+    }
+    return rv.length ? { type: 'browsing', recentlyViewed: rv } : null;
   }
 
   // ---------------------------------------------------------------------------
@@ -571,6 +627,9 @@
         imgwrap.appendChild(el('img', { src: p.images[0], alt: p.name || '', loading: 'lazy' }));
       }
       if (p.series) imgwrap.appendChild(el('span', { class: 'ms-chat-series-badge', text: p.series }));
+      // Sync-fresh stock flag (API_CONTRACT.md §3): subtle badge, card renders
+      // normally otherwise.
+      if (p.inStock === false) imgwrap.appendChild(el('span', { class: 'ms-chat-soldout-badge', text: 'Ausverkauft' }));
       card.appendChild(imgwrap);
 
       var body = el('div', { class: 'ms-chat-card-body' });
@@ -716,6 +775,9 @@
           var meta = el('div', { class: 'ms-chat-checkout-meta' });
           meta.appendChild(el('span', { class: 'ms-chat-checkout-name', text: p.name || 'Produkt' }));
           meta.appendChild(priceNode(p));
+          // The server-built cartUrl EXCLUDES sold-out products — mark them so
+          // the listed rows match what the checkout click actually contains.
+          if (p.inStock === false) meta.appendChild(el('span', { class: 'ms-chat-soldout-note', text: 'Ausverkauft — nicht im Warenkorb' }));
           item.appendChild(meta);
           body.appendChild(item);
         });
@@ -923,6 +985,15 @@
   // real products. opts.trigger is the offer's value moment, echoed back on
   // submit (telemetry only).
   // ---------------------------------------------------------------------------
+  // Returning-customer memory (API_CONTRACT.md §2 "customer"): the email the
+  // user captured IN THIS PAGE'S chat session, attached to subsequent
+  // /api/chat requests so the backend can inject its memory block. PRIVACY
+  // GATE (do not change): in-memory ONLY — never localStorage/cookies, never
+  // auto-attached on a fresh widget open; a navigation resets it. The backend
+  // independently verifies the capture came from this same x-ms-session, so
+  // a forged value resolves to no memory anyway.
+  var capturedEmail = null;
+
   function buildCaptureCard(opts) {
     opts = opts || {};
     var card = el('div', { class: 'ms-chat-card' });
@@ -979,6 +1050,20 @@
     // CONSENT_FLOW.md). Targets are backend-served; filled in renderConsent.
     var legalEl = el('div', { class: 'ms-chat-legal-links' });
     body.appendChild(legalEl);
+
+    // Decline affordance (API_CONTRACT.md §2/§5): the backend cannot observe
+    // a dismissal, so the widget reports it — ONE email_capture_declined KPI
+    // event (trigger only; no email, no text), then the card collapses to a
+    // short note. Removed automatically on submit success (body is replaced).
+    var declineBtn = el('button', { type: 'button', class: 'ms-chat-capture-decline', text: CONSENT_COPY.decline });
+    declineBtn.addEventListener('click', function () {
+      track('email_capture_declined', opts.trigger ? { trigger: opts.trigger } : {});
+      body.replaceChildren(head, el('div', { class: 'ms-chat-card-text', text: CONSENT_COPY.declined }));
+      // Unblock the header entry point: a declined card must not be "reused".
+      var row = card.closest ? card.closest('.ms-chat-row') : null;
+      if (row && row === lastCaptureRow) lastCaptureRow = null;
+    });
+    body.appendChild(declineBtn);
 
     // Two SEPARATE consent controls. Each is a real <label> wrapping a real
     // <input type=checkbox> (keyboard-usable, clicking the text toggles it) with
@@ -1083,13 +1168,20 @@
         body: JSON.stringify(payload)
       }).then(function (res) {
         if (res.ok) {
-          var ok = el('div', { class: 'ms-chat-form-success' });
-          ok.appendChild(icon('check'));
-          ok.appendChild(el('h3', { text: CONSENT_COPY.successTitle }));
-          ok.appendChild(el('p', { text: CONSENT_COPY.success }));
-          body.replaceChildren(head, ok);
-          scrollToBottom();
-          return;
+          // Unlock returning-customer memory for the rest of this page's
+          // session (in-memory only — see the capturedEmail privacy gate).
+          capturedEmail = email;
+          // Branch the success copy on the DOI state (API_CONTRACT.md §7.1):
+          // only a pending marketing opt-in needs the "confirm the link" line.
+          return res.json().catch(function () { return null; }).then(function (data) {
+            var pending = !!(data && data.marketing && data.marketing.status === 'pending');
+            var ok = el('div', { class: 'ms-chat-form-success' });
+            ok.appendChild(icon('check'));
+            ok.appendChild(el('h3', { text: CONSENT_COPY.successTitle }));
+            ok.appendChild(el('p', { text: pending ? (CONSENT_COPY.success + ' ' + CONSENT_COPY.successPending) : CONSENT_COPY.success }));
+            body.replaceChildren(head, ok);
+            scrollToBottom();
+          });
         }
         // Error: keep the form populated for retry.
         return res.json().catch(function () { return null; }).then(function (data) {
@@ -1362,15 +1454,19 @@
     var trail = loadTrail();
     var prod = null;
     if (PAGE_CTX.type === 'product' && PAGE_CTX.productName) {
-      prod = { id: PAGE_CTX.productId || '', name: PAGE_CTX.productName };
+      prod = { id: PAGE_CTX.productHandle || PAGE_CTX.productId || '', name: PAGE_CTX.productName };
     } else {
       for (var i = 0; i < trail.length; i++) {
         if (trail[i].type === 'product' && trail[i].name) { prod = { id: trail[i].id, name: trail[i].name }; break; }
       }
     }
     if (prod) {
-      // Same context shape the product-page CTA (openWithProduct) sends.
+      // Same context shape the product-page CTA (openWithProduct) sends,
+      // plus the browsing trail (API_CONTRACT.md §2 allows recentlyViewed on
+      // a "product" context too — it becomes background knowledge).
       var pctx = { type: 'product', productId: prod.id, productTitle: prod.name };
+      var prv = recentlyViewedPayload();
+      if (prv) pctx.recentlyViewed = prv;
       return { variant: 'product', items: [
         { text: 'Ist „' + prod.name + '“ gut für Zuhause geeignet?', context: pctx },
         { text: 'Gibt es eine günstigere Alternative zu „' + prod.name + '“?', context: pctx },
@@ -1384,7 +1480,10 @@
       }
     }
     if (cat) {
-      var cctx = { type: 'category', category: cat };
+      // A bare `type: "category"` context does not exist in the contract —
+      // the whole context would be ignored. Category starters ride on a
+      // `type: "browsing"` context with the category leading recentlyViewed.
+      var cctx = browsingContext(cat);
       return { variant: 'category', items: [
         { text: 'Worauf sollte ich bei „' + cat + '“ achten?', context: cctx },
         { text: 'Hilf mir, das richtige Modell aus „' + cat + '“ zu finden.', context: cctx },
@@ -1765,6 +1864,18 @@
     startStream({ userMsg: userMsg, userRow: userRow, restoreText: text, context: context || null });
   }
 
+  // Fresh-open contextual greeting (API_CONTRACT.md §2): POST the context
+  // with an EMPTY messages array — the backend streams a natural,
+  // context-aware greeting as the first assistant message. No fake user
+  // primer enters the history. Only valid for a fresh conversation; a stream
+  // error rolls back to the welcome state via the normal error handling.
+  function sendContextGreeting(context) {
+    if (!context || messages.length || state.streaming || state.rateLocked) return;
+    clearNotice();
+    clearWelcome();
+    startStream({ userMsg: null, userRow: null, restoreText: '', context: context });
+  }
+
   function startStream(opts) {
     var userMsg = opts.userMsg;
     var userRow = opts.userRow;
@@ -1831,9 +1942,14 @@
     }
 
     // Body carries the full history each turn; `context` (when present) primes
-    // the assistant with the current product per API_CONTRACT.md §2.
+    // the assistant with the current product / browsing trail per
+    // API_CONTRACT.md §2.
     var chatBody = { messages: toWire(messages) };
     if (opts.context) chatBody.context = opts.context;
+    // Returning-customer memory: only after a successful capture in this
+    // page's chat session (see the capturedEmail privacy gate). A new or
+    // unverifiable email is ignored gracefully server-side.
+    if (capturedEmail) chatBody.customer = { email: capturedEmail };
 
     fetch(API_BASE + '/api/chat', {
       method: 'POST',
@@ -2100,7 +2216,23 @@
     msg.addEventListener('click', function () {
       track('nudge_clicked', { pageType: PAGE_CTX.type, contextual: copy.contextual });
       removeNudge();
+      var fresh = !messages.length;
       openPanel();
+      // Fresh conversation: hand the page/trail context to the backend for a
+      // streamed contextual greeting (messages: [] — API_CONTRACT.md §2).
+      // With existing history (or no usable context) just open as before.
+      if (fresh && !state.streaming && !state.rateLocked) {
+        var ctx = null;
+        if (PAGE_CTX.type === 'product' && (PAGE_CTX.productHandle || PAGE_CTX.productId)) {
+          ctx = { type: 'product', productId: PAGE_CTX.productHandle || PAGE_CTX.productId };
+          if (PAGE_CTX.productName) ctx.productTitle = PAGE_CTX.productName;
+          var rv = recentlyViewedPayload();
+          if (rv) ctx.recentlyViewed = rv;
+        } else {
+          ctx = browsingContext(null);
+        }
+        if (ctx) sendContextGreeting(ctx);
+      }
     });
     var x = el('button', { class: 'ms-chat-nudge-x', type: 'button', 'aria-label': 'Hinweis schließen' });
     x.appendChild(icon('close'));
@@ -2201,6 +2333,14 @@
       track('product_cta_opened', { productId: pid });
       if (state.streaming || state.rateLocked) return; // busy -> just open; user can ask
       var context = { type: 'product', productId: pid, productTitle: ptitle };
+      var rv = recentlyViewedPayload();
+      if (rv) context.recentlyViewed = rv;
+      // Deliberately a primer user message, NOT the messages:[] greeting:
+      // the theme CTA passes the NUMERIC Shopify product.id, whose validity
+      // against the backend catalog's slug ids is unconfirmed — the primer
+      // carries the title in text, so the consultation works even when the
+      // context's productId is dropped server-side. (With existing history
+      // this is also the contract's pivot path.)
       var prompt = ptitle
         ? ('Ich interessiere mich für „' + ptitle + '". Kannst du mich zu diesem Produkt beraten?')
         : 'Kannst du mich zu diesem Produkt beraten?';

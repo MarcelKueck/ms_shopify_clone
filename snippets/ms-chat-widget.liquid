@@ -59,6 +59,7 @@
           pageType: {{ request.page_type | json }}
           {%- if request.page_type == 'product' and product -%},
           productId: {{ product.id | json }},
+          productHandle: {{ product.handle | json }},
           productTitle: {{ product.title | json }},
           productType: {{ product.type | json }}
           {%- endif -%}

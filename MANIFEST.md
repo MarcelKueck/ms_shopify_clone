@@ -12,6 +12,99 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
+## ⭐ Session update (2026-06-12, latest) — alignment with the updated API_CONTRACT.md: browsing-trail handoff, fresh-open greeting, customer memory, capture decline event, contract-exact KPI, sold-out badges
+
+Re-sync against the reworked `API_CONTRACT.md` (context `recentlyViewed` +
+`type: "browsing"`, `messages: []` fresh-open greeting, `customer.email`
+memory, `email_capture_declined`, `/api/kpi` required headers, `inStock`).
+**Re-upload all three theme files.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (context shapes, greeting, customer memory, decline, track(), sold-out) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (sold-out badge/note, capture decline link) | ✅ Yes |
+| `snippets/ms-chat-widget.liquid` | **MODIFIED** (adds `productHandle` to `pageContext`) | ✅ Yes |
+| `docs/WIDGET_SPEC.md` | **MODIFIED** (§6, §6a, §9a, §9b, §9c re-synced) | ❌ No (not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed (each item = a contract §2/§3/§5/§7 alignment)
+
+- **Category starter context fixed (was dead on arrival).** Starters seeded
+  from a category sent `context: { type: "category", … }` — a type the
+  contract ignores wholesale. They now send `type: "browsing"` with the
+  seeding category leading `recentlyViewed`.
+- **Browsing-trail handoff implemented.** The localStorage trail now maps to
+  the contract's `recentlyViewed` wire shape (3 products + 2 categories,
+  most recent first, product ids = **handles**) and rides along on product
+  starters, category starters, the product CTA and the nudge greeting —
+  only ever inside a user-initiated chat request, never per-turn.
+- **Fresh-open greeting on nudge click.** Clicking the nudge with a fresh
+  conversation POSTs `messages: []` + context and renders the streamed
+  contextual greeting (no fake user primer). With existing history it just
+  opens, as before. The product CTA deliberately KEEPS its primer message:
+  the theme passes the numeric `product.id`, whose validity against the
+  catalog's slug ids is unconfirmed — the primer carries the title in text
+  and works either way.
+- **Returning-customer memory.** After a successful `/api/capture-email`,
+  the widget attaches `customer: { email }` to subsequent `/api/chat`
+  requests — **in-memory only**, this page's session only, never persisted
+  (contract §2 privacy gate).
+- **`email_capture_declined`.** The capture card gained a quiet "Nein danke,
+  vielleicht später" link: collapses the card, fires the one widget-side
+  funnel event (`trigger` only), releases the header entry point.
+- **Capture success copy branches** on the response: the "bitte bestätige"
+  line shows only when `marketing.status === "pending"`.
+- **`track()` is now contract-exact** (§5): `fetch` with
+  `Content-Type: application/json` + `x-ms-session` header +
+  `keepalive: true` (sendBeacon could set neither header and sent
+  `text/plain`; it remains only as a last-resort fallback).
+- **Sold-out rendering** (§3): `inStock: false` → "Ausverkauft" badge on the
+  product card; quick-checkout rows flag sold-out items because the
+  server-built `cartUrl` excludes them.
+
+### ⚠️ Verify during testing (two open questions)
+
+1. **Catalog id space:** the widget sends Shopify **handles** as
+   context/trail product ids (best match for the contract's slug-shaped
+   ids, e.g. `atx-treadmill-pro-fold`). If the backend catalog's ids differ
+   from Shopify handles, trail products are dropped silently (categories
+   still match by name) — check the backend logs/behavior and tell me the
+   canonical id source if it mismatches.
+2. **KPI CORS:** `track()` now sends JSON + headers, which triggers a CORS
+   preflight — fine per the contract's allowlist, but verify beacons land
+   from the live storefront origin (network tab → `/api/kpi` → 202).
+
+### Test checklist (after copying to the live theme)
+
+- [ ] **Category starter grounding:** after browsing a collection, tap a
+      category starter — the request body shows
+      `context: { type: "browsing", recentlyViewed: [...] }` and the answer
+      is category-specific.
+- [ ] **Trail rides along:** with 2-3 products viewed, a product starter /
+      CTA request carries `recentlyViewed` (≤3 products + ≤2 categories,
+      handles as ids); no chat request ever carries the trail without a
+      user action.
+- [ ] **Nudge greeting:** fresh session, let the nudge fire on a product
+      page, click it — the chat opens and Mo streams a greeting about that
+      product (request had `messages: []` + context). With existing history
+      the click just opens the panel.
+- [ ] **Customer memory:** submit the capture form, send another message —
+      the request carries `customer: { email }`; reload the page and send
+      again — it does NOT (in-memory only).
+- [ ] **Decline:** open the capture form, click "Nein danke" — card
+      collapses, one `email_capture_declined` KPI beacon with the trigger;
+      the header button can open a fresh form afterwards.
+- [ ] **Success copy:** submit with marketing ticked → success text includes
+      the DOI confirm line; without marketing → it doesn't.
+- [ ] **KPI wire shape:** `/api/kpi` requests carry
+      `Content-Type: application/json` + `x-ms-session` and return 202 (also
+      for events fired right before navigation, e.g. checkout clicks).
+- [ ] **Sold-out:** a product with `inStock: false` renders the card with an
+      "Ausverkauft" badge; in a multi-product checkout card the sold-out row
+      is flagged and the cart link only contains the in-stock items.
+
+---
+
 ## ⭐ Session update (2026-06-12, later) — context-aware engagement layer: browsing trail, contextual nudge, context-seeded starters, one-time launcher attention, new KPI events
 
 An ambient, client-side engagement layer that makes opening Mo more likely

@@ -406,6 +406,12 @@ Tool cards reference products by id only; the widget hydrates them from
   — render partial results, never abort.
 - Response is cacheable (60s); a small in-memory cache keyed by id avoids
   refetching the same product within a session.
+- **Stock status:** when a product comes back with `inStock: false`, the
+  product card shows a subtle **"Ausverkauft"** badge on the image, and
+  quick-checkout rows mark the item ("Ausverkauft — nicht im Warenkorb")
+  because the server-built `cartUrl` excludes sold-out products
+  (`API_CONTRACT.md` §3) — the listed rows must match what the checkout
+  click actually contains.
 - Render each card exactly per `BEHAVIOR_REFERENCE` §2, including the
   "render nothing" guards (missing product → no card; compare needs ≥2;
   showroom needs ≥1). Remember the comparison table **omits**
@@ -524,9 +530,20 @@ On submit the widget POSTs to `${apiBase}/api/capture-email` with headers
 - `trigger` is included when the form came from an `offer_email_summary` tool
   call (echo of the offer's value moment; telemetry only).
 
-- On **success** (`200`): replace the form with a success state —
-  *"Zusammenfassung gesendet! Falls du Angebote abonniert hast, bestätige bitte
-  den Link in der E-Mail."*
+- On **success** (`200`): replace the form with a success state — *"Wir
+  haben dir die Zusammenfassung geschickt."*, appending *"Bitte bestätige
+  noch die Anmeldung über den Link in der E-Mail."* **only** when the
+  response's `marketing.status === "pending"` (`API_CONTRACT.md` §7.1).
+  Success also unlocks **returning-customer memory** for the rest of this
+  page's session: the widget attaches `customer: { email }` to subsequent
+  `/api/chat` requests — held **in memory only**, never persisted, never
+  auto-attached on a fresh open (the §2 privacy gate; the backend verifies
+  the capture came from the same `x-ms-session` anyway).
+- A quiet **decline link** (*"Nein danke, vielleicht später"*) sits under
+  the form: clicking it collapses the card to a short note, fires ONE
+  `email_capture_declined` KPI event (`trigger` only — the backend cannot
+  observe a dismissal), and releases the header entry point so a new form
+  can be opened later.
 - On **error**: show an inline message and **keep the form populated for
   retry** (re-enable the submit button). `429 rate_limited` →
   *"Zu viele Anfragen — bitte kurz warten."*; `502/503 upstream_unavailable`
@@ -658,11 +675,14 @@ window.MS_CHAT.openWithProduct(productId, productTitle)
   Produkt beraten?"*) so the assistant advises about that product. This is
   a normal chat turn, so it works whether the conversation is **fresh or
   already going** and **never wipes existing history**. The request also
-  carries a `context: { type: "product", productId, productTitle }` field
-  (the backend may use it; it is ignored otherwise). *(The current backend
-  requires a non-empty prompt — an empty-`messages` "context-only" greeting
-  is rejected with `Invalid prompt: messages must not be empty` — hence the
-  primer message.)*
+  carries a `context: { type: "product", productId, productTitle,
+  recentlyViewed? }` field (`API_CONTRACT.md` §2; invalid parts are
+  dropped gracefully server-side). *(Deliberately a primer, NOT the
+  contract's `messages: []` fresh-open greeting: the theme CTA passes the
+  NUMERIC Shopify `product.id`, whose validity against the catalog's
+  slug-shaped ids is unconfirmed — the primer carries the title in text,
+  so the consultation works even if the context id is dropped. The nudge
+  (§9c), which has the product handle, does use the greeting flow.)*
 - It fires `track('product_cta_opened', { productId })` (see §9b).
 - The product detail template (`templates/product.json`, the "USPs" /
   Kurzinfo block) renders an **outlined/bordered** button immediately
@@ -676,11 +696,13 @@ window.MS_CHAT.openWithProduct(productId, productTitle)
 ## 9b. Telemetry (Phase 3 prep)
 
 A tiny **fail-silent** helper `track(event, data)` sends a fire-and-forget
-beacon of `{ event, sessionId, timestamp, data }` to `${apiBase}/api/kpi`
-via `navigator.sendBeacon` (with a `fetch(mode:'no-cors')` fallback). Using
-a beacon avoids a CORS **preflight** and produces **no console errors**, so
-it harmlessly no-ops until the backend endpoint exists. The session id rides
-in the **body** (beacons can't set an `x-ms-session` header). It sends
+POST of `{ event, sessionId, timestamp, data }` to `${apiBase}/api/kpi`,
+**contract-exact** per `API_CONTRACT.md` §5: `Content-Type:
+application/json` + the `x-ms-session` header, via `fetch` with
+`keepalive: true` so events survive page unloads (exit-intent, outbound CTA
+clicks); errors are swallowed and the response is never read
+(`navigator.sendBeacon` remains only as a last-resort fallback — it can set
+neither the content type nor the session header). It sends
 **event names + ids only — never message text**. Events: `chat_opened`,
 `chat_closed`, `message_sent`, `product_cta_clicked` (`productId`),
 `add_to_cart_clicked` (`productId`), `showroom_clicked` (`productIds`),
@@ -689,7 +711,11 @@ in the **body** (beacons can't set an `x-ms-session` header). It sends
 dwell/scroll/exit), `nudge_dismissed` (`pageType`, `contextual`),
 `nudge_clicked` (`pageType`, `contextual`), `starter_shown` (`variant`
 product/category/generic + `count`), `starter_clicked` (`variant` +
-`index` — which starter), `launcher_attention_played`. All are
+`index` — which starter), `launcher_attention_played`. The capture form
+additionally emits `email_capture_declined` (`trigger` only) when its
+decline link is clicked — the one funnel event the contract assigns to
+the widget (`API_CONTRACT.md` §5; shown/submitted/opted-in/confirmed are
+all recorded server-side and MUST NOT be duplicated). All are
 session-keyed and carry **no personal data and no browsed product names**
 (page type + variant flags only). This is pseudonymous analytics keyed
 by the random session id.
@@ -703,14 +729,18 @@ injects into `window.MS_CHAT_CONFIG`.
 
 **Privacy posture (load-bearing):** everything is gathered client-side and
 used only in-session. The browsing trail lives **only** in the user's
-`localStorage`, is capped and pruned, and is **never transmitted** — the
-only backend call remains the existing fail-silent `track()` KPI beacon
-(event names + page type, never product names browsed, never message
-text). Product context (`productId`/`productTitle`) leaves the browser
-only when the **user sends a chat message** that carries it — the same
-`context` mechanism `openWithProduct` (§9a) already uses. The smart
-backend handling of that context is BE-NUDGE (separate); the widget just
-sends text + context.
+`localStorage`, is capped and pruned, and is **never transmitted in the
+background** — KPI events carry page type + variant flags only, never
+browsed product names, never message text. Context (product and/or the
+trail as `context.recentlyViewed`, `API_CONTRACT.md` §2) leaves the
+browser **only inside a chat request the user initiates** — opening the
+chat via the nudge, tapping a starter, or the product CTA — as
+conversation input, never as a per-turn heartbeat. The wire shape is the
+contract's: `{ type: "product" | "browsing", productId?, productTitle?,
+recentlyViewed?: [{ type: "product", id, name } | { type: "category",
+id?, name }] }`, pre-capped client-side to the server's own cap
+(3 products + 2 categories); the backend validates everything against the
+catalog and drops mismatches gracefully.
 
 **Tone rule:** copy references the **page/category** ("Fragen zum Produkt
 …?"), never the user's behavior ("ich habe gesehen, dass du …"). Helpful
@@ -751,6 +781,12 @@ conversation; the email ask stays where it is (§6a, after value).
   dismissed, a `localStorage` flag (`ms-chat-nudge-dismissed`) suppresses
   it **forever**; never shown if the chat was already opened this session;
   removed the moment the panel opens.
+- **Click → contextual greeting:** clicking the bubble opens the chat;
+  with a **fresh** conversation and usable context it POSTs
+  `messages: []` + `context` (product on product pages, else
+  `type: "browsing"` with the trail) and renders the backend's streamed
+  greeting (`API_CONTRACT.md` §2 fresh-open) — no fake user primer enters
+  the history. With existing history (or no context) it just opens.
 
 ### Context-seeded starter prompts (welcome state)
 
@@ -761,11 +797,15 @@ conversation; the email ask stays where it is (§6a, after value).
   collection or a trail category streak** (e.g. *"Worauf sollte ich bei
   „X“ achten?"*) → **strong general starters** (*"Hilf mir, das richtige
   Trainingsgerät zu finden."* …).
-- Tapping one **sends it as the first user message**, carrying the same
-  `context` shape `openWithProduct` sends (`{ type: "product", productId,
-  productTitle }` for product starters; `{ type: "category", category }`
-  for category starters; none for generic). Disabled while
-  streaming/rate-locked, exactly like the composer.
+- Tapping one **sends it as the first user message**, carrying a
+  contract-valid `context` (`API_CONTRACT.md` §2): product starters send
+  `{ type: "product", productId, productTitle, recentlyViewed? }` (the id
+  is the **product handle** — the slug-shaped form matching the catalog's
+  ids); category starters send `{ type: "browsing", recentlyViewed }` with
+  the seeding category leading the list (a bare `type: "category"` does
+  not exist in the contract and would be ignored whole); generic starters
+  send none. Disabled while streaming/rate-locked, exactly like the
+  composer.
 
 ### One-time launcher attention animation
 
