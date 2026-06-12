@@ -465,16 +465,38 @@ The **same** capture card is rendered from two places:
   client-side validated with `^[^@\s]+@[^@\s]+\.[^@\s]+$` before sending.
 - A **transactional** consent checkbox — *required* to submit; you can't email
   a summary without consent to email it. The user can submit with **only** this
-  box ticked (get the summary without opting into marketing).
+  box ticked (get the summary without opting into marketing). It renders
+  **PRE-CHECKED by default** — permitted (`API_CONTRACT.md` §2,
+  `CONSENT_FLOW.md`): it is the requested service itself (Art. 6(1)(b), not
+  marketing); submitting the form is the affirmative request.
 - A **separate marketing** consent checkbox — **UNCHECKED by default**, never
-  pre-ticked, never bundled into the transactional control.
+  pre-ticked, never bundled into the transactional control. It is rendered
+  **prominently** (own highlighted block: surface tint, accent left edge,
+  bolder label — `.ms-chat-consent--marketing`) with the **marketing benefit
+  hint** as a small supporting line directly beneath the label
+  (`.ms-chat-consent-hint`), part of the same consent block. Never pre-checking
+  it is a **deliberate, documented legal decision** (GDPR clear affirmative
+  act, CJEU C-673/17 *Planet49*; German UWG Abmahnung risk) — the opt-in is
+  won through placement and copy, never a pre-tick.
 - A submit button, an inline error line, and a privacy caption.
+- **Imprint + Privacy links** (`Impressum` / `Datenschutz`,
+  `.ms-chat-legal-links`) next to the form, targeting the backend-served
+  `imprintUrl` / `privacyUrl` (`target="_blank" rel="noopener noreferrer"`).
 
-**Legal copy.** The consent strings are PLACEHOLDER pending lawyer approval and
-live in **one place** — the `CONSENT_COPY` object near the top of
-`ms-chat-widget.js`. The exact `transactionalLabel` and `marketingLabel` shown
-to the user are sent verbatim (joined by `" | "`) as `consentTextShown` for
-Art. 7 proof, so editing the labels keeps the audit trail in sync.
+**Legal copy comes from the backend — never hard-coded.** The widget's
+`CONSENT_COPY` object holds UI chrome only (title, intro, button labels,
+error strings). The canonical consent strings (`transactionalLabel`,
+`marketingLabel`, `marketingBenefitHint`, `imprintUrl`/`privacyUrl`, and the
+pre-composed `consentTextShown` audit string) are served by the backend:
+attached to every `offer_email_summary` tool **result** (which seeds an
+in-memory cache when it streams in) and fetched fresh via
+`GET /api/consent-copy` (`API_CONTRACT.md` §7.4; in-memory cache TTL 60s,
+matching the endpoint's `Cache-Control`; never persisted). While the copy
+loads, the card shows a placeholder and the **submit button stays disabled**;
+a load failure shows an inline error with a retry button — the form can never
+be submitted with fallback or stale-snapshot consent text. This keeps the
+stored Art. 7 audit record byte-identical to what the user saw, and lets a
+lawyer copy change ship as a backend deploy with no widget release.
 
 ### Accessibility
 
@@ -490,8 +512,14 @@ On submit the widget POSTs to `${apiBase}/api/capture-email` with headers
 `Content-Type`, `x-ms-chat-key`, `x-ms-session`, and body:
 
 ```jsonc
-{ "sessionId", "email", "transactionalConsent": true, "marketingConsent", "consentTextShown" }
+{ "sessionId", "email", "transactionalConsent": true, "marketingConsent", "consentTextShown", "trigger"? }
 ```
+
+- `consentTextShown` is the **backend-provided** pre-composed audit string,
+  echoed back **verbatim** (never recomposed client-side) — it equals exactly
+  the labels + benefit hint the form rendered.
+- `trigger` is included when the form came from an `offer_email_summary` tool
+  call (echo of the offer's value moment; telemetry only).
 
 - On **success** (`200`): replace the form with a success state —
   *"Zusammenfassung gesendet! Falls du Angebote abonniert hast, bestätige bitte
@@ -501,8 +529,8 @@ On submit the widget POSTs to `${apiBase}/api/capture-email` with headers
   *"Zu viele Anfragen — bitte kurz warten."*; `502/503 upstream_unavailable`
   and network failures → *"Senden gerade nicht möglich — bitte später erneut
   versuchen."*; otherwise the backend's user-safe message or a generic fallback.
-- Fires `track('email_capture_submitted', { marketing: <bool> })`
-  (fail-silent telemetry per §9b).
+- The widget emits **no** "submitted" KPI event — `email_capture_submitted`
+  is recorded server-side by `/api/capture-email` (`API_CONTRACT.md` §5).
 
 ---
 
@@ -687,10 +715,13 @@ by the random session id.
       retry states.
 - [ ] Email-summary capture form (§6a) renders from both the
       `offer_email_summary` tool part and the header "Per E-Mail teilen"
-      button (hidden until the first user message); two
-      SEPARATE consents with the marketing box unchecked by default; posts
-      to `/api/capture-email`; success + error + retry states; fires
-      `email_capture_submitted`.
+      button (hidden until the first user message); consent copy is the
+      CANONICAL backend-served text (tool result / `GET /api/consent-copy`),
+      never hard-coded, with submit disabled until it loads; two SEPARATE
+      consents — transactional pre-checked, marketing prominent + benefit
+      hint but UNCHECKED; imprint/privacy links shown; posts to
+      `/api/capture-email` echoing the served `consentTextShown` verbatim
+      (+ `trigger` when tool-initiated); success + error + retry states.
 - [ ] Mobile full-screen behavior; safe-area aware; horizontal-scroll
       comparison table.
 - [ ] Handles 429 (Retry-After), 401/403 (config), 400 payload_too_large

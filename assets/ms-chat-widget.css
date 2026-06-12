@@ -801,6 +801,38 @@ html.ms-chat-page-anim {
   overflow-wrap: anywhere;
   line-height: 1.4;
 }
+/* The consent block fills in once the canonical backend copy (GET
+   /api/consent-copy or the offer_email_summary tool result) resolves; until
+   then this placeholder shows and submit stays disabled. */
+.ms-chat-consent-area { display: flex; flex-direction: column; gap: 8px; }
+.ms-chat-consent-loading { font-size: 0.85rem; color: var(--msc-muted); padding: 6px 2px; }
+/* Marketing consent: PROMINENT block (surface tint, accent left edge, bolder
+   label, benefit hint) but ALWAYS UNCHECKED by default — prominence and copy
+   sell the opt-in, a pre-tick never may (Planet49 / UWG; see the deliberate-
+   decision comment in ms-chat-widget.js). */
+.ms-chat-consent--marketing {
+  background: var(--msc-surface);
+  border: 1px solid var(--msc-border-strong);
+  border-left: 3px solid rgb(var(--msc-accent));
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.ms-chat-consent--marketing .ms-chat-consent-text { font-weight: 600; color: rgb(var(--msc-heading)); }
+/* Benefit hint: small supporting line directly beneath the marketing label —
+   part of the same consent block (and of the consentTextShown audit string). */
+.ms-chat-consent-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--msc-muted);
+  line-height: 1.4;
+}
+/* Imprint/Datenschutz links next to the capture form (compliance); targets
+   are backend-served. */
+.ms-chat-legal-links { display: flex; justify-content: center; gap: 14px; font-size: 0.75rem; }
+.ms-chat-legal-links a { color: var(--msc-muted); text-decoration: underline; }
+.ms-chat-legal-links a:hover { color: rgb(var(--msc-fg)); }
 
 /* ---------- Input area (unified composer) ---------- */
 /* ONE rounded surface holds the borderless textarea (top, full width) and a
