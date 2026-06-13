@@ -352,6 +352,11 @@
     sidebar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
     mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
+    // Voice-mode toggle (equalizer waveform) — distinct from the dictate mic.
+    waveform: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="4" y2="15"/><line x1="9" y1="4" x2="9" y2="20"/><line x1="14" y1="7" x2="14" y2="17"/><line x1="19.5" y1="6" x2="19.5" y2="18"/></svg>',
+    // Speaking indicator — same waveform bars; CSS animates them while playing
+    // (frozen under prefers-reduced-motion).
+    speaking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="4" y2="15"/><line x1="9" y1="5" x2="9" y2="19"/><line x1="14" y1="7" x2="14" y2="17"/><line x1="19.5" y1="6" x2="19.5" y2="18"/></svg>',
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
     truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
     external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
@@ -1284,7 +1289,7 @@
   // ---------------------------------------------------------------------------
   // Widget shell.
   // ---------------------------------------------------------------------------
-  var root, launcher, panel, backdrop, modeBtn, shareBtn, messagesEl, textarea, sendBtn, micBtn, noticeEl, welcomeEl;
+  var root, launcher, panel, backdrop, modeBtn, shareBtn, messagesEl, textarea, sendBtn, micBtn, vmBtn, speakingBtn, noticeEl, welcomeEl;
   // Desktop layout mode, persisted across page loads. 'sidebar' = docked
   // right-edge sidebar (page makes room, site stays interactive); 'modal' =
   // centered near-fullscreen modal over the blurred backdrop. Mobile ignores
@@ -1383,6 +1388,23 @@
       micBtn.appendChild(icon('mic'));
       micBtn.addEventListener('click', toggleVoice);
       controls.appendChild(micBtn);
+      // Voice mode (hands-free conversation loop) toggle — NEXT TO the dictate
+      // mic, gated on the same recognition capability check. The dictate mic
+      // above is unchanged.
+      vmBtn = el('button', { class: 'ms-chat-voicemode', type: 'button', 'aria-label': 'Sprachmodus', 'aria-pressed': 'false', title: 'Sprachmodus' });
+      vmBtn.appendChild(icon('waveform'));
+      vmBtn.addEventListener('click', toggleVoiceMode);
+      controls.appendChild(vmBtn);
+      // Speaking indicator — shown only while a reply is being read aloud;
+      // tapping it stops playback immediately and resumes listening.
+      speakingBtn = el('button', { class: 'ms-chat-speaking', type: 'button', 'aria-label': 'Sprachausgabe stoppen', title: 'Sprachausgabe stoppen', style: 'display:none' });
+      speakingBtn.appendChild(icon('speaking'));
+      speakingBtn.addEventListener('click', function () {
+        if (!isSpeaking) return;
+        endSpeaking();
+        if (voiceMode) restartVoiceLoop();
+      });
+      controls.appendChild(speakingBtn);
     }
     controls.appendChild(sendBtn);
     composer.appendChild(controls);
@@ -1417,6 +1439,11 @@
       if (desktopMq.addEventListener) desktopMq.addEventListener('change', syncChrome);
       else if (desktopMq.addListener) desktopMq.addListener(syncChrome);
     }
+    // Voice mode is hands-free and audible — auto-disable it when the tab is
+    // backgrounded so it never keeps the mic open / speaks off-screen.
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && voiceMode) disableVoiceMode();
+    });
   }
 
   // Feature 7: the share button is hidden until the conversation has at least
@@ -1641,6 +1668,7 @@
   function closePanel() {
     if (!state.open) return;
     state.open = false;
+    if (voiceMode) disableVoiceMode(); // stop playback + mic, return to normal
     panel.classList.remove('ms-chat-panel--open');
     launcher.classList.remove('ms-chat-launcher--hidden');
     syncChrome(); // restores the page: no leftover offset, backdrop or lock
@@ -1668,6 +1696,18 @@
   var recognition = null;
   var recognizing = false;
 
+  // Voice mode (hands-free conversation loop) state. ALL additive: while
+  // voiceMode stays false every branch below is skipped and dictation behaves
+  // exactly as before.
+  var voiceMode = false;        // the loop is active
+  var ttsAudio = null;          // reused <audio>, unlocked on the enabling gesture
+  var isSpeaking = false;       // a reply is currently being read aloud
+  var ttsBackoffUntil = 0;      // epoch ms; while in the future, skip /api/tts (429 Retry-After)
+  var ttsHintShown = false;     // "Sprachausgabe nicht verfügbar" shown once
+  var voiceRestartTimer = null; // debounce for re-arming the mic
+  var currentBlobUrl = null;    // object URL of the playing MP3 (revoked on stop)
+  var speakSeq = 0;             // guards async TTS callbacks against a newer reply
+
   function voiceSupported() { return !!SpeechRec; }
 
   function setMicState(on) {
@@ -1690,9 +1730,9 @@
     recognition.lang = 'de-DE';
     recognition.interimResults = true;
     recognition.continuous = false;
-    // Append to whatever is already typed; live interim text updates as you talk.
-    var base = textarea.value.trim();
-    base = base ? base + ' ' : '';
+    // Dictate-once appends to whatever is already typed; voice mode listens
+    // fresh (and never clobbers the textarea, so the user can still type).
+    var base = voiceMode ? '' : (textarea.value.trim() ? textarea.value.trim() + ' ' : '');
     var finalT = '';
     recognition.onresult = function (e) {
       var interim = '';
@@ -1701,17 +1741,29 @@
         if (e.results[i].isFinal) finalT += seg;
         else interim += seg;
       }
-      textarea.value = base + finalT + interim;
-      autoGrow();
+      if (!voiceMode) {
+        textarea.value = base + finalT + interim;
+        autoGrow();
+      }
     };
     recognition.onerror = function (e) {
       setMicState(false);
       if (e && (e.error === 'not-allowed' || e.error === 'service-not-allowed')) {
         showNotice('warn', 'Mikrofonzugriff wurde blockiert. Bitte erlaube ihn in den Browser-Einstellungen.');
+        if (voiceMode) disableVoiceMode(); // can't run the loop without the mic
       }
     };
     recognition.onend = function () {
       setMicState(false);
+      if (voiceMode) {
+        // Recognition end / final result -> send the transcript via the normal
+        // send path. Silence (no transcript) just re-arms the mic to keep the
+        // hands-free loop alive.
+        var said = finalT.trim();
+        if (said) voiceSubmit(said);
+        else restartVoiceLoop();
+        return;
+      }
       try { textarea.focus(); } catch (e) {}
     };
     try {
@@ -1720,12 +1772,255 @@
       clearNotice();
     } catch (e) {
       setMicState(false);
+      if (voiceMode) restartVoiceLoop();
     }
   }
 
   function toggleVoice() {
     if (recognizing) stopVoice();
     else startVoice();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Voice mode — hands-free conversation loop. Reuses the recognition above and
+  // the existing send path; adds TTS playback of the completed reply. The loop:
+  //   listen -> send final transcript -> on stream complete, speak the reply's
+  //   plain text (markdown stripped; tool cards never read) -> on playback end,
+  //   listen again. Toggling off, closing the panel, or the tab going hidden
+  //   all stop it (handled elsewhere).
+  //
+  // iOS AUTOPLAY: programmatic audio is only allowed once unlocked by a user
+  // gesture. The <audio> element is created AND played (a tiny silent clip)
+  // inside the toggle's click handler (enableVoiceMode -> unlockAudio), then
+  // reused for every later reply — so playback fired when a stream completes
+  // (not itself a gesture) is permitted. This is the real iOS risk; without it
+  // the first reply would be silently blocked.
+  // ---------------------------------------------------------------------------
+
+  // Minimal valid silent WAV built in code (so no opaque base64 blob is
+  // shipped) — used ONLY to unlock the <audio> element on the enabling gesture.
+  function silentWavUrl() {
+    try {
+      var len = 8, buf = new ArrayBuffer(44 + len), dv = new DataView(buf);
+      function s(o, str) { for (var i = 0; i < str.length; i++) dv.setUint8(o + i, str.charCodeAt(i)); }
+      s(0, 'RIFF'); dv.setUint32(4, 36 + len, true); s(8, 'WAVE');
+      s(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+      dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
+      s(36, 'data'); dv.setUint32(40, len, true);
+      for (var i = 0; i < len; i++) dv.setUint8(44 + i, 128); // 8-bit silence
+      var bytes = new Uint8Array(buf), bin = '';
+      for (var j = 0; j < bytes.length; j++) bin += String.fromCharCode(bytes[j]);
+      return 'data:audio/wav;base64,' + btoa(bin);
+    } catch (e) { return ''; }
+  }
+
+  function unlockAudio() {
+    try {
+      if (!ttsAudio) {
+        ttsAudio = new Audio();
+        ttsAudio.preload = 'auto';
+        ttsAudio.addEventListener('ended', onPlaybackEnded);
+      }
+      var u = silentWavUrl();
+      if (!u) return;
+      ttsAudio.src = u;
+      var p = ttsAudio.play();
+      if (p && p.then) p.then(function () { try { ttsAudio.pause(); ttsAudio.currentTime = 0; } catch (e) {} }).catch(function () {});
+    } catch (e) {}
+  }
+
+  function setVmState(on) {
+    if (!vmBtn) return;
+    vmBtn.classList.toggle('ms-chat-voicemode--on', on);
+    vmBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    vmBtn.setAttribute('aria-label', on ? 'Sprachmodus beenden' : 'Sprachmodus');
+    vmBtn.title = 'Sprachmodus';
+  }
+
+  function toggleVoiceMode() {
+    if (voiceMode) disableVoiceMode();
+    else enableVoiceMode();
+  }
+
+  function enableVoiceMode() {
+    if (voiceMode) return;
+    voiceMode = true;
+    unlockAudio(); // MUST run inside this click gesture (iOS autoplay unlock)
+    setVmState(true);
+    ttsHintShown = false;
+    track('voice_mode_on', {}); // fail-silent KPI, no transcript content
+    clearNotice();
+    if (!state.streaming && !state.rateLocked && !isSpeaking) startVoice();
+  }
+
+  function disableVoiceMode() {
+    if (!voiceMode) return;
+    voiceMode = false;
+    setVmState(false);
+    if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
+    endSpeaking(); // stop any playback
+    stopVoice();   // stop the mic
+    track('voice_mode_off', {});
+  }
+
+  // Re-arm the mic after a small debounce, gated so it never fights streaming,
+  // rate locks, an in-flight reply, or a closed panel.
+  function restartVoiceLoop() {
+    if (!voiceMode) return;
+    if (voiceRestartTimer) clearTimeout(voiceRestartTimer);
+    voiceRestartTimer = setTimeout(function () {
+      voiceRestartTimer = null;
+      if (voiceMode && !recognizing && !isSpeaking && !state.streaming && !state.rateLocked && state.open) startVoice();
+    }, 350);
+  }
+
+  // Send a spoken transcript through the SAME path a typed message uses.
+  function voiceSubmit(text) {
+    if (state.streaming || state.rateLocked || !text) return;
+    endSpeaking();          // a new turn supersedes any current playback
+    sendMessage(text);
+  }
+
+  function showSpeakingIndicator() {
+    if (!speakingBtn) return;
+    speakingBtn.style.display = '';
+    speakingBtn.classList.add('ms-chat-speaking--on');
+  }
+  function hideSpeakingIndicator() {
+    if (!speakingBtn) return;
+    speakingBtn.style.display = 'none';
+    speakingBtn.classList.remove('ms-chat-speaking--on');
+  }
+
+  function startSpeaking() { isSpeaking = true; showSpeakingIndicator(); }
+
+  // Stop playback (MP3 or speechSynthesis) and tidy up — does NOT re-arm the
+  // mic on its own (callers decide whether the loop continues).
+  function endSpeaking() {
+    isSpeaking = false;
+    hideSpeakingIndicator();
+    try { if (ttsAudio) ttsAudio.pause(); } catch (e) {}
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} currentBlobUrl = null; }
+  }
+
+  // Natural end of playback -> resume listening (the loop).
+  function onPlaybackEnded() {
+    if (!isSpeaking) return;
+    endSpeaking();
+    if (voiceMode) restartVoiceLoop();
+  }
+
+  // After Mo's reply stream completes: speak the plain text, or just re-listen.
+  function voiceAfterReply(parts, errored) {
+    if (!voiceMode) return;
+    if (errored) { restartVoiceLoop(); return; }
+    var speech = plainTextFromParts(parts);
+    if (speech) speakReply(speech);
+    else restartVoiceLoop();
+  }
+
+  // Assistant message -> spoken text: text parts only (tool cards are NEVER
+  // read aloud), with the markdown subset stripped.
+  function plainTextFromParts(parts) {
+    var out = '';
+    parts = parts || [];
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i] && parts[i].type === 'text') out += parts[i].text || '';
+    }
+    return stripMarkdownForSpeech(out);
+  }
+
+  function stripMarkdownForSpeech(s) {
+    s = String(s == null ? '' : s);
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1'); // [label](url) -> label
+    s = s.replace(/\*\*([^*]+)\*\*/g, '$1');          // **bold** -> bold
+    s = s.replace(/\*([^*]+)\*/g, '$1');              // *italic* -> italic
+    s = s.replace(/[*_`#>]/g, '');                    // stray markdown artifacts
+    return s.replace(/\s+/g, ' ').trim();
+  }
+
+  function pickGermanVoice(synth) {
+    try {
+      var vs = synth.getVoices() || [];
+      for (var i = 0; i < vs.length; i++) {
+        if (vs[i] && vs[i].lang && String(vs[i].lang).toLowerCase().indexOf('de') === 0) return vs[i];
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // POST /api/tts (standard auth headers) and play the MP3. On any non-2xx
+  // (incl. 502 upstream_unavailable, the documented "use the local voice"
+  // signal) or a play failure -> browser speechSynthesis fallback. 429 records
+  // a Retry-After backoff so we stop hitting the endpoint for the window and go
+  // straight to the local voice meanwhile.
+  function speakReply(text) {
+    var seq = ++speakSeq;
+    startSpeaking();
+    if (Date.now() < ttsBackoffUntil) { speakViaSynthesis(text, seq); return; }
+    fetch(API_BASE + '/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+      body: JSON.stringify({ text: text })
+    }).then(function (res) {
+      if (seq !== speakSeq || !voiceMode || !isSpeaking) return; // superseded / cancelled
+      if (!res.ok) {
+        if (res.status === 429) {
+          var ra = parseInt(res.headers.get('Retry-After'), 10);
+          if (!isFinite(ra) || ra <= 0) ra = 300; // tts bucket window
+          ttsBackoffUntil = Date.now() + ra * 1000;
+        }
+        speakViaSynthesis(text, seq);
+        return;
+      }
+      return res.blob().then(function (blob) {
+        if (seq !== speakSeq || !voiceMode || !isSpeaking) return;
+        playBlob(blob, text, seq);
+      });
+    }).catch(function () {
+      if (seq === speakSeq && isSpeaking) speakViaSynthesis(text, seq);
+    });
+  }
+
+  function playBlob(blob, text, seq) {
+    try {
+      if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} }
+      currentBlobUrl = URL.createObjectURL(blob);
+      ttsAudio.src = currentBlobUrl;
+      var p = ttsAudio.play();
+      if (p && p.then) {
+        p.then(function () { if (seq === speakSeq) track('voice_reply_played', {}); })
+         .catch(function () { if (seq === speakSeq && isSpeaking) speakViaSynthesis(text, seq); });
+      } else {
+        track('voice_reply_played', {});
+      }
+    } catch (e) {
+      if (seq === speakSeq && isSpeaking) speakViaSynthesis(text, seq);
+    }
+  }
+
+  function speakViaSynthesis(text, seq) {
+    try {
+      var synth = window.speechSynthesis;
+      if (!synth || typeof window.SpeechSynthesisUtterance === 'undefined') { ttsUnavailable(); return; }
+      var u = new window.SpeechSynthesisUtterance(text);
+      u.lang = 'de-DE';
+      var v = pickGermanVoice(synth);
+      if (v) u.voice = v;
+      u.onstart = function () { if (seq === speakSeq) track('voice_reply_played', {}); };
+      u.onend = function () { if (seq === speakSeq) onPlaybackEnded(); };
+      u.onerror = function () { if (seq === speakSeq) onPlaybackEnded(); };
+      synth.cancel();
+      synth.speak(u);
+    } catch (e) { ttsUnavailable(); }
+  }
+
+  // Neither remote TTS nor local speech worked: show a small hint once, keep
+  // the mic loop running (input-only).
+  function ttsUnavailable() {
+    if (!ttsHintShown) { ttsHintShown = true; showNotice('warn', 'Sprachausgabe nicht verfügbar.'); }
+    onPlaybackEnded();
   }
 
   function showWelcome() {
@@ -1935,6 +2230,9 @@
   function onSend() {
     if (state.streaming || state.rateLocked) return;
     stopVoice();
+    // A text send stops any current playback immediately but does NOT exit
+    // voice mode — the upcoming reply is still spoken (the loop continues).
+    if (voiceMode) endSpeaking();
     var text = textarea.value.trim();
     if (!text) return;
     sendMessage(text);
@@ -2024,6 +2322,8 @@
         // whole response, as before.
         showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
       }
+      // Voice mode: speak the completed reply, then resume listening.
+      if (voiceMode) voiceAfterReply(asstParts, streamErrored);
     }
 
     // Feed a part in the widget's canonical shape into history + the renderer.
@@ -2190,6 +2490,7 @@
         showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
         state.streaming = false;
         updateInputState();
+        if (voiceMode) restartVoiceLoop(); // keep the hands-free loop alive
       }
     });
   }
@@ -2245,6 +2546,7 @@
       rateTimer = null;
       clearNotice();
       updateInputState();
+      if (voiceMode) restartVoiceLoop(); // resume listening once the lock lifts
     }, seconds * 1000);
   }
 

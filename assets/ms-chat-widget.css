@@ -1066,10 +1066,66 @@ html.ms-chat-page-anim {
 .ms-chat-mic:disabled { opacity: 0.5; cursor: not-allowed; }
 .ms-chat-mic svg { width: 19px; height: 19px; }
 
+/* Voice-mode toggle — sits next to the dictate mic, same ghost styling. The
+   --on state flips it to the accent fill so it's clear the hands-free loop is
+   active. Listening itself is shown on the mic's --recording pulse. */
+.ms-chat-voicemode {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--msc-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ms-chat-voicemode:hover { background: var(--msc-surface); color: rgb(var(--msc-fg)); }
+.ms-chat-voicemode:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
+.ms-chat-voicemode:disabled { opacity: 0.5; cursor: not-allowed; }
+.ms-chat-voicemode svg { width: 19px; height: 19px; }
+.ms-chat-voicemode--on {
+  background: rgb(var(--msc-accent));
+  color: rgb(var(--msc-accent-fg));
+}
+
+/* Speaking indicator — shown only while a reply is being read aloud. Tappable
+   to stop playback. The waveform bars animate while speaking; reduced motion
+   freezes them to a static icon state (handled below). */
+.ms-chat-speaking {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: rgb(var(--msc-accent) / 12%);
+  color: rgb(var(--msc-accent));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ms-chat-speaking:hover { background: rgb(var(--msc-accent) / 20%); }
+.ms-chat-speaking:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
+.ms-chat-speaking svg { width: 19px; height: 19px; }
+.ms-chat-speaking--on svg line { transform-box: fill-box; transform-origin: center; }
+.ms-chat-speaking--on svg line:nth-child(1) { animation: ms-chat-eq 0.9s infinite ease-in-out; }
+.ms-chat-speaking--on svg line:nth-child(2) { animation: ms-chat-eq 0.9s infinite ease-in-out 0.15s; }
+.ms-chat-speaking--on svg line:nth-child(3) { animation: ms-chat-eq 0.9s infinite ease-in-out 0.30s; }
+.ms-chat-speaking--on svg line:nth-child(4) { animation: ms-chat-eq 0.9s infinite ease-in-out 0.45s; }
+@keyframes ms-chat-eq {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1); }
+}
+
 /* Bigger thumb targets inside the composer on mobile. (Kept ABOVE the
    --hidden rule so the collapse below still wins on width.) */
 @media (max-width: 640px) {
   .ms-chat-mic,
+  .ms-chat-voicemode,
+  .ms-chat-speaking,
   .ms-chat-send { width: 40px; height: 40px; }
 }
 
@@ -1120,7 +1176,11 @@ html.ms-chat-page-anim {
   .ms-chat-send,
   .ms-chat-composer,
   .ms-chat-mic--recording,
+  .ms-chat-voicemode--on,
+  .ms-chat-speaking--on svg line,
   .ms-chat-consent-group--attn { transition: none; animation: none; }
+  /* Speaking indicator: a static icon state instead of the equalizer motion. */
+  .ms-chat-speaking--on svg line { transform: none; }
   html.ms-chat-page-anim { transition: none; }
   /* Freeze the animated brand mark EVERYWHERE (launcher + halo + welcome +
      product CTA) to its static wave frame. Accessibility beats flair. */
