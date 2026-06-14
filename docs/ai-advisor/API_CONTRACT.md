@@ -1,5 +1,13 @@
 # motion sports chat backend — API contract
 
+> **Synced copy.** This file is a copy of the backend repo's
+> `docs/API_CONTRACT.md` for frontend sessions that don't have that repo.
+> The backend doc is canonical — whenever the backend contract changes,
+> this folder must be re-synced from it. References to other backend docs
+> (`docs/CONSENT_FLOW.md`, `src/lib/consent-copy.ts`, …) are informational;
+> everything the widget needs is inline here.
+
+
 This document is the single source of truth for the Shopify widget that
 calls this backend. If anything here disagrees with the code, the code
 wins — open an issue and we'll fix one or the other so they match.
@@ -10,33 +18,25 @@ wins — open an issue and we'll fix one or the other so they match.
 
 Endpoints:
 
-| Method           | Path                              | Purpose                                                   |
-| ---------------- | --------------------------------- | --------------------------------------------------------- |
-| POST             | `/api/chat`                       | Streaming Claude chat with persona-aware tools.           |
-| POST             | `/api/tts`                        | Text-to-speech for voice mode (streams MP3 audio). §8.    |
-| POST             | `/api/contact`                    | Contact-form submission → email via Resend.               |
-| GET              | `/api/products`                   | Public product hydration for widget cards.                |
-| POST             | `/api/kpi`                        | Pseudonymous telemetry ingestion (fire-and-forget).       |
-| POST             | `/api/capture-email`              | GDPR email capture + double opt-in (summary + marketing). |
-| GET              | `/api/consent-copy`               | Canonical capture-form consent copy (labels + links).     |
-| GET              | `/api/confirm-marketing`          | Marketing double-opt-in confirmation link (HTML page).    |
-| GET              | `/api/unsubscribe`                | Signed unsubscribe link → suppression (HTML page).        |
-| GET              | `/api/auth/shopify/login`         | Customer Account sign-in (top-level redirect).            |
-| GET              | `/api/auth/shopify/callback`      | OAuth callback (server-side PKCE exchange).               |
-| GET              | `/api/auth/me`                    | Signed-in identity re-hydration (`{ name, tier }`).       |
-| GET              | `/api/auth/shopify/logout/return` | Logout-return landing.                                    |
-| GET              | `/api/account/conversations`      | Signed-in: LIST past conversations (tier 3).              |
-| GET/PATCH/DELETE | `/api/account/conversations/{id}` | Signed-in: fetch / rename / delete one conversation.      |
-| POST             | `/api/account/erase`              | Signed-in: full "delete my data" (erase customer).        |
+| Method | Path                              | Purpose                                                   |
+| ------ | --------------------------------- | --------------------------------------------------------- |
+| POST   | `/api/chat`                       | Streaming Claude chat with persona-aware tools.           |
+| POST   | `/api/contact`                    | Contact-form submission → email via Resend.               |
+| GET    | `/api/products`                   | Public product hydration for widget cards.                |
+| POST   | `/api/kpi`                        | Pseudonymous telemetry ingestion (fire-and-forget).       |
+| POST   | `/api/capture-email`              | GDPR email capture + double opt-in (summary + marketing). |
+| GET    | `/api/consent-copy`               | Canonical capture-form consent copy (labels + links).     |
+| GET    | `/api/confirm-marketing`          | Marketing double-opt-in confirmation link (HTML page).    |
+| GET    | `/api/unsubscribe`                | Signed unsubscribe link → suppression (HTML page).        |
+| GET    | `/api/auth/shopify/login`         | Customer Account sign-in (top-level redirect).            |
+| GET    | `/api/auth/shopify/callback`      | OAuth callback (server-side PKCE exchange).               |
+| GET    | `/api/auth/me`                    | Signed-in identity re-hydration (`{ name, tier }`).       |
+| GET    | `/api/auth/shopify/logout/return` | Logout-return landing.                                    |
 
-> **Customer Account sign-in (tier 3)** is documented in full in
-> [`CUSTOMER_ACCOUNT.md`](./CUSTOMER_ACCOUNT.md) (frontend contract:
-> `docs/frontend-handoff/CUSTOMER_ACCOUNT.md`). The `login` / `callback` /
-> `logout/return` routes are top-level navigations (signed `state`, no
-> CORS/secret); `/api/auth/me` is a guarded widget XHR. The **signed-in
-> conversation-history** endpoints (`/api/account/*`) are guarded widget XHRs
-> behind the CA-1 signed-in resolver (fail-closed for anonymous / email-only) —
-> see `CUSTOMER_ACCOUNT.md` §9.
+> **Customer Account sign-in (tier 3)** has its own frontend contract:
+> [`CUSTOMER_ACCOUNT.md`](./CUSTOMER_ACCOUNT.md) in this folder. The `login` /
+> `callback` / `logout/return` routes are top-level navigations (signed `state`,
+> no CORS/secret); `/api/auth/me` is a guarded widget XHR.
 
 > `/api/confirm-marketing` and `/api/unsubscribe` are **clicked from emails**
 > as top-level browser navigations — they return an HTML page, not JSON, and
@@ -54,7 +54,7 @@ storefront:
   `https://motionsports.de`). The CORS preflight (`OPTIONS`) reflects
   the same allowlist.
 - **Shared secret** (`x-ms-chat-key`). Required on `/api/chat`,
-  `/api/tts` (§8), `/api/contact`, and `/api/capture-email` (§7.1). *Honest caveat:* this secret is shipped to the
+  `/api/contact`, and `/api/capture-email` (§7.1). *Honest caveat:* this secret is shipped to the
   storefront widget, so anyone can read it from the browser. The
   point isn't strong auth — it's combining it with the origin
   allowlist and rate limit so that a scraper has to forge the origin
@@ -63,9 +63,7 @@ storefront:
   already visible on the storefront.
 - **Rate limiting.** Upstash sliding-window limiter, keyed by
   `x-ms-session` (or IP fallback). Chat bucket: **20 req / 60 s**.
-  Products bucket: **60 req / 60 s**. TTS bucket: **20 req / 5 min**
-  (its own bucket — each call is a billed synthesis of up to 2000
-  characters, so a longer window with a tighter effective rate; §8).
+  Products bucket: **60 req / 60 s**.
 - **Spend caps.** Hard monthly caps on Anthropic + OpenAI; the chat
   conversation is hard-capped at 40 messages per session.
 
@@ -132,6 +130,41 @@ Plus the browser-set `Origin` header, which must be one of
 full history on every turn (the customer profile is a pure function of
 the messages, reconstructed by replaying `update_customer_profile` tool
 calls), so the widget must send the entire conversation each turn.
+
+#### Optional `conversationKey` — multiple threads under one stable `session_id`
+
+The `session_id` is the **identity** link and must NOT rotate while signed in,
+so it can no longer also be the *thread* key. To support several conversations
+per session (e.g. "Neue Beratung" creating a fresh history entry rather than
+growing one ever-larger thread), the widget MAY send a **`conversationKey`**:
+
+```jsonc
+{
+  "messages": [ /* … */ ],
+  "conversationKey": "c3f1e8a2-…"   // stable, client-generated per THREAD
+}
+```
+
+| Field             | Meaning                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conversationKey` | A stable, client-generated string (e.g. a UUID) identifying **which** conversation under this `session_id` the turn belongs to. ≤ 200 chars. |
+
+Rules:
+- **New chat / "Neue Beratung"** → generate a **fresh** `conversationKey`. The
+  next turn under it creates a new conversation row (a new history entry).
+- **Continuing the active thread** → send the **same** `conversationKey` each turn.
+- **Resuming a past thread** (opened from `GET /api/account/conversations`) →
+  send that item's **`conversationKey`** (now returned by the history endpoints).
+  Appends to the original thread, even from another device.
+- **Omitted** → the backend defaults the key to the `session_id`, preserving the
+  legacy **one-thread-per-session** behaviour (fully backward-compatible). A
+  widget that wants multiple threads MUST send `conversationKey`.
+- `conversationKey` carries the same trust/entropy expectation as `session_id`
+  (an unguessable client value); never reuse another thread's key for a new chat.
+
+> This is **distinct** from the numeric `conversationId` used by the
+> `/api/account/conversations/{id}` routes (rename/delete) — `conversationId`
+> stays the DB id; `conversationKey` is the chat-thread key for `/api/chat`.
 
 #### Optional `context` — opening the chat "about" a product and/or with a browsing trail
 
@@ -1236,116 +1269,3 @@ do not persist it across sessions.
 | `CONTACT_FROM_EMAIL`        | Reused as the sender for summary + DOI emails.                                                                                                                                             |
 | `WELCOME_DISCOUNT_ENABLED`  | **Default `false`.** Gates the entire automatic welcome-discount issuance on DOI confirmation (see [`WELCOME_DISCOUNT.md`](./WELCOME_DISCOUNT.md)). Only `true`/`1`/`yes`/`on` enables it. |
 | `RETURNING_HINT_ENABLED`    | **Default `true`.** Server-side switch for `returningHint.enabled` (§7.4); set `false` to make the widget hide the hint.                                                                   |
-
----
-
-## 8. `POST /api/tts`
-
-Text-to-speech for the widget's **voice mode**. Takes a chunk of text
-(typically one assistant message the user chose to hear) and streams back
-synthesized speech as **MP3 audio**. Synthesis is OpenAI's
-`gpt-4o-mini-tts` (current cost-efficient, multilingual model); the model
-and voice are env-overridable.
-
-### Required request headers
-
-Same as `/api/chat`:
-
-| Header          | Value                                                                           |
-| --------------- | ------------------------------------------------------------------------------- |
-| `Content-Type`  | `application/json`                                                              |
-| `x-ms-chat-key` | Shared secret from `CHAT_SHARED_SECRET`.                                        |
-| `x-ms-session`  | Stable session id (UUID). Keys the rate-limit bucket and the usage attribution. |
-
-Plus the browser `Origin` header, which must be one of `ALLOWED_ORIGINS`.
-The CORS preflight advertises `POST, OPTIONS` and
-`Content-Type, x-ms-chat-key, x-ms-session`.
-
-### Request body
-
-```jsonc
-{
-  "text": "Das ATX Power Rack ist sehr stabil und passt gut in deinen Keller."
-}
-```
-
-- `text` (string, **required**). Reject if missing/not a string
-  (`400 bad_request`) or empty after cleaning (`400 bad_request`).
-- **The server cleans the text before synthesis.** Markdown artifacts are
-  stripped (`**bold**`, `` `code` ``, `[links](url)`, headings, bullet
-  lists) so nothing is ever read aloud as punctuation. The widget SHOULD
-  also pre-clean, but the server never trusts that it did.
-- **Hard length cap: 2000 characters.** Longer input is **truncated at a
-  sentence boundary** (not rejected): the server cuts on the last sentence
-  end that fits, so the audio ends on a natural pause. When this happens the
-  response carries `X-MS-TTS-Truncated: true` — the request still succeeds
-  with audio for the kept portion.
-
-### Success response — streamed audio
-
-```http
-HTTP/1.1 200 OK
-Content-Type: audio/mpeg
-Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-X-MS-TTS-Truncated: false
-X-MS-TTS-Chars: 67
-```
-
-The body is the MP3 byte stream — play it directly (e.g. an `<audio>`
-element via a blob/object URL, or the Web Audio API).
-
-- **Format = MP3 (`audio/mpeg`)**, chosen for the broadest mobile playback.
-  Opus is smaller / lower-latency but iOS Safari does **not** decode Opus in
-  an Ogg/WebM container in `<audio>` — which is exactly the device class
-  where the browser-`speechSynthesis` fallback is worst. MP3 plays on iOS
-  Safari, Android Chrome, and desktop with no container caveats.
-- **Caching is off** (`no-store, …`) — audio is per-session and synthesized
-  on demand.
-
-Response headers the widget can read (CORS-exposed):
-
-| Header               | Meaning                                                                                          |
-| -------------------- | ------------------------------------------------------------------------------------------------ |
-| `X-MS-TTS-Truncated` | `true` when the input exceeded 2000 chars and was cut at a sentence boundary; `false` otherwise. |
-| `X-MS-TTS-Chars`     | Number of characters actually synthesized (after cleaning + truncation).                         |
-
-### Error responses
-
-```json
-{ "error": { "code": "upstream_unavailable", "message": "Text-to-speech is temporarily unavailable" } }
-```
-
-| Status | Code                   | When                                                                |
-| ------ | ---------------------- | ------------------------------------------------------------------- |
-| 400    | `bad_request`          | Invalid JSON, `text` missing/not a string, or empty after cleaning. |
-| 401    | `unauthorized`         | Missing / wrong shared secret.                                      |
-| 403    | `forbidden`            | Cross-origin request from an origin not in the allowlist.           |
-| 429    | `rate_limited`         | Dedicated `tts` bucket (**20 req / 5 min**). `Retry-After` set.     |
-| 502    | `upstream_unavailable` | OpenAI TTS failed/threw, or no API key configured.                  |
-| 500    | `internal_error`       | Anything else.                                                      |
-
-> **Fallback contract:** on **any non-2xx** response — and specifically on
-> `502 upstream_unavailable` — the widget should fall back to the browser's
-> built-in `speechSynthesis`. `upstream_unavailable` is the documented,
-> expected signal for "synthesis is down, use the local voice"; it is not a
-> bug and the widget should not surface an error to the user, just speak
-> locally instead.
-
-### Voice + model configuration
-
-| Var                | Default           | Notes                                                                            |
-| ------------------ | ----------------- | -------------------------------------------------------------------------------- |
-| `TTS_MODEL`        | `gpt-4o-mini-tts` | Current cost-efficient OpenAI TTS model (multilingual).                          |
-| `TTS_VOICE`        | `alloy`           | Neutral, clean German pronunciation. Warmer options: `nova`, `coral`, `shimmer`. |
-| `TTS_INSTRUCTIONS` | German tone hint  | Tone/accent steering (gpt-4o-mini-tts only). Steers natural Hochdeutsch.         |
-
-### Cost attribution
-
-Each request records one usage row for the cost KPI (S6): the **characters
-synthesized**, attributed to the conversation (resolved from `x-ms-session`),
-with the TTS model id. TTS is billed per character, so this is stored in a
-shape compatible with the S6 `ai_usage` table — `call_site = 'tts'`, the
-character count in the `input_tokens` column, `output_tokens = 0`,
-`estimated = true` to flag the per-character (not per-token) unit. It is
-counted as chat-serving spend in the dashboard split, and does **not** affect
-the token-based cost-per-consultation average.
