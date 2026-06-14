@@ -72,6 +72,33 @@
     declined: 'Alles klar! Du findest die Option jederzeit oben unter „Per E-Mail teilen“.'
   };
 
+  // ---------------------------------------------------------------------------
+  // Feedback — a small, unobtrusive way to leave a free-text comment about the
+  // advisor (entry point is a quiet link beneath the composer). Available to
+  // ALL tiers; no PII required. POSTs to /api/feedback (API_CONTRACT.md §9):
+  // `message` is the only required field; the rest is OPTIONAL context the
+  // widget already has (session id, the active thread, a coarse tier hint, the
+  // current page). An `email` is attached ONLY for an already-identified user
+  // (a captured email-only contact) — never collected here on purpose, and a
+  // signed-in customer is linked by the session id, not by sending the address.
+  // ---------------------------------------------------------------------------
+  var FEEDBACK_COPY = {
+    entry: 'Feedback geben',
+    entryAria: 'Feedback zum Fitnessberater geben',
+    title: 'Dein Feedback',
+    intro: 'Wie war deine Beratung? Erzähl uns kurz, was gut lief oder was wir verbessern können.',
+    placeholder: 'Dein Feedback (optional anonym) …',
+    submit: 'Absenden',
+    sending: 'Wird gesendet…',
+    cancel: 'Abbrechen',
+    errEmpty: 'Bitte schreib uns kurz, was du uns mitteilen möchtest.',
+    errLong: 'Bitte fasse dich etwas kürzer (max. 4000 Zeichen).',
+    errRate: 'Danke! Du hast gerade schon Feedback gesendet — bitte kurz warten.',
+    errGeneric: 'Senden gerade nicht möglich — bitte später erneut versuchen.',
+    thanksTitle: 'Danke!',
+    thanks: 'Dein Feedback ist angekommen — das hilft uns sehr.'
+  };
+
   // Fail gracefully: no secret -> log a warning, do not render the launcher.
   if (!CHAT_KEY) {
     try { console.warn('[ms-chat] ms_chat_shared_secret is empty; AI advisor widget not mounted. Paste the secret in Theme settings > AI Advisor.'); } catch (e) {}
@@ -362,6 +389,8 @@
     pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
     mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    // Feedback entry point + card head — a speech bubble.
+    feedback: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
     // Customer Account tier-3 glyphs (sign-in card + signed-in history drawer).
     user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
     history: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>',
@@ -1841,7 +1870,16 @@
       if (e.target === composer || e.target === controls) { try { textarea.focus(); } catch (err) {} }
     });
     inputbar.appendChild(composer);
-    inputbar.appendChild(el('div', { class: 'ms-chat-disclaimer', text: 'KI-Fitnessberater – Antworten können Fehler enthalten' }));
+    // Footer line: the AI disclaimer plus a subtle, always-available Feedback
+    // entry point. Deliberately quiet (a small text link) so it never competes
+    // with the composer; opens the short feedback card in the message area.
+    var footer = el('div', { class: 'ms-chat-footer' });
+    footer.appendChild(el('span', { class: 'ms-chat-disclaimer', text: 'KI-Fitnessberater – Antworten können Fehler enthalten' }));
+    footer.appendChild(el('span', { class: 'ms-chat-footer-sep', 'aria-hidden': 'true', text: '·' }));
+    var feedbackLink = el('button', { class: 'ms-chat-feedback-link', type: 'button', text: FEEDBACK_COPY.entry, title: FEEDBACK_COPY.entryAria, 'aria-label': FEEDBACK_COPY.entryAria });
+    feedbackLink.addEventListener('click', function () { openFeedbackCard(); });
+    footer.appendChild(feedbackLink);
+    inputbar.appendChild(footer);
     panel.appendChild(inputbar);
 
     welcomeEl = buildWelcome();
@@ -3495,6 +3533,170 @@
       }, 60);
     } catch (e) {
       try { console.error('[ms-chat] openCaptureForm failed', e); } catch (e2) {}
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Feedback entry point (footer link). Drops the short feedback card into the
+  // message area. Available to all tiers; reuses a still-open card instead of
+  // stacking. POSTs to /api/feedback (API_CONTRACT.md §9).
+  // ---------------------------------------------------------------------------
+
+  // Coarse, telemetry-grade tier hint the widget already knows — never derived
+  // from anything sensitive. Signed-in > captured email-only > anonymous.
+  function feedbackTier() {
+    if (auth.signedIn) return 'signed-in';
+    if (capturedEmail) return 'email';
+    return 'anonymous';
+  }
+
+  // Contact email for THIS comment — only for an already-identified user. We
+  // attach the email a contact captured in this page session; a signed-in
+  // customer is linked by the session id, so we never send their address here.
+  function identifiedEmail() {
+    return capturedEmail || null;
+  }
+
+  // The storefront path the user is on (context only; backend caps the length).
+  function currentPagePath() {
+    try { return (window.location && window.location.pathname) || null; } catch (e) { return null; }
+  }
+
+  function buildFeedbackCard() {
+    var card = el('div', { class: 'ms-chat-card ms-chat-feedback' });
+    var body = el('div', { class: 'ms-chat-card-body' });
+
+    var head = el('div', { class: 'ms-chat-card-head' });
+    head.appendChild(icon('feedback'));
+    head.appendChild(el('span', { text: FEEDBACK_COPY.title }));
+    body.appendChild(head);
+
+    body.appendChild(el('div', { class: 'ms-chat-card-text', text: FEEDBACK_COPY.intro }));
+
+    var form = el('form', { class: 'ms-chat-form', novalidate: 'novalidate' });
+
+    var taId = 'msc-fb-' + Math.random().toString(36).slice(2, 8);
+    var input = el('textarea', { id: taId, name: 'feedback', rows: '3', maxlength: '4000', placeholder: FEEDBACK_COPY.placeholder, 'aria-label': FEEDBACK_COPY.title });
+    var field = el('div', { class: 'ms-chat-field' });
+    field.appendChild(input);
+    form.appendChild(field);
+
+    var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
+    form.appendChild(errEl);
+    function showError(m) { errEl.textContent = m; errEl.style.display = 'block'; }
+    function clearError() { errEl.style.display = 'none'; }
+
+    var actions = el('div', { class: 'ms-chat-feedback-actions' });
+    var cancelBtn = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--secondary', text: FEEDBACK_COPY.cancel });
+    var submit = el('button', { type: 'submit', class: 'ms-chat-btn ms-chat-btn--primary', text: FEEDBACK_COPY.submit });
+    actions.appendChild(cancelBtn);
+    actions.appendChild(submit);
+    form.appendChild(actions);
+    body.appendChild(form);
+    card.appendChild(body);
+
+    cancelBtn.addEventListener('click', function () {
+      var row = card.closest ? card.closest('.ms-chat-row') : null;
+      if (row && row.parentNode) row.parentNode.removeChild(row);
+      if (row && row === lastFeedbackRow) lastFeedbackRow = null;
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      clearError();
+      var msg = (input.value || '').trim();
+      if (!msg) { showError(FEEDBACK_COPY.errEmpty); try { input.focus(); } catch (er) {} return; }
+      if (msg.length > 4000) { showError(FEEDBACK_COPY.errLong); return; }
+
+      // Only `message` is required; everything else is optional context — send
+      // what we have, omit the rest (API_CONTRACT.md §9). No PII unless the
+      // user is already identified.
+      var payload = { message: msg };
+      if (sid) payload.sessionId = sid;
+      if (auth.signedIn && activeConversationKey) payload.conversationId = activeConversationKey;
+      var tier = feedbackTier();
+      if (tier) payload.tier = tier;
+      var contactEmail = identifiedEmail();
+      if (contactEmail) payload.email = contactEmail;
+      var page = currentPagePath();
+      if (page) payload.page = page;
+
+      submit.disabled = true;
+      cancelBtn.disabled = true;
+      submit.textContent = FEEDBACK_COPY.sending;
+
+      function reenable() {
+        submit.disabled = false;
+        cancelBtn.disabled = false;
+        submit.textContent = FEEDBACK_COPY.submit;
+      }
+
+      fetch(API_BASE + '/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+        body: JSON.stringify(payload)
+      }).then(function (res) {
+        if (res.ok) {
+          var ok = el('div', { class: 'ms-chat-form-success' });
+          ok.appendChild(icon('check'));
+          ok.appendChild(el('h3', { text: FEEDBACK_COPY.thanksTitle }));
+          ok.appendChild(el('p', { text: FEEDBACK_COPY.thanks }));
+          body.replaceChildren(head, ok);
+          var row = card.closest ? card.closest('.ms-chat-row') : null;
+          if (row && row === lastFeedbackRow) lastFeedbackRow = null; // a thanked card can't be reused
+          scrollToBottom();
+          return;
+        }
+        // Keep the comment so the user can retry.
+        return res.json().catch(function () { return null; }).then(function (data) {
+          var code = data && data.error && data.error.code;
+          if (res.status === 413 || code === 'payload_too_large') {
+            showError(FEEDBACK_COPY.errLong);
+            reenable();
+            return;
+          }
+          if (res.status === 429 || code === 'rate_limited') {
+            var retry = parseInt(res.headers.get('Retry-After'), 10);
+            if (!isFinite(retry) || retry <= 0) retry = 30;
+            showError(FEEDBACK_COPY.errRate);
+            submit.textContent = FEEDBACK_COPY.submit;
+            // Honor the window — re-enable only once it elapses.
+            setTimeout(function () { submit.disabled = false; cancelBtn.disabled = false; }, retry * 1000);
+            return;
+          }
+          showError(FEEDBACK_COPY.errGeneric);
+          reenable();
+        });
+      }).catch(function () {
+        showError(FEEDBACK_COPY.errGeneric);
+        reenable();
+      });
+    });
+
+    return card;
+  }
+
+  var lastFeedbackRow = null;
+  function openFeedbackCard() {
+    try {
+      openPanel();
+      if (lastFeedbackRow && lastFeedbackRow.parentNode === messagesEl) {
+        lastFeedbackRow.scrollIntoView({ block: 'nearest' });
+        var existing = lastFeedbackRow.querySelector('textarea');
+        if (existing) { try { existing.focus(); } catch (e) {} }
+        return;
+      }
+      clearWelcome();
+      var ar = assistantRow();
+      ar.content.appendChild(buildFeedbackCard());
+      messagesEl.appendChild(ar.row);
+      lastFeedbackRow = ar.row;
+      scrollToBottom();
+      setTimeout(function () {
+        try { ar.row.querySelector('textarea').focus(); } catch (e) {}
+      }, 60);
+    } catch (e) {
+      try { console.error('[ms-chat] openFeedbackCard failed', e); } catch (e2) {}
     }
   }
 
