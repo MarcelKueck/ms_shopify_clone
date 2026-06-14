@@ -533,6 +533,33 @@ html.ms-chat-page-anim {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* "Zusammenfassung herunterladen" header button — signed-in (tier 3) only.
+   Same quiet-pill chrome as the share button (icon + short label); the JS adds
+   --visible once a downloadable thread exists. --busy is the in-flight state
+   (the summary may make one AI call, so it can take a moment). */
+.ms-chat-download {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: 999px;
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-fg));
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ms-chat-download--visible { display: inline-flex; animation: ms-chat-share-in 420ms ease-out both; }
+.ms-chat-download:hover { background: var(--msc-surface); }
+.ms-chat-download:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
+.ms-chat-download svg { width: 16px; height: 16px; }
+.ms-chat-download--busy { opacity: 0.6; cursor: progress; }
+
 /* ---------- Customer Account (tier 3) ---------- */
 /* "Anmelden" header pill — same quiet-pill chrome as the share button, but
    accent-tinted so it reads as the one sign-in affordance. Hidden until the
@@ -1420,6 +1447,7 @@ html.ms-chat-page-anim {
   .ms-chat-row--gen .ms-chat-logo-bundle--cool,
   .ms-chat-row--gen .ms-chat-logo-bundle--warm,
   .ms-chat-share--visible,
+  .ms-chat-download--visible,
   .ms-chat-signin-btn--visible,
   .ms-chat-history,
   .ms-chat-panel--open,
