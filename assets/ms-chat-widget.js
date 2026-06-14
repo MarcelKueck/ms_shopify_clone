@@ -1997,6 +1997,7 @@
   var voiceRestartTimer = null; // debounce for re-arming the mic
   var currentBlobUrl = null;    // object URL of the playing MP3 (revoked on stop)
   var speakSeq = 0;             // guards async TTS callbacks against a newer reply
+  var streamTts = null;         // active streaming-TTS session (per-sentence queue), or null
 
   function voiceSupported() { return !!SpeechRec; }
 
@@ -2189,21 +2190,51 @@
   function endSpeaking() {
     isSpeaking = false;
     hideSpeakingIndicator();
+    // Tear down any streaming-TTS session and revoke its buffered clips. An
+    // interrupt (tap / text-send / new voice turn / disable) must stop the
+    // queue cleanly — nothing buffered keeps playing.
+    if (streamTts) {
+      var s = streamTts;
+      streamTts = null;
+      for (var k in s.clips) { if (s.clips[k] && s.clips[k].url) { try { URL.revokeObjectURL(s.clips[k].url); } catch (e) {} } }
+    }
     try { if (ttsAudio) ttsAudio.pause(); } catch (e) {}
     try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
     if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} currentBlobUrl = null; }
   }
 
-  // Natural end of playback -> resume listening (the loop).
+  // Natural end of one played clip. When a streaming-TTS queue is driving
+  // playback, advance to the next clip in seq order instead of ending the turn;
+  // otherwise (single-shot path) this is the end of the reply -> resume listening.
   function onPlaybackEnded() {
+    if (streamTts && !streamTts.aborted && streamTts.playing) { streamTtsAdvance(); return; }
     if (!isSpeaking) return;
     endSpeaking();
     if (voiceMode) restartVoiceLoop();
   }
 
-  // After Mo's reply stream completes: speak the plain text, or just re-listen.
+  // After Mo's reply stream completes.
+  //
+  // Streaming-TTS path: if a per-sentence session is running, audio is ALREADY
+  // playing (it started ~1 s into the stream). Flush the trailing partial as a
+  // final chunk and let the queue drain — playback finishing re-arms the mic.
+  // If that session already fell back, hand the unspoken remainder to the
+  // single-shot path. Otherwise (tool-only reply, TTS backoff at stream start,
+  // or no text) fall back to the existing play-after-complete behavior.
   function voiceAfterReply(parts, errored) {
     if (!voiceMode) return;
+    if (streamTts) {
+      if (errored) { endSpeaking(); restartVoiceLoop(); return; }
+      streamTts.done = true;
+      if (streamTts.aborted) { streamTtsDoFallback(); return; }
+      streamTtsDrain(true); // flush the held trailing partial as the last chunk
+      if (streamTts && !streamTts.playing && streamTts.play >= streamTts.emitted) {
+        streamTtsFinish(); // nothing buffered and nothing pending -> done now
+      } else if (streamTts) {
+        streamTtsPump();   // ensure the queue is progressing
+      }
+      return;
+    }
     if (errored) { restartVoiceLoop(); return; }
     var speech = plainTextFromParts(parts);
     if (speech) speakReply(speech);
@@ -2311,6 +2342,200 @@
   function ttsUnavailable() {
     if (!ttsHintShown) { ttsHintShown = true; showNotice('warn', 'Sprachausgabe nicht verfügbar.'); }
     onPlaybackEnded();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Streaming voice mode — audio WHILE the text streams (API_CONTRACT.md §8).
+  //
+  // As chat tokens arrive we split them into sentences, POST each to
+  // `/api/tts` with `{ stream: true, seq }` and push the returned MP3 into a
+  // playback QUEUE that plays clips strictly in seq order — so speech begins
+  // ~1 s into the stream instead of after the whole answer. Requests complete
+  // out of order; we buffer later-but-ready clips and only advance when the
+  // next-in-order clip has arrived. The same unlocked `ttsAudio` element is
+  // reused, so iOS autoplay keeps working and clips never overlap.
+  //
+  // This is layered ON TOP of the existing play-after-complete path, which
+  // stays the fallback: any chunk failure (429 / 502 / network / play error)
+  // stops the per-sentence path and hands the unspoken remainder to
+  // speakReply() (single-shot full message -> speechSynthesis), unchanged.
+  // ---------------------------------------------------------------------------
+
+  function startStreamTts() {
+    ++speakSeq; // supersede any single-shot TTS callback still in flight
+    streamTts = {
+      next: 0,        // next seq to assign
+      emitted: 0,     // count of chunks emitted (== highest seq + 1)
+      pending: '',    // text accumulated but not yet emitted as a chunk
+      clips: {},      // seq -> { status:'loading'|'ready', url, text }
+      play: 0,        // seq we are waiting to play next
+      playing: false, // a clip is currently playing
+      done: false,    // chat stream finished -> pending flushed, no more chunks
+      aborted: false, // fell back to the single-shot / synthesis path
+      tracked: false  // KPI fired once per spoken reply
+    };
+    isSpeaking = true; // block the listen loop while this reply will be spoken
+  }
+
+  // Feed one chat text-delta into the streaming session (voice mode only).
+  function streamTtsFeed(text) {
+    if (!voiceMode || !text) return;
+    if (!streamTts) {
+      // In a TTS backoff window: don't open a streaming session — let
+      // voiceAfterReply() fall back to the single-shot path (which goes
+      // straight to speechSynthesis while backed off).
+      if (Date.now() < ttsBackoffUntil) return;
+      startStreamTts();
+    }
+    if (!streamTts) return;
+    streamTts.pending += text;
+    // After a fallback we keep accumulating the rest of the text so the
+    // single-shot fallback can speak everything not yet heard; no more chunks.
+    if (streamTts.aborted) return;
+    streamTtsDrain(false);
+  }
+
+  // Peel complete sentences off `pending` and emit them as TTS chunks. Short
+  // fragments (< 60 chars after Markdown stripping) are coalesced with the next
+  // sentence so the audio isn't choppy. `flush` (stream end) emits whatever
+  // remains, including the trailing partial sentence.
+  function streamTtsDrain(flush) {
+    var s = streamTts;
+    if (!s || s.aborted) return;
+    var MIN = 60, TERM = '.!?…\n';
+    for (;;) {
+      var p = s.pending;
+      if (!p) return;
+      var cut = -1, i = 0;
+      while (i < p.length) {
+        if (TERM.indexOf(p.charAt(i)) !== -1) {
+          while (i + 1 < p.length && TERM.indexOf(p.charAt(i + 1)) !== -1) i++; // absorb runs ("...", "?!")
+          cut = i + 1;
+          if (stripMarkdownForSpeech(p.slice(0, cut)).length >= MIN) break; // long enough -> emit
+        }
+        i++;
+      }
+      if (cut === -1) { // no complete sentence yet
+        if (flush) { s.pending = ''; streamTtsEmit(p); }
+        return;
+      }
+      if (flush || stripMarkdownForSpeech(p.slice(0, cut)).length >= MIN) {
+        s.pending = p.slice(cut);
+        streamTtsEmit(p.slice(0, cut));
+        if (s.aborted) return;
+        continue; // peel any further sentences
+      }
+      return; // only short complete sentences so far -> hold to coalesce
+    }
+  }
+
+  // Request one chunk's audio and slot it into the queue at its seq.
+  function streamTtsEmit(text) {
+    var s = streamTts;
+    if (!s) return;
+    var clean = stripMarkdownForSpeech(text);
+    if (!clean) return; // nothing speakable (pure markdown / whitespace)
+    var seq = s.next++;
+    s.emitted = s.next;
+    s.clips[seq] = { status: 'loading', url: null, text: clean };
+    fetch(API_BASE + '/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+      body: JSON.stringify({ text: clean, stream: true, seq: seq })
+    }).then(function (res) {
+      if (streamTts !== s || s.aborted) return; // superseded / already fell back
+      if (!res.ok) {
+        if (res.status === 429) {
+          var ra = parseInt(res.headers.get('Retry-After'), 10);
+          if (!isFinite(ra) || ra <= 0) ra = 300; // tts-stream bucket window
+          ttsBackoffUntil = Date.now() + ra * 1000;
+        }
+        streamTtsFallback(); // any non-2xx -> stop per-sentence path
+        return;
+      }
+      return res.blob().then(function (blob) {
+        if (streamTts !== s || s.aborted) return;
+        var clip = s.clips[seq];
+        if (!clip) return;
+        clip.url = URL.createObjectURL(blob);
+        clip.status = 'ready';
+        streamTtsPump(); // may be the clip we were waiting on
+      });
+    }).catch(function () {
+      if (streamTts === s && !s.aborted) streamTtsFallback();
+    });
+  }
+
+  // Play the next-in-order clip if it's ready and nothing is currently playing.
+  function streamTtsPump() {
+    var s = streamTts;
+    if (!s || s.aborted || s.playing) return;
+    var clip = s.clips[s.play];
+    if (!clip || clip.status !== 'ready') return; // not emitted yet / still loading -> wait
+    s.playing = true;
+    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} }
+    currentBlobUrl = clip.url; clip.url = null; // ownership moves to currentBlobUrl
+    try {
+      ttsAudio.src = currentBlobUrl;
+      var p = ttsAudio.play();
+      if (!s.tracked) { s.tracked = true; showSpeakingIndicator(); track('voice_reply_played', {}); }
+      if (p && p.then) p.catch(function () { if (streamTts === s) streamTtsFallback(); });
+    } catch (e) { streamTtsFallback(); }
+  }
+
+  // One clip finished -> revoke it and advance to the next seq.
+  function streamTtsAdvance() {
+    var s = streamTts;
+    if (!s) return;
+    s.playing = false;
+    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} currentBlobUrl = null; }
+    if (s.clips[s.play]) delete s.clips[s.play];
+    s.play++;
+    streamTtsPump(); // play the next clip if it's already buffered
+    if (streamTts === s && !s.playing && s.done && s.play >= s.emitted) streamTtsFinish();
+  }
+
+  // Whole reply spoken: tear down and resume listening.
+  function streamTtsFinish() {
+    streamTts = null;
+    isSpeaking = false;
+    hideSpeakingIndicator();
+    if (voiceMode) restartVoiceLoop();
+  }
+
+  // A chunk failed: stop the per-sentence path. Move the text of every
+  // emitted-but-unplayed clip back in front of `pending` (in order) so the
+  // fallback speaks everything not yet heard.
+  function streamTtsFallback() {
+    var s = streamTts;
+    if (!s || s.aborted) return;
+    s.aborted = true;
+    try { ttsAudio.pause(); } catch (e) {}
+    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} currentBlobUrl = null; }
+    var unplayed = '';
+    for (var k = s.play; k < s.emitted; k++) {
+      if (s.clips[k]) {
+        if (s.clips[k].url) { try { URL.revokeObjectURL(s.clips[k].url); } catch (e) {} }
+        unplayed += (s.clips[k].text || '') + ' ';
+      }
+    }
+    s.clips = {};
+    s.playing = false;
+    s.pending = unplayed + s.pending;
+    // If the chat stream already finished, speak the remainder now; otherwise
+    // voiceAfterReply() calls streamTtsDoFallback() once the rest has streamed.
+    if (s.done) streamTtsDoFallback();
+  }
+
+  // Hand the unspoken remainder to the existing single-shot path, which already
+  // handles 429-backoff -> speechSynthesis and 502 -> speechSynthesis.
+  function streamTtsDoFallback() {
+    var s = streamTts;
+    if (!s) return;
+    var text = stripMarkdownForSpeech(s.pending);
+    streamTts = null;
+    if (!text) { isSpeaking = false; hideSpeakingIndicator(); if (voiceMode) restartVoiceLoop(); return; }
+    speakReply(text);
   }
 
   function showWelcome() {
@@ -2718,6 +2943,10 @@
             var d = ev.delta != null ? ev.delta : (ev.text != null ? ev.text : '');
             if (!d) return;
             feedCanonical({ type: 'text', text: d });
+            // Streaming voice mode: enqueue per-sentence audio AS the text
+            // arrives so speech starts ~1 s in (API_CONTRACT.md §8). No-op
+            // outside voice mode; falls back to play-after-complete on error.
+            if (voiceMode) streamTtsFeed(d);
             return;
           }
           case 'text-end':

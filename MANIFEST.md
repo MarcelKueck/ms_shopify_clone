@@ -12,7 +12,82 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-14, latest) — pre-launch cleanup & hardening: dead-code removal only (no behavior change)
+## ⭐ Session update (2026-06-14, latest) — streaming voice mode: TTS audio plays WHILE the text streams (UX polish item 3)
+
+Voice mode used to wait for the **whole** reply before it called `/api/tts`
+once — so spoken audio only started after generation finished. Now the widget
+streams TTS the ChatGPT way: as sentences arrive in the chat stream it requests
+their audio per-sentence and plays them through an in-order **playback queue**,
+so speech begins **~1 s into the stream** instead of after completion. This is
+the **theme half** of UX-polish item 3; the backend half (`/api/tts` streaming
+mode: `{ stream: true, seq }`, the `tts-stream` rate-limit bucket, the
+`X-MS-TTS-Seq` echo header) is already deployed and specified in
+`docs/ai-advisor/API_CONTRACT.md` §8. **Re-upload the one modified theme file.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (per-sentence streaming TTS + playback queue) | ✅ Yes |
+| `assets/ms-chat-widget.css` | UNCHANGED | ❌ No |
+| `snippets/ms-chat-widget.liquid` | UNCHANGED | ❌ No |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed in `ms-chat-widget.js`
+
+- **New streaming-TTS module** (a `streamTts` session object + helpers, added
+  right after `ttsUnavailable()`):
+  - `startStreamTts()` — opens a session on the first text-delta of a voice-mode
+    reply; bumps `speakSeq` (supersedes any in-flight single-shot callback) and
+    sets `isSpeaking` so the mic loop stays parked while the reply is spoken.
+  - `streamTtsFeed(delta)` — accumulates chat tokens; hooked into the
+    `text-delta` SSE handler, guarded by `if (voiceMode)` so it is a strict
+    no-op outside voice mode.
+  - `streamTtsDrain(flush)` — splits accumulated text on sentence terminators
+    (`. ! ? … \n`), **coalesces fragments < 60 chars** with the next sentence so
+    audio isn't choppy, and holds the trailing partial until the next terminator
+    (or, on `flush` at stream end, emits whatever remains).
+  - `streamTtsEmit(text)` — `POST /api/tts` with `{ text, stream: true, seq }`
+    (monotonic `seq` from 0), Markdown pre-stripped via the existing
+    `stripMarkdownForSpeech()`; stores each clip in the queue at its own `seq`.
+  - `streamTtsPump()` / `streamTtsAdvance()` — **play strictly in `seq` order**:
+    requests finish out of order, so later-but-ready clips are buffered and
+    playback only advances when the next-in-order clip has arrived. Clips reuse
+    the **same unlocked `ttsAudio` element** (one src-swap at a time → no
+    overlap, iOS autoplay unlock still valid) and each blob URL is revoked as it
+    finishes. KPI `voice_reply_played` fires **once per reply**, not per clip.
+  - `streamTtsFinish()` — whole reply spoken → tear down and re-arm the mic.
+- **Fallback preserved (the existing play-after-complete path is unchanged).**
+  Any chunk failure (`429` / `502` / network / `play()` rejection) calls
+  `streamTtsFallback()`, which stops the per-sentence path and moves the text of
+  every **emitted-but-unplayed** clip back in front of `pending`, then hands the
+  **unspoken remainder** to `speakReply()` — the same single-shot →
+  `speechSynthesis` chain as before. A `429` records the shared
+  `ttsBackoffUntil`; if voice mode is already inside a backoff window, no
+  streaming session opens at all and the reply uses the single-shot fallback
+  directly (straight to `speechSynthesis` while backed off).
+- **`voiceAfterReply()` is now streaming-aware** — when a session is live it
+  marks it `done`, flushes the trailing partial as the final chunk, and lets the
+  queue drain (finishing playback re-arms the mic); a tool-only reply, an
+  errored stream, or no speakable text fall through to the prior behavior.
+- **`endSpeaking()` tears the queue down cleanly** — interrupting (tap on the
+  voice-mode button, sending text, a new spoken turn, disabling voice mode, or
+  the tab going hidden) stops playback and revokes every buffered clip, so
+  nothing keeps speaking after an interrupt.
+- **`onPlaybackEnded()` dispatches** — advances the queue when a streaming clip
+  ends, otherwise behaves exactly as before (single-shot reply end → re-listen).
+
+### Unchanged / out of scope (verified)
+
+- **Reduced-motion and voice-unsupported behavior are untouched** — streaming
+  TTS lives entirely inside voice mode (which only renders when the mic API
+  exists) and adds no animation; `prefers-reduced-motion` paths are not touched.
+- **iOS autoplay** keeps working — the queue reuses the `ttsAudio` element that
+  `enableVoiceMode() → unlockAudio()` already unlocks inside the click gesture.
+- **No CSS/snippet/markup changes**; no new dependencies; same auth headers
+  (`x-ms-chat-key`, `x-ms-session`) and same `API_BASE`.
+
+---
+
+## ⭐ Session update (2026-06-14) — pre-launch cleanup & hardening: dead-code removal only (no behavior change)
 
 Behavior-preserving cleanup pass. Removed genuinely dead widget code only —
 no observable behavior changed for any of the three identity tiers (anonymous,
