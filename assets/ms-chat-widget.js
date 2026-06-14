@@ -582,6 +582,46 @@
     return consentCopyInflight;
   }
 
+  // At-sign-in marketing opt-in copy (consent copy v3 — CONSENT_FLOW.md §2.1).
+  // A SEPARATE payload from the capture form's: it carries no email field and
+  // no transactional label (the customer is signed in, so we already hold the
+  // verified email). Fetched from GET /api/consent-copy?surface=signin and held
+  // in its own short-lived cache; like the capture copy it is served-only and
+  // never hard-coded, so the stored Art. 7 audit text can't diverge from what
+  // was shown. Same guard as the default consent-copy call (no shared secret —
+  // these are public strings already shown to users).
+  var signInConsentCache = null;    // { copy, at }
+  var signInConsentInflight = null; // de-duped GET while a fetch is pending
+
+  function validSignInConsentCopy(c) {
+    return !!(c && typeof c === 'object' &&
+      typeof c.marketingLabel === 'string' && c.marketingLabel &&
+      typeof c.consentTextShown === 'string' && c.consentTextShown);
+  }
+
+  function fetchSignInConsentCopy() {
+    if (signInConsentCache && (Date.now() - signInConsentCache.at) < CONSENT_COPY_TTL_MS) {
+      return Promise.resolve(signInConsentCache.copy);
+    }
+    if (signInConsentInflight) return signInConsentInflight;
+    signInConsentInflight = fetch(API_BASE + '/api/consent-copy?surface=signin', { method: 'GET', headers: { 'x-ms-session': sid } })
+      .then(function (res) {
+        if (!res.ok) throw new Error('consent-copy signin ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        signInConsentInflight = null;
+        if (!validSignInConsentCopy(data)) throw new Error('consent-copy signin: invalid payload');
+        signInConsentCache = { copy: data, at: Date.now() };
+        return data;
+      })
+      .catch(function (err) {
+        signInConsentInflight = null;
+        throw err;
+      });
+    return signInConsentInflight;
+  }
+
   // ---------------------------------------------------------------------------
   // Customer Account sign-in (tier 3) + signed-in conversation history.
   //
@@ -721,7 +761,13 @@
     authOpenHandled = true; // we own the auth state for this load
     if (marker === 'ok') {
       track('account_signin_return', { result: 'ok' });
-      probeAuth(true).then(function () { if (wantsOpen || auth.signedIn) openPanel(); });
+      probeAuth(true).then(function () {
+        if (wantsOpen || auth.signedIn) openPanel();
+        // The sign-in moment: offer the marketing opt-in. The welcome state
+        // renders it in its own auth slot; present it inline only when a
+        // conversation is already on screen (mid-conversation sign-in).
+        if (auth.signedIn) presentSignInOptIn();
+      });
     } else if (marker === 'login_required') {
       // prompt=none path only: not logged in -> show the one-click affordance.
       applyAuth(null);
@@ -3077,6 +3123,239 @@
     }
   }
 
+  // At-sign-in marketing opt-in (CONSENT_FLOW.md §2). UI CHROME only (German) —
+  // every LEGAL string (headline framing, the marketing label, the shared
+  // footer, the consentTextShown audit text, imprint/privacy targets) is
+  // backend-served and rendered verbatim; nothing consent-related is hard-coded
+  // here.
+  var OPTIN_COPY = {
+    loading: 'Einwilligungstext wird geladen…',
+    submit: 'Anmelden',
+    sending: 'Wird gesendet…',
+    dismiss: 'Nicht jetzt',
+    // Unticked submit -> a gentle "please tick" hint; never auto-submitted.
+    errTick: 'Bitte setze das Häkchen, um dich anzumelden.',
+    errRate: 'Zu viele Anfragen — bitte kurz warten.',
+    errUpstream: 'Anmeldung gerade nicht möglich — bitte später erneut versuchen.',
+    errGeneric: 'Anmeldung fehlgeschlagen. Bitte versuch es erneut.',
+    successTitle: 'Fast geschafft!',
+    // DOI: ticking only sends a confirmation mail — not subscribed until clicked.
+    successPending: 'Bitte bestätige die Anmeldung über den Link in der E-Mail an deine hinterlegte Adresse.',
+    successConfirmed: 'Du bist bereits angemeldet — viel Freude mit unseren Angeboten!',
+    // 422 no_verified_email -> fall back to the typed-email capture form.
+    noEmail: 'Für dein Konto ist keine bestätigte E-Mail-Adresse hinterlegt.',
+    noEmailBtn: 'E-Mail-Adresse eingeben'
+  };
+
+  // Session-scoped guard: once the customer submits or dismisses the opt-in we
+  // stop re-presenting it for the rest of this browser session (it is an
+  // optional benefit surface, not a nag). Never persisted across sessions.
+  var OPTIN_DONE_KEY = 'ms-chat-optin-done';
+  var signInOptInDone = (ssGet(OPTIN_DONE_KEY) === '1');
+  function markOptInDone() { signInOptInDone = true; ssSet(OPTIN_DONE_KEY, '1'); }
+  function optInActionable() { return auth.signedIn && !signInOptInDone; }
+
+  // The opt-in card (CONSENT_FLOW.md §2): the SAME double-opt-in as the capture
+  // form, minus the "type your email" step. Renders the served v3 copy verbatim
+  // — a benefit headline (framing, NOT consent text), ONE marketing checkbox
+  // that ALWAYS starts UNCHECKED and is never auto-toggled, the served footer,
+  // and imprint/privacy links. Submitting runs the existing DOI path
+  // (POST /api/account/marketing-opt-in) echoing consentTextShown verbatim; an
+  // unticked submit records nothing and blocks nothing.
+  function buildMarketingOptInCard() {
+    var card = el('div', { class: 'ms-chat-card ms-chat-optin-card' });
+    var body = el('div', { class: 'ms-chat-card-body' });
+    card.appendChild(body);
+    body.appendChild(el('div', { class: 'ms-chat-consent-loading', text: OPTIN_COPY.loading }));
+
+    var copy = null, mkt = null, group = null, attnActive = false;
+    var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
+    function showError(m) { errEl.textContent = m; errEl.style.display = 'block'; }
+    function clearError() { errEl.textContent = ''; errEl.style.display = 'none'; }
+
+    function dismiss() { markOptInDone(); card.remove(); }
+
+    // Unchecked-marketing attention treatment (mirrors the capture form): accent
+    // outline + one brief shake + an inline hint. No request is sent; the tick
+    // is the consent, so we never proceed without it.
+    function flagAttention() {
+      showError(OPTIN_COPY.errTick);
+      attnActive = true;
+      if (group) {
+        group.classList.remove('ms-chat-consent-group--attn');
+        void group.offsetWidth; // restart the shake on repeat clicks
+        group.classList.add('ms-chat-consent-group--attn');
+      }
+      if (mkt) { try { mkt.input.focus(); } catch (e) {} }
+    }
+    function clearAttention() {
+      if (!attnActive) return;
+      attnActive = false;
+      if (group) group.classList.remove('ms-chat-consent-group--attn');
+      clearError();
+    }
+
+    function renderForm(c) {
+      copy = c;
+      body.replaceChildren();
+      // Benefit framing ABOVE the checkbox — explicitly NOT part of
+      // consentTextShown (CONSENT_FLOW.md §2.1); rendered as served.
+      if (typeof c.headline === 'string' && c.headline) {
+        body.appendChild(el('div', { class: 'ms-chat-optin-headline', text: c.headline }));
+      }
+      var form = el('form', { class: 'ms-chat-form ms-chat-optin', novalidate: 'novalidate' });
+
+      // ONE marketing checkbox — ALWAYS UNCHECKED, never pre-ticked, never
+      // auto-toggled by any other interaction. Same DELIBERATE LEGAL invariant
+      // as the capture form (Planet49 / UWG): the opt-in is won by placement and
+      // copy, never by a pre-tick. There is no code path that sets .checked.
+      var row = el('label', { class: 'ms-chat-consent ms-chat-consent--marketing' });
+      var input = el('input', { type: 'checkbox' });
+      row.appendChild(input);
+      row.appendChild(el('span', { class: 'ms-chat-consent-text' }, [c.marketingLabel]));
+      mkt = { row: row, input: input };
+      group = el('div', { class: 'ms-chat-consent-group' });
+      group.appendChild(row);
+      form.appendChild(group);
+      input.addEventListener('change', function () { if (input.checked) clearAttention(); });
+
+      // Shared footer beneath the box — backend-served, part of the audit text.
+      if (typeof c.consentFooter === 'string' && c.consentFooter) {
+        form.appendChild(el('div', { class: 'ms-chat-consent-footer', text: c.consentFooter }));
+      }
+      form.appendChild(errEl);
+
+      var submit = el('button', { type: 'submit', class: 'ms-chat-btn ms-chat-btn--primary' }, [OPTIN_COPY.submit]);
+      form.appendChild(submit);
+
+      // Imprint / privacy links nearby (compliance) — targets backend-served.
+      var legal = el('div', { class: 'ms-chat-legal-links' });
+      var impHref = safeHref(c.imprintUrl);
+      var privHref = safeHref(c.privacyUrl);
+      if (impHref) legal.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: 'Impressum' }));
+      if (privHref) legal.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: 'Datenschutz' }));
+      form.appendChild(legal);
+
+      var skip = el('button', { type: 'button', class: 'ms-chat-optin-dismiss', text: OPTIN_COPY.dismiss });
+      skip.addEventListener('click', dismiss);
+      form.appendChild(skip);
+
+      body.appendChild(form);
+
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        clearError();
+        if (!copy || !mkt) return; // served copy not loaded -> cannot submit
+        // Opt-in is OPTIONAL: an unticked submit records nothing and blocks
+        // nothing — it only flags the box. We never auto-send marketingConsent.
+        if (!mkt.input.checked) { flagAttention(); return; }
+        var payload = {
+          marketingConsent: true,                    // the user's actual tick
+          // The served audit string, echoed back VERBATIM (Art. 7 proof) — never
+          // recomposed or hard-coded client-side.
+          consentTextShown: copy.consentTextShown
+        };
+        submit.disabled = true;
+        submit.textContent = OPTIN_COPY.sending;
+        // Guarded account XHR (CONSENT_FLOW.md §2.2): same headers as /api/auth/me.
+        fetch(API_BASE + '/api/account/marketing-opt-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+          body: JSON.stringify(payload)
+        }).then(function (res) {
+          if (res.status === 401) { accountUnauthorized(); card.remove(); return; }
+          if (res.ok) {
+            return res.json().catch(function () { return null; }).then(function (data) {
+              var m = data && data.marketing;
+              var confirmed = !!(m && (m.alreadyConfirmed === true || m.status === 'confirmed'));
+              var ok = el('div', { class: 'ms-chat-form-success' });
+              ok.appendChild(icon('check'));
+              ok.appendChild(el('h3', { text: OPTIN_COPY.successTitle }));
+              ok.appendChild(el('p', { text: confirmed ? OPTIN_COPY.successConfirmed : OPTIN_COPY.successPending }));
+              body.replaceChildren(ok);
+              markOptInDone();
+              scrollToBottom();
+            });
+          }
+          return res.json().catch(function () { return null; }).then(function (data) {
+            var code = data && data.error && data.error.code;
+            if (code === 'marketing_consent_required') {
+              // Defensive: the widget already blocks an unticked submit; if the
+              // backend still rejects, show the same targeted box attention.
+              submit.disabled = false;
+              submit.textContent = OPTIN_COPY.submit;
+              flagAttention();
+              return;
+            }
+            if (res.status === 422 || code === 'no_verified_email') {
+              // Rare: no verified email on file -> fall back to the typed-email
+              // capture form (the existing, unchanged path).
+              body.replaceChildren();
+              body.appendChild(el('div', { class: 'ms-chat-card-text', text: OPTIN_COPY.noEmail }));
+              var b = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--secondary' }, [OPTIN_COPY.noEmailBtn]);
+              b.addEventListener('click', function () { markOptInDone(); card.remove(); openCaptureForm(); });
+              body.appendChild(b);
+              return;
+            }
+            if (res.status === 429 || code === 'rate_limited') {
+              var retry = parseInt(res.headers.get('Retry-After'), 10);
+              if (!isFinite(retry) || retry <= 0) retry = 30;
+              showError(OPTIN_COPY.errRate);
+              submit.textContent = OPTIN_COPY.submit;
+              setTimeout(function () { submit.disabled = false; }, retry * 1000);
+              return;
+            }
+            var msg = (data && data.error && data.error.message) || '';
+            if (res.status === 502 || res.status === 503 || code === 'upstream_unavailable') msg = OPTIN_COPY.errUpstream;
+            else if (!msg) msg = OPTIN_COPY.errGeneric;
+            showError(msg);
+            submit.disabled = false;
+            submit.textContent = OPTIN_COPY.submit;
+          });
+        }).catch(function () {
+          showError(OPTIN_COPY.errUpstream);
+          submit.disabled = false;
+          submit.textContent = OPTIN_COPY.submit;
+        });
+      });
+    }
+
+    fetchSignInConsentCopy().then(function (c) {
+      // lawyerApproved:false means the copy is not yet legally signed off — do
+      // not launch the surface to real users (CONSENT_FLOW.md §1).
+      if (c.lawyerApproved !== true) { card.remove(); return; }
+      renderForm(c);
+    }).catch(function () {
+      // No served copy -> render nothing (we never hard-code consent text).
+      card.remove();
+    });
+
+    return card;
+  }
+
+  // Present the opt-in INLINE after a sign-in moment when the welcome state
+  // (which renders it in its own auth slot) isn't on screen — e.g. signing in
+  // mid-conversation. Non-stacking and session-gated; never shown to anonymous.
+  var lastOptInRow = null;
+  function presentSignInOptIn() {
+    try {
+      if (!optInActionable()) return;
+      // Welcome on screen -> updateWelcomeAuth already renders the opt-in there.
+      if (welcomeEl && welcomeEl.parentNode === messagesEl) return;
+      if (lastOptInRow && lastOptInRow.parentNode === messagesEl) {
+        lastOptInRow.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      var ar = assistantRow();
+      ar.content.appendChild(buildMarketingOptInCard());
+      messagesEl.appendChild(ar.row);
+      lastOptInRow = ar.row;
+      scrollToBottom();
+    } catch (e) {
+      try { console.error('[ms-chat] presentSignInOptIn failed', e); } catch (e2) {}
+    }
+  }
+
   // Reflect the resolved auth state across the chrome. Called on every auth
   // change; a no-op shape for anonymous (signInBtn shown, history hidden,
   // share button behaves exactly as before).
@@ -3103,7 +3382,11 @@
     }
     if (welcomeAuthEl) {
       welcomeAuthEl.replaceChildren();
+      // Anonymous (settled): the sign-in benefits card. Signed in: the at-sign-in
+      // marketing opt-in (CONSENT_FLOW.md §2), unless already submitted/dismissed
+      // this session.
       if (auth.settled && !auth.signedIn) welcomeAuthEl.appendChild(buildSignInCard());
+      else if (optInActionable()) welcomeAuthEl.appendChild(buildMarketingOptInCard());
     }
   }
 

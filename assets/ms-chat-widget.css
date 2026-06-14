@@ -600,6 +600,39 @@ html.ms-chat-page-anim {
   color: rgb(var(--msc-success));
 }
 
+/* At-sign-in marketing opt-in card (CONSENT_FLOW.md §2): the SAME double-opt-in
+   as the capture form, minus the email step. It reuses the consent rows /
+   footer / legal-link styling; only the headline framing and the quiet dismiss
+   link are specific to it. The checkbox is ALWAYS rendered unchecked. */
+.ms-chat-optin .ms-chat-consent-group,
+.ms-chat-optin .ms-chat-consent-footer,
+.ms-chat-optin .ms-chat-form-error,
+.ms-chat-optin .ms-chat-legal-links { margin-top: 4px; }
+.ms-chat-optin { display: flex; flex-direction: column; gap: 10px; }
+.ms-chat-optin .ms-chat-btn--primary { margin-top: 2px; }
+/* Benefit framing above the checkbox — NOT consent text. */
+.ms-chat-optin-headline {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgb(var(--msc-heading));
+  margin-bottom: 2px;
+}
+/* Quiet "not now" dismiss — opting in is optional; this blocks nothing. */
+.ms-chat-optin-dismiss {
+  align-self: center;
+  background: none;
+  border: 0;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--msc-muted);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.ms-chat-optin-dismiss:hover { color: rgb(var(--msc-fg)); }
+.ms-chat-optin-dismiss:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 2px; }
+
 /* History drawer — slides over the panel from the right edge; signed-in only. */
 .ms-chat-history {
   position: absolute;
