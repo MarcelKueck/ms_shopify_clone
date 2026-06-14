@@ -10,17 +10,33 @@ wins — open an issue and we'll fix one or the other so they match.
 
 Endpoints:
 
-| Method | Path                      | Purpose                                                  |
-| ------ | ------------------------- | -------------------------------------------------------- |
-| POST   | `/api/chat`               | Streaming Claude chat with persona-aware tools.          |
-| POST   | `/api/tts`                | Text-to-speech for voice mode (streams MP3 audio). §8.   |
-| POST   | `/api/contact`            | Contact-form submission → email via Resend.              |
-| GET    | `/api/products`           | Public product hydration for widget cards.               |
-| POST   | `/api/kpi`                | Pseudonymous telemetry ingestion (fire-and-forget).      |
-| POST   | `/api/capture-email`      | GDPR email capture + double opt-in (summary + marketing).|
-| GET    | `/api/consent-copy`       | Canonical capture-form consent copy (labels + links).     |
-| GET    | `/api/confirm-marketing`  | Marketing double-opt-in confirmation link (HTML page).   |
-| GET    | `/api/unsubscribe`        | Signed unsubscribe link → suppression (HTML page).        |
+| Method           | Path                              | Purpose                                                   |
+| ---------------- | --------------------------------- | --------------------------------------------------------- |
+| POST             | `/api/chat`                       | Streaming Claude chat with persona-aware tools.           |
+| POST             | `/api/tts`                        | Text-to-speech for voice mode (streams MP3 audio). §8.    |
+| POST             | `/api/contact`                    | Contact-form submission → email via Resend.               |
+| GET              | `/api/products`                   | Public product hydration for widget cards.                |
+| POST             | `/api/kpi`                        | Pseudonymous telemetry ingestion (fire-and-forget).       |
+| POST             | `/api/capture-email`              | GDPR email capture + double opt-in (summary + marketing). |
+| GET              | `/api/consent-copy`               | Canonical capture-form consent copy (labels + links).     |
+| GET              | `/api/confirm-marketing`          | Marketing double-opt-in confirmation link (HTML page).    |
+| GET              | `/api/unsubscribe`                | Signed unsubscribe link → suppression (HTML page).        |
+| GET              | `/api/auth/shopify/login`         | Customer Account sign-in (top-level redirect).            |
+| GET              | `/api/auth/shopify/callback`      | OAuth callback (server-side PKCE exchange).               |
+| GET              | `/api/auth/me`                    | Signed-in identity re-hydration (`{ name, tier }`).       |
+| GET              | `/api/auth/shopify/logout/return` | Logout-return landing.                                    |
+| GET              | `/api/account/conversations`      | Signed-in: LIST past conversations (tier 3).              |
+| GET/PATCH/DELETE | `/api/account/conversations/{id}` | Signed-in: fetch / rename / delete one conversation.      |
+| POST             | `/api/account/erase`              | Signed-in: full "delete my data" (erase customer).        |
+
+> **Customer Account sign-in (tier 3)** is documented in full in
+> [`CUSTOMER_ACCOUNT.md`](./CUSTOMER_ACCOUNT.md) (frontend contract:
+> `docs/frontend-handoff/CUSTOMER_ACCOUNT.md`). The `login` / `callback` /
+> `logout/return` routes are top-level navigations (signed `state`, no
+> CORS/secret); `/api/auth/me` is a guarded widget XHR. The **signed-in
+> conversation-history** endpoints (`/api/account/*`) are guarded widget XHRs
+> behind the CA-1 signed-in resolver (fail-closed for anonymous / email-only) —
+> see `CUSTOMER_ACCOUNT.md` §9.
 
 > `/api/confirm-marketing` and `/api/unsubscribe` are **clicked from emails**
 > as top-level browser navigations — they return an HTML page, not JSON, and
@@ -77,11 +93,11 @@ SDK UI-message stream protocol, `x-vercel-ai-ui-message-stream: v1`).
 
 ### Required request headers
 
-| Header          | Value                                                                  |
-| --------------- | ---------------------------------------------------------------------- |
-| `Content-Type`  | `application/json`                                                     |
-| `x-ms-chat-key` | The shared secret from `CHAT_SHARED_SECRET`.                           |
-| `x-ms-session`  | Client-generated stable session id (UUID stored in `localStorage`).    |
+| Header          | Value                                                               |
+| --------------- | ------------------------------------------------------------------- |
+| `Content-Type`  | `application/json`                                                  |
+| `x-ms-chat-key` | The shared secret from `CHAT_SHARED_SECRET`.                        |
+| `x-ms-session`  | Client-generated stable session id (UUID stored in `localStorage`). |
 
 > **Note on `x-ms-session`:** the widget must always send it, but the
 > server does **not** enforce its presence — a request without it is not
@@ -140,12 +156,12 @@ MAY attach an optional `context` object alongside `messages`:
 }
 ```
 
-| Field            | Type     | Notes                                                              |
-| ---------------- | -------- | ----------------------------------------------------------------- |
-| `type`           | string   | `"product"` (single-product open, may also carry a trail) or `"browsing"` (trail only). Any other value → whole context ignored. |
-| `productId`      | string   | Catalog product id (`type: "product"` only). Validated server-side. |
-| `productTitle`   | string?  | Optional/advisory. The backend uses the catalog's canonical name. |
-| `recentlyViewed` | array?   | Small browsing trail, most recent first. Entries: `{ type: "product", id, name }` or `{ type: "category", id?, name }`. |
+| Field            | Type    | Notes                                                                                                                            |
+| ---------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `type`           | string  | `"product"` (single-product open, may also carry a trail) or `"browsing"` (trail only). Any other value → whole context ignored. |
+| `productId`      | string  | Catalog product id (`type: "product"` only). Validated server-side.                                                              |
+| `productTitle`   | string? | Optional/advisory. The backend uses the catalog's canonical name.                                                                |
+| `recentlyViewed` | array?  | Small browsing trail, most recent first. Entries: `{ type: "product", id, name }` or `{ type: "category", id?, name }`.          |
 
 **Privacy.** The browsing trail is gathered **in the browser** and only ever
 reaches the backend as part of a chat request the **user initiates** (opening
@@ -316,20 +332,20 @@ data: [DONE]
 
 #### Chunk vocabulary
 
-| `type` | Payload fields | Widget action |
-| --- | --- | --- |
-| `start` | — | begin a new assistant message |
-| `start-step` / `finish-step` | — | ignore (the model can run up to **6 steps** per turn, +1 when the backend appends the guaranteed checkout-moment email-offer step) |
-| `text-start` | `id` | open a text part keyed by `id` |
-| `text-delta` | `id`, `delta` | **append** `delta` to that text part's bubble |
-| `text-end` | `id` | text part complete |
-| `tool-input-start` | `toolCallId`, `toolName` | open a tool part keyed by `toolCallId` (render nothing yet) |
-| `tool-input-delta` | `toolCallId`, `inputTextDelta` | streaming JSON of the args; safe to ignore |
-| `tool-input-available` | `toolCallId`, `toolName`, `input` | args complete → **render the card now** (dispatch on `toolName`, read `input`) |
-| `tool-output-available` | `toolCallId`, `output` | tool result → for `offer_email_summary` this carries the load-bearing `output.consentCopy`; the other tools return `{ ok: true }` |
-| `error` | `errorText` | show the friendly retry message |
-| `finish` | — | finalize the message, re-enable input |
-| `[DONE]` (literal, not JSON) | — | stream end |
+| `type`                       | Payload fields                    | Widget action                                                                                                                      |
+| ---------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `start`                      | —                                 | begin a new assistant message                                                                                                      |
+| `start-step` / `finish-step` | —                                 | ignore (the model can run up to **6 steps** per turn, +1 when the backend appends the guaranteed checkout-moment email-offer step) |
+| `text-start`                 | `id`                              | open a text part keyed by `id`                                                                                                     |
+| `text-delta`                 | `id`, `delta`                     | **append** `delta` to that text part's bubble                                                                                      |
+| `text-end`                   | `id`                              | text part complete                                                                                                                 |
+| `tool-input-start`           | `toolCallId`, `toolName`          | open a tool part keyed by `toolCallId` (render nothing yet)                                                                        |
+| `tool-input-delta`           | `toolCallId`, `inputTextDelta`    | streaming JSON of the args; safe to ignore                                                                                         |
+| `tool-input-available`       | `toolCallId`, `toolName`, `input` | args complete → **render the card now** (dispatch on `toolName`, read `input`)                                                     |
+| `tool-output-available`      | `toolCallId`, `output`            | tool result → for `offer_email_summary` this carries the load-bearing `output.consentCopy`; the other tools return `{ ok: true }`  |
+| `error`                      | `errorText`                       | show the friendly retry message                                                                                                    |
+| `finish`                     | —                                 | finalize the message, re-enable input                                                                                              |
+| `[DONE]` (literal, not JSON) | —                                 | stream end                                                                                                                         |
 
 Assembly rules:
 
@@ -682,12 +698,12 @@ a "zu viele Anfragen — bitte kurz warten" hint.
 
 ### Auth / origin errors
 
-| Status | Code           | When                                                  |
-| ------ | -------------- | ----------------------------------------------------- |
-| 401    | `unauthorized` | Missing or wrong `x-ms-chat-key`.                     |
-| 403    | `forbidden`    | Cross-origin request from an origin not in allowlist. |
-| 400    | `bad_request`  | Body isn't valid JSON / `messages` not an array.      |
-| 500    | `internal_error` | Anything else.                                      |
+| Status | Code             | When                                                  |
+| ------ | ---------------- | ----------------------------------------------------- |
+| 401    | `unauthorized`   | Missing or wrong `x-ms-chat-key`.                     |
+| 403    | `forbidden`      | Cross-origin request from an origin not in allowlist. |
+| 400    | `bad_request`    | Body isn't valid JSON / `messages` not an array.      |
+| 500    | `internal_error` | Anything else.                                        |
 
 ---
 
@@ -832,11 +848,11 @@ stdout log when Resend env vars are unset.
 
 Same as `/api/chat`:
 
-| Header          | Value                                                                |
-| --------------- | -------------------------------------------------------------------- |
-| `Content-Type`  | `application/json`                                                   |
-| `x-ms-chat-key` | Shared secret.                                                       |
-| `x-ms-session`  | Stable session id (UUID).                                            |
+| Header          | Value                     |
+| --------------- | ------------------------- |
+| `Content-Type`  | `application/json`        |
+| `x-ms-chat-key` | Shared secret.            |
+| `x-ms-session`  | Stable session id (UUID). |
 
 ### Request body
 
@@ -871,14 +887,14 @@ Content-Type: application/json
 
 ### Error responses
 
-| Status | Code                   | When                                                                 |
-| ------ | ---------------------- | -------------------------------------------------------------------- |
-| 400    | `bad_request`          | Invalid JSON, or required field missing/invalid.                     |
-| 401    | `unauthorized`         | Missing / wrong shared secret.                                       |
-| 403    | `forbidden`            | Cross-origin request from an origin not in allowlist.                |
-| 429    | `rate_limited`         | Shares the chat bucket (20 req / 60 s).                              |
-| 502    | `upstream_unavailable` | Resend returned an error or threw.                                   |
-| 500    | `internal_error`       | Anything else.                                                       |
+| Status | Code                   | When                                                  |
+| ------ | ---------------------- | ----------------------------------------------------- |
+| 400    | `bad_request`          | Invalid JSON, or required field missing/invalid.      |
+| 401    | `unauthorized`         | Missing / wrong shared secret.                        |
+| 403    | `forbidden`            | Cross-origin request from an origin not in allowlist. |
+| 429    | `rate_limited`         | Shares the chat bucket (20 req / 60 s).               |
+| 502    | `upstream_unavailable` | Resend returned an error or threw.                    |
+| 500    | `internal_error`       | Anything else.                                        |
 
 ---
 
@@ -890,10 +906,10 @@ response or retry.
 
 ### Required request headers
 
-| Header          | Value                                              |
-| --------------- | -------------------------------------------------- |
-| `Content-Type`  | `application/json`                                 |
-| `x-ms-session`  | Stable session id (UUID). Used for rate limiting.  |
+| Header         | Value                                             |
+| -------------- | ------------------------------------------------- |
+| `Content-Type` | `application/json`                                |
+| `x-ms-session` | Stable session id (UUID). Used for rate limiting. |
 
 No `x-ms-chat-key` — like `/api/products`, this endpoint is origin-allowlisted
 only. It accepts only pseudonymous data and stores no email.
@@ -921,13 +937,13 @@ session-keyed funnel (names in `src/lib/kpi-events.ts`; no email address ever
 appears in an event). Most are emitted **server-side** — the widget must not
 duplicate them:
 
-| Event                                | Emitted by | `data`                                  |
-| ------------------------------------ | ---------- | --------------------------------------- |
-| `email_capture_ask_shown`            | server (`/api/chat`) | `{ trigger, askNumber }` — one per `offer_email_summary` call. |
-| `email_capture_submitted`            | server (`/api/capture-email`) | `{ marketingConsent, trigger? }` |
-| `email_capture_marketing_opted_in`   | server (`/api/capture-email`) | `{ doiStatus, trigger? }` — the separate marketing box was ticked. |
-| `email_capture_marketing_confirmed`  | server (`/api/confirm-marketing`) | `{}` — unique DOI confirmations only. |
-| `email_capture_declined`             | **widget** (this endpoint) | `{ trigger, askNumber? }` — capture card dismissed/declined without submit. |
+| Event                               | Emitted by                        | `data`                                                                      |
+| ----------------------------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| `email_capture_ask_shown`           | server (`/api/chat`)              | `{ trigger, askNumber }` — one per `offer_email_summary` call.              |
+| `email_capture_submitted`           | server (`/api/capture-email`)     | `{ marketingConsent, trigger? }`                                            |
+| `email_capture_marketing_opted_in`  | server (`/api/capture-email`)     | `{ doiStatus, trigger? }` — the separate marketing box was ticked.          |
+| `email_capture_marketing_confirmed` | server (`/api/confirm-marketing`) | `{}` — unique DOI confirmations only.                                       |
+| `email_capture_declined`            | **widget** (this endpoint)        | `{ trigger, askNumber? }` — capture card dismissed/declined without submit. |
 
 `trigger` is the value moment from the `offer_email_summary` tool call
 (`recommendation_accepted`, `comparison_delivered`, `consideration_pause`,
@@ -948,12 +964,12 @@ telemetry is best-effort and must never make `track()` care.
 
 ### Error responses
 
-| Status | Code             | When                                            |
-| ------ | ---------------- | ----------------------------------------------- |
-| 400    | `bad_request`    | Invalid JSON, or `event` missing/too long.      |
-| 403    | `forbidden`      | Cross-origin from an origin not in allowlist.   |
-| 429    | `rate_limited`   | Dedicated `kpi` bucket (120 req / 60 s).        |
-| 500    | `internal_error` | Unexpected server error (not a DB write fail).  |
+| Status | Code             | When                                           |
+| ------ | ---------------- | ---------------------------------------------- |
+| 400    | `bad_request`    | Invalid JSON, or `event` missing/too long.     |
+| 403    | `forbidden`      | Cross-origin from an origin not in allowlist.  |
+| 429    | `rate_limited`   | Dedicated `kpi` bucket (120 req / 60 s).       |
+| 500    | `internal_error` | Unexpected server error (not a DB write fail). |
 
 ---
 
@@ -1101,16 +1117,16 @@ returning-customer memory — see §2 "Optional `customer`" for the privacy rule
 
 #### Error responses
 
-| Status | Code                   | When                                                              |
-| ------ | ---------------------- | ----------------------------------------------------------------- |
-| 400    | `bad_request`          | Invalid JSON or invalid email.                                    |
-| 400    | `transactional_consent_required` | `transactionalConsent` not `true` (box left unchecked).  |
-| 401    | `unauthorized`         | Missing / wrong shared secret.                                    |
-| 403    | `forbidden`            | Cross-origin from an origin not in allowlist.                     |
-| 429    | `rate_limited`         | Shares the chat bucket (20 req / 60 s).                           |
-| 502    | `upstream_unavailable` | The transactional summary email failed to deliver.               |
-| 503    | `upstream_unavailable` | No database configured — consent could not be stored.            |
-| 500    | `internal_error`       | Anything else.                                                    |
+| Status | Code                             | When                                                    |
+| ------ | -------------------------------- | ------------------------------------------------------- |
+| 400    | `bad_request`                    | Invalid JSON or invalid email.                          |
+| 400    | `transactional_consent_required` | `transactionalConsent` not `true` (box left unchecked). |
+| 401    | `unauthorized`                   | Missing / wrong shared secret.                          |
+| 403    | `forbidden`                      | Cross-origin from an origin not in allowlist.           |
+| 429    | `rate_limited`                   | Shares the chat bucket (20 req / 60 s).                 |
+| 502    | `upstream_unavailable`           | The transactional summary email failed to deliver.      |
+| 503    | `upstream_unavailable`           | No database configured — consent could not be stored.   |
+| 500    | `internal_error`                 | Anything else.                                          |
 
 ### 7.2 `GET /api/confirm-marketing?token=...`
 
@@ -1204,22 +1220,22 @@ do not persist it across sessions.
 
 #### Error responses
 
-| Status | Code             | When                                            |
-| ------ | ---------------- | ----------------------------------------------- |
-| 403    | `forbidden`      | Cross-origin from an origin not in allowlist.   |
-| 429    | `rate_limited`   | Shares the products bucket (60 req / 60 s).     |
-| 500    | `internal_error` | Unexpected server error.                        |
+| Status | Code             | When                                          |
+| ------ | ---------------- | --------------------------------------------- |
+| 403    | `forbidden`      | Cross-origin from an origin not in allowlist. |
+| 429    | `rate_limited`   | Shares the products bucket (60 req / 60 s).   |
+| 500    | `internal_error` | Unexpected server error.                      |
 
 ### 7.5 New environment variables
 
-| Var                       | Purpose                                                              |
-| ------------------------- | -------------------------------------------------------------------- |
-| `PUBLIC_BASE_URL`         | Absolute base for email links (falls back to Vercel host / origin).  |
-| `MARKETING_DOI_EXPIRY_DAYS` | DOI token validity window (default 7).                             |
-| `UNSUBSCRIBE_SECRET`      | HMAC secret for unsubscribe tokens (falls back to `CHAT_SHARED_SECRET`). |
-| `CONTACT_FROM_EMAIL`      | Reused as the sender for summary + DOI emails.                       |
-| `WELCOME_DISCOUNT_ENABLED` | **Default `false`.** Gates the entire automatic welcome-discount issuance on DOI confirmation (see [`WELCOME_DISCOUNT.md`](./WELCOME_DISCOUNT.md)). Only `true`/`1`/`yes`/`on` enables it. |
-| `RETURNING_HINT_ENABLED`  | **Default `true`.** Server-side switch for `returningHint.enabled` (§7.4); set `false` to make the widget hide the hint. |
+| Var                         | Purpose                                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PUBLIC_BASE_URL`           | Absolute base for email links (falls back to Vercel host / origin).                                                                                                                        |
+| `MARKETING_DOI_EXPIRY_DAYS` | DOI token validity window (default 7).                                                                                                                                                     |
+| `UNSUBSCRIBE_SECRET`        | HMAC secret for unsubscribe tokens (falls back to `CHAT_SHARED_SECRET`).                                                                                                                   |
+| `CONTACT_FROM_EMAIL`        | Reused as the sender for summary + DOI emails.                                                                                                                                             |
+| `WELCOME_DISCOUNT_ENABLED`  | **Default `false`.** Gates the entire automatic welcome-discount issuance on DOI confirmation (see [`WELCOME_DISCOUNT.md`](./WELCOME_DISCOUNT.md)). Only `true`/`1`/`yes`/`on` enables it. |
+| `RETURNING_HINT_ENABLED`    | **Default `true`.** Server-side switch for `returningHint.enabled` (§7.4); set `false` to make the widget hide the hint.                                                                   |
 
 ---
 
@@ -1235,10 +1251,10 @@ and voice are env-overridable.
 
 Same as `/api/chat`:
 
-| Header          | Value                                                                |
-| --------------- | -------------------------------------------------------------------- |
-| `Content-Type`  | `application/json`                                                   |
-| `x-ms-chat-key` | Shared secret from `CHAT_SHARED_SECRET`.                             |
+| Header          | Value                                                                           |
+| --------------- | ------------------------------------------------------------------------------- |
+| `Content-Type`  | `application/json`                                                              |
+| `x-ms-chat-key` | Shared secret from `CHAT_SHARED_SECRET`.                                        |
 | `x-ms-session`  | Stable session id (UUID). Keys the rate-limit bucket and the usage attribution. |
 
 Plus the browser `Origin` header, which must be one of `ALLOWED_ORIGINS`.
@@ -1288,10 +1304,10 @@ element via a blob/object URL, or the Web Audio API).
 
 Response headers the widget can read (CORS-exposed):
 
-| Header               | Meaning                                                              |
-| -------------------- | -------------------------------------------------------------------- |
+| Header               | Meaning                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
 | `X-MS-TTS-Truncated` | `true` when the input exceeded 2000 chars and was cut at a sentence boundary; `false` otherwise. |
-| `X-MS-TTS-Chars`     | Number of characters actually synthesized (after cleaning + truncation). |
+| `X-MS-TTS-Chars`     | Number of characters actually synthesized (after cleaning + truncation).                         |
 
 ### Error responses
 
@@ -1299,14 +1315,14 @@ Response headers the widget can read (CORS-exposed):
 { "error": { "code": "upstream_unavailable", "message": "Text-to-speech is temporarily unavailable" } }
 ```
 
-| Status | Code                   | When                                                                 |
-| ------ | ---------------------- | -------------------------------------------------------------------- |
-| 400    | `bad_request`          | Invalid JSON, `text` missing/not a string, or empty after cleaning.  |
-| 401    | `unauthorized`         | Missing / wrong shared secret.                                       |
-| 403    | `forbidden`            | Cross-origin request from an origin not in the allowlist.            |
-| 429    | `rate_limited`         | Dedicated `tts` bucket (**20 req / 5 min**). `Retry-After` set.      |
-| 502    | `upstream_unavailable` | OpenAI TTS failed/threw, or no API key configured.                   |
-| 500    | `internal_error`       | Anything else.                                                       |
+| Status | Code                   | When                                                                |
+| ------ | ---------------------- | ------------------------------------------------------------------- |
+| 400    | `bad_request`          | Invalid JSON, `text` missing/not a string, or empty after cleaning. |
+| 401    | `unauthorized`         | Missing / wrong shared secret.                                      |
+| 403    | `forbidden`            | Cross-origin request from an origin not in the allowlist.           |
+| 429    | `rate_limited`         | Dedicated `tts` bucket (**20 req / 5 min**). `Retry-After` set.     |
+| 502    | `upstream_unavailable` | OpenAI TTS failed/threw, or no API key configured.                  |
+| 500    | `internal_error`       | Anything else.                                                      |
 
 > **Fallback contract:** on **any non-2xx** response — and specifically on
 > `502 upstream_unavailable` — the widget should fall back to the browser's
@@ -1317,11 +1333,11 @@ Response headers the widget can read (CORS-exposed):
 
 ### Voice + model configuration
 
-| Var                | Default            | Notes                                                                 |
-| ------------------ | ------------------ | --------------------------------------------------------------------- |
-| `TTS_MODEL`        | `gpt-4o-mini-tts`  | Current cost-efficient OpenAI TTS model (multilingual).               |
-| `TTS_VOICE`        | `alloy`            | Neutral, clean German pronunciation. Warmer options: `nova`, `coral`, `shimmer`. |
-| `TTS_INSTRUCTIONS` | German tone hint   | Tone/accent steering (gpt-4o-mini-tts only). Steers natural Hochdeutsch. |
+| Var                | Default           | Notes                                                                            |
+| ------------------ | ----------------- | -------------------------------------------------------------------------------- |
+| `TTS_MODEL`        | `gpt-4o-mini-tts` | Current cost-efficient OpenAI TTS model (multilingual).                          |
+| `TTS_VOICE`        | `alloy`           | Neutral, clean German pronunciation. Warmer options: `nova`, `coral`, `shimmer`. |
+| `TTS_INSTRUCTIONS` | German tone hint  | Tone/accent steering (gpt-4o-mini-tts only). Steers natural Hochdeutsch.         |
 
 ### Cost attribution
 
