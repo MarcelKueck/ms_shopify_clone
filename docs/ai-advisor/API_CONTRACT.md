@@ -18,25 +18,33 @@ wins — open an issue and we'll fix one or the other so they match.
 
 Endpoints:
 
-| Method | Path                              | Purpose                                                   |
-| ------ | --------------------------------- | --------------------------------------------------------- |
-| POST   | `/api/chat`                       | Streaming Claude chat with persona-aware tools.           |
-| POST   | `/api/contact`                    | Contact-form submission → email via Resend.               |
-| GET    | `/api/products`                   | Public product hydration for widget cards.                |
-| POST   | `/api/kpi`                        | Pseudonymous telemetry ingestion (fire-and-forget).       |
-| POST   | `/api/capture-email`              | GDPR email capture + double opt-in (summary + marketing). |
-| GET    | `/api/consent-copy`               | Canonical capture-form consent copy (labels + links).     |
-| GET    | `/api/confirm-marketing`          | Marketing double-opt-in confirmation link (HTML page).    |
-| GET    | `/api/unsubscribe`                | Signed unsubscribe link → suppression (HTML page).        |
-| GET    | `/api/auth/shopify/login`         | Customer Account sign-in (top-level redirect).            |
-| GET    | `/api/auth/shopify/callback`      | OAuth callback (server-side PKCE exchange).               |
-| GET    | `/api/auth/me`                    | Signed-in identity re-hydration (`{ name, tier }`).       |
-| GET    | `/api/auth/shopify/logout/return` | Logout-return landing.                                    |
+| Method | Path                              | Purpose                                                        |
+| ------ | --------------------------------- | -------------------------------------------------------------- |
+| POST   | `/api/chat`                       | Streaming Claude chat with persona-aware tools.                |
+| POST   | `/api/contact`                    | Contact-form submission → email via Resend.                    |
+| GET    | `/api/products`                   | Public product hydration for widget cards.                     |
+| POST   | `/api/kpi`                        | Pseudonymous telemetry ingestion (fire-and-forget).            |
+| POST   | `/api/capture-email`              | GDPR email capture + double opt-in (summary + marketing).      |
+| GET    | `/api/consent-copy`               | Canonical capture-form consent copy (labels + links).          |
+| GET    | `/api/confirm-marketing`          | Marketing double-opt-in confirmation link (HTML page).         |
+| GET    | `/api/unsubscribe`                | Signed unsubscribe link → suppression (HTML page).             |
+| GET    | `/api/auth/shopify/login`         | Customer Account sign-in (top-level redirect).                 |
+| GET    | `/api/auth/shopify/callback`      | OAuth callback (server-side PKCE exchange).                    |
+| GET    | `/api/auth/me`                    | Signed-in identity re-hydration (`{ name, tier, marketing }`). |
+| GET    | `/api/account/summary`            | Signed-in: download a thread's S5 summary as branded HTML.     |
+| POST   | `/api/account/marketing-opt-in`   | Signed-in: at-sign-in marketing opt-in (DOI).                  |
+| GET    | `/api/auth/shopify/logout/return` | Logout-return landing.                                         |
 
 > **Customer Account sign-in (tier 3)** has its own frontend contract:
 > [`CUSTOMER_ACCOUNT.md`](./CUSTOMER_ACCOUNT.md) in this folder. The `login` /
 > `callback` / `logout/return` routes are top-level navigations (signed `state`,
-> no CORS/secret); `/api/auth/me` is a guarded widget XHR.
+> no CORS/secret); `/api/auth/me` is a guarded widget XHR (now also returning
+> `marketing: { status, optInActionable }` — §4 there). The signed-in
+> **`/api/account/summary`** download (branded HTML reusing the summary-email
+> renderer, §8 there), the **at-sign-in opt-in** (`/api/account/marketing-opt-in`,
+> [`CONSENT_FLOW.md`](./CONSENT_FLOW.md) §2), and the **tier-3 suppression**
+> contract (suppress the end-of-chat capture widget when `tier === 3`) are all in
+> `CUSTOMER_ACCOUNT.md` §6 + §8.
 
 > `/api/confirm-marketing` and `/api/unsubscribe` are **clicked from emails**
 > as top-level browser navigations — they return an HTML page, not JSON, and
@@ -645,7 +653,7 @@ Example chunk pair (the `tool-input-available` chunk, followed by the
       "consentTextShown": "Ja, schickt mir … | Ja, ich möchte exklusive Angebote … | Verarbeitung durch motion sports …",
       "imprintUrl": "https://motionsports.de/pages/impressum",
       "privacyUrl": "https://motionsports.de/policies/privacy-policy",
-      "lawyerApproved": false,
+      "lawyerApproved": true,
       "returningHint": {
         "enabled": true,
         "text": "Schon einmal von Mo beraten worden? Gib deine E-Mail an — Mo erkennt dich wieder und knüpft an deine letzte Beratung an."
@@ -697,7 +705,7 @@ widget should emit one `email_capture_declined` event via `POST /api/kpi`
 dismissal itself. Do NOT emit "shown"/"submitted" events from the widget;
 those are recorded server-side.
 
-> ⚠️ The checkbox labels are PLACEHOLDER copy pending lawyer approval — see
+> ✅ The checkbox labels are lawyer-approved copy (`lawyerApproved: true`) — see
 > [`CONSENT_FLOW.md`](./CONSENT_FLOW.md).
 
 #### Tools the widget MUST NOT render
@@ -1041,9 +1049,9 @@ consent choice.)
 
 This is the only flow that handles an email address. Two **separate**
 consents, marketing requires a **double opt-in**. The full legal rationale,
-the data model, and the lawyer-review TODO are in
-[`CONSENT_FLOW.md`](./CONSENT_FLOW.md). The checkbox/email copy is PLACEHOLDER
-pending lawyer sign-off (`src/lib/consent-copy.ts`).
+the data model, and the sign-off status are in
+[`CONSENT_FLOW.md`](./CONSENT_FLOW.md). The checkbox/email copy is
+lawyer-approved (`lawyerApproved: true`, `src/lib/consent-copy.ts`).
 
 ### 7.1 `POST /api/capture-email`
 
@@ -1229,9 +1237,9 @@ Cache-Control: public, max-age=60, stale-while-revalidate=300
   "consentTextShown": "Ja, schickt mir … | Ja, ich möchte exklusive Angebote … | Verarbeitung durch motion sports …",
   "imprintUrl": "https://motionsports.de/pages/impressum",
   "privacyUrl": "https://motionsports.de/policies/privacy-policy",
-  // Mirrors CONSENT_COPY_LAWYER_APPROVED — informational; stays false until
-  // Legal signs off on the placeholder copy.
-  "lawyerApproved": false,
+  // Mirrors CONSENT_COPY_LAWYER_APPROVED — informational. true since the copy
+  // was lawyer-approved (June 2026).
+  "lawyerApproved": true,
   // Returning-customer hint, rendered near the email input. Informational
   // only — NOT part of consentTextShown. Hide it when enabled is false
   // (server-side switch, RETURNING_HINT_ENABLED); wording can change with a
@@ -1261,11 +1269,10 @@ do not persist it across sessions.
 
 ### 7.5 New environment variables
 
-| Var                         | Purpose                                                                                                                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `PUBLIC_BASE_URL`           | Absolute base for email links (falls back to Vercel host / origin).                                                                                                                        |
-| `MARKETING_DOI_EXPIRY_DAYS` | DOI token validity window (default 7).                                                                                                                                                     |
-| `UNSUBSCRIBE_SECRET`        | HMAC secret for unsubscribe tokens (falls back to `CHAT_SHARED_SECRET`).                                                                                                                   |
-| `CONTACT_FROM_EMAIL`        | Reused as the sender for summary + DOI emails.                                                                                                                                             |
-| `WELCOME_DISCOUNT_ENABLED`  | **Default `false`.** Gates the entire automatic welcome-discount issuance on DOI confirmation (see [`WELCOME_DISCOUNT.md`](./WELCOME_DISCOUNT.md)). Only `true`/`1`/`yes`/`on` enables it. |
-| `RETURNING_HINT_ENABLED`    | **Default `true`.** Server-side switch for `returningHint.enabled` (§7.4); set `false` to make the widget hide the hint.                                                                   |
+| Var                         | Purpose                                                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `PUBLIC_BASE_URL`           | Absolute base for email links (falls back to Vercel host / origin).                                                      |
+| `MARKETING_DOI_EXPIRY_DAYS` | DOI token validity window (default 7).                                                                                   |
+| `UNSUBSCRIBE_SECRET`        | HMAC secret for unsubscribe tokens (falls back to `CHAT_SHARED_SECRET`).                                                 |
+| `CONTACT_FROM_EMAIL`        | Reused as the sender for summary + DOI emails.                                                                           |
+| `RETURNING_HINT_ENABLED`    | **Default `true`.** Server-side switch for `returningHint.enabled` (§7.4); set `false` to make the widget hide the hint. |
