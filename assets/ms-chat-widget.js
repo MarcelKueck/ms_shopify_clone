@@ -120,6 +120,7 @@
   }
   var sid = getSid();
   function historyKey() { return 'ms-chat-history:' + sid; }
+  function convKeyStorageKey() { return 'ms-chat-convkey:' + sid; }
 
   // messages: UIMessage[] -> { id, role, parts: [...] }
   var messages = loadHistory();
@@ -366,7 +367,9 @@
     history: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>',
     pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
-    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    // Download glyph — signed-in "Zusammenfassung herunterladen" header button.
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
   };
   function icon(name) {
     var tpl = document.createElement('template');
@@ -672,10 +675,37 @@
   // re-probes /api/auth/me even before the storefront customer hint is read.
   // Never carries identity itself — just "worth asking the backend again".
   var SIGNED_IN_KEY = 'ms-chat-signed-in';
-  var auth = { settled: false, signedIn: false, name: null, tier: null };
+  // `marketing` / `optInActionable` mirror /api/auth/me (CUSTOMER_ACCOUNT.md §4):
+  // optInActionable is the backend's single source of truth for "show the
+  // at-sign-in opt-in" (true ⇔ no marketing decision on record yet + a verified
+  // email). We never re-derive it from `status` ourselves.
+  var auth = { settled: false, signedIn: false, name: null, tier: null, marketing: null, optInActionable: false };
   // The conversation currently loaded into the local view (for list highlight);
   // purely informational — the backend resolves the active thread from `sid`.
   var activeConversationId = null;
+  // Active conversation THREAD key (CUSTOMER_ACCOUNT.md §7.6 / API_CONTRACT.md
+  // §2): addresses WHICH thread a /api/chat turn appends to, so a signed-in
+  // customer keeps several conversations under one stable session_id. NULL for
+  // anonymous / email-only — we then OMIT conversationKey entirely, so the
+  // backend defaults to the legacy one-thread-per-session behaviour and tiers
+  // 1–2 stay byte-identical. Persisted per-session so a reload resumes the same
+  // thread alongside the locally cached transcript.
+  var activeConversationKey = loadConvKey();
+  function loadConvKey() { return lsGet(convKeyStorageKey()) || null; }
+  function saveConvKey() {
+    try { if (activeConversationKey) lsSet(convKeyStorageKey(), activeConversationKey); else lsDel(convKeyStorageKey()); } catch (e) {}
+  }
+  function clearConvKey() { activeConversationKey = null; try { lsDel(convKeyStorageKey()); } catch (e) {} }
+  // Mint a fresh thread key for a brand-new signed-in conversation so it becomes
+  // its own history row. Only mint on the FIRST turn of a fresh thread; an
+  // in-progress local thread that has no key stays legacy (keyed server-side by
+  // session_id) so we never fork an existing conversation mid-stream.
+  function maybeMintConversationKey(isFreshThread) {
+    if (!auth.signedIn || activeConversationKey || !isFreshThread) return;
+    activeConversationKey = uuid();
+    saveConvKey();
+    updateDownloadBtn();
+  }
 
   // Guarded account/auth XHR headers (CUSTOMER_ACCOUNT.md §4/§7).
   function accountHeaders() { return { 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid }; }
@@ -699,14 +729,21 @@
       auth.signedIn = true;
       auth.name = (data.identity && data.identity.name) || null;
       auth.tier = (data.identity && data.identity.tier) || 3;
+      // Marketing decision state drives the at-sign-in opt-in (§6.1). Trust
+      // optInActionable verbatim — it is false once any decision exists.
+      auth.marketing = (data.marketing && typeof data.marketing === 'object') ? data.marketing : null;
+      auth.optInActionable = !!(auth.marketing && auth.marketing.optInActionable === true);
       lsSet(SIGNED_IN_KEY, '1');
     } else {
       auth.signedIn = false;
       auth.name = null;
       auth.tier = null;
+      auth.marketing = null;
+      auth.optInActionable = false;
       lsDel(SIGNED_IN_KEY);
     }
     reflectAuthState();
+    flushAutoHistory(); // an async probe that resolves while the panel is open
   }
 
   // Ask the backend who this session belongs to (CUSTOMER_ACCOUNT.md §4).
@@ -1509,7 +1546,7 @@
   // ---------------------------------------------------------------------------
   // Widget shell.
   // ---------------------------------------------------------------------------
-  var root, launcher, panel, backdrop, modeBtn, shareBtn, messagesEl, textarea, sendBtn, micBtn, vmBtn, speakingBtn, noticeEl, welcomeEl;
+  var root, launcher, panel, backdrop, modeBtn, shareBtn, downloadBtn, messagesEl, textarea, sendBtn, micBtn, vmBtn, speakingBtn, noticeEl, welcomeEl;
   // Customer Account tier-3 chrome (built in buildShell / buildWelcome).
   var signInBtn, historyBtn, historyEl, historyListEl, historyTitleEl, welcomeGreetingEl, welcomeAuthEl;
   // Desktop layout mode, persisted across page loads. 'sidebar' = docked
@@ -1565,6 +1602,15 @@
     shareBtn = el('button', { class: 'ms-chat-share', type: 'button', text: 'Per E-Mail teilen', 'aria-label': 'Zusammenfassung per E-Mail teilen', title: 'Zusammenfassung per E-Mail' });
     shareBtn.addEventListener('click', function () { openCaptureForm(); });
     actions.appendChild(shareBtn);
+    // Signed-in (tier 3): download the branded HTML summary of the ACTIVE thread
+    // (CUSTOMER_ACCOUNT.md §8) — replaces the email-share path that's suppressed
+    // for signed-in customers. Same quiet-pill chrome as the share button;
+    // updateDownloadBtn() reveals it once a downloadable thread exists.
+    downloadBtn = el('button', { class: 'ms-chat-download', type: 'button', 'aria-label': 'Zusammenfassung herunterladen', title: 'Zusammenfassung herunterladen' });
+    downloadBtn.appendChild(icon('download'));
+    downloadBtn.appendChild(el('span', { text: 'Zusammenfassung' }));
+    downloadBtn.addEventListener('click', downloadSummary);
+    actions.appendChild(downloadBtn);
     // Customer Account (tier 3): "Anmelden" pill (shown only when settled +
     // not signed in) and the conversation-history button (shown only when
     // signed in). Both hidden by default; reflectAuthState() toggles them.
@@ -1691,6 +1737,17 @@
     // their email comes from the account (task §5). Anonymous/email-only keep
     // the exact previous behaviour (auth.signedIn is always false for them).
     shareBtn.classList.toggle('ms-chat-share--visible', messages.length > 0 && !auth.signedIn);
+    updateDownloadBtn();
+  }
+
+  // The signed-in download button (task §2): shown only once signed in AND the
+  // active thread is addressable (a conversationKey + at least one turn), so we
+  // never offer a download that the summary endpoint would 404. Hidden entirely
+  // for anonymous / email-only — keeping their header byte-identical.
+  function updateDownloadBtn() {
+    if (!downloadBtn) return;
+    var canDownload = !!(auth.signedIn && activeConversationKey && messages.length > 0);
+    downloadBtn.classList.toggle('ms-chat-download--visible', canDownload);
   }
 
   // Keep exactly one desktop mode class on the panel and the toggle button's
@@ -1881,8 +1938,12 @@
       track('starter_shown', { variant: starterMeta.variant, count: starterMeta.count });
     }
     // Customer Account: resolve signed-in state on first open (lazy — no
-    // network for pure-anonymous visitors; see resolveAuthOnOpen).
+    // network for pure-anonymous visitors; see resolveAuthOnOpen). Arm the
+    // history auto-surface (task §1); it flushes once auth has settled (now if
+    // already settled, else when the probe resolves via applyAuth).
+    autoHistoryArmed = true;
     resolveAuthOnOpen();
+    flushAutoHistory();
     panel.classList.add('ms-chat-panel--open');
     launcher.classList.add('ms-chat-launcher--hidden');
     syncChrome(); // backdrop (modal) / page shift (sidebar) / mobile lock+size
@@ -2464,6 +2525,10 @@
 
   function sendMessage(text, context) {
     clearNotice();
+    // Signed-in: the first turn of a fresh thread mints its own conversationKey
+    // so it becomes a discrete history entry (no-op for anonymous / a thread
+    // that already has a key). Decided BEFORE the user message is pushed.
+    maybeMintConversationKey(messages.length === 0);
 
     var userMsg = { id: 'u-' + uuid(), role: 'user', parts: [{ type: 'text', text: text }] };
     messages.push(userMsg);
@@ -2486,6 +2551,7 @@
   function sendContextGreeting(context) {
     if (!context || messages.length || state.streaming || state.rateLocked) return;
     clearNotice();
+    maybeMintConversationKey(true); // fresh thread (messages is empty here)
     clearWelcome();
     startStream({ userMsg: null, userRow: null, restoreText: '', context: context });
   }
@@ -2570,6 +2636,11 @@
     // API_CONTRACT.md §2.
     var chatBody = { messages: toWire(messages) };
     if (opts.context) chatBody.context = opts.context;
+    // Signed-in: address the active thread so several conversations can live
+    // under one stable session_id (CUSTOMER_ACCOUNT.md §7.6). OMITTED for
+    // anonymous / email-only (activeConversationKey is always null for them) →
+    // backend defaults to session_id, keeping tiers 1–2 byte-identical.
+    if (auth.signedIn && activeConversationKey) chatBody.conversationKey = activeConversationKey;
     // Returning-customer memory: only after a successful capture in this
     // page's chat session (see the capturedEmail privacy gate). A new or
     // unverifiable email is ignored gracefully server-side.
@@ -2788,8 +2859,13 @@
       lsDel(historyKey());
       messages = [];
       activeConversationId = null;
+      // "Neue Beratung": keep session_id, start a FRESH thread key so prior
+      // conversations stay in history and this becomes a new entry on first turn.
+      activeConversationKey = uuid();
+      saveConvKey();
     } else {
       rotateSession(); // anonymous/email-only: unchanged (rotates sid + history)
+      activeConversationKey = null; // anonymous never sends a conversationKey
     }
     if (rateTimer) { clearTimeout(rateTimer); rateTimer = null; }
     state.rateLocked = false;
@@ -3032,6 +3108,51 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Signed-in summary download (CUSTOMER_ACCOUNT.md §8). Guarded XHR to
+  // GET /api/account/summary?conversationKey=… → branded HTML document, saved
+  // as a file client-side (a plain <a download> can't send the x-ms-chat-key +
+  // session guards). On-demand and may make one AI call, so it can take a
+  // moment — we show a busy state and impose NO short timeout.
+  // ---------------------------------------------------------------------------
+  var DOWNLOAD_COPY = {
+    notFound: 'Für diese Beratung gibt es noch keine Zusammenfassung.',
+    error: 'Zusammenfassung konnte gerade nicht erstellt werden — bitte später erneut versuchen.'
+  };
+  var downloadingSummary = false;
+  function downloadSummary() {
+    if (!auth.signedIn || !activeConversationKey || downloadingSummary) return;
+    downloadingSummary = true;
+    downloadBtn.disabled = true;
+    downloadBtn.classList.add('ms-chat-download--busy');
+    clearNotice();
+    track('summary_download_started', {});
+    var key = activeConversationKey;
+    fetch(API_BASE + '/api/account/summary?conversationKey=' + encodeURIComponent(key), {
+      method: 'GET', headers: accountHeaders()
+    }).then(function (res) {
+      if (res.status === 401) { accountUnauthorized(); throw 0; }   // session gone
+      if (res.status === 404) throw 404;                            // not this customer's / unknown
+      if (!res.ok) throw new Error('summary ' + res.status);
+      return res.blob();
+    }).then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      var a = el('a', { href: url, download: 'motionsports-zusammenfassung.html' });
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
+      track('summary_downloaded', {});
+    }).catch(function (e) {
+      if (e === 0) return; // 401 already dropped to anonymous
+      if (e === 404) showNotice('info', DOWNLOAD_COPY.notFound);
+      else showNotice('warn', DOWNLOAD_COPY.error);
+    }).then(function () {
+      downloadingSummary = false;
+      if (downloadBtn) { downloadBtn.disabled = false; downloadBtn.classList.remove('ms-chat-download--busy'); }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Customer Account tier-3 UI: sign-in card, header affordances, signed-in
   // welcome greeting, and the ChatGPT-style conversation-history drawer.
   // All of this is gated on `auth.signedIn` (or settled-but-anonymous), so it
@@ -3120,7 +3241,12 @@
   var OPTIN_DONE_KEY = 'ms-chat-optin-done';
   var signInOptInDone = (ssGet(OPTIN_DONE_KEY) === '1');
   function markOptInDone() { signInOptInDone = true; ssSet(OPTIN_DONE_KEY, '1'); }
-  function optInActionable() { return auth.signedIn && !signInOptInDone; }
+  // Show the at-sign-in opt-in ONLY when the backend says there's no marketing
+  // decision on record yet (auth.optInActionable, CUSTOMER_ACCOUNT.md §6.1) —
+  // so a customer who already opted in / out (or whose prior consent carried
+  // forward) is never re-asked. `signInOptInDone` is the additional local
+  // session guard for "dismissed/submitted this session".
+  function optInActionable() { return auth.signedIn && auth.optInActionable && !signInOptInDone; }
 
   // The opt-in card (CONSENT_FLOW.md §2): the SAME double-opt-in as the capture
   // form, minus the "type your email" step. Renders the served v3 copy verbatim
@@ -3405,6 +3531,26 @@
     historyEl.setAttribute('aria-hidden', 'true');
   }
 
+  // Task §1: surface the conversation history PROMINENTLY for signed-in
+  // customers rather than leaving it behind the header icon. When a signed-in
+  // customer opens the chat onto the welcome state (no conversation in
+  // progress), land them straight on their history list — past beratungen +
+  // "Neue Beratung". A mid-conversation reopen (messages present) is left alone
+  // so we never cover an active chat. The header icon stays as the re-entry.
+  // Armed on each panel open and flushed once /api/auth/me has settled.
+  var autoHistoryArmed = false;
+  function maybeAutoOpenHistory() {
+    if (!state.open || !auth.signedIn) return;
+    if (messages.length) return;
+    if (!historyEl || historyEl.classList.contains('ms-chat-history--open')) return;
+    openHistory();
+  }
+  function flushAutoHistory() {
+    if (!autoHistoryArmed || !auth.settled) return; // wait for the probe; applyAuth re-calls
+    autoHistoryArmed = false;
+    maybeAutoOpenHistory();
+  }
+
   // 401 on any /api/account/* call means the session no longer resolves
   // (logged out / expired / erased) — fail closed and drop back to anonymous.
   function accountUnauthorized() {
@@ -3529,7 +3675,7 @@
             track('conversation_deleted', {});
             // If the active thread was deleted, clear the local view too.
             if (activeConversationId != null && c.conversationId === activeConversationId) {
-              lsDel(historyKey()); messages = []; activeConversationId = null; renderAllMessages();
+              lsDel(historyKey()); messages = []; activeConversationId = null; clearConvKey(); renderAllMessages();
             }
             item.remove();
             if (!historyListEl.querySelector('.ms-chat-conv')) renderConversations([]);
@@ -3566,6 +3712,10 @@
         track('conversation_opened', {});
         messages = transcriptToMessages(conv).slice(-40);
         activeConversationId = conv.conversationId;
+        // Adopt this thread's key so the next /api/chat turn appends to it
+        // (CUSTOMER_ACCOUNT.md §7.6) and the summary download targets it (§8).
+        activeConversationKey = conv.conversationKey || null;
+        saveConvKey();
         saveHistory();
         if (rateTimer) { clearTimeout(rateTimer); rateTimer = null; }
         state.rateLocked = false;
@@ -3611,7 +3761,7 @@
           .then(function (data) {
             if (data && data.erased) {
               track('account_erased', {});
-              lsDel(historyKey()); messages = []; activeConversationId = null;
+              lsDel(historyKey()); messages = []; activeConversationId = null; clearConvKey();
               applyAuth(null); // session no longer resolves
               renderAllMessages();
               closeHistory();
