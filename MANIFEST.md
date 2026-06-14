@@ -12,7 +12,76 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-14, latest) — streaming voice mode: TTS audio plays WHILE the text streams (UX polish item 3)
+## ⭐ Session update (2026-06-14, latest) — render Markdown nicely in chat bubbles (no raw asterisks/hashes) (UX polish item 4)
+
+Assistant messages used to show **raw Markdown** — `**asterisks**`, `#` hashes,
+`-` dashes — because the widget only understood `**bold**` and `[label](url)`
+and wrapped every line in its own `<p>`. They now render as **formatted text**:
+bold, italic, inline code, links, headings, bulleted/numbered lists,
+blockquotes, fenced code, paragraphs and soft line breaks — styled to match the
+widget (Montserrat via `--msc-font`, brand tokens). This is the **theme half**
+of UX-polish item 4 (chat bubbles); admin-side summaries/drafts are out of scope
+for this snapshot repo. **Re-upload the two modified theme files.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (tiny safe Markdown→DOM renderer) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (`.ms-chat-md-*` styles) | ✅ Yes |
+| `snippets/ms-chat-widget.liquid` | UNCHANGED | ❌ No |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed in `ms-chat-widget.js`
+
+- **Replaced the 2-rule inline renderer with a small Markdown→DOM renderer**
+  (no library; ~140 lines) that builds **real DOM nodes** via
+  `createElement` / `createTextNode` — **never `innerHTML` on model text**, so
+  the model can't inject HTML. XSS-safe by construction: model text always
+  becomes text nodes, and only an **allowlist** of tags is ever created
+  (`p br strong em code a h3–h6 ul ol li blockquote pre`). `safeHref()` (kept)
+  still gates link schemes to `http(s):` / `mailto:`; anything else renders as
+  literal text.
+  - `renderBlocks()` — block grammar: `#`…`######` headings (→ `h3`–`h6` at
+    chat scale), `-`/`*`/`+` and `1.`/`1)` lists, `>` blockquotes (recursive),
+    ```` ``` ```` fenced code, and paragraphs (blank line = new paragraph,
+    single newline = soft `<br>`).
+  - `appendInline()` — inline grammar: `**bold**`, `*italic*`, `` `code` ``,
+    `[label](url)`. A marker with no closer is rendered as literal characters.
+  - **Underscores are intentionally NOT emphasis** so identifiers like
+    `update_customer_profile` / `my_var` render intact (a real bug with naive
+    `_emphasis_` parsers).
+- **Streaming stays smooth — no half-Markdown flash.** `renderMarkdownInto()`
+  takes a `streaming` flag; while the reply streams, `streamingSafeText()`
+  **withholds an incomplete trailing token** (an unclosed `**`, `*`, `` ` ``,
+  `[`/`[..](`, an open ```` ``` ```` fence, or a bare block marker still being
+  typed) so partial syntax never shows; the held tail appears a token later
+  once it completes. The run is then re-rendered **in full** on `text-end` and
+  again in `finalizeStream()` (covers a stream that closes without a trailing
+  `text-end`), and restored history always renders in full (`state.streaming`
+  is false there).
+- **Tool cards / product cards are untouched** — they render through
+  `buildToolCard()`, a separate path; only assistant *text* runs go through the
+  Markdown renderer.
+
+### `ms-chat-widget.css`
+
+- Added `.ms-chat-md-*` rules (`-h`, `-list`, `-quote`, `-code`, `-pre`) plus a
+  `.ms-chat-bubble em` rule, all using existing tokens (`--msc-heading`,
+  `--msc-surface`, `--msc-border`, `--msc-muted`, `--msc-input-radius`). First/
+  last child margins are collapsed so the document-style assistant text keeps
+  its tight vertical rhythm. No other rules touched.
+
+### Verified
+
+- `node --check` passes; the renderer was exercised with a DOM-mock harness:
+  bold/italic/code/links/lists/headings/quotes/fenced code all render correctly;
+  `snake_case` identifiers stay intact; `javascript:` links and raw
+  `<script>` / `<img onerror>` are escaped to text (never live nodes); and
+  streamed snapshots withhold incomplete `**`, `*`, and `[..](..` until they
+  close, then render fully.
+
+---
+
+## ⭐ Session update (2026-06-14) — streaming voice mode: TTS audio plays WHILE the text streams (UX polish item 3)
 
 Voice mode used to wait for the **whole** reply before it called `/api/tts`
 once — so spoken audio only started after generation finished. Now the widget
