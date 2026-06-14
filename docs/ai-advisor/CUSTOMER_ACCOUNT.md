@@ -50,12 +50,12 @@ window.location.assign(url.toString()); // TOP-LEVEL navigation
 After Shopify auth, the backend finishes server-side and **302s the browser back
 to your `return_url`** with a marker query param:
 
-| `?ms_auth=` | Meaning | Suggested widget action |
-|---|---|---|
-| `ok` | Signed in; conversation re-linked | call `/api/auth/me`, show signed-in state |
-| `login_required` | `prompt=none` only: not logged in | show the one-click "Sign in" affordance |
-| `logged_out` | Returned from logout | clear signed-in UI |
-| `error` | Anything went wrong | stay anonymous; optionally offer "Sign in" |
+| `?ms_auth=`      | Meaning                           | Suggested widget action                    |
+| ---------------- | --------------------------------- | ------------------------------------------ |
+| `ok`             | Signed in; conversation re-linked | call `/api/auth/me`, show signed-in state  |
+| `login_required` | `prompt=none` only: not logged in | show the one-click "Sign in" affordance    |
+| `logged_out`     | Returned from logout              | clear signed-in UI                         |
+| `error`          | Anything went wrong               | stay anonymous; optionally offer "Sign in" |
 
 Strip `ms_auth` from the URL after reading it (e.g. `history.replaceState`).
 
@@ -126,6 +126,17 @@ The anonymous and email-capture flows are untouched. Sign-in is **identity only*
 — it does **not** opt the customer into marketing. The double-opt-in email flow
 remains the only path to marketing consent. A visitor can use the chat fully
 without ever signing in.
+
+### 6.1 Optional: the at-sign-in marketing opt-in (v3)
+
+A signed-in customer **may** be offered a one-tick marketing opt-in that skips
+re-typing their email (we already hold the verified address). It is **still the
+same double-opt-in**, **still unticked by default**, and **still a separate,
+explicit act** — signing in never enrols anyone. Render contract (copy +
+endpoint) is in [`CONSENT_FLOW.md`](./CONSENT_FLOW.md) §2
+(`GET /api/consent-copy?surface=signin` → tick → `POST
+/api/account/marketing-opt-in`). Only show it once `/api/auth/me` reports
+`signedIn: true`; never pre-tick it.
 
 ## 7. Signed-in conversation history (CA-3-THEME contract)
 
