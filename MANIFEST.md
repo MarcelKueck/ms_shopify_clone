@@ -12,7 +12,59 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-12, latest) — alignment with the updated API_CONTRACT.md: browsing-trail handoff, fresh-open greeting, customer memory, capture decline event, contract-exact KPI, sold-out badges
+## ⭐ Session update (2026-06-14, latest) — pre-launch cleanup & hardening: dead-code removal only (no behavior change)
+
+Behavior-preserving cleanup pass. Removed genuinely dead widget code only —
+no observable behavior changed for any of the three identity tiers (anonymous,
+email-only capture, signed-in). The shipped behavior stays byte-for-byte
+equivalent to the lawyer-approved version. **Re-upload the two modified theme
+files.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (removed unused `productLink()`; removed 3 unreferenced ICONS entries) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (removed 4 unused/orphan rule blocks) | ✅ Yes |
+| `snippets/ms-chat-widget.liquid` | UNCHANGED | ❌ No |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### REMOVED (dead code — all behavior-preserving; revert each independently)
+
+- **`ms-chat-widget.js` — `productLink()` function.** Unreferenced helper
+  (0 call sites); superseded by `productButton()` when tool-card CTAs became
+  prominent primary buttons (feature 2). Revert: re-add the function.
+- **`ms-chat-widget.js` — ICONS `chat`, `share`, `truck`.** Three unreferenced
+  inline-SVG registry entries: `chat` (old launcher icon — launcher now renders
+  the animated `logoEl()` orb), `share` (old share icon — feature 7 replaced it
+  with the "Per E-Mail teilen" *text* button), `truck` (delivery icon — delivery
+  time moved to the product page off the compact card). Revert: re-add the keys.
+- **`ms-chat-widget.css` — `.ms-chat-link` / `:hover` / ` svg`.** Only ever
+  styled the now-removed `productLink`. Revert: re-add the three rules.
+- **`ms-chat-widget.css` — `.ms-chat-checkout-summary`.** Orphan rule from a
+  superseded checkout-row layout (current rows use `.ms-chat-checkout-item` /
+  `-meta` / `-name`). Revert: re-add the rule.
+- **`ms-chat-widget.css` — `.ms-chat-visually-hidden`.** Screen-reader utility
+  class never applied in markup (the widget uses `aria-label` directly). Revert:
+  re-add the rule.
+- **`ms-chat-widget.css` — `.ms-chat-wordmark span`.** Remnant of the old
+  "**motion**sports" two-part wordmark; the header now renders only `<b>Mo</b>`
+  (no `<span>`). Revert: re-add the rule.
+
+### SKIPPED (protected / out of scope)
+
+- **No WELCOME_DISCOUNT remnants exist in the widget** (JS/CSS/snippet) — nothing
+  to remove. (`bulk_discount` in `REASON_LABELS` is the unrelated, retained
+  "Mengenrabatt anfragen" contact reason.)
+- **"MOIA" → "Mo" naming already reconciled** in all theme assets in a prior
+  session; the only remaining "MOIA" strings are historical entries inside this
+  changelog and are left intact as a record.
+- **Stale default `apiBase` (`…vercel.app`)** left untouched — it is the operative
+  configured default and changing it would change behavior (see `AUDIT_FRONTEND.md`
+  F1). The legacy `ms-chat-expanded=1 → modal` migration is likewise kept
+  (documented, behavior-bearing).
+
+---
+
+## Session update (2026-06-12) — alignment with the updated API_CONTRACT.md: browsing-trail handoff, fresh-open greeting, customer memory, capture decline event, contract-exact KPI, sold-out badges
 
 Re-sync against the reworked `API_CONTRACT.md` (context `recentlyViewed` +
 `type: "browsing"`, `messages: []` fresh-open greeting, `customer.email`
