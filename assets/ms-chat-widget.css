@@ -949,6 +949,57 @@ html.ms-chat-page-anim {
 .ms-chat-bubble p:last-child { margin-bottom: 0; }
 .ms-chat-bubble a { color: rgb(var(--msc-accent)); text-decoration: underline; }
 .ms-chat-bubble strong { font-weight: 700; }
+.ms-chat-bubble em { font-style: italic; }
+
+/* Rendered Markdown (assistant text). Inherits the widget font (Montserrat via
+   --msc-font) and brand tokens; tuned to the document-style assistant text. */
+.ms-chat-bubble > :first-child { margin-top: 0; }
+.ms-chat-bubble > :last-child { margin-bottom: 0; }
+.ms-chat-md-h {
+  margin: 12px 0 6px;
+  font-family: inherit;
+  font-weight: 700;
+  line-height: 1.3;
+  color: rgb(var(--msc-heading));
+}
+h3.ms-chat-md-h { font-size: 1.02rem; }
+h4.ms-chat-md-h { font-size: 0.94rem; }
+h5.ms-chat-md-h,
+h6.ms-chat-md-h { font-size: 0.88rem; }
+.ms-chat-md-list { margin: 0 0 8px; padding-left: 1.35em; }
+.ms-chat-md-list:last-child { margin-bottom: 0; }
+.ms-chat-md-list li { margin: 2px 0; }
+.ms-chat-md-list .ms-chat-md-list { margin: 2px 0 2px; }
+.ms-chat-md-quote {
+  margin: 0 0 8px;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--msc-border-strong);
+  color: var(--msc-muted);
+}
+.ms-chat-md-quote:last-child { margin-bottom: 0; }
+.ms-chat-md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--msc-surface);
+  border: 1px solid var(--msc-border);
+}
+.ms-chat-md-pre {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--msc-input-radius);
+  background: var(--msc-surface);
+  border: 1px solid var(--msc-border);
+  overflow-x: auto;
+}
+.ms-chat-md-pre:last-child { margin-bottom: 0; }
+.ms-chat-md-pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre;
+}
 
 /* Generating state (replaces the three bouncing dots): while a reply is
    pending, the assistant-slot avatar itself comes alive — the orb's wave

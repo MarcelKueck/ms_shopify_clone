@@ -439,9 +439,18 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Markdown subset: **bold** and [label](url). XSS-safe (DOM nodes only).
+  // Tiny safe Markdown -> DOM renderer. Renders the subset Mo actually emits —
+  // **bold**, *italic*, `code`, [label](url), # headings, -/*/+ and 1. lists,
+  // > quotes, ``` fenced code, paragraphs and soft line breaks — as real DOM
+  // nodes (createElement/createTextNode), NEVER innerHTML on model text, so the
+  // model can't inject HTML (XSS-safe by construction: text becomes text, and
+  // only an allowlist of tags is ever created). Underscores are deliberately
+  // NOT emphasis markers so identifiers like update_customer_profile read
+  // intact. Streaming-safe: an incomplete trailing token (an unclosed **, *,
+  // `, [, ``` or a bare block marker still being typed) is withheld until it
+  // completes, so half-Markdown never flashes; the held tail appears a token
+  // later. Tool/product cards are rendered separately and are untouched.
   // ---------------------------------------------------------------------------
-  var MD_RE = /(\*\*(.+?)\*\*)|(\[([^\]]+)\]\(([^)]+)\))/g;
 
   function safeHref(url) {
     var u = String(url || '').trim();
@@ -453,35 +462,175 @@
     return null;
   }
 
+  // Inline span -> DOM nodes. A marker that has no closer in `str` is rendered
+  // as the literal characters (the streaming cut already withholds incomplete
+  // trailing markers, so this only literalizes genuinely-unclosed Markdown).
   function appendInline(container, str) {
-    MD_RE.lastIndex = 0;
-    var last = 0, m;
-    while ((m = MD_RE.exec(str)) !== null) {
-      if (m.index > last) container.appendChild(document.createTextNode(str.slice(last, m.index)));
-      if (m[1] != null) {
-        container.appendChild(el('strong', { text: m[2] }));
-      } else if (m[3] != null) {
-        var href = safeHref(m[5]);
-        if (href) {
-          container.appendChild(el('a', { href: href, target: '_blank', rel: 'noopener noreferrer', text: m[4] }));
-        } else {
-          // Reject unsafe scheme: render the raw text literally, no link.
-          container.appendChild(document.createTextNode(m[0]));
-        }
-      }
-      last = MD_RE.lastIndex;
+    var i = 0, n = str.length, textStart = 0;
+    function flushText(end) {
+      if (end > textStart) container.appendChild(document.createTextNode(str.slice(textStart, end)));
     }
-    if (last < str.length) container.appendChild(document.createTextNode(str.slice(last)));
+    while (i < n) {
+      var c = str.charAt(i);
+      if (c === '`') {
+        var close = str.indexOf('`', i + 1);
+        if (close === -1) { i++; continue; }
+        flushText(i);
+        container.appendChild(el('code', { class: 'ms-chat-md-code', text: str.slice(i + 1, close) }));
+        i = close + 1; textStart = i; continue;
+      }
+      if (c === '[') {
+        var lm = /^\[([^\]]*)\]\(([^)\s]*)\)/.exec(str.slice(i));
+        if (lm) {
+          flushText(i);
+          var href = safeHref(lm[2]);
+          if (href) container.appendChild(el('a', { href: href, target: '_blank', rel: 'noopener noreferrer', text: lm[1] }));
+          else container.appendChild(document.createTextNode(lm[0])); // unsafe scheme -> literal
+          i += lm[0].length; textStart = i; continue;
+        }
+        i++; continue;
+      }
+      if (c === '*') {
+        var dbl = str.charAt(i + 1) === '*';
+        var marker = dbl ? '**' : '*';
+        var from = i + marker.length;
+        var end = str.indexOf(marker, from);
+        if (end === -1 || end === from) { i++; continue; } // no closer / empty -> literal
+        flushText(i);
+        var wrap = el(dbl ? 'strong' : 'em');
+        appendInline(wrap, str.slice(from, end));
+        container.appendChild(wrap);
+        i = end + marker.length; textStart = i; continue;
+      }
+      i++;
+    }
+    flushText(n);
   }
 
-  function renderMarkdownInto(node, text) {
-    node.replaceChildren();
+  // How much of a still-streaming string is safe to render now: withhold a
+  // trailing incomplete inline token so partial Markdown never flashes.
+  function inlineScanSafe(s) {
+    var i = 0, n = s.length;
+    while (i < n) {
+      var c = s.charAt(i);
+      if (c === '`') {
+        var close = s.indexOf('`', i + 1);
+        if (close === -1) return i; // unclosed code span
+        i = close + 1; continue;
+      }
+      if (c === '[') {
+        var lm = /^\[([^\]]*)\]\(([^)\s]*)\)/.exec(s.slice(i));
+        if (!lm) return i; // link still being typed
+        i += lm[0].length; continue;
+      }
+      if (c === '*') {
+        var marker = s.charAt(i + 1) === '*' ? '**' : '*';
+        var end = s.indexOf(marker, i + marker.length);
+        if (end === -1) return i; // unclosed emphasis
+        i = end + marker.length; continue;
+      }
+      i++;
+    }
+    return n;
+  }
+
+  function streamingSafeText(s) {
+    // Inside an open fenced code block -> hold from the opening fence.
+    var fences = s.match(/```/g);
+    if (fences && fences.length % 2 === 1) s = s.slice(0, s.lastIndexOf('```'));
+    // Hold a trailing incomplete inline span (emphasis / code / link).
+    s = s.slice(0, inlineScanSafe(s));
+    // Hold a trailing bare block marker still being typed ("#", "- ", ">", "1.").
+    s = s.replace(/\n[ \t]*(?:#{1,6}|[-+*]|\d+[.)]|>)[ \t]*$/, '');
+    return s;
+  }
+
+  var BLOCK_FENCE = /^\s*```/,
+      BLOCK_HEAD = /^\s*(#{1,6})\s+(.*)$/,
+      BLOCK_QUOTE = /^\s*>\s?/,
+      BLOCK_UL = /^\s*[-+*]\s+/,
+      BLOCK_OL = /^\s*\d+[.)]\s+/;
+
+  function isBlockStart(line) {
+    return BLOCK_FENCE.test(line) || BLOCK_HEAD.test(line) || BLOCK_QUOTE.test(line) ||
+           BLOCK_UL.test(line) || BLOCK_OL.test(line);
+  }
+
+  // Block-level Markdown -> DOM nodes (recurses for blockquote contents).
+  function renderBlocks(node, text) {
     var lines = String(text == null ? '' : text).split('\n');
-    for (var i = 0; i < lines.length; i++) {
+    var i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+      if (!line.trim()) { i++; continue; } // blank line: paragraph break
+
+      if (BLOCK_FENCE.test(line)) {
+        var code = [];
+        i++;
+        while (i < lines.length && !/^\s*```\s*$/.test(lines[i])) { code.push(lines[i]); i++; }
+        if (i < lines.length) i++; // skip closing fence
+        node.appendChild(el('pre', { class: 'ms-chat-md-pre' }, el('code', { text: code.join('\n') })));
+        continue;
+      }
+
+      var h = BLOCK_HEAD.exec(line);
+      if (h) {
+        var hTag = 'h' + Math.min(6, h[1].length + 2); // # -> h3 (chat-scale)
+        var hn = el(hTag, { class: 'ms-chat-md-h' });
+        appendInline(hn, h[2].trim());
+        node.appendChild(hn);
+        i++; continue;
+      }
+
+      if (BLOCK_QUOTE.test(line)) {
+        var quote = [];
+        while (i < lines.length && BLOCK_QUOTE.test(lines[i])) { quote.push(lines[i].replace(BLOCK_QUOTE, '')); i++; }
+        var bq = el('blockquote', { class: 'ms-chat-md-quote' });
+        renderBlocks(bq, quote.join('\n'));
+        node.appendChild(bq);
+        continue;
+      }
+
+      if (BLOCK_UL.test(line)) {
+        var ul = el('ul', { class: 'ms-chat-md-list' });
+        while (i < lines.length && BLOCK_UL.test(lines[i])) {
+          appendInline(ul.appendChild(el('li')), lines[i].replace(BLOCK_UL, ''));
+          i++;
+        }
+        node.appendChild(ul);
+        continue;
+      }
+
+      if (BLOCK_OL.test(line)) {
+        var ol = el('ol', { class: 'ms-chat-md-list' });
+        while (i < lines.length && BLOCK_OL.test(lines[i])) {
+          appendInline(ol.appendChild(el('li')), lines[i].replace(BLOCK_OL, ''));
+          i++;
+        }
+        node.appendChild(ol);
+        continue;
+      }
+
+      // Paragraph: gather consecutive non-blank, non-block lines. A single
+      // newline inside the run is a soft break (<br>); a blank line ends it.
+      var para = [];
+      while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) { para.push(lines[i]); i++; }
       var p = el('p');
-      appendInline(p, lines[i]);
+      for (var j = 0; j < para.length; j++) {
+        if (j > 0) p.appendChild(el('br'));
+        appendInline(p, para[j]);
+      }
       node.appendChild(p);
     }
+  }
+
+  // Render `text` as formatted Markdown into `node`. When `streaming` is true,
+  // an incomplete trailing token is withheld to avoid flashing broken Markdown.
+  function renderMarkdownInto(node, text, streaming) {
+    node.replaceChildren();
+    var t = String(text == null ? '' : text);
+    if (streaming) t = streamingSafeText(t);
+    renderBlocks(node, t);
   }
 
   // ---------------------------------------------------------------------------
@@ -2622,7 +2771,10 @@
         ctx.activeText = { str: '', node: node };
       }
       ctx.activeText.str += t;
-      renderMarkdownInto(ctx.activeText.node, ctx.activeText.str);
+      // While the reply is still streaming, withhold any incomplete trailing
+      // Markdown token so half-syntax never flashes; a completed run (text-end /
+      // finalize) and restored history both render in full.
+      renderMarkdownInto(ctx.activeText.node, ctx.activeText.str, state.streaming);
       scrollToBottom();
       return;
     }
@@ -2824,6 +2976,11 @@
       if (finished) return;
       finished = true;
       removeTyping();
+      // Flush any Markdown token withheld during streaming, in case the stream
+      // closed without a trailing text-end (the run is complete now).
+      if (ctx && ctx.activeText && ctx.activeText.node) {
+        renderMarkdownInto(ctx.activeText.node, ctx.activeText.str, false);
+      }
       // Stream produced nothing visible -> drop the empty assistant row.
       if (ctx && ctx.row && !gotContent && ctx.content && !ctx.content.childNodes.length && ctx.row.parentNode) {
         ctx.row.parentNode.removeChild(ctx.row);
@@ -2950,7 +3107,12 @@
             return;
           }
           case 'text-end':
-            // Close the current run so the next text-start starts a new bubble.
+            // Run complete: re-render in full (flush any token withheld during
+            // streaming), then close the run so the next text-start opens a new
+            // bubble.
+            if (ctx && ctx.activeText && ctx.activeText.node) {
+              renderMarkdownInto(ctx.activeText.node, ctx.activeText.str, false);
+            }
             if (ctx) ctx.activeText = null;
             return;
 
