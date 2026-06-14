@@ -12,7 +12,68 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-14, latest) — render Markdown nicely in chat bubbles (no raw asterisks/hashes) (UX polish item 4)
+## ⭐ Session update (2026-06-14, latest) — unobtrusive Feedback entry point in the chat widget
+
+Added a small, optional **Feedback** affordance to the widget per the feedback
+submit contract (`docs/ai-advisor/API_CONTRACT.md` §9). It's a quiet text link
+in the composer footer (next to the AI disclaimer) → a short text box →
+`POST /api/feedback` → a friendly thanks state. Available to **all tiers**, no
+PII required: an email is attached **only** for an already-identified user (a
+captured email-only contact); a signed-in customer is linked by the session id,
+never by sending the address. **Re-upload the two modified theme files.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (`FEEDBACK_COPY`, `feedback` icon, footer link, `buildFeedbackCard()` / `openFeedbackCard()`) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (`.ms-chat-footer`, `.ms-chat-feedback-link`, `.ms-chat-feedback-actions`) | ✅ Yes |
+| `snippets/ms-chat-widget.liquid` | UNCHANGED | ❌ No |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed in `ms-chat-widget.js`
+
+- **New `FEEDBACK_COPY`** chrome strings (German): entry-link label, card
+  title/intro, textarea placeholder, submit/cancel, error + thanks copy. No
+  legal/consent copy is involved — feedback collects no consent.
+- **New `feedback` ICONS entry** (a speech bubble) for the card head.
+- **Footer entry point.** The plain disclaimer line is now an `.ms-chat-footer`
+  row holding the same AI disclaimer plus a subtle underlined
+  **"Feedback geben"** text link (`.ms-chat-feedback-link`). Deliberately quiet
+  so it never competes with the composer; always available while the panel is
+  open.
+- **`buildFeedbackCard()`** renders a compact card (reusing `.ms-chat-card` /
+  `.ms-chat-form` / `.ms-chat-form-success`): a single textarea (`maxlength`
+  4000), Cancel + Absenden. On submit it POSTs to `/api/feedback` with the same
+  guards as chat (`x-ms-chat-key` + `x-ms-session`). Only `message` is required;
+  optional **context** is sent when known — `sessionId` (the session id),
+  `conversationId` (the active signed-in thread), a coarse telemetry-grade
+  `tier` hint (`signed-in` / `email` / `anonymous`), `email` (only for an
+  identified user — `capturedEmail`), and `page` (`location.pathname`).
+- **States handled:** empty/over-length are caught client-side; `200` swaps the
+  body for the check-mark **"Danke!"** thanks state; `413` → length error; `429`
+  honors `Retry-After` (keeps submit locked for the window); other errors keep
+  the comment for retry. Cancel removes the card.
+- **`openFeedbackCard()`** opens the panel, clears the welcome state, drops the
+  card into the message area and focuses the textarea; an already-open,
+  not-yet-submitted card is reused instead of stacked.
+
+### `ms-chat-widget.css`
+
+- Added `.ms-chat-footer` (centered flex row), `.ms-chat-footer-sep`,
+  `.ms-chat-feedback-link` (muted underlined text button with hover/focus
+  states) and `.ms-chat-feedback-actions` (Cancel + Submit side by side). The
+  disclaimer rule lost its now-redundant `margin-top` (the footer owns it).
+  Everything else reuses existing card/form/success tokens.
+
+### Verified
+
+- `node --check` passes on `ms-chat-widget.js`.
+- Entry point is unobtrusive (small muted link in the footer, not a button in
+  the crowded header) and present for all tiers; the email field is never shown
+  and is only attached as context when an identified email already exists.
+
+---
+
+## ⭐ Session update (2026-06-14) — render Markdown nicely in chat bubbles (no raw asterisks/hashes) (UX polish item 4)
 
 Assistant messages used to show **raw Markdown** — `**asterisks**`, `#` hashes,
 `-` dashes — because the widget only understood `**bold**` and `[label](url)`

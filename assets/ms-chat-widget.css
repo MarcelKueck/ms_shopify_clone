@@ -1487,7 +1487,37 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   0%, 100% { box-shadow: 0 0 0 0 rgb(var(--msc-accent) / 45%); }
   50% { box-shadow: 0 0 0 6px rgb(var(--msc-accent) / 0%); }
 }
-.ms-chat-disclaimer { font-size: 0.72rem; color: var(--msc-muted); text-align: center; margin-top: 8px; }
+.ms-chat-disclaimer { font-size: 0.72rem; color: var(--msc-muted); text-align: center; }
+
+/* Footer row: AI disclaimer + the subtle Feedback entry point. */
+.ms-chat-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ms-chat-footer-sep { font-size: 0.72rem; color: var(--msc-muted); opacity: 0.6; }
+.ms-chat-feedback-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--msc-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ms-chat-feedback-link:hover { color: rgb(var(--msc-fg)); }
+.ms-chat-feedback-link:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 2px; border-radius: 2px; }
+
+/* Feedback card actions row (Cancel + Submit side by side). */
+.ms-chat-feedback-actions { display: flex; gap: 8px; }
+.ms-chat-feedback-actions .ms-chat-btn { flex: 1 1 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .ms-chat-launcher,
