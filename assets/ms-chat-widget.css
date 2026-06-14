@@ -868,15 +868,13 @@ html.ms-chat-page-anim {
 .ms-chat-starter:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
 /* Returning-customer hint — BACKEND-SERVED text, rendered only when the
    backend marks it enabled (no widget fallback copy). Small + unobtrusive:
-   below the starters in the welcome state, above the email field in the
-   capture form. */
+   shown above the email field in the capture form. */
 .ms-chat-returning-hint {
   font-size: 0.78rem;
   color: var(--msc-muted);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
-.ms-chat-returning-hint--welcome { margin-top: 14px; padding: 0 4px; }
 
 /* Messages — borderless / document style (supersedes the filled-bubble
    design): assistant (Mo) text renders as plain flowing text directly on the

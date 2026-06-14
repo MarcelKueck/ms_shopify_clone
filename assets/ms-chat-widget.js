@@ -647,7 +647,6 @@
     ],
     signInBtn: 'Anmelden',
     signInHeader: 'Anmelden',
-    signInNote: 'Sichere Anmeldung über dein Shopify-Konto — kein Passwort im Chat.',
     historyTitle: 'Deine Beratungen',
     historyAria: 'Beratungsverlauf',
     newChat: 'Neue Beratung',
@@ -1858,26 +1857,6 @@
     return w;
   }
 
-  // Returning-customer hint in the welcome state: small, unobtrusive line
-  // BELOW the starters, backend-served via GET /api/consent-copy (same
-  // payload the capture form uses) and rendered ONLY when the backend marks
-  // it enabled. Fetched lazily on the first open of the welcome state — never
-  // at page load, so visitors who never open the chat trigger no request. An
-  // older backend without the field, the server-side switch off, or a failed
-  // fetch all render NOTHING — the widget has no fallback hint text.
-  var welcomeHintRequested = false;
-  function loadWelcomeHint() {
-    if (welcomeHintRequested || !welcomeEl) return;
-    welcomeHintRequested = true;
-    fetchConsentCopy().then(function (c) {
-      var rh = returningHintText(c);
-      if (!rh || welcomeEl.querySelector('.ms-chat-returning-hint')) return;
-      welcomeEl.appendChild(el('div', { class: 'ms-chat-returning-hint ms-chat-returning-hint--welcome', text: rh }));
-    }).catch(function () {
-      welcomeHintRequested = false; // transient failure -> retry on a later open
-    });
-  }
-
   // Auto-grow up to the cap (must match the CSS max-height), then the textarea
   // scrolls internally — the composer/panel never grow past it. Also the single
   // sync point for the appear-on-type send button: every path that changes the
@@ -1901,7 +1880,6 @@
       starterMeta.tracked = true;
       track('starter_shown', { variant: starterMeta.variant, count: starterMeta.count });
     }
-    if (welcomeEl && welcomeEl.parentNode === messagesEl) loadWelcomeHint();
     // Customer Account: resolve signed-in state on first open (lazy — no
     // network for pure-anonymous visitors; see resolveAuthOnOpen).
     resolveAuthOnOpen();
@@ -2276,10 +2254,6 @@
 
   function showWelcome() {
     messagesEl.replaceChildren(welcomeEl);
-    // Welcome (re)shown while the panel is open (e.g. "new chat"): load the
-    // backend-served returning hint now. Gated on open so the page-load
-    // render of an empty history fetches nothing.
-    if (state.open) loadWelcomeHint();
   }
   function clearWelcome() {
     if (welcomeEl && welcomeEl.parentNode === messagesEl) messagesEl.removeChild(welcomeEl);
@@ -2356,7 +2330,6 @@
     if (type === 'text') {
       var t = part.text != null ? part.text : (part.delta != null ? part.delta : '');
       if (!t) return;
-      removeTyping();
       if (!ctx.activeText) {
         var node = el('div', { class: 'ms-chat-bubble ms-chat-bubble--assistant' });
         ctx.content.appendChild(node);
@@ -2389,7 +2362,7 @@
     }
     buildToolCard(name, input).then(function (cardEl) {
       holder.node.replaceChildren();
-      if (cardEl) { holder.node.appendChild(cardEl); removeTyping(); scrollToBottom(); }
+      if (cardEl) { holder.node.appendChild(cardEl); scrollToBottom(); }
     }).catch(function () { /* render nothing on failure */ });
   }
 
@@ -2533,7 +2506,11 @@
     var finished = false;
     var streamErrored = false;
 
-    function ensureCtx() { if (!ctx) ctx = newAssistantCtx(); return ctx; }
+    // Creating the real assistant row is the pending->streaming transition:
+    // drop the generating placeholder FIRST so its avatar never coexists with
+    // the new row's own avatar (a tool-first reply removed typing only after an
+    // async card build, briefly showing two avatars).
+    function ensureCtx() { if (!ctx) { removeTyping(); ctx = newAssistantCtx(); } return ctx; }
 
     function rollback() {
       // Remove optimistic user message + assistant scaffolding; restore input.
@@ -3082,7 +3059,6 @@
     var btn = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary' }, [ACCOUNT_COPY.signInBtn]);
     btn.addEventListener('click', function () { initiateLogin(); });
     body.appendChild(btn);
-    body.appendChild(el('div', { class: 'ms-chat-caption', text: ACCOUNT_COPY.signInNote }));
     card.appendChild(body);
     return card;
   }
