@@ -363,7 +363,13 @@
     cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
     pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
     mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    // Customer Account tier-3 glyphs (sign-in card + signed-in history drawer).
+    user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    history: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
   };
   function icon(name) {
     var tpl = document.createElement('template');
@@ -574,6 +580,179 @@
         throw err;
       });
     return consentCopyInflight;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Customer Account sign-in (tier 3) + signed-in conversation history.
+  //
+  // ADDITIVE BY DESIGN. The anonymous and email-only flows are untouched: when
+  // the user never signs in, `auth.signedIn` stays false and every branch below
+  // collapses to the pre-existing behaviour (the only new surface is the
+  // optional sign-in card/affordance, which is the whole point of the tier).
+  //
+  // The widget NEVER handles OAuth tokens. Sign-in is a top-level redirect to
+  // the backend's hosted flow; identity is re-hydrated via a guarded XHR to
+  // /api/auth/me. The EXISTING session id (`sid`) is the opaque reference to
+  // the signed-in identity — it survives the redirect unchanged, so we never
+  // rotate it around sign-in (CUSTOMER_ACCOUNT.md §1). All /api/auth/me and
+  // /api/account/* calls carry the same guards as the chat endpoints
+  // (x-ms-chat-key + x-ms-session). Docs: docs/ai-advisor/CUSTOMER_ACCOUNT.md,
+  // docs/ai-advisor/API_CONTRACT.md.
+  // ---------------------------------------------------------------------------
+  // UI CHROME only (German). No legal/consent copy lives here.
+  var ACCOUNT_COPY = {
+    signInTitle: 'Mit deinem Konto anmelden',
+    signInIntro: 'Melde dich mit deinem motion sports Konto an, um mehr aus deiner Beratung zu machen:',
+    benefits: [
+      'An frühere Beratungen anknüpfen',
+      'Adresse & Bestellungen einbeziehen',
+      'Passende Angebote erhalten'
+    ],
+    signInBtn: 'Anmelden',
+    signInHeader: 'Anmelden',
+    signInNote: 'Sichere Anmeldung über dein Shopify-Konto — kein Passwort im Chat.',
+    historyTitle: 'Deine Beratungen',
+    historyAria: 'Beratungsverlauf',
+    newChat: 'Neue Beratung',
+    loading: 'Wird geladen…',
+    loadError: 'Verlauf konnte nicht geladen werden.',
+    empty: 'Noch keine gespeicherten Beratungen.',
+    rename: 'Umbenennen',
+    del: 'Löschen',
+    save: 'Speichern',
+    cancel: 'Abbrechen',
+    deleteConfirm: 'Dieser Chat wird gelöscht.',
+    deleteYes: 'Löschen',
+    msgCount: function (n) { return (n || 0) + (n === 1 ? ' Nachricht' : ' Nachrichten'); },
+    logout: 'Abmelden',
+    erase: 'Alle meine Daten löschen',
+    eraseConfirm: 'Alle deine Beratungen, dein Profil und gespeicherten Daten werden unwiderruflich gelöscht. Wirklich fortfahren?',
+    eraseYes: 'Endgültig löschen',
+    eraseError: 'Löschen gerade nicht möglich — bitte später erneut versuchen.',
+    openError: 'Diese Beratung konnte nicht geöffnet werden.'
+  };
+
+  // Device hint: set once we've confirmed a signed-in session so a later visit
+  // re-probes /api/auth/me even before the storefront customer hint is read.
+  // Never carries identity itself — just "worth asking the backend again".
+  var SIGNED_IN_KEY = 'ms-chat-signed-in';
+  var auth = { settled: false, signedIn: false, name: null, tier: null };
+  // The conversation currently loaded into the local view (for list highlight);
+  // purely informational — the backend resolves the active thread from `sid`.
+  var activeConversationId = null;
+
+  // Guarded account/auth XHR headers (CUSTOMER_ACCOUNT.md §4/§7).
+  function accountHeaders() { return { 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid }; }
+
+  // Best-effort, non-authoritative pre-hint: is the visitor logged into the
+  // storefront? Used ONLY to decide whether the silent /api/auth/me probe is
+  // worth doing — never to gate identity (CUSTOMER_ACCOUNT.md §3).
+  function storefrontCustomerHint() {
+    try {
+      return !!(window.ShopifyAnalytics && window.ShopifyAnalytics.meta &&
+                window.ShopifyAnalytics.meta.page && window.ShopifyAnalytics.meta.page.customerId);
+    } catch (e) { return false; }
+  }
+  function shouldProbeAuth() {
+    return lsGet(SIGNED_IN_KEY) === '1' || storefrontCustomerHint();
+  }
+
+  function applyAuth(data) {
+    auth.settled = true;
+    if (data && data.signedIn) {
+      auth.signedIn = true;
+      auth.name = (data.identity && data.identity.name) || null;
+      auth.tier = (data.identity && data.identity.tier) || 3;
+      lsSet(SIGNED_IN_KEY, '1');
+    } else {
+      auth.signedIn = false;
+      auth.name = null;
+      auth.tier = null;
+      lsDel(SIGNED_IN_KEY);
+    }
+    reflectAuthState();
+  }
+
+  // Ask the backend who this session belongs to (CUSTOMER_ACCOUNT.md §4).
+  // Fails closed: any error => not signed in.
+  var authProbed = false;
+  function probeAuth(force) {
+    if (authProbed && !force) return Promise.resolve(auth);
+    authProbed = true;
+    var url = API_BASE + '/api/auth/me?session=' + encodeURIComponent(sid);
+    return fetch(url, { method: 'GET', headers: accountHeaders() })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) { applyAuth(data); return auth; })
+      .catch(function () { applyAuth(null); return auth; });
+  }
+
+  // Top-level redirect into the backend's hosted sign-in, returning to THIS
+  // page so the same conversation re-hydrates (CUSTOMER_ACCOUNT.md §2). We do
+  // NOT use prompt=none here — this is a deliberate user click. The silent
+  // prompt=none optimisation is intentionally skipped in favour of the
+  // documented one-click affordance (see backend-handoff note).
+  function initiateLogin() {
+    try {
+      track('account_signin_started', {});
+      ssSet('ms-chat-auth-return', '1'); // re-open the panel when we come back
+      var url = new URL(API_BASE + '/api/auth/shopify/login');
+      url.searchParams.set('session', sid);
+      url.searchParams.set('return_url', window.location.href);
+      window.location.assign(url.toString());
+    } catch (e) {
+      try { console.error('[ms-chat] sign-in redirect failed', e); } catch (e2) {}
+    }
+  }
+
+  // Read + strip the ?ms_auth= return marker (CUSTOMER_ACCOUNT.md §2).
+  function handleAuthReturn() {
+    var marker = null;
+    try {
+      var u = new URL(window.location.href);
+      marker = u.searchParams.get('ms_auth');
+      if (marker != null) {
+        u.searchParams.delete('ms_auth');
+        window.history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
+      }
+    } catch (e) {}
+    if (!marker) return;
+    var wantsOpen = ssGet('ms-chat-auth-return') === '1';
+    try { window.sessionStorage.removeItem('ms-chat-auth-return'); } catch (e) {}
+    authOpenHandled = true; // we own the auth state for this load
+    if (marker === 'ok') {
+      track('account_signin_return', { result: 'ok' });
+      probeAuth(true).then(function () { if (wantsOpen || auth.signedIn) openPanel(); });
+    } else if (marker === 'login_required') {
+      // prompt=none path only: not logged in -> show the one-click affordance.
+      applyAuth(null);
+      if (wantsOpen) openPanel();
+    } else if (marker === 'logged_out') {
+      applyAuth(null);
+    } else { // 'error' or anything unexpected -> stay anonymous.
+      applyAuth(null);
+      if (wantsOpen) openPanel();
+    }
+  }
+
+  // Local sign-out: hides the signed-in tier on THIS device. A full Shopify
+  // logout requires Shopify's end_session_endpoint, which the widget does not
+  // have from the documented contract — see the backend-handoff note. The
+  // server session is left to expire / be ended via the account page.
+  function signOut() {
+    track('account_signout', {});
+    applyAuth(null);
+    closeHistory();
+  }
+
+  // First-open auth resolution (lazy: no network for pure-anonymous visitors,
+  // so the no-sign-in path stays byte-identical — nothing fires until the
+  // panel is opened, and even then only when a hint says it's worth probing).
+  var authOpenHandled = false;
+  function resolveAuthOnOpen() {
+    if (authOpenHandled) return;
+    authOpenHandled = true;
+    if (shouldProbeAuth()) probeAuth();
+    else applyAuth(null); // settle as not-signed-in -> renders the sign-in card
   }
 
   // ---------------------------------------------------------------------------
@@ -1281,7 +1460,12 @@
       case 'add_to_cart': return buildAddToCart(input);
       case 'suggest_showroom': return buildShowroom(input);
       case 'show_contact_form': return buildContactForm(input);
-      case 'offer_email_summary': return Promise.resolve(buildCaptureCard({ message: input.message, productIds: input.productIds, trigger: input.trigger }));
+      case 'offer_email_summary':
+        // Signed-in (tier 3): the email comes from the account, so never show
+        // the "type your email" capture (task §5 — no double-ask). The backend
+        // normally won't emit this for a signed-in customer; suppress defensively.
+        if (auth.signedIn) return Promise.resolve(null);
+        return Promise.resolve(buildCaptureCard({ message: input.message, productIds: input.productIds, trigger: input.trigger }));
       default: return Promise.resolve(null);
     }
   }
@@ -1290,6 +1474,8 @@
   // Widget shell.
   // ---------------------------------------------------------------------------
   var root, launcher, panel, backdrop, modeBtn, shareBtn, messagesEl, textarea, sendBtn, micBtn, vmBtn, speakingBtn, noticeEl, welcomeEl;
+  // Customer Account tier-3 chrome (built in buildShell / buildWelcome).
+  var signInBtn, historyBtn, historyEl, historyListEl, historyTitleEl, welcomeGreetingEl, welcomeAuthEl;
   // Desktop layout mode, persisted across page loads. 'sidebar' = docked
   // right-edge sidebar (page makes room, site stays interactive); 'modal' =
   // centered near-fullscreen modal over the blurred backdrop. Mobile ignores
@@ -1343,6 +1529,16 @@
     shareBtn = el('button', { class: 'ms-chat-share', type: 'button', text: 'Per E-Mail teilen', 'aria-label': 'Zusammenfassung per E-Mail teilen', title: 'Zusammenfassung per E-Mail' });
     shareBtn.addEventListener('click', function () { openCaptureForm(); });
     actions.appendChild(shareBtn);
+    // Customer Account (tier 3): "Anmelden" pill (shown only when settled +
+    // not signed in) and the conversation-history button (shown only when
+    // signed in). Both hidden by default; reflectAuthState() toggles them.
+    signInBtn = el('button', { class: 'ms-chat-signin-btn', type: 'button', text: ACCOUNT_COPY.signInHeader, 'aria-label': 'Mit Konto anmelden' });
+    signInBtn.addEventListener('click', function () { openSignInCard(); });
+    actions.appendChild(signInBtn);
+    historyBtn = el('button', { class: 'ms-chat-iconbtn ms-chat-history-btn', type: 'button', 'aria-label': ACCOUNT_COPY.historyAria, title: ACCOUNT_COPY.historyAria });
+    historyBtn.appendChild(icon('history'));
+    historyBtn.addEventListener('click', openHistory);
+    actions.appendChild(historyBtn);
     // Feature 6 (reworked): desktop layout-mode toggle, sidebar ⇄ modal.
     // Hidden on mobile via CSS (.ms-chat-mode); icon/labels set by
     // applyViewMode().
@@ -1419,6 +1615,10 @@
 
     welcomeEl = buildWelcome();
 
+    // Signed-in conversation-history drawer (overlays the panel; inert until a
+    // signed-in customer opens it).
+    buildHistoryDrawer();
+
     root.appendChild(launcher);
     root.appendChild(backdrop);
     root.appendChild(panel);
@@ -1451,7 +1651,10 @@
   // animates the reveal). Re-evaluated on send, restore, new chat and rollback.
   function updateShareBtn() {
     if (!shareBtn) return;
-    shareBtn.classList.toggle('ms-chat-share--visible', messages.length > 0);
+    // Signed-in customers never see the "type your email" capture entry point —
+    // their email comes from the account (task §5). Anonymous/email-only keep
+    // the exact previous behaviour (auth.signedIn is always false for them).
+    shareBtn.classList.toggle('ms-chat-share--visible', messages.length > 0 && !auth.signedIn);
   }
 
   // Keep exactly one desktop mode class on the panel and the toggle button's
@@ -1594,6 +1797,10 @@
   function buildWelcome() {
     var w = el('div', { class: 'ms-chat-welcome' });
     w.appendChild(logoEl('ms-chat-welcome-logo'));
+    // Signed-in greeting by name (filled/toggled by updateWelcomeAuth); hidden
+    // for anonymous so the welcome stays byte-identical when no one signs in.
+    welcomeGreetingEl = el('div', { class: 'ms-chat-welcome-greeting', style: 'display:none' });
+    w.appendChild(welcomeGreetingEl);
     var seed = starterSeed();
     starterMeta = { variant: seed.variant, count: seed.items.length, tracked: false };
     var list = el('div', { class: 'ms-chat-starters' });
@@ -1607,6 +1814,10 @@
       list.appendChild(b);
     });
     w.appendChild(list);
+    // Sign-in benefits card slot (filled by updateWelcomeAuth when the auth
+    // state settles as not-signed-in; empty otherwise).
+    welcomeAuthEl = el('div', { class: 'ms-chat-welcome-auth' });
+    w.appendChild(welcomeAuthEl);
     return w;
   }
 
@@ -1654,6 +1865,9 @@
       track('starter_shown', { variant: starterMeta.variant, count: starterMeta.count });
     }
     if (welcomeEl && welcomeEl.parentNode === messagesEl) loadWelcomeHint();
+    // Customer Account: resolve signed-in state on first open (lazy — no
+    // network for pure-anonymous visitors; see resolveAuthOnOpen).
+    resolveAuthOnOpen();
     panel.classList.add('ms-chat-panel--open');
     launcher.classList.add('ms-chat-launcher--hidden');
     syncChrome(); // backdrop (modal) / page shift (sidebar) / mobile lock+size
@@ -2552,7 +2766,17 @@
 
   function startNewChat() {
     clearNotice();
-    rotateSession();
+    if (auth.signedIn) {
+      // Signed-in: the session id is the identity link (CUSTOMER_ACCOUNT.md §1),
+      // so DON'T rotate it — just clear the active thread. Past conversations
+      // stay in the customer's server-side history ("Neue Beratung"). Dropping
+      // the local messages is enough to clear the per-request 40-message cap.
+      lsDel(historyKey());
+      messages = [];
+      activeConversationId = null;
+    } else {
+      rotateSession(); // anonymous/email-only: unchanged (rotates sid + history)
+    }
     if (rateTimer) { clearTimeout(rateTimer); rateTimer = null; }
     state.rateLocked = false;
     state.streaming = false;
@@ -2794,6 +3018,362 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Customer Account tier-3 UI: sign-in card, header affordances, signed-in
+  // welcome greeting, and the ChatGPT-style conversation-history drawer.
+  // All of this is gated on `auth.signedIn` (or settled-but-anonymous), so it
+  // is inert for visitors who never sign in.
+  // ---------------------------------------------------------------------------
+
+  // The benefits card (task §2): NOT a fake login form — auth is Shopify's
+  // hosted page; one button initiates the redirect and returns here.
+  function buildSignInCard() {
+    var card = el('div', { class: 'ms-chat-card ms-chat-signin-card' });
+    var body = el('div', { class: 'ms-chat-card-body' });
+    var head = el('div', { class: 'ms-chat-card-head' });
+    head.appendChild(icon('user'));
+    head.appendChild(el('span', { text: ACCOUNT_COPY.signInTitle }));
+    body.appendChild(head);
+    body.appendChild(el('div', { class: 'ms-chat-card-text', text: ACCOUNT_COPY.signInIntro }));
+    var ul = el('ul', { class: 'ms-chat-signin-benefits' });
+    ACCOUNT_COPY.benefits.forEach(function (b) {
+      var li = el('li');
+      li.appendChild(icon('check'));
+      li.appendChild(el('span', { text: b }));
+      ul.appendChild(li);
+    });
+    body.appendChild(ul);
+    var btn = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary' }, [ACCOUNT_COPY.signInBtn]);
+    btn.addEventListener('click', function () { initiateLogin(); });
+    body.appendChild(btn);
+    body.appendChild(el('div', { class: 'ms-chat-caption', text: ACCOUNT_COPY.signInNote }));
+    card.appendChild(body);
+    return card;
+  }
+
+  // Header "Anmelden" entry point for mid-conversation (when the welcome state
+  // — which already shows the card — isn't on screen). Drops the same card into
+  // the message stream; never stacks.
+  var lastSignInRow = null;
+  function openSignInCard() {
+    try {
+      openPanel();
+      if (auth.signedIn) return;
+      if (welcomeEl && welcomeEl.parentNode === messagesEl && welcomeAuthEl && welcomeAuthEl.firstChild) {
+        welcomeAuthEl.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (lastSignInRow && lastSignInRow.parentNode === messagesEl) {
+        lastSignInRow.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      clearWelcome();
+      var ar = assistantRow();
+      ar.content.appendChild(buildSignInCard());
+      messagesEl.appendChild(ar.row);
+      lastSignInRow = ar.row;
+      scrollToBottom();
+    } catch (e) {
+      try { console.error('[ms-chat] openSignInCard failed', e); } catch (e2) {}
+    }
+  }
+
+  // Reflect the resolved auth state across the chrome. Called on every auth
+  // change; a no-op shape for anonymous (signInBtn shown, history hidden,
+  // share button behaves exactly as before).
+  function reflectAuthState() {
+    if (signInBtn) signInBtn.classList.toggle('ms-chat-signin-btn--visible', auth.settled && !auth.signedIn);
+    if (historyBtn) historyBtn.classList.toggle('ms-chat-iconbtn--shown', auth.signedIn);
+    updateShareBtn();          // hides the email-capture entry point when signed in
+    updateWelcomeAuth();       // greeting / sign-in card inside the welcome state
+    if (!auth.signedIn) closeHistory();
+  }
+
+  // Welcome-state additions: a "Hallo {Name}" greeting when signed in, and the
+  // sign-in benefits card when settled-but-anonymous. Both live in containers
+  // built into the welcome element; emptied/filled here.
+  function updateWelcomeAuth() {
+    if (welcomeGreetingEl) {
+      if (auth.signedIn) {
+        welcomeGreetingEl.textContent = auth.name ? ('Hallo ' + auth.name + '!') : 'Schön, dass du wieder da bist!';
+        welcomeGreetingEl.style.display = '';
+      } else {
+        welcomeGreetingEl.textContent = '';
+        welcomeGreetingEl.style.display = 'none';
+      }
+    }
+    if (welcomeAuthEl) {
+      welcomeAuthEl.replaceChildren();
+      if (auth.settled && !auth.signedIn) welcomeAuthEl.appendChild(buildSignInCard());
+    }
+  }
+
+  // --- Conversation-history drawer (signed-in only) ---------------------------
+  function buildHistoryDrawer() {
+    historyEl = el('div', { class: 'ms-chat-history', 'aria-hidden': 'true', role: 'dialog', 'aria-label': ACCOUNT_COPY.historyAria });
+
+    var head = el('div', { class: 'ms-chat-history-head' });
+    historyTitleEl = el('span', { class: 'ms-chat-history-title', text: ACCOUNT_COPY.historyTitle });
+    var back = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Verlauf schließen' });
+    back.appendChild(icon('close'));
+    back.addEventListener('click', closeHistory);
+    head.appendChild(historyTitleEl);
+    head.appendChild(back);
+    historyEl.appendChild(head);
+
+    var newBtn = el('button', { class: 'ms-chat-btn ms-chat-btn--primary ms-chat-history-new', type: 'button' });
+    newBtn.appendChild(icon('plus'));
+    newBtn.appendChild(el('span', { text: ACCOUNT_COPY.newChat }));
+    newBtn.addEventListener('click', function () { track('account_new_consultation', {}); startNewChat(); closeHistory(); });
+    historyEl.appendChild(newBtn);
+
+    historyListEl = el('div', { class: 'ms-chat-history-list' });
+    historyEl.appendChild(historyListEl);
+
+    var foot = el('div', { class: 'ms-chat-history-foot' });
+    var outBtn = el('button', { class: 'ms-chat-history-link', type: 'button', text: ACCOUNT_COPY.logout });
+    outBtn.addEventListener('click', signOut);
+    foot.appendChild(outBtn);
+    var eraseWrap = el('div', { class: 'ms-chat-history-erase' });
+    buildEraseControl(eraseWrap);
+    foot.appendChild(eraseWrap);
+    historyEl.appendChild(foot);
+
+    panel.appendChild(historyEl);
+  }
+
+  function openHistory() {
+    if (!historyEl || !auth.signedIn) return;
+    track('account_history_opened', {});
+    historyTitleEl.textContent = auth.name ? ('Hallo ' + auth.name) : ACCOUNT_COPY.historyTitle;
+    historyEl.classList.add('ms-chat-history--open');
+    historyEl.setAttribute('aria-hidden', 'false');
+    loadConversations();
+  }
+  function closeHistory() {
+    if (!historyEl) return;
+    historyEl.classList.remove('ms-chat-history--open');
+    historyEl.setAttribute('aria-hidden', 'true');
+  }
+
+  // 401 on any /api/account/* call means the session no longer resolves
+  // (logged out / expired / erased) — fail closed and drop back to anonymous.
+  function accountUnauthorized() {
+    applyAuth(null);
+    closeHistory();
+  }
+
+  function loadConversations() {
+    historyListEl.replaceChildren(el('div', { class: 'ms-chat-history-empty', text: ACCOUNT_COPY.loading }));
+    fetch(API_BASE + '/api/account/conversations', { method: 'GET', headers: accountHeaders() })
+      .then(function (r) {
+        if (r.status === 401) { accountUnauthorized(); throw 0; }
+        return r.ok ? r.json() : null;
+      })
+      .then(function (data) { renderConversations((data && data.conversations) || []); })
+      .catch(function (e) {
+        if (e === 0) return;
+        historyListEl.replaceChildren(el('div', { class: 'ms-chat-history-empty', text: ACCOUNT_COPY.loadError }));
+      });
+  }
+
+  function renderConversations(list) {
+    historyListEl.replaceChildren();
+    if (!list.length) {
+      historyListEl.appendChild(el('div', { class: 'ms-chat-history-empty', text: ACCOUNT_COPY.empty }));
+      return;
+    }
+    for (var i = 0; i < list.length; i++) historyListEl.appendChild(buildConversationItem(list[i]));
+  }
+
+  function convDate(c) {
+    var iso = c.updatedAt || c.createdAt;
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch (e) { return ''; }
+  }
+
+  function buildConversationItem(c) {
+    var item = el('div', { class: 'ms-chat-conv' });
+    if (activeConversationId != null && c.conversationId === activeConversationId) item.classList.add('ms-chat-conv--active');
+
+    var openBtn = el('button', { class: 'ms-chat-conv-open', type: 'button' });
+    var titleEl = el('span', { class: 'ms-chat-conv-title', text: c.title || 'Beratung' });
+    var meta = [ACCOUNT_COPY.msgCount(c.messageCount), convDate(c)].filter(Boolean).join(' · ');
+    openBtn.appendChild(titleEl);
+    openBtn.appendChild(el('span', { class: 'ms-chat-conv-meta', text: meta }));
+    openBtn.addEventListener('click', function () { openConversation(c.conversationId); });
+    item.appendChild(openBtn);
+
+    var acts = el('div', { class: 'ms-chat-conv-acts' });
+    var renameBtn = el('button', { class: 'ms-chat-iconbtn ms-chat-conv-act', type: 'button', 'aria-label': ACCOUNT_COPY.rename, title: ACCOUNT_COPY.rename });
+    renameBtn.appendChild(icon('pencil'));
+    renameBtn.addEventListener('click', function () { startRename(item, c, titleEl); });
+    var delBtn = el('button', { class: 'ms-chat-iconbtn ms-chat-conv-act', type: 'button', 'aria-label': ACCOUNT_COPY.del, title: ACCOUNT_COPY.del });
+    delBtn.appendChild(icon('trash'));
+    delBtn.addEventListener('click', function () { startDelete(item, c); });
+    acts.appendChild(renameBtn);
+    acts.appendChild(delBtn);
+    item.appendChild(acts);
+    return item;
+  }
+
+  // Inline rename (PATCH /api/account/conversations/{id}) — no native prompt.
+  function startRename(item, c, titleEl) {
+    if (item.querySelector('.ms-chat-conv-edit')) return;
+    item.classList.add('ms-chat-conv--editing');
+    var form = el('form', { class: 'ms-chat-conv-edit' });
+    var input = el('input', { type: 'text', value: c.title || '', maxlength: '80', 'aria-label': ACCOUNT_COPY.rename });
+    var save = el('button', { type: 'submit', class: 'ms-chat-conv-mini ms-chat-conv-mini--primary', text: ACCOUNT_COPY.save });
+    var cancel = el('button', { type: 'button', class: 'ms-chat-conv-mini', text: ACCOUNT_COPY.cancel });
+    form.appendChild(input);
+    form.appendChild(save);
+    form.appendChild(cancel);
+    function done() { item.classList.remove('ms-chat-conv--editing'); if (form.parentNode) form.remove(); }
+    cancel.addEventListener('click', done);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var next = input.value.trim();
+      if (!next) { try { input.focus(); } catch (er) {} return; }
+      save.disabled = true;
+      fetch(API_BASE + '/api/account/conversations/' + encodeURIComponent(c.conversationId), {
+        method: 'PATCH',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, accountHeaders()),
+        body: JSON.stringify({ title: next })
+      }).then(function (r) {
+        if (r.status === 401) { accountUnauthorized(); throw 0; }
+        return r.ok ? r.json() : null;
+      }).then(function (data) {
+        if (data && data.ok) { c.title = data.title; titleEl.textContent = data.title; track('conversation_renamed', {}); }
+        done();
+      }).catch(function (er) { if (er === 0) return; save.disabled = false; });
+    });
+    item.appendChild(form);
+    setTimeout(function () { try { input.focus(); input.select(); } catch (e) {} }, 30);
+  }
+
+  // Inline two-step delete (DELETE /api/account/conversations/{id}). Honest
+  // wording per CUSTOMER_ACCOUNT.md §7.4 — "this chat", not "all data".
+  function startDelete(item, c) {
+    if (item.querySelector('.ms-chat-conv-confirm')) return;
+    item.classList.add('ms-chat-conv--confirm');
+    var bar = el('div', { class: 'ms-chat-conv-confirm' });
+    bar.appendChild(el('span', { class: 'ms-chat-conv-confirm-text', text: ACCOUNT_COPY.deleteConfirm }));
+    var yes = el('button', { type: 'button', class: 'ms-chat-conv-mini ms-chat-conv-mini--danger', text: ACCOUNT_COPY.deleteYes });
+    var no = el('button', { type: 'button', class: 'ms-chat-conv-mini', text: ACCOUNT_COPY.cancel });
+    bar.appendChild(yes);
+    bar.appendChild(no);
+    function done() { item.classList.remove('ms-chat-conv--confirm'); if (bar.parentNode) bar.remove(); }
+    no.addEventListener('click', done);
+    yes.addEventListener('click', function () {
+      yes.disabled = true;
+      fetch(API_BASE + '/api/account/conversations/' + encodeURIComponent(c.conversationId), { method: 'DELETE', headers: accountHeaders() })
+        .then(function (r) {
+          if (r.status === 401) { accountUnauthorized(); throw 0; }
+          return r.ok ? r.json() : null;
+        })
+        .then(function (data) {
+          if (data && data.deleted) {
+            track('conversation_deleted', {});
+            // If the active thread was deleted, clear the local view too.
+            if (activeConversationId != null && c.conversationId === activeConversationId) {
+              lsDel(historyKey()); messages = []; activeConversationId = null; renderAllMessages();
+            }
+            item.remove();
+            if (!historyListEl.querySelector('.ms-chat-conv')) renderConversations([]);
+          } else { done(); }
+        })
+        .catch(function (er) { if (er === 0) return; yes.disabled = false; });
+    });
+    item.appendChild(bar);
+  }
+
+  // Open a past conversation: fetch the transcript and load it into the local
+  // view as the active thread (GET /api/account/conversations/{id}). The
+  // transcript carries readable turns only (§7.2); we render them as text
+  // bubbles and persist under the current session so a reload keeps them.
+  function transcriptToMessages(conv) {
+    var out = [];
+    var arr = (conv && conv.messages) || [];
+    for (var i = 0; i < arr.length; i++) {
+      var m = arr[i];
+      if (!m || (m.role !== 'user' && m.role !== 'assistant')) continue;
+      out.push({ id: m.role.charAt(0) + '-' + uuid(), role: m.role, parts: [{ type: 'text', text: m.content || '' }] });
+    }
+    return out;
+  }
+  function openConversation(id) {
+    fetch(API_BASE + '/api/account/conversations/' + encodeURIComponent(id), { method: 'GET', headers: accountHeaders() })
+      .then(function (r) {
+        if (r.status === 401) { accountUnauthorized(); throw 0; }
+        return r.ok ? r.json() : null;
+      })
+      .then(function (data) {
+        var conv = data && data.conversation;
+        if (!conv) throw new Error('no conversation');
+        track('conversation_opened', {});
+        messages = transcriptToMessages(conv).slice(-40);
+        activeConversationId = conv.conversationId;
+        saveHistory();
+        if (rateTimer) { clearTimeout(rateTimer); rateTimer = null; }
+        state.rateLocked = false;
+        state.streaming = false;
+        updateInputState();
+        renderAllMessages();
+        closeHistory();
+        scrollToBottom();
+      })
+      .catch(function (e) {
+        if (e === 0) return;
+        closeHistory();
+        showMessageError(ACCOUNT_COPY.openError);
+      });
+  }
+
+  // Delete ALL my data (POST /api/account/erase, §7.5) — distinct, heavier than
+  // a per-chat delete. Two-step inline confirm in the drawer footer.
+  function buildEraseControl(wrap) {
+    wrap.replaceChildren();
+    var btn = el('button', { class: 'ms-chat-history-link ms-chat-history-erase-btn', type: 'button', text: ACCOUNT_COPY.erase });
+    btn.addEventListener('click', function () {
+      var box = el('div', { class: 'ms-chat-erase-confirm' });
+      box.appendChild(el('div', { class: 'ms-chat-erase-text', text: ACCOUNT_COPY.eraseConfirm }));
+      var row = el('div', { class: 'ms-chat-erase-actions' });
+      var yes = el('button', { type: 'button', class: 'ms-chat-conv-mini ms-chat-conv-mini--danger', text: ACCOUNT_COPY.eraseYes });
+      var no = el('button', { type: 'button', class: 'ms-chat-conv-mini', text: ACCOUNT_COPY.cancel });
+      row.appendChild(yes);
+      row.appendChild(no);
+      box.appendChild(row);
+      var msg = el('div', { class: 'ms-chat-erase-msg', style: 'display:none' });
+      box.appendChild(msg);
+      wrap.replaceChildren(box);
+      no.addEventListener('click', function () { buildEraseControl(wrap); });
+      yes.addEventListener('click', function () {
+        yes.disabled = true; no.disabled = true;
+        fetch(API_BASE + '/api/account/erase', { method: 'POST', headers: accountHeaders() })
+          .then(function (r) {
+            if (r.status === 401) { return { erased: true }; } // already gone -> treat as done
+            if (!r.ok) throw new Error('erase ' + r.status); // 503 etc. -> retry
+            return r.json();
+          })
+          .then(function (data) {
+            if (data && data.erased) {
+              track('account_erased', {});
+              lsDel(historyKey()); messages = []; activeConversationId = null;
+              applyAuth(null); // session no longer resolves
+              renderAllMessages();
+              closeHistory();
+            } else { throw new Error('not erased'); }
+          })
+          .catch(function () { msg.style.display = ''; msg.textContent = ACCOUNT_COPY.eraseError; yes.disabled = false; no.disabled = false; });
+      });
+    });
+    wrap.appendChild(btn);
+  }
+
+  // ---------------------------------------------------------------------------
   // Init.
   // ---------------------------------------------------------------------------
   function init() {
@@ -2819,6 +3399,9 @@
     recordTrail();
     initNudgeTriggers();
     playLauncherAttention();
+    // Customer Account: process a sign-in/logout return marker (?ms_auth=…),
+    // re-hydrating identity and re-opening the panel onto the SAME conversation.
+    handleAuthReturn();
   }
 
   // Delegated handler for storefront product-page CTAs. Reading product id +
