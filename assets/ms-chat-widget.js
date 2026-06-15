@@ -937,6 +937,53 @@
       .catch(function () { applyAuth(null); return auth; });
   }
 
+  // Shop-native already-signed-in detection (CUSTOMER_ACCOUNT.md §3). Reaches
+  // GET /api/auth/storefront through the Shopify App Proxy at the SAME-ORIGIN
+  // path `/apps/chat/whoami` — the one channel where Shopify itself vouches the
+  // logged-in customer to our cross-origin backend (it adds a signed
+  // `logged_in_customer_id`). This recognises a customer who signed in via the
+  // shop's OWN account icon — which /api/auth/me alone can never see — so the
+  // widget never shows a stale "Anmelden" to an already-signed-in visitor. The
+  // path is same-origin (no API_BASE, no x-ms-chat-key; Shopify's HMAC is the
+  // guard); it carries cookies so Shopify can attach the live session. Resolves
+  // to `true` once it has applied a signed-in identity. Degrades silently: if
+  // the proxy isn't configured yet (a storefront 404 / non-JSON page) or the
+  // session is logged out, it resolves `false` and the caller falls back to the
+  // chatbot-OAuth re-hydration path — so this is purely additive.
+  var storefrontDetectDone = false;
+  function detectViaStorefront(force) {
+    if (storefrontDetectDone && !force) return Promise.resolve(auth.signedIn);
+    storefrontDetectDone = true;
+    var base = String(CFG.whoamiPath || '/apps/chat/whoami');
+    var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + 'session=' + encodeURIComponent(sid);
+    return fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) return null; // not configured / storefront 404 -> no detection
+        var ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+        if (ct.indexOf('application/json') < 0) return null; // a storefront HTML page, not the proxy
+        return r.json();
+      })
+      .then(function (data) {
+        if (data && data.signedIn) { applyAuth(data); return true; }
+        return false;
+      })
+      .catch(function () { return false; });
+  }
+
+  // Resolve signed-in state on open / on becoming visible (task §1). The App
+  // Proxy detection runs first (catches the shop's OWN login); only if that
+  // comes back not-signed-in do we re-hydrate a chatbot-OAuth session via
+  // /api/auth/me — and then only when a local hint says it's worth a call, so a
+  // pure-anonymous visitor stays quiet. Either way a not-signed-in result
+  // settles the anonymous UX unchanged (renders the sign-in affordance).
+  function detectSignedIn(force) {
+    return detectViaStorefront(force).then(function (signedIn) {
+      if (signedIn) return;
+      if (shouldProbeAuth()) return probeAuth(force).then(function () {});
+      applyAuth(null);
+    });
+  }
+
   // Top-level redirect into the backend's hosted sign-in, returning to THIS
   // page so the same conversation re-hydrates (CUSTOMER_ACCOUNT.md §2). We do
   // NOT use prompt=none here — this is a deliberate user click. The silent
@@ -1001,15 +1048,17 @@
     closeHistory();
   }
 
-  // First-open auth resolution (lazy: no network for pure-anonymous visitors,
-  // so the no-sign-in path stays byte-identical — nothing fires until the
-  // panel is opened, and even then only when a hint says it's worth probing).
+  // Auth resolution on panel open (task §1). We detect promptly so a customer
+  // who is already signed in — via the shop's own login OR the chatbot — sees
+  // their identity, never a stale "Anmelden". Once known signed-in there's
+  // nothing to redo; otherwise we (re-)detect on each open so a sign-in that
+  // happened on the storefront since the last open is reflected.
   var authOpenHandled = false;
   function resolveAuthOnOpen() {
-    if (authOpenHandled) return;
+    if (auth.signedIn) return;          // already known signed-in
+    if (authOpenHandled) { detectSignedIn(true); return; } // re-check on a later open
     authOpenHandled = true;
-    if (shouldProbeAuth()) probeAuth();
-    else applyAuth(null); // settle as not-signed-in -> renders the sign-in card
+    detectSignedIn();
   }
 
   // ---------------------------------------------------------------------------
@@ -1726,7 +1775,7 @@
   // ---------------------------------------------------------------------------
   var root, launcher, panel, backdrop, modeBtn, shareBtn, downloadBtn, messagesEl, textarea, sendBtn, micBtn, vmBtn, speakingBtn, noticeEl, welcomeEl;
   // Customer Account tier-3 chrome (built in buildShell / buildWelcome).
-  var signInBtn, historyBtn, historyEl, historyListEl, historyTitleEl, welcomeGreetingEl, welcomeAuthEl;
+  var signInBtn, accountBtn, accountNameEl, historyEl, historyListEl, historyTitleEl, welcomeGreetingEl, welcomeAuthEl;
   // Desktop layout mode, persisted across page loads. 'sidebar' = docked
   // right-edge sidebar (page makes room, site stays interactive); 'modal' =
   // centered near-fullscreen modal over the blurred backdrop. Mobile ignores
@@ -1780,8 +1829,8 @@
     shareBtn = el('button', { class: 'ms-chat-share', type: 'button', text: 'Per E-Mail teilen', 'aria-label': 'Zusammenfassung per E-Mail teilen', title: 'Zusammenfassung per E-Mail' });
     shareBtn.addEventListener('click', function () { openCaptureForm(); });
     actions.appendChild(shareBtn);
-    // Signed-in (tier 3): download the branded HTML summary of the ACTIVE thread
-    // (CUSTOMER_ACCOUNT.md §8) — replaces the email-share path that's suppressed
+    // Signed-in (tier 3): download the branded PDF summary of the ACTIVE thread
+    // (CUSTOMER_ACCOUNT.md §11) — replaces the email-share path that's suppressed
     // for signed-in customers. Same quiet-pill chrome as the share button;
     // updateDownloadBtn() reveals it once a downloadable thread exists.
     downloadBtn = el('button', { class: 'ms-chat-download', type: 'button', 'aria-label': 'Zusammenfassung herunterladen', title: 'Zusammenfassung herunterladen' });
@@ -1789,16 +1838,24 @@
     downloadBtn.appendChild(el('span', { text: 'Zusammenfassung' }));
     downloadBtn.addEventListener('click', downloadSummary);
     actions.appendChild(downloadBtn);
-    // Customer Account (tier 3): "Anmelden" pill (shown only when settled +
-    // not signed in) and the conversation-history button (shown only when
-    // signed in). Both hidden by default; reflectAuthState() toggles them.
+    // Customer Account (tier 3): the "Anmelden" pill (shown only when the auth
+    // state is settled + NOT signed in) and the signed-in identity pill (the
+    // customer's name, shown only when signed in — it opens the conversation
+    // history). Both hidden by default; reflectAuthState() toggles them so a
+    // signed-in customer never sees "Anmelden" and an anonymous one never sees
+    // a name. The Anmelden button INITIATES the sign-in flow directly (the same
+    // top-level redirect the in-chat sign-in card triggers, task §2) — it used
+    // to merely scroll to an already-visible card, which read as "nothing
+    // happened".
     signInBtn = el('button', { class: 'ms-chat-signin-btn', type: 'button', text: ACCOUNT_COPY.signInHeader, 'aria-label': 'Mit Konto anmelden' });
-    signInBtn.addEventListener('click', function () { openSignInCard(); });
+    signInBtn.addEventListener('click', function () { initiateLogin(); });
     actions.appendChild(signInBtn);
-    historyBtn = el('button', { class: 'ms-chat-iconbtn ms-chat-history-btn', type: 'button', 'aria-label': ACCOUNT_COPY.historyAria, title: ACCOUNT_COPY.historyAria });
-    historyBtn.appendChild(icon('history'));
-    historyBtn.addEventListener('click', openHistory);
-    actions.appendChild(historyBtn);
+    accountBtn = el('button', { class: 'ms-chat-account-btn', type: 'button', 'aria-label': ACCOUNT_COPY.historyAria, title: ACCOUNT_COPY.historyAria });
+    accountBtn.appendChild(icon('user'));
+    accountNameEl = el('span', { class: 'ms-chat-account-name' });
+    accountBtn.appendChild(accountNameEl);
+    accountBtn.addEventListener('click', openHistory);
+    actions.appendChild(accountBtn);
     // Feature 6 (reworked): desktop layout-mode toggle, sidebar ⇄ modal.
     // Hidden on mobile via CSS (.ms-chat-mode); icon/labels set by
     // applyViewMode().
@@ -1911,7 +1968,11 @@
     // Voice mode is hands-free and audible — auto-disable it when the tab is
     // backgrounded so it never keeps the mic open / speaks off-screen.
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden && voiceMode) disableVoiceMode();
+      if (document.hidden) { if (voiceMode) disableVoiceMode(); return; }
+      // Became visible again (task §1): if the chat is open and we're not signed
+      // in, re-run detection so a sign-in done on the storefront in another tab
+      // is picked up promptly and the "Anmelden" affordance never goes stale.
+      if (state.open && !auth.signedIn) detectSignedIn(true);
     });
   }
 
@@ -3701,11 +3762,13 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Signed-in summary download (CUSTOMER_ACCOUNT.md §8). Guarded XHR to
-  // GET /api/account/summary?conversationKey=… → branded HTML document, saved
-  // as a file client-side (a plain <a download> can't send the x-ms-chat-key +
-  // session guards). On-demand and may make one AI call, so it can take a
-  // moment — we show a busy state and impose NO short timeout.
+  // Signed-in summary download (CUSTOMER_ACCOUNT.md §11). Guarded XHR to
+  // GET /api/account/summary?conversationKey=… → a branded PDF document
+  // (Content-Type: application/pdf, since 10E-1), saved as a file client-side
+  // (a plain <a download> can't send the x-ms-chat-key + session guards). The
+  // response body is taken as a Blob and saved behind the button. On-demand and
+  // may make one AI call, so it can take a moment — we show a busy state and
+  // impose NO short timeout.
   // ---------------------------------------------------------------------------
   var DOWNLOAD_COPY = {
     notFound: 'Für diese Beratung gibt es noch keine Zusammenfassung.',
@@ -3728,8 +3791,11 @@
       if (!res.ok) throw new Error('summary ' + res.status);
       return res.blob();
     }).then(function (blob) {
+      // The endpoint returns a PDF (10E-1); save it with a .pdf name so the OS
+      // opens it correctly. The Blob already carries application/pdf from the
+      // response, so no explicit re-typing is needed.
       var url = URL.createObjectURL(blob);
-      var a = el('a', { href: url, download: 'motionsports-zusammenfassung.html' });
+      var a = el('a', { href: url, download: 'motionsports-zusammenfassung.pdf' });
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -3775,33 +3841,6 @@
     body.appendChild(btn);
     card.appendChild(body);
     return card;
-  }
-
-  // Header "Anmelden" entry point for mid-conversation (when the welcome state
-  // — which already shows the card — isn't on screen). Drops the same card into
-  // the message stream; never stacks.
-  var lastSignInRow = null;
-  function openSignInCard() {
-    try {
-      openPanel();
-      if (auth.signedIn) return;
-      if (welcomeEl && welcomeEl.parentNode === messagesEl && welcomeAuthEl && welcomeAuthEl.firstChild) {
-        welcomeAuthEl.scrollIntoView({ block: 'nearest' });
-        return;
-      }
-      if (lastSignInRow && lastSignInRow.parentNode === messagesEl) {
-        lastSignInRow.scrollIntoView({ block: 'nearest' });
-        return;
-      }
-      clearWelcome();
-      var ar = assistantRow();
-      ar.content.appendChild(buildSignInCard());
-      messagesEl.appendChild(ar.row);
-      lastSignInRow = ar.row;
-      scrollToBottom();
-    } catch (e) {
-      try { console.error('[ms-chat] openSignInCard failed', e); } catch (e2) {}
-    }
   }
 
   // At-sign-in marketing opt-in (CONSENT_FLOW.md §2). UI CHROME only (German) —
@@ -4047,7 +4086,12 @@
   // share button behaves exactly as before).
   function reflectAuthState() {
     if (signInBtn) signInBtn.classList.toggle('ms-chat-signin-btn--visible', auth.settled && !auth.signedIn);
-    if (historyBtn) historyBtn.classList.toggle('ms-chat-iconbtn--shown', auth.signedIn);
+    if (accountBtn) {
+      // Signed in: the header shows the customer's name (task §2) in place of
+      // the "Anmelden" button; tapping it opens their conversation history.
+      accountBtn.classList.toggle('ms-chat-account-btn--shown', auth.signedIn);
+      if (accountNameEl) accountNameEl.textContent = auth.name || 'Konto';
+    }
     updateShareBtn();          // hides the email-capture entry point when signed in
     updateWelcomeAuth();       // greeting / sign-in card inside the welcome state
     if (!auth.signedIn) closeHistory();
@@ -4092,7 +4136,12 @@
     var newBtn = el('button', { class: 'ms-chat-btn ms-chat-btn--primary ms-chat-history-new', type: 'button' });
     newBtn.appendChild(icon('plus'));
     newBtn.appendChild(el('span', { text: ACCOUNT_COPY.newChat }));
-    newBtn.addEventListener('click', function () { track('account_new_consultation', {}); startNewChat(); closeHistory(); });
+    newBtn.addEventListener('click', function () {
+      track('account_new_consultation', {});
+      startNewChat();                              // mints a fresh conversationKey
+      addOptimisticConversation(activeConversationKey); // task §3: show it at once
+      closeHistory();                              // reveal the empty chat to type in
+    });
     historyEl.appendChild(newBtn);
 
     historyListEl = el('div', { class: 'ms-chat-history-list' });
@@ -4125,12 +4174,12 @@
   }
 
   // Task §1: surface the conversation history PROMINENTLY for signed-in
-  // customers rather than leaving it behind the header icon. When a signed-in
+  // customers rather than leaving it behind a header control. When a signed-in
   // customer opens the chat onto the welcome state (no conversation in
   // progress), land them straight on their history list — past beratungen +
   // "Neue Beratung". A mid-conversation reopen (messages present) is left alone
-  // so we never cover an active chat. The header icon stays as the re-entry.
-  // Armed on each panel open and flushed once /api/auth/me has settled.
+  // so we never cover an active chat. The header name pill stays as the re-entry.
+  // Armed on each panel open and flushed once detection has settled.
   var autoHistoryArmed = false;
   function maybeAutoOpenHistory() {
     if (!state.open || !auth.signedIn) return;
@@ -4151,21 +4200,91 @@
     closeHistory();
   }
 
+  // The history list is rendered from a small local model so a freshly started
+  // thread is shown IMMEDIATELY and never lost (task §3), reconciling with the
+  // server once it has persisted (10E-1 lists fast + persists eagerly):
+  //   * historyServerList — the last list the backend returned (sorted desc).
+  //   * historyOptimistic  — threads we started locally ("Neue Beratung") that
+  //                          may not be on the server yet; dropped once the
+  //                          server reports the same conversationKey.
+  var historyServerList = [];
+  var historyOptimistic = [];
+  var historyLoaded = false;
+
+  // Optimistically show a just-started thread at the top of the list. Keyed by
+  // its conversationKey so the server entry (same key, written on first send)
+  // replaces it on the next fetch — no duplicate, no flash of "empty". Only one
+  // pending entry is kept: starting another "Neue Beratung" supersedes a prior
+  // one that was never sent (a persisted thread reappears from the server).
+  function addOptimisticConversation(key) {
+    if (!key) return;
+    historyOptimistic = [{
+      conversationKey: key,
+      conversationId: null,
+      title: ACCOUNT_COPY.newChat,
+      messageCount: 0,
+      updatedAt: new Date().toISOString(),
+      optimistic: true
+    }];
+    renderHistoryList();
+  }
+
+  // Drop optimistic entries the server now knows about (matched by key).
+  function reconcileOptimistic() {
+    if (!historyOptimistic.length) return;
+    var known = {};
+    for (var i = 0; i < historyServerList.length; i++) {
+      if (historyServerList[i].conversationKey) known[historyServerList[i].conversationKey] = true;
+    }
+    historyOptimistic = historyOptimistic.filter(function (c) { return !known[c.conversationKey]; });
+  }
+
+  function mergedConversations() {
+    var seen = {};
+    for (var i = 0; i < historyServerList.length; i++) {
+      if (historyServerList[i].conversationKey) seen[historyServerList[i].conversationKey] = true;
+    }
+    var pending = historyOptimistic.filter(function (c) { return !seen[c.conversationKey]; });
+    return pending.concat(historyServerList); // optimistic (newest) first, then server
+  }
+
   function loadConversations() {
-    historyListEl.replaceChildren(el('div', { class: 'ms-chat-history-empty', text: ACCOUNT_COPY.loading }));
+    // Render what we already have instantly; only the first-ever load with
+    // nothing to show gets the skeleton (never a long blank — task §3).
+    if (historyLoaded || historyOptimistic.length) renderHistoryList();
+    else renderHistorySkeleton();
     fetch(API_BASE + '/api/account/conversations', { method: 'GET', headers: accountHeaders() })
       .then(function (r) {
         if (r.status === 401) { accountUnauthorized(); throw 0; }
         return r.ok ? r.json() : null;
       })
-      .then(function (data) { renderConversations((data && data.conversations) || []); })
+      .then(function (data) {
+        historyServerList = (data && data.conversations) || [];
+        historyLoaded = true;
+        reconcileOptimistic();
+        renderHistoryList();
+      })
       .catch(function (e) {
         if (e === 0) return;
-        historyListEl.replaceChildren(el('div', { class: 'ms-chat-history-empty', text: ACCOUNT_COPY.loadError }));
+        // Keep anything we can still show; only a truly empty list surfaces the error.
+        if (mergedConversations().length) renderHistoryList();
+        else historyListEl.replaceChildren(el('div', { class: 'ms-chat-history-empty', text: ACCOUNT_COPY.loadError }));
       });
   }
 
-  function renderConversations(list) {
+  // A few shimmer rows while the first list fetch is in flight.
+  function renderHistorySkeleton() {
+    historyListEl.replaceChildren();
+    for (var i = 0; i < 5; i++) {
+      var row = el('div', { class: 'ms-chat-conv-skel', 'aria-hidden': 'true' });
+      row.appendChild(el('span', { class: 'ms-chat-conv-skel-title' }));
+      row.appendChild(el('span', { class: 'ms-chat-conv-skel-meta' }));
+      historyListEl.appendChild(row);
+    }
+  }
+
+  function renderHistoryList() {
+    var list = mergedConversations();
     historyListEl.replaceChildren();
     if (!list.length) {
       historyListEl.appendChild(el('div', { class: 'ms-chat-history-empty', text: ACCOUNT_COPY.empty }));
@@ -4184,15 +4303,31 @@
     } catch (e) { return ''; }
   }
 
+  // Is this row the thread currently loaded in the view? Match by the stable
+  // conversationKey first (survives the optimistic→server reconcile), then the
+  // numeric id for legacy/server-only rows.
+  function isActiveConv(c) {
+    if (activeConversationKey && c.conversationKey && c.conversationKey === activeConversationKey) return true;
+    return activeConversationId != null && c.conversationId === activeConversationId;
+  }
+
   function buildConversationItem(c) {
     var item = el('div', { class: 'ms-chat-conv' });
-    if (activeConversationId != null && c.conversationId === activeConversationId) item.classList.add('ms-chat-conv--active');
+    if (isActiveConv(c)) item.classList.add('ms-chat-conv--active');
 
     var openBtn = el('button', { class: 'ms-chat-conv-open', type: 'button' });
-    var titleEl = el('span', { class: 'ms-chat-conv-title', text: c.title || 'Beratung' });
+    var titleEl = el('span', { class: 'ms-chat-conv-title', text: c.title || ACCOUNT_COPY.newChat });
     var meta = [ACCOUNT_COPY.msgCount(c.messageCount), convDate(c)].filter(Boolean).join(' · ');
     openBtn.appendChild(titleEl);
     openBtn.appendChild(el('span', { class: 'ms-chat-conv-meta', text: meta }));
+    // An optimistic (not-yet-persisted) row IS the active new chat — opening it
+    // just returns to that empty chat; there's no server transcript to fetch
+    // and no row to rename/delete yet.
+    if (c.optimistic) {
+      openBtn.addEventListener('click', function () { closeHistory(); });
+      item.appendChild(openBtn);
+      return item;
+    }
     openBtn.addEventListener('click', function () { openConversation(c.conversationId); });
     item.appendChild(openBtn);
 
@@ -4266,12 +4401,15 @@
         .then(function (data) {
           if (data && data.deleted) {
             track('conversation_deleted', {});
+            // Drop it from the model so it can't reappear before the next fetch.
+            historyServerList = historyServerList.filter(function (x) { return x.conversationId !== c.conversationId; });
+            historyOptimistic = historyOptimistic.filter(function (x) { return !x.conversationKey || x.conversationKey !== c.conversationKey; });
             // If the active thread was deleted, clear the local view too.
-            if (activeConversationId != null && c.conversationId === activeConversationId) {
+            if (isActiveConv(c)) {
               lsDel(historyKey()); messages = []; activeConversationId = null; clearConvKey(); renderAllMessages();
             }
             item.remove();
-            if (!historyListEl.querySelector('.ms-chat-conv')) renderConversations([]);
+            if (!historyListEl.querySelector('.ms-chat-conv')) renderHistoryList();
           } else { done(); }
         })
         .catch(function (er) { if (er === 0) return; yes.disabled = false; });

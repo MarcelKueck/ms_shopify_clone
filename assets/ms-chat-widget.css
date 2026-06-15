@@ -584,10 +584,32 @@ html.ms-chat-page-anim {
 .ms-chat-signin-btn:hover { background: rgb(var(--msc-accent) / 12%); }
 .ms-chat-signin-btn:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
 
-/* History icon button — hidden unless signed in (reflectAuthState adds the
-   --shown modifier). */
-.ms-chat-history-btn { display: none; }
-.ms-chat-history-btn.ms-chat-iconbtn--shown { display: flex; }
+/* Signed-in identity pill — the customer's name in the header (task §2),
+   shown in place of the "Anmelden" button once signed in; opens the
+   conversation history. Hidden until reflectAuthState adds --shown. Same
+   quiet-pill chrome as the share button, with a leading user glyph. */
+.ms-chat-account-btn {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  max-width: 160px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: 999px;
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-fg));
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.ms-chat-account-btn--shown { display: inline-flex; animation: ms-chat-share-in 420ms ease-out both; }
+.ms-chat-account-btn:hover { background: var(--msc-surface); }
+.ms-chat-account-btn:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
+.ms-chat-account-btn svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.ms-chat-account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Welcome-state signed-in greeting (above the starters). */
 .ms-chat-welcome-greeting {
@@ -692,55 +714,86 @@ html.ms-chat-page-anim {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ms-chat-history-new { width: calc(100% - 32px); margin: 14px 16px 6px; }
+/* Prominent "Neue Beratung" action, full width with consistent gutters. */
+.ms-chat-history-new { width: calc(100% - 32px); margin: 14px 16px 10px; }
 .ms-chat-history-new svg { width: 16px; height: 16px; }
 .ms-chat-history-list {
   flex: 1 1 auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 8px 12px 12px;
+  padding: 4px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
-.ms-chat-history-empty { padding: 18px 8px; text-align: center; color: var(--msc-muted); font-size: 0.85rem; }
+.ms-chat-history-empty { padding: 28px 12px; text-align: center; color: var(--msc-muted); font-size: 0.85rem; }
 
-/* One conversation row: title+meta (open) on the left, rename/delete on hover. */
+/* One conversation row (ChatGPT/Claude feel): a tidy, full-width tap target —
+   title on top, a muted meta line below; rename/delete reveal on hover/focus
+   so the resting row stays clean. The whole row is a single rounded surface. */
 .ms-chat-conv {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  border-radius: 12px;
-  padding: 2px;
+  gap: 2px;
+  border-radius: 10px;
+  padding: 0;
+  transition: background-color 120ms ease;
 }
 .ms-chat-conv:hover { background: var(--msc-surface); }
-.ms-chat-conv--active { background: rgb(var(--msc-accent) / 8%); }
+.ms-chat-conv--active { background: rgb(var(--msc-accent) / 10%); }
+/* Clear active marker: an accent bar down the leading edge. */
+.ms-chat-conv--active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: rgb(var(--msc-accent));
+}
 .ms-chat-conv-open {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   border: none;
   background: transparent;
   text-align: left;
   cursor: pointer;
-  padding: 8px 10px;
+  padding: 10px 12px;
   font-family: inherit;
   color: rgb(var(--msc-fg));
 }
 .ms-chat-conv-title {
-  font-size: 0.88rem;
+  font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.3;
   color: rgb(var(--msc-heading));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ms-chat-conv-meta { font-size: 0.72rem; color: var(--msc-muted); }
-.ms-chat-conv-acts { display: flex; gap: 2px; flex: 0 0 auto; }
+.ms-chat-conv--active .ms-chat-conv-title { color: rgb(var(--msc-accent)); }
+.ms-chat-conv-meta { font-size: 0.72rem; line-height: 1.2; color: var(--msc-muted); }
+/* Actions reveal on hover / keyboard focus — resting rows stay uncluttered.
+   On touch (coarse pointer, no hover) they stay visible since there's no hover. */
+.ms-chat-conv-acts {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding-right: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.ms-chat-conv:hover .ms-chat-conv-acts,
+.ms-chat-conv:focus-within .ms-chat-conv-acts { opacity: 1; }
+@media (hover: none) {
+  .ms-chat-conv-acts { opacity: 1; }
+}
 .ms-chat-conv-act { width: 32px; height: 32px; min-width: 32px; }
 .ms-chat-conv-act svg { width: 16px; height: 16px; }
 /* When editing or confirming, hide the normal row controls. */
@@ -748,6 +801,37 @@ html.ms-chat-page-anim {
 .ms-chat-conv--editing > .ms-chat-conv-acts,
 .ms-chat-conv--confirm > .ms-chat-conv-open,
 .ms-chat-conv--confirm > .ms-chat-conv-acts { display: none; }
+
+/* Loading skeleton — a few shimmer rows while the first list fetch is pending
+   (task §3): a tidy placeholder, never a long blank. */
+.ms-chat-conv-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px 12px;
+  border-radius: 10px;
+}
+.ms-chat-conv-skel-title,
+.ms-chat-conv-skel-meta {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    rgb(var(--msc-fg) / 7%) 25%,
+    rgb(var(--msc-fg) / 13%) 37%,
+    rgb(var(--msc-fg) / 7%) 63%);
+  background-size: 400% 100%;
+  animation: ms-chat-skel 1.4s ease-in-out infinite;
+}
+.ms-chat-conv-skel-title { width: 72%; }
+.ms-chat-conv-skel-meta { width: 42%; height: 8px; }
+@keyframes ms-chat-skel {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-chat-conv-skel-title,
+  .ms-chat-conv-skel-meta { animation: none; }
+}
 
 .ms-chat-conv-edit { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px; }
 .ms-chat-conv-edit input {
@@ -1530,6 +1614,9 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   .ms-chat-share--visible,
   .ms-chat-download--visible,
   .ms-chat-signin-btn--visible,
+  .ms-chat-account-btn--shown,
+  .ms-chat-conv,
+  .ms-chat-conv-acts,
   .ms-chat-history,
   .ms-chat-panel--open,
   .ms-chat-send,

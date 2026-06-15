@@ -10,12 +10,20 @@
 
 ## What the widget implemented (all from the existing contract)
 
-- **Already-signed-in detection** via `GET /api/auth/me?session={sid}`
-  (guards: `x-ms-chat-key` + `x-ms-session`). Run **lazily on first panel open**,
-  and only when there's a hint it's worth it: a stored "was signed in on this
-  device" flag, or `ShopifyAnalytics.meta.page.customerId` (read as a
-  non-authoritative pre-hint only). Pure-anonymous visitors trigger **no** auth
-  network call at all — the no-sign-in path stays byte-identical.
+- **Already-signed-in detection** (updated 10E-2). On **every panel open** (and
+  again when the tab becomes visible while not signed in) the widget calls the
+  **App Proxy** detection `GET /apps/chat/whoami?session={sid}` (same-origin;
+  Shopify signs `logged_in_customer_id`, `CUSTOMER_ACCOUNT.md §3) **first** — so a
+  customer signed in via the **shop's own** account icon is recognised, not only
+  the chatbot-OAuth path. The proxy subpath defaults to `/apps/chat/whoami` and
+  is overridable via `MS_CHAT_CONFIG.whoamiPath`. If the proxy isn't configured
+  yet (a storefront 404 / non-JSON page) or reports logged-out, the widget falls
+  back to `GET /api/auth/me?session={sid}` (guards `x-ms-chat-key` +
+  `x-ms-session`) — and then only when a local "was signed in on this device"
+  hint says it's worth a call. A not-signed-in result settles the anonymous UX
+  **unchanged**; anonymous / email-only paths render byte-identically (the only
+  visible effect of detection is replacing the login affordances with the
+  signed-in identity when a customer is found).
 - **Sign-in initiation** = top-level redirect to
   `GET /api/auth/shopify/login?session={sid}&return_url={window.location.href}`,
   driven by one button on an in-chat benefits card (no fake login form).
