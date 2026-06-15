@@ -43,7 +43,7 @@
 }
 /* On :root (not .ms-chat-root) because the page-shift rules live on <html>,
    outside the widget tree. Single source of truth for the sidebar width. */
-:root { --ms-chat-sidebar-w: 410px; }
+:root { --ms-chat-sidebar-w: 380px; }
 
 /* ---------- Launcher ---------- */
 .ms-chat-launcher {
