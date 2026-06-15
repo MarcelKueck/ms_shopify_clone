@@ -10,27 +10,28 @@ wins — open an issue and we'll fix one or the other so they match.
 
 Endpoints:
 
-| Method           | Path                              | Purpose                                                        |
-| ---------------- | --------------------------------- | -------------------------------------------------------------- |
-| POST             | `/api/chat`                       | Streaming Claude chat with persona-aware tools.                |
-| POST             | `/api/tts`                        | Text-to-speech for voice mode (streams MP3 audio). §8.         |
-| POST             | `/api/contact`                    | Contact-form submission → email via Resend.                    |
-| GET              | `/api/products`                   | Public product hydration for widget cards.                     |
-| POST             | `/api/kpi`                        | Pseudonymous telemetry ingestion (fire-and-forget).            |
-| POST             | `/api/feedback`                   | Customer feedback capture (free text + optional context). §9.  |
-| POST             | `/api/capture-email`              | GDPR email capture + double opt-in (summary + marketing).      |
-| GET              | `/api/consent-copy`               | Canonical capture-form consent copy (labels + links).          |
-| GET              | `/api/confirm-marketing`          | Marketing double-opt-in confirmation link (HTML page).         |
-| GET              | `/api/unsubscribe`                | Signed unsubscribe link → suppression (HTML page).             |
-| GET              | `/api/auth/shopify/login`         | Customer Account sign-in (top-level redirect).                 |
-| GET              | `/api/auth/shopify/callback`      | OAuth callback (server-side PKCE exchange).                    |
-| GET              | `/api/auth/me`                    | Signed-in identity re-hydration (`{ name, tier, marketing }`). |
-| GET              | `/api/auth/shopify/logout/return` | Logout-return landing.                                         |
-| GET              | `/api/account/conversations`      | Signed-in: LIST past conversations (tier 3).                   |
-| GET/PATCH/DELETE | `/api/account/conversations/{id}` | Signed-in: fetch / rename / delete one conversation.           |
-| GET              | `/api/account/summary`            | Signed-in: download a thread's S5 summary as branded HTML.     |
-| POST             | `/api/account/marketing-opt-in`   | Signed-in: at-sign-in marketing opt-in (DOI).                  |
-| POST             | `/api/account/erase`              | Signed-in: full "delete my data" (erase customer).             |
+| Method           | Path                              | Purpose                                                                      |
+| ---------------- | --------------------------------- | ---------------------------------------------------------------------------- |
+| POST             | `/api/chat`                       | Streaming Claude chat with persona-aware tools.                              |
+| POST             | `/api/tts`                        | Text-to-speech for voice mode (streams MP3 audio). §8.                       |
+| POST             | `/api/contact`                    | Contact-form submission → email via Resend.                                  |
+| GET              | `/api/products`                   | Public product hydration for widget cards.                                   |
+| POST             | `/api/kpi`                        | Pseudonymous telemetry ingestion (fire-and-forget).                          |
+| POST             | `/api/feedback`                   | Customer feedback capture (free text + optional context). §9.                |
+| POST             | `/api/capture-email`              | GDPR email capture + double opt-in (summary + marketing).                    |
+| GET              | `/api/consent-copy`               | Canonical capture-form consent copy (labels + links).                        |
+| GET              | `/api/confirm-marketing`          | Marketing double-opt-in confirmation link (HTML page).                       |
+| GET              | `/api/unsubscribe`                | Signed unsubscribe link → suppression (HTML page).                           |
+| GET              | `/api/auth/shopify/login`         | Customer Account sign-in (top-level redirect).                               |
+| GET              | `/api/auth/shopify/callback`      | OAuth callback (server-side PKCE exchange).                                  |
+| GET              | `/api/auth/me`                    | Signed-in identity re-hydration (`{ name, tier, marketing }`).               |
+| GET              | `/api/auth/storefront`            | Shop-native already-signed-in detection via Shopify App Proxy (HMAC-signed). |
+| GET              | `/api/auth/shopify/logout/return` | Logout-return landing.                                                       |
+| GET              | `/api/account/conversations`      | Signed-in: LIST past conversations (tier 3).                                 |
+| GET/PATCH/DELETE | `/api/account/conversations/{id}` | Signed-in: fetch / rename / delete one conversation.                         |
+| GET              | `/api/account/summary`            | Signed-in: download a thread's S5 summary as a **PDF**.                      |
+| POST             | `/api/account/marketing-opt-in`   | Signed-in: at-sign-in marketing opt-in (DOI).                                |
+| POST             | `/api/account/erase`              | Signed-in: full "delete my data" (erase customer).                           |
 
 > **Customer Account sign-in (tier 3)** is documented in full in
 > [`CUSTOMER_ACCOUNT.md`](./CUSTOMER_ACCOUNT.md) (frontend contract:
@@ -40,7 +41,9 @@ Endpoints:
 > conversation-history** endpoints (`/api/account/*`) are guarded widget XHRs
 > behind the CA-1 signed-in resolver (fail-closed for anonymous / email-only) —
 > see `CUSTOMER_ACCOUNT.md` §9. `/api/account/summary` (the **"Zusammenfassung
-> herunterladen"** download — branded HTML reusing the summary-email renderer),
+> herunterladen"** download — a **PDF** rendered from the same summary-email
+> assembler), `/api/auth/storefront` (**shop-native** detection via an App Proxy;
+> see `CUSTOMER_ACCOUNT.md` §2),
 > `/api/account/marketing-opt-in` (the **at-sign-in opt-in**), and the
 > **tier-3 suppression contract** (`/api/auth/me`'s `tier` gates off the
 > end-of-chat capture widget for tier 3; `marketing.optInActionable` gates the

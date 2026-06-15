@@ -1,430 +1,683 @@
-# Customer Account sign-in — frontend contract
+# Customer Account sign-in (tier-3 identity)
 
-> **Synced copy.** Canonical source is the backend repo
-> (`docs/CUSTOMER_ACCOUNT.md`). Whenever the backend contract changes, re-sync
-> this folder. If anything here disagrees with the code, the code wins.
+> **Status:** CA-1 shipped — auth + identity model + token handling. **CA-2/CA-3
+> shipped** — the signed-in customer's Customer Account data (name, addresses,
+> full order history) is now pulled and fed into the internal profile **and** the
+> live chat via the existing customer-memory mechanism, under the same consent
+> gate and data-minimisation (see [§8](#8-signed-in-data-in-the-profile--live-chat-ca-2--ca-3)).
+> **Signed-in conversation history** (list / fetch / rename / delete + full
+> "delete my data") is documented in [§9](#9-signed-in-conversation-history-tier-3).
+> **CA-4** (at-sign-in marketing opt-in) is in [§10](#10-at-sign-in-marketing-opt-in--the-match-up-ca-4),
+> which also pins the **tier-3 suppression contract** (the end-of-chat capture
+> widget is suppressed for signed-in customers; the opt-in moves to sign-in) and
+> the `marketing.optInActionable` state. The signed-in **conversation summary
+> download** (the S5 summary email reused as a downloadable HTML document) is in
+> [§11](#11-conversation-summary-download-signed-in-s5-structure-reused).
+> The authoritative feasibility report is
+> [`CUSTOMER_ACCOUNT_SPIKE.md`](./CUSTOMER_ACCOUNT_SPIKE.md); this document
+> describes what was built.
 
-This is what the storefront widget needs to add **tier-3 sign-in** (a signed-in
-Shopify customer) on top of the existing anonymous/email-capture flows. The
-widget **never** handles OAuth tokens — it only triggers a full-page redirect and
-later asks the backend who the session belongs to.
+This adds a **third identity tier** to the chat: a *signed-in Shopify customer*.
+It is built on the Shopify **Customer Account API** with an OAuth 2.0
+**authorization-code + PKCE (S256)** flow. The browser **never holds tokens** —
+the widget only ever triggers a top-level redirect; the **backend** performs the
+PKCE code exchange and holds both tokens server-side, encrypted.
 
-**Base URL (production):** `https://chat.motionsports.de` (today the Vercel URL;
-always read it from config — it moves on DNS cutover).
+## 1. The three identity tiers (tiers 1–2 are unchanged)
 
-## 1. The opaque session reference
+| Tier              | Key                                     | Created by                           | Authoritative for                           |
+| ----------------- | --------------------------------------- | ------------------------------------ | ------------------------------------------- |
+| 1 — Anonymous     | `session_id` (localStorage thread id)   | every visit                          | nothing (pseudonymous)                      |
+| 2 — Identified    | normalised **email**                    | `/api/capture-email` (consent + DOI) | our consent record                          |
+| **3 — Signed-in** | **`shopify_customer_id`** (GID numeric) | Customer Account sign-in             | **Shopify**: name, email, addresses, orders |
 
-Nothing new to store. The widget already keeps a stable `session_id` (a UUID in
-`localStorage`, sent as `x-ms-session`). That **same `session_id` is the opaque
-reference** to the signed-in identity after login — it survives the redirect
-unchanged, so the backend links it to the customer and the widget re-hydrates
-exactly as it does on any reload. Do **not** generate a new session id around
-sign-in.
+The model from [`CUSTOMERS.md`](./CUSTOMERS.md) / [`DATA_RETENTION.md`](./DATA_RETENTION.md)
+**still holds**: anonymous stays pseudonymous and unlinked; the email-only
+capture/DOI/consent-audit flow stays the *no-account fallback*; the two clusters
+stay separate; "email lives in one place"; bridges are consent-anchored; and
+re-identification fails closed. Tier 3 is **added**, never a weakening of 1–2.
 
-> **Send the identical `session_id` on every hop.** Use the same value on the
-> login redirect (`?session=`) and on `/api/auth/me` (`x-ms-session` / `?session=`).
-> The backend keys re-hydration on that exact id (it never mints its own), so a
-> different/regenerated id resolves to **`signedIn: false`**. Signing in **before
-> sending any chat message works** — the identity link no longer depends on an
-> existing conversation.
+**What's authoritative where (tier 3):**
 
-## 2. Initiating login — full-page top-level redirect
+- **Shopify** owns the *identity*: name, verified email, addresses, order
+  history. We re-fetch these live (we don't cache customer PII names in CA-1).
+- **Our DB** owns what Shopify doesn't: transcripts, analytics, **our DOI
+  consent**, profile/persona — re-keyed by `shopify_customer_id`.
+- **Marketing consent stays ours.** Signing in establishes **identity, not
+  marketing consent**. Re-keying **never** imports Shopify's marketing state into
+  `marketing_status` — our DOI (`email_captures` / `customers.marketing_status`)
+  remains the only path to `confirmed`. See [`CONSENT_FLOW.md`](./CONSENT_FLOW.md).
 
-Send the **top-level window** (not a popup, not an XHR) to:
+## 2. The PKCE authorization-code flow
 
-```
-GET {BASE_URL}/api/auth/shopify/login
-      ?session={session_id}
-      &return_url={the storefront URL to come back to}
-```
-
-```js
-const url = new URL(`${BASE_URL}/api/auth/shopify/login`);
-url.searchParams.set("session", sessionId);
-url.searchParams.set("return_url", window.location.href); // must be a storefront origin
-window.location.assign(url.toString()); // TOP-LEVEL navigation
-```
-
-- `return_url` **must** be on an allow-listed storefront origin
-  (`https://www.motionsports.de` / `https://motionsports.de`); anything else is
-  ignored and the user is returned to the storefront root (open-redirect guard).
-- The conversation is already server-persisted every turn, so there is nothing
-  to flush first. Optionally stash a small "resume" marker (scroll position) in
-  `localStorage` — the `session_id` itself is all the backend needs.
-- Popups / new tabs are intentionally **not** supported (ITP / storage
-  partitioning breaks cross-origin `postMessage`).
-
-After Shopify auth, the backend finishes server-side and **302s the browser back
-to your `return_url`** with a marker query param:
-
-| `?ms_auth=`      | Meaning                           | Suggested widget action                    |
-| ---------------- | --------------------------------- | ------------------------------------------ |
-| `ok`             | Signed in; conversation re-linked | call `/api/auth/me`, show signed-in state  |
-| `login_required` | `prompt=none` only: not logged in | show the one-click "Sign in" affordance    |
-| `logged_out`     | Returned from logout              | clear signed-in UI                         |
-| `error`          | Anything went wrong               | stay anonymous; optionally offer "Sign in" |
-
-Strip `ms_auth` from the URL after reading it (e.g. `history.replaceState`).
-
-## 3. Already-signed-in check (`prompt=none`)
-
-Many visitors are already logged into Shopify on the storefront. To detect that
-**without a click**, run the same redirect with `&prompt=none`:
-
-```js
-url.searchParams.set("prompt", "none");
-```
-
-- Logged in → Shopify returns silently and you land back on `?ms_auth=ok`.
-- Logged out → you land back on `?ms_auth=login_required`.
-
-**Degraded fallback (plan for it):** if `prompt=none` is not honored on this
-store (the backend verify gate reports this), the silent check won't resolve
-cleanly — there is **no functional loss**. In that case **skip silent detection**
-and simply render a subtle one-click **"Sign in"** affordance that does the §2
-redirect without `prompt=none`. Treat `prompt=none` as a best-effort optimisation,
-not a requirement. (A cheap pre-hint, `ShopifyAnalytics.meta.page.customerId`,
-may be read in JS to decide whether the silent attempt is even worth doing, but
-it is not authoritative — never gate identity on it.)
-
-> Because `prompt=none` causes a full-page redirect too, run it deliberately
-> (e.g. once per session on first widget open), not on every page load.
-
-## 4. Re-hydrating identity — `GET /api/auth/me`
-
-After `?ms_auth=ok` (and on normal widget load) ask the backend who this session
-is. This **is** a widget XHR, so it carries the usual guards.
+All redirect/callback URLs are built from `PUBLIC_BASE_URL` (never hardcoded), so
+the later DNS cutover to `chat.motionsports.de` is just an env flip + re-registering
+the URLs in the Shopify admin.
 
 ```
-GET {BASE_URL}/api/auth/me?session={session_id}
-Headers:
-  x-ms-chat-key: {shared secret}
-  Origin:        {storefront origin}        (browser-set)
-  x-ms-session:  {session_id}               (optional; query param also accepted)
+ widget (storefront, motionsports.de)        backend (Vercel)            Shopify (account.motionsports.de)
+ ────────────────────────────────────        ─────────────────          ──────────────────────────────────
+ top-level redirect →  GET /api/auth/shopify/login?session=&return_url=
+                                              mint code_verifier+nonce
+                                              sign state, store pending
+                       302 →──────────────────────────────────────────→  authorization_endpoint (?code_challenge=S256, prompt?)
+                                                                          customer authenticates
+                       ←──────────────────────  302 /api/auth/shopify/callback?code&state
+                                              verify state + consume pending
+                                              POST token_endpoint (code + verifier)   ← SERVER-SIDE
+                                              verify id_token (jwks/nonce/aud/iss)
+                                              GraphQL customer{ id } → shopify_customer_id
+                                              merge (email↔shopify), encrypt+store tokens
+                       ←──────────────────  302 return_url?ms_auth=ok
+ widget re-mounts, reads same session_id,
+ GET /api/auth/me?session= → { name, tier }
 ```
 
-Response (always HTTP 200, `Cache-Control: no-store`):
+### Endpoints (all under `/api/auth`)
 
-```jsonc
-// signed-in
-{
-  "signedIn": true,
-  "identity": { "name": "Max Mustermann", "tier": 3 },
-  "marketing": { "status": "none", "optInActionable": true }
-}
-// not signed in (or anything unprovable — fails closed)
-{ "signedIn": false }
+| Route                             | Method | Guard                                          | Purpose                                                                                      |
+| --------------------------------- | ------ | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `/api/auth/shopify/login`         | GET    | signed state + origin-allowlisted `return_url` | mint PKCE/state, store pending, 302 to Shopify                                               |
+| `/api/auth/shopify/callback`      | GET    | signed state + single-use pending              | exchange code, verify id_token, merge, store tokens, 302 back                                |
+| `/api/auth/me`                    | GET    | origin allowlist + `x-ms-chat-key`             | identity re-hydration (`{ name, tier }`), fail-closed                                        |
+| `/api/auth/shopify/logout`        | GET    | top-level navigation + return-url allowlist    | server-INITIATE logout: build the OIDC `end_session` redirect from discovery, 302 to Shopify |
+| `/api/auth/shopify/logout/return` | GET    | top-level navigation                           | drop tokens for the session, 302 back to storefront `?ms_auth=logged_out`                    |
+
+`login`, `callback`, `logout`, and `logout/return` are **top-level navigations**
+(like the email-clicked confirm/unsubscribe routes) — no CORS/secret guard. The
+auth pair is protected by the **signed `state`** + the **server-side pending
+record**; the logout pair by the **return-url origin allowlist** (logout is
+server-initiated — it builds the OIDC `end_session` redirect from discovery,
+since the widget can't, and degrades to a local token-drop sign-out when the
+store advertises no `end_session_endpoint`).
+`/api/auth/me` is a widget **XHR**, so it carries the origin allowlist + shared
+secret like `/api/chat`.
+
+### Discovery is the source of truth
+
+Endpoints are resolved at runtime from the storefront domain and cached for 1h:
+
+- `GET https://<SHOPIFY_STOREFRONT_DOMAIN>/.well-known/openid-configuration`
+  → `issuer`, `authorization_endpoint`, `token_endpoint`, `end_session_endpoint`,
+  `jwks_uri`, `token_endpoint_auth_methods_supported`.
+- `GET .../.well-known/customer-account-api` → the GraphQL endpoint.
+
+We **never** hardcode the auth host; we never fetch the `account.*` subdomain
+(only the browser is redirected there). Nothing in CORS/redirect handling assumes
+a single origin.
+
+### Already-signed-in detection (shop-native **and** chatbot) — `GET /api/auth/storefront`
+
+**The problem.** A customer who logs in via the **shop's own login** (the
+storefront account icon), then opens the chat, must be recognised too — not only
+the chatbot's "Anmelden" OAuth. The widget is in the theme (`motionsports.de`); the
+backend is cross-origin on Vercel, so it **cannot read the storefront session
+cookie**, and the spike flagged `logged_in_customer_id` / the Liquid `customer`
+object as **unreliable on new customer accounts** (and a client-supplied id is
+forgeable). The original CA-3 detection (`/api/auth/me` + a deferred `prompt=none`)
+therefore only ever recognised the **chatbot-OAuth** path.
+
+**The mechanism — a Shopify App Proxy.** An App Proxy is the one channel where
+Shopify itself vouches the logged-in customer to a cross-origin backend: the
+storefront calls a **same-origin** path (`/apps/{proxy}/whoami`), Shopify forwards
+it to our backend **adding** `logged_in_customer_id` (the LIVE storefront session's
+customer) and an HMAC `signature` over all params. `GET /api/auth/storefront`
+verifies the signature (`lib/shopify-app-proxy.verifyAppProxySignature`), trusts
+**only** Shopify's `logged_in_customer_id`, and — now that **`read_customers`** is
+granted — enriches the **name/email via the Admin API**
+(`lib/shopify-orders.fetchAdminCustomerById`), with **no customer OAuth token**.
+Detection therefore only establishes **IDENTITY**; the Admin API supplies the rest,
+so it **does not matter how the customer logged in**. It then find-or-creates the
+customer (the same `bindShopifyIdentity` merge as the OAuth callback) and links the
+widget `session_id`. Response:
+`{ signedIn: true, name, tier: 3, shopify_customer_id, identity:{name,tier}, marketing:{…} }`.
+**Fail-closed:** bad/absent signature or a logged-out (empty id) session →
+`{ signedIn: false }`; no Admin/DB work happens until the signature verifies.
+
+> **⚠️ REQUIRES A ONE-TIME STORE + THEME ACTION (Lucas) before it can fire:**
+> 1. **Add an App Proxy** to the app — Shopify admin → the app → *App proxy*:
+>    **Subpath prefix** `apps`, **Subpath** `chat`, **Proxy URL**
+>    `https://chat.motionsports.de/api/auth/storefront`.
+> 2. **Theme** calls the proxied same-origin path `/apps/chat/whoami?session={sid}`
+>    on first panel open (see `frontend-handoff/CUSTOMER_ACCOUNT.md` §3a).
+> 3. **Backend env** `SHOPIFY_APP_PROXY_SECRET` = the app's API secret key (falls
+>    back to `SHOPIFY_CLIENT_SECRET`).
+> 4. **Re-verify on the live store** that App-Proxy `logged_in_customer_id` is
+>    populated for this store's customer-accounts mode (the spike's "unreliable"
+>    finding predates Shopify's fixes). The endpoint fails closed regardless, and
+>    the chatbot "Anmelden" remains the fallback — so this is never a security risk.
+>
+> History for a *pure shop-native* session: `/api/account/*` still require a live
+> Customer-Account token (their liveness/logout proof), which a shop-native login
+> doesn't have. Detection (name) works without it; full history for that session
+> needs either a one-tap chatbot "Anmelden" (to mint a token) or routing the
+> account endpoints through the App Proxy as a follow-up — STATED here, not
+> half-built.
+
+### `prompt=none` silent detection (alternative)
+
+`/api/auth/shopify/login?...&prompt=none` runs the same OAuth flow with
+`prompt=none`. When a storefront session exists Shopify returns a `code` with **no
+UI**; when logged out it returns `error=login_required` → a
+`return_url?ms_auth=login_required` bounce. It is authoritative but a full-page
+redirect (the theme deferred it, see `CUSTOMER_ACCOUNT_THEME_NOTES.md`); it remains
+available where the App Proxy isn't configured.
+
+## 3. Token handling, rotation, encryption
+
+- **Client posture:** PUBLIC client, **no secret** (confirmed setup). The token
+  exchange is attempted as a public client (`client_id` + PKCE `code_verifier`).
+  Discovery advertises `client_secret_basic` and not `none`, so this is verified
+  **empirically** by `npm run verify:customer-account` (see §5). If the token
+  endpoint rejects the public exchange for missing client authentication, set
+  `SHOPIFY_CUSTOMER_ACCOUNT_CLIENT_SECRET` after switching the client to
+  *Confidential* in Shopify admin — the backend then uses `client_secret_basic`
+  automatically. **No code change**, just an env flip.
+- **Lifetimes are read from the response** (`expires_in` / `refresh_token_expires_in`)
+  — never hardcoded.
+- **Refresh-token rotation** is handled atomically: a refresh persists the **new**
+  access+refresh pair in one `UPDATE` before returning. A hard rejection
+  (`invalid_grant`) drops the stored pair so the customer re-authenticates.
+  Refresh happens lazily, on demand, with a 2-minute buffer
+  (`lib/customer-oauth-store.ts::getValidAccessToken`).
+- **Encrypted at rest:** access + refresh tokens are AES-256-GCM encrypted under
+  `TOKEN_ENC_KEY` (`lib/token-crypto.ts`) and stored in `customer_oauth_tokens`.
+  They are **never** sent to the browser.
+- **id_token verification:** signature checked against `jwks_uri` (RS256 only —
+  `alg:none` and HMAC are rejected), plus `iss` / `aud` / `nonce` / `exp`. The
+  `sub` is recorded for cross-checking; we key the DB on the **GraphQL
+  `customer.id` GID's numeric**.
+- The Customer Account GraphQL call sends the access token **directly** in the
+  `Authorization` header (no `Bearer ` prefix), per Shopify.
+
+## 4. The email↔Shopify merge rule (on every sign-in)
+
+Implemented as a pure decision (`lib/customer-merge.mjs::decideMerge`, unit-tested)
++ DB writes (`lib/customer-store.ts::bindShopifyIdentity`). Email is the merge key.
+
+1. **(a)** Row already linked by `shopify_customer_id` → **use it**.
+2. **(b)** Else a tier-2 row matches the **verified email** → **stamp** it with
+   the Shopify ids + `identity_tier = 3`. This carries the existing consent /
+   profile / transcript history forward to the signed-in identity.
+3. **(c)** Else **create** a fresh tier-3 row.
+4. **(d) Conflict** — either the linked row's email differs from Shopify's
+   verified email (`email_mismatch`), or an email-row and a shopify-id-row
+   collide (`row_collision`): we **prefer Shopify's verified email as the
+   authoritative identity** but **do not silently fuse consent records**. The
+   established Shopify-linked row is used and a row is written to
+   `customer_merge_conflicts` for **admin review** (consent provenance must stay
+   auditable). We never overwrite the consent-anchored email on a mismatch.
+
+`linkCustomerOnEmailCapture` (tier 2) and `bindShopifyIdentity` (tier 3) are the
+two entry points of the generalised "identity bind"; both never weaken an
+existing tier (`GREATEST(identity_tier, …)`) and both persist the session →
+customer link **two** ways:
+
+1. a **direct** row in `customer_session_links` (`session_id` PK → `customer_id`,
+   migration `0019`) — this is the **authoritative re-hydration link**, and
+2. the legacy `conversations.customer_id` stamp (`WHERE session_id = …`) — which
+   carries the chat into the customer's **history**.
+
+The direct link exists because the conversation stamp alone is **not** a reliable
+identity link: at sign-in there is frequently **no conversation row yet** for the
+session (the `prompt=none` silent check on first widget open, or clicking
+"Anmelden" before sending any message), so the `UPDATE … WHERE session_id` matches
+zero rows and the link is silently lost. Writing `customer_session_links`
+unconditionally fixes that — identity resolves even with no chat history.
+
+### The signed-in resolver
+
+`resolveSignedInCustomer(sessionId)` maps the opaque widget session reference →
+the linked customer (must have a `shopify_customer_id`). It reads the **direct**
+`customer_session_links` row first, falling back to the legacy
+`conversations.customer_id` stamp (so sessions linked before migration `0019`'s
+backfill still resolve). `/api/auth/me` then proves the session is still live by
+obtaining a **valid access token** (refreshing if needed) before reporting
+`signedIn: true`. Everything fails closed — a blank/unlinked session, or one
+linked only to a tier-1/2 customer (no `shopify_customer_id`), resolves to null.
+
+A successful round-trip: login (`?session={sid}`) → callback binds + writes
+`customer_session_links[sid]` → callback 302s back to `return_url` **with
+`?ms_auth=ok`** → widget reads/strips it and probes `/api/auth/me?session={sid}`
+→ `{ signedIn: true, identity: { name, tier: 3 } }`. The `sid` is **identical**
+at every hop (the widget's stable localStorage id — `?session=` on login,
+`x-ms-session`/`?session=` on `/api/auth/me`); the backend never mints its own.
+
+## 5. Schema (migration `0014_customer_accounts.sql`)
+
+- `customers` += `shopify_customer_id TEXT` (unique partial index),
+  `shopify_customer_gid TEXT`, `shopify_linked_at TIMESTAMPTZ`,
+  `identity_tier SMALLINT NOT NULL DEFAULT 1` (existing rows backfilled to 2).
+- `customer_oauth_tokens` (one row per customer, `ON DELETE CASCADE`): encrypted
+  access/refresh (`BYTEA`), `id_token_sub`, `scope`, `access_expires_at`,
+  `refresh_expires_at`, `updated_at`.
+- `customer_auth_pending` (`state` PK): `session_id`, `code_verifier`, `nonce`,
+  `return_url`, `prompt_none`, `created_at`, `expires_at` (~10-min TTL).
+- `customer_merge_conflicts`: the admin-review audit log for case (d).
+- `customer_session_links` (`session_id` PK → `customer_id`, `ON DELETE CASCADE`,
+  migration `0019`): the **direct, durable re-hydration link** written on every
+  identity bind, read first by `resolveSignedInCustomer`. Backfilled on deploy
+  from existing `conversations.customer_id` stamps.
+
+Retention: `customer_auth_pending` is purged past expiry by the retention cron;
+`customer_oauth_tokens` and `customer_session_links` cascade with the customer (so
+a GDPR erasure / customer purge removes them). See
+[`DATA_RETENTION.md`](./DATA_RETENTION.md).
+
+## 6. Verify gate — run it before relying on the flow
+
+The CI sandbox that built this blocks egress to Shopify hosts, so the live gate
+is executed from an egress-capable environment (locally / Vercel):
+
+```bash
+npm run verify:customer-account
 ```
 
-- `identity.name` is read **live from Shopify** (authoritative) and may be `null`
-  if Shopify returns no name — render a neutral fallback in that case.
-- `tier` is `3` for a signed-in customer. The widget never sees tokens, email,
-  addresses, or orders in CA-1 (those arrive in CA-2/CA-3).
-- **`marketing`** (present only when `signedIn: true`) drives the **at-sign-in
-  opt-in** and the **tier-3 suppression** (§6):
-  - `status` — our DOI marketing state for this customer:
-    `"none" | "pending" | "confirmed" | "unsubscribed"`. This is **our**
-    double-opt-in state only; signing in never imports Shopify's marketing state.
-  - `optInActionable` — `true` ⇔ surface the at-sign-in opt-in card (§6.1). It is
-    `true` exactly when the customer has **no marketing decision on record yet**
-    (`status === "none"`) **and** has a real verified email. It is `false` once a
-    decision exists (`pending` / `confirmed` / `unsubscribed`) or for the rare
-    account with no verified email. Treat it as the single source of truth for
-    "should I show the opt-in" — don't re-derive it from `status` yourself.
-- A `CORS` preflight (`OPTIONS`) is supported; the endpoint advertises
-  `GET, OPTIONS`.
+It (1) fetches discovery and compares to the confirmed live values, (2)
+**empirically** probes token-endpoint client auth (public exchange with a
+throwaway code → `invalid_grant` means PROCEED public; `invalid_client` means
+switch to confidential), and (3) probes `prompt=none` (logged-out → expects
+`error=login_required`). Token lifetimes must be read from a real exchange.
 
-## 5. Logout (optional, for CA-3)
+## 7. How to run a live sign-in test
 
-Logout is **backend-initiated** — the widget cannot build Shopify's OIDC
-`end_session` URL itself (it never sees discovery or tokens). Send the
-**top-level window** to:
+1. **Shopify admin (Lucas):** Headless channel → Customer Account API client
+   (PUBLIC), register the URLs (built from `PUBLIC_BASE_URL`):
+   - Callback: `https://<PUBLIC_BASE_URL>/api/auth/shopify/callback`
+   - JavaScript origins: `https://www.motionsports.de`, `https://motionsports.de`
+   - Logout URI: `https://<PUBLIC_BASE_URL>/api/auth/shopify/logout/return`
+2. **Env:** set `SHOPIFY_CUSTOMER_ACCOUNT_CLIENT_ID`, `PUBLIC_BASE_URL`,
+   `TOKEN_ENC_KEY` (`openssl rand -hex 32`), `SHOPIFY_STOREFRONT_DOMAIN`, and a
+   DB. Leave `SHOPIFY_CUSTOMER_ACCOUNT_CLIENT_SECRET` empty (public).
+3. **Migrate:** `npm run db:migrate`.
+4. **Gate:** `npm run verify:customer-account` (from an egress-capable host).
+5. **Sign in:** open
+   `https://<PUBLIC_BASE_URL>/api/auth/shopify/login?session=<any-session-id>&return_url=https://www.motionsports.de/`
+   in a browser, complete the Shopify login, and confirm the redirect lands on
+   `…?ms_auth=ok`.
+6. **Re-hydrate:** `GET https://<PUBLIC_BASE_URL>/api/auth/me?session=<same-id>`
+   with `Origin: https://www.motionsports.de` + `x-ms-chat-key: <secret>` →
+   expect `{ "signedIn": true, "identity": { "name": "…", "tier": 3 } }`.
 
-```
-GET {BASE_URL}/api/auth/shopify/logout
-      ?session={session_id}
-      &return_url={the storefront URL to come back to}
-```
+## 8. Signed-in data in the profile + live chat (CA-2 / CA-3)
 
-The backend constructs the Shopify `end_session` redirect (with
-`post_logout_redirect_uri = {BASE_URL}/api/auth/shopify/logout/return`), Shopify
-ends its session, then the return route **drops the server-side tokens** for that
-session and bounces the browser back to the storefront with
-**`?ms_auth=logged_out`**. If the store doesn't advertise an `end_session`
-endpoint, the route degrades to a **local sign-out** (tokens dropped, same
-`?ms_auth=logged_out` bounce) — no widget change needed either way.
+For a **signed-in (tier-3)** customer we pull the interesting Customer Account
+data and feed it into the **internal marketing profile** and the **live chat**,
+reusing the **existing customer-memory mechanism** and its consent gate. This is
+**profile + live-chat personalisation only** — it does **not** touch the
+marketing CONSENT model (CA-4): signing in still establishes identity, never
+marketing consent.
 
-The account/history linkage is **not** deleted — logging out ends the session,
-not the account (full erasure is §7.5). Same open-redirect rule as login:
-`return_url` must be an allow-listed storefront origin.
+### What we fetch — and from where
 
-## 6. What does NOT change — and where the opt-in moves for tier 3
+Via the **Customer Account API GraphQL** endpoint
+(`account.motionsports.de/customer/api/<version>/graphql`) with the customer's
+own server-held access token (sent **directly** in `Authorization`, no `Bearer`
+prefix), `fetchSignedInCustomerData` reads (signed-in customer only): **name**,
+**addresses**, and **full order history with line items**
+(`lib/shopify-customer-account.ts`).
 
-The anonymous and email-capture flows are untouched. Sign-in is **identity only**
-— it does **not** opt the customer into marketing. The double-opt-in email flow
-remains the only path to marketing consent. A visitor can use the chat fully
-without ever signing in.
+> ⚠️ **Customer Account API field shapes differ from the Admin Customer object**
+> and must be re-verified against the **rendered** schema (the verify gate, §6):
+> e.g. email is wrapped as `emailAddress { emailAddress }`; the order date is
+> `processedAt` (Admin: `createdAt`); the total is a flat
+> `totalPrice { amount currencyCode }` (Admin wraps it in
+> `currentTotalPriceSet.shopMoney`); the status is `financialStatus` (Admin:
+> `displayFinancialStatus`); the default address exposes `territoryCode`. The
+> richer read is **fault-isolated** from the identity read and **fails soft**:
+> any residual shape drift degrades to "name only", never an error.
 
-### 6.0 Tier-3 suppression contract (end-of-chat capture widget)
+For tier 3 this **REPLACES** the email-keyed Admin-API order fetch
+(`fetchOrderHistoryByEmail`) as the purchase-history source.
 
-For a **signed-in (tier 3)** customer the redesign **moves** the marketing
-opt-in: the **end-of-chat email-summary + marketing-opt-in widget is
-suppressed**, and the opt-in is surfaced **at sign-in** instead (§6.1).
+### Where it's cached — keyed by `shopify_customer_id`
 
-- **Gate on `tier`.** `/api/auth/me` returns `identity.tier`. When `tier === 3`,
-  **do not render** the end-of-chat capture/opt-in card (the "type your email +
-  get the summary + tick marketing" widget). A signed-in customer doesn't need
-  it: they can **download** the summary instead (§8) and their opt-in lives at
-  sign-in.
-- **Tiers 1–2 are unchanged.** Anonymous and email-only visitors still get the
-  end-of-chat capture form exactly as today (the `offer_email_summary` tool flow
-  in [`API_CONTRACT.md`](./API_CONTRACT.md) §2/§7). This is purely a tier-3
-  frontend gate — the backend's capture flow is untouched.
+The normalisation (`lib/customer-account-data.mjs`, unit-tested) maps the
+Customer Account response into the shapes the rest of the app **already**
+consumes, so nothing downstream changes:
 
-### 6.1 The at-sign-in marketing opt-in (v3) — gated on `optInActionable`
+- **Order history → `customers.purchase_summary`** (migration 0008) — the same
+  blob the live-chat memory, profile generation, marketing draft and bundle
+  suggestion already read.
+- **Name + a DATA-MINIMISED address context (city + country code only) →
+  `customers.shopify_account_summary`** (migration **0015**) — for the greeting
+  and the profile. We never cache the raw street, phone, or order totals here.
 
-A signed-in customer is offered a one-tick marketing opt-in that skips re-typing
-their email (we already hold the verified address). It is **still the same
-double-opt-in**, **still unticked by default**, and **still a separate, explicit
-act** — signing in never enrols anyone.
+`refreshSignedInCustomerCache(customerId)` (`lib/customer-account-cache.ts`) ties
+token → fetch → cache. It runs **on sign-in** (the callback, best-effort) and
+when an admin clicks **"Käufe aktualisieren"** (for a tier-3 customer the
+purchases route uses the Customer Account API instead of the email path).
 
-**When to show it — read `marketing.optInActionable` from `/api/auth/me` (§4).**
-Show the at-sign-in opt-in card **only** when `signedIn: true` **and**
-`marketing.optInActionable === true`. That flag is `true` exactly for a signed-in
-customer who has **not yet recorded a marketing decision**; it is `false` once
-they've decided (DOI `pending` / `confirmed` / unsubscribed) — so a customer who
-already opted in (or whose prior opt-in carried forward when their email merged
-into the signed-in identity) is **not** re-asked. The widget MAY additionally
-remember a local "dismissed" state for the session so a customer who closed the
-card isn't shown it again in the same session — but the **backend** truth for
-"already decided" is `optInActionable: false`.
+### How it reaches the chat — same mechanism, same minimisation
 
-Render contract (copy + submit endpoint) is in
-[`CONSENT_FLOW.md`](./CONSENT_FLOW.md) §2 (`GET /api/consent-copy?surface=signin`
-→ tick → `POST /api/account/marketing-opt-in`). Never pre-tick it. After a
-successful opt-in, the next `/api/auth/me` reports `optInActionable: false`.
+`resolveChatMemory({ sessionId, email })` (`lib/customer-memory.ts`) is the
+single entry point the chat route uses. **Signed-in identity takes precedence**
+(it's the authenticated session), falling back to the tier-2 email path:
 
-## 7. Signed-in conversation history (CA-3-THEME contract)
+- **Re-identification** for a signed-in user is the **authenticated session
+  itself** — `resolveSignedInMemory` requires a **live access token** (refreshing
+  if needed) before surfacing anything, so a logged-out/expired session resolves
+  to nothing (fail-closed), exactly like `/api/auth/me`.
+- **Greeting (CA goal 2):** the chat greets the returning signed-in customer by
+  **name, tier-appropriately** (du / — for studio & public_sector — Sie). The
+  greeting uses only the **session's own authenticated identity**, so it is shown
+  to any live signed-in customer.
+- **Personalisation (CA goal 1):** the **current-understanding summary + owned
+  items + address context** are injected via the **same** customer-memory block,
+  with the **same data minimisation** — a compact summary, owned-item titles +
+  quantities, counts; **never** raw transcripts, order totals, or the email in
+  the prompt.
+- **Profile (CA goal 3):** for tier 3 the richer Shopify data flows into the
+  existing personalized-email + bundle-suggestion flows automatically (they read
+  `purchase_summary` / `profile_summary`); the profile generation additionally
+  receives the data-minimised location context.
 
-A **signed-in** customer can browse, open, rename and delete their own past
-conversations — and erase all of their data. These are widget XHRs under
-`/api/account/*`, so they carry the **same guards as `/api/auth/me`**:
+### The consent gate (unchanged personalisation requirement)
 
-```
-x-ms-chat-key: {shared secret}
-Origin:        {storefront origin}        (browser-set)
-x-ms-session:  {session_id}               (or ?session= query param)
-```
+History-personalisation stays gated on the **same** consent as tier 2 —
+`CONSENT_COPY_LAWYER_APPROVED` **and** the personalisation purpose being covered
+— enforced by `canPersonaliseSignedIn({ lawyerApproved, marketingStatus })`:
 
-All of them:
+| Visitor                                         | Greeting by name           | History / profile / address personalisation |
+| ----------------------------------------------- | -------------------------- | ------------------------------------------- |
+| Anonymous (tier 1)                              | no                         | no                                          |
+| Signed-in, **not** consented                    | **yes** (authenticated UX) | **no** (fails closed)                       |
+| Signed-in, marketing-consented + lawyer flag on | yes                        | **yes**                                     |
 
-- are **fail-closed**: an anonymous or **email-only** session (not signed in via
-  Shopify), or a logged-out / expired one, gets **HTTP 401**
-  `{ "error": { "code": "unauthorized", "message": "…" } }`. Only render the
-  history UI once `/api/auth/me` reports `signedIn: true`.
-- return JSON with `Cache-Control: no-store` and support a CORS `OPTIONS`
-  preflight (the per-id route advertises `GET, PATCH, DELETE, OPTIONS`).
-- are scoped to the signed-in customer **across devices** — the list is the
-  customer's whole history, whichever device opened each chat. A conversation id
-  the customer doesn't own returns **404** (same as a missing one).
+The gate is two hard conditions, both fail-closed:
 
-> If anything here disagrees with the backend, the backend wins
-> (`docs/CUSTOMER_ACCOUNT.md` §9).
+1. **`CONSENT_COPY_LAWYER_APPROVED`** — the consent/privacy copy that covers
+   "profile building from past interactions and purchases" must be legally signed
+   off. It is **`true`** (lawyer-approved June 2026), so this condition is
+   satisfied; personalisation then depends on condition 2 below, per user.
+2. **Marketing consent on record (`marketing_status = 'confirmed'`)** — the
+   affirmative, unbundled, double-opt-in consent the GDPR TODO
+   ([`CUSTOMERS.md`](./CUSTOMERS.md)) extends to cover personalisation from past
+   conversations + purchases. Signing in never sets this; only our DOI does.
 
-### 7.1 List — `GET /api/account/conversations`
+So a **non-consented or anonymous** user gets **no** purchase history, profile,
+or address in the prompt — the consent gate governs personalisation exactly as
+for tier 2; only the signed-in name greeting (the session's own identity) is
+added on top.
 
-Most-recent-first. Each item has a ready-to-render `title` (never null), the
-timestamps, and the readable message count. **No pagination params** in v1
-(capped at 100 server-side).
+## 9. Signed-in conversation history (tier 3)
 
-```jsonc
-// 200 OK
-{
-  "conversations": [
-    {
-      "conversationId": 412,                          // numeric DB id — for rename/delete (§7.3/§7.4)
-      "conversationKey": "c3f1e8a2-…",                // thread key — send on /api/chat to RESUME (§7.6)
-      "title": "Welche Laufschuhe passen zu mir?",   // custom title, else first user msg trimmed
-      "createdAt": "2026-06-01T09:14:22.000Z",
-      "updatedAt": "2026-06-01T09:31:05.000Z",
-      "messageCount": 8                               // readable user/assistant turns
-    }
-    // …
-  ]
-}
-```
+A signed-in customer can browse, open, rename and delete their own **past
+conversations** — and erase all of their data. These endpoints live under
+`/api/account/*` and are the contract CA-3-THEME builds against (precise
+request/response shapes: [`frontend-handoff/CUSTOMER_ACCOUNT.md`](./frontend-handoff/CUSTOMER_ACCOUNT.md) §7).
 
-> Each item carries **two** ids: `conversationId` (numeric DB id, used in the
-> `/api/account/conversations/{id}` rename/delete URLs) and `conversationKey`
-> (the chat-thread key — send it as `conversationKey` on `/api/chat` to **resume**
-> this thread; see §7.6).
+### The gate (fail-closed, behind the CA-1 resolver)
 
-- `title` is **cheap** server-side (no model call): the custom title if the
-  customer renamed it, otherwise the first user message trimmed to ≤ 80 chars
-  (the backend falls back to `"Beratung"` when there's no user text yet).
-- `createdAt` / `updatedAt` are ISO-8601 (or `null` if unknown). `updatedAt`
-  bumps on rename; list order is by **last activity**, so a rename does **not**
-  reorder the list.
+Every `/api/account/*` request runs the same gate (`lib/account-guard.ts ::
+requireSignedInCustomer`), in this order:
 
-### 7.2 Fetch transcript — `GET /api/account/conversations/{id}`
+1. **`guardRequest`** — origin allowlist + shared secret (`x-ms-chat-key`),
+   like `/api/chat`. Widget XHR, with a CORS preflight.
+2. **Rate limit** — the chat bucket.
+3. **`resolveSignedInCustomer(session)`** — the session must link to a customer
+   with a `shopify_customer_id`. **Anonymous** (no customer) and **email-only**
+   (tier-2, no `shopify_customer_id`) sessions resolve to `null` → **401, fail
+   closed**, before any history is read.
+4. **`getValidAccessToken`** — proves the session is **still authenticated**
+   (refreshing if needed), exactly like `/api/auth/me`. A logged-out / expired
+   session → 401.
 
-```jsonc
-// 200 OK
-{
-  "conversation": {
-    "conversationId": 412,
-    "conversationKey": "c3f1e8a2-…",        // send on /api/chat to RESUME this thread (§7.6)
-    "title": "Welche Laufschuhe passen zu mir?",
-    "createdAt": "2026-06-01T09:14:22.000Z",
-    "updatedAt": "2026-06-01T09:31:05.000Z",
-    "personaLabel": "pragmatic_beginner",   // may be null
-    "messageCount": 8,
-    "messages": [
-      { "role": "user",      "content": "Welche Laufschuhe passen zu mir?", "toolName": null },
-      { "role": "assistant", "content": "Gern! Wofür möchtest du sie …",     "toolName": null }
-      // … readable turns only; tool-bookkeeping rows are dropped
-    ]
-  }
-}
-```
+**Resolved across devices.** All of a signed-in customer's sessions — on every
+device — link to the **same** `customers` row (keyed by `shopify_customer_id`),
+so history is scoped by `customer_id` and is therefore the customer's **whole**
+history regardless of which device opened each conversation. Every per-id
+operation additionally constrains `customer_id = <self>`, so a conversation the
+caller doesn't own is **indistinguishable from a missing one** (404 — no
+enumeration leak).
 
-- `400` `bad_request` if `{id}` isn't a positive integer.
-- `404` `bad_request` (`"Konversation nicht gefunden"`) if it isn't this
-  customer's conversation.
+### Endpoints (all under `/api/account`)
 
-### 7.3 Rename — `PATCH /api/account/conversations/{id}`
+| Route                             | Method | Purpose                                                                                                |
+| --------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ |
+| `/api/account/conversations`      | GET    | LIST the customer's past conversations (across devices), each with a TITLE, timestamps, message count. |
+| `/api/account/conversations/{id}` | GET    | FETCH one conversation's transcript (must belong to this customer).                                    |
+| `/api/account/conversations/{id}` | PATCH  | RENAME the conversation title (`{ title }`).                                                           |
+| `/api/account/conversations/{id}` | DELETE | HARD-delete this one transcript.                                                                       |
+| `/api/account/erase`              | POST   | Full "delete my data" — erase the customer (distinct from single-chat delete).                         |
 
-```jsonc
-// request body
-{ "title": "Laufschuh-Beratung" }
-// 200 OK
-{ "ok": true, "conversationId": 412, "title": "Laufschuh-Beratung" }
-```
+### Multiple threads per session (migration 0018)
 
-- The title is trimmed, whitespace-collapsed, and bounded to **80 chars**
-  server-side — send the raw user input; the response echoes the stored value.
-- `400` `bad_request` for a missing/empty/non-string title or bad JSON.
-- `404` `bad_request` if the conversation isn't this customer's.
+`session_id` is the identity link and must not rotate while signed in, so it can
+no longer also be the *thread* key. `conversations.conversation_key` (a stable,
+client-generated value the widget sends on `/api/chat`) is now the uniqueness key;
+`session_id` stays on the row (no longer unique) as the match-up/summary bridge.
 
-### 7.4 Delete one chat — `DELETE /api/account/conversations/{id}`
+- A session can host **many** conversations — "Neue Beratung" sends a fresh
+  `conversationKey`, creating a new history row instead of growing one thread.
+- The list + transcript responses return `conversationKey` so the widget can
+  **resume** a thread (send it back on `/api/chat`), even across devices — the
+  upsert never rewrites a row's `session_id`.
+- **Backward-compatible:** a client that sends no key defaults
+  `conversation_key = session_id` (the legacy one-thread-per-session behaviour).
+- Session-keyed reads that assume a single thread now take the **most recently
+  active** thread of the session (`loadConversationForSummary`,
+  `getConversationIdBySession`); the match-up/capture attach still uses
+  `WHERE session_id`, so it links **all** of the signing-in session's threads to
+  the customer (and never another session's).
 
-```jsonc
-// 200 OK
-{ "ok": true, "conversationId": 412, "deleted": true }
-```
+### Eager create + customer-link at creation (no lost threads — migration 0026)
 
-- **HARD-deletes that one transcript** (messages included) — irreversible.
-- `404` `bad_request` if the conversation isn't this customer's.
-- **It does NOT erase the durable profile.** Deleting a chat means a future
-  profile regeneration no longer sees it, but anything already learned persists
-  until the profile is regenerated or the customer uses §7.5. Word the UI
-  honestly: *"Dieser Chat wird gelöscht"*, not *"alle Daten gelöscht"*.
+A started conversation must persist and list **exactly like ChatGPT/Claude** —
+every started thread is durable, even before the assistant answers. Two defects
+broke that and are now fixed:
 
-### 7.5 Delete ALL my data — `POST /api/account/erase`
+- **Orphaned by a missing customer link.** The conversation row was written only
+  in `persistTurn` (the chat `onFinish`, *after* the stream) and that `INSERT`
+  **never set `customer_id`** — the customer link was stamped only at sign-in /
+  email-capture (`UPDATE conversations … WHERE session_id`), which had already run
+  *before* a later "Neue Beratung" row existed. So a new signed-in thread was
+  created with `customer_id = NULL` and never appeared in the list (which filters
+  `WHERE customer_id = <self>`). **Lost.**
+- **Flushed too late.** Persisting only in `onFinish` meant a thread whose answer
+  never landed (reload / switch first) was never written at all.
 
-A **distinct, heavier** action from §7.4 — confirm it explicitly in the UI.
+The fix (`lib/conversation-create :: ensureConversationStarted`, called from
+`/api/chat` **before** the stream, concurrently with retrieval):
 
-```jsonc
-// POST (no body required)
-// 200 OK
-{ "ok": true, "erased": true, "deletedConversations": 7 }
-```
+- **Eager:** the conversation row + the first user message are written at the
+  **first send**, before the model answers — so the thread lists immediately and
+  survives a reload.
+- **Customer-linked at creation:** the row is stamped with the session's linked
+  `customer_id` (resolved from `customer_session_links`, migration 0019) the moment
+  it is created. `persistTurn` is the backstop — it now resolves + stamps
+  `customer_id` too, `COALESCE`-ing so it never NULLs an existing link or
+  re-clobbers a thread that signed in mid-way.
 
-This erases the **person**: purges **all** conversations, clears the profile +
-cached summaries, **revokes the stored OAuth tokens**, and suppresses the email.
-After it returns:
+Anonymous sessions still create pseudonymous rows (`customer_id` stays NULL),
+unchanged.
 
-- the session **no longer resolves** — `/api/auth/me` now returns
-  `signedIn: false` and every `/api/account/*` call returns 401. Clear the
-  signed-in UI immediately.
-- consider also sending the user through Shopify logout (§5) to end the Shopify
-  session itself.
-- `503` `upstream_unavailable` means the erasure could **not** be performed
-  (don't show "deleted" — let the user retry).
+### Titles are cheap — cached on the row, no model call per render
 
-### 7.6 Multiple conversations under one stable `session_id`
+The list TITLE is either the customer's **custom title** (set via RENAME, stored in
+`conversations.title`, migration `0016`) or, when unset, a **derived** label: the
+first user message, whitespace-collapsed and trimmed to 80 chars
+(`lib/conversation-title.mjs :: deriveConversationTitle`). **No Anthropic call** runs
+per list render — it never did. As of migration **0026** the derived label is also
+**cached on the row** (`conversations.title_auto`, written at creation), so the list
+no longer runs a per-row `LATERAL` sub-select to fetch each conversation's first
+message — it reads the title straight off the row.
 
-The history list can now hold **multiple threads** for a customer because the
-widget keys each conversation with a **`conversationKey`** (a stable,
-client-generated string) sent on `/api/chat`, while `session_id` stays the
-unchanging identity link. See [`API_CONTRACT.md`](./API_CONTRACT.md) §2
-("Optional `conversationKey`") for the full rules. In short:
+**List performance (migration 0026).** The list query
+(`listCustomerConversations`) is `WHERE customer_id = <self> ORDER BY
+last_activity_at DESC, id DESC`. The pre-existing `conversations(customer_id)` index
+(migration 0008) covered the filter but **not** the ordering, so a long history
+still paid a sort. The new composite **partial** index
+`conversations(customer_id, last_activity_at DESC, id DESC) WHERE customer_id IS NOT
+NULL` serves filter **and** order in one indexed walk — a snappy list (well under a
+second for a normal history). `messageCount` (readable user/assistant turns, tool
+rows excluded) remains a single indexed `COUNT` per row over
+`messages_conversation_idx`.
 
-- **"Neue Beratung"** → keep `session_id`, generate a **fresh** `conversationKey`,
-  clear the local `messages`. The first turn under it creates a new history row.
-- **Open a past conversation** → load its transcript (§7.2) and adopt its
-  **`conversationKey`** as the active thread; the next `/api/chat` turn sends
-  that key and appends to the right thread.
-- **Omit `conversationKey`** → legacy one-thread-per-session (backward-compatible).
+### Deletion semantics — single-chat delete vs. the durable profile
 
-## 8. Download a conversation summary — `GET /api/account/summary`
+This is the subtle part, and it follows the two-cluster lawful-basis split
+([`DATA_RETENTION.md`](./DATA_RETENTION.md)):
 
-Backs the widget's **"Zusammenfassung herunterladen"** button for a signed-in
-customer. It returns the **same** structured summary as the email motion sports
-mails after a chat — AI prose → chosen products → **Zur Kasse** → divider →
-**"Vielleicht auch interessant:"** alternatives — rendered with the **same
-branded template**. (It is literally the email renderer; the download and the
-mailed summary can't diverge.)
+- **`DELETE /api/account/conversations/{id}` HARD-deletes that one transcript**
+  — the `conversations` row plus its `messages` and chat `ai_usage` (FK
+  `ON DELETE CASCADE`). It is gone immediately and irreversibly.
+- **The durable "current understanding" profile is a SEPARATE aggregate under a
+  different lawful basis** (`customers.profile_summary`, regenerated on demand —
+  see [`CUSTOMERS.md`](./CUSTOMERS.md)). Deleting a source conversation means a
+  **future profile regeneration no longer sees it** — but **profile text already
+  derived persists** until the profile is regenerated **or** the customer is
+  erased. Single-chat delete deliberately does **not** reach into the profile
+  aggregate; that would conflate two lawful bases. The honest contract for the
+  customer: "this chat is gone; what we already learned is cleared when you
+  regenerate your profile or delete all your data."
 
-**Format: a branded HTML document, served as a file attachment.** HTML was chosen
-because it reuses the email template directly (no PDF pipeline). You receive the
-HTML as the response body of a guarded XHR and save it as a file client-side.
+### The distinct full "delete my data" path
 
-```
-GET {BASE_URL}/api/account/summary?conversationKey={conversationKey}
-Headers:
-  x-ms-chat-key: {shared secret}
-  Origin:        {storefront origin}        (browser-set)
-  x-ms-session:  {session_id}               (or ?session= query param)
-```
+`POST /api/account/erase` (`lib/account-history.ts :: eraseSignedInCustomer`) is
+a **GDPR erasure of the person**, separate from the single-chat delete. In one
+transaction it:
 
-- **`conversationKey`** is the per-thread key from the history list / transcript
-  (§7.1/§7.2) — the same value you send on `/api/chat` to resume a thread. **Not**
-  the numeric `conversationId`. For the **active** chat, use the thread's current
-  `conversationKey`.
-- **Same fail-closed guards as the rest of `/api/account/*`**: an anonymous /
-  email-only / logged-out session → **401**. Only offer the button once
-  `/api/auth/me` reports `signedIn: true`.
-- The thread must belong to the caller — a key that isn't this customer's (or is
-  unknown) returns **404** `bad_request` (`"Konversation nicht gefunden"`), same
-  as a missing one. A missing/empty `conversationKey` → **400** `bad_request`.
+1. **Purges every linked conversation** — all transcripts + messages + chat
+   `ai_usage` cascade (not merely unlinked: the customer's own transcripts are
+   gone).
+2. **Suppresses + purges the consent record** — adds the (real) email to
+   `suppression_list` (reason `erasure`, so a future sign-in can't silently
+   re-attach the old data) and deletes its `email_captures` (`marketing_sends`
+   cascade). Skipped for the synthetic `shopify:<id>` placeholder email.
+3. **Deletes the `customers` row** — which **clears the profile + all cached
+   summaries** (they live on the row), **revokes the OAuth tokens**
+   (`customer_oauth_tokens` `ON DELETE CASCADE`), and de-identifies the
+   remaining FK refs (`bundle_offers` `ON DELETE SET NULL` — kept for
+   accounting, no PII).
 
-### Success response
+After erasure the session no longer resolves to a customer, so every subsequent
+`/api/account/*` call (and `/api/auth/me`) fails closed. Note this drops the
+stored tokens server-side; the customer may additionally log out of Shopify
+itself (the `end_session_endpoint`, §5 frontend doc).
 
-```http
-HTTP/1.1 200 OK
-Content-Type: text/html; charset=utf-8
-Content-Disposition: attachment; filename="motionsports-zusammenfassung-….html"
-Cache-Control: no-store
-```
+Erasure suppresses **both** lawful bases for the real email: it adds the address
+to `suppression_list` (DOI, reason `erasure`) **and** to
+`bestandskunden_suppression_list` (§7(3), reason `erasure`), so a future
+re-sign-in can re-derive neither audience from the unchanged Shopify history.
 
-The body is the full branded HTML document (a complete `<!DOCTYPE html>` page).
+## 10. At-sign-in marketing opt-in + the match-up (CA-4)
 
-### Triggering the download from the widget
+CA-1 established that **signing in is identity, not marketing consent** (§1). CA-4
+**keeps that rule** and adds a *presentation-maximised but fully lawful* way for a
+**signed-in** customer to opt into marketing — see
+[`CONSENT_FLOW.md`](./CONSENT_FLOW.md) "At-sign-in marketing opt-in".
 
-Because the endpoint is a **guarded XHR** (it needs the `x-ms-chat-key` + session
-headers, which a plain `<a download>` / `window.location` navigation can't send),
-fetch it and save the body as a `Blob`:
+- **Endpoint:** `POST /api/account/marketing-opt-in` (the standard signed-in
+  guard: origin + secret + a **live** access token). It requires an explicit
+  `marketingConsent: true` (no auto-enrol), uses the customer's **verified**
+  `customers.email` (refusing the synthetic `shopify:<id>` placeholder), and runs
+  the **existing DOI** via `upsertEmailCapture` — `'pending'` + confirmation
+  email, `'confirmed'` only after the link click. The copy is served by
+  `signInMarketingConsentCopy()` (`GET /api/consent-copy?surface=signin`, v3).
+- **Still ours, still DOI.** Re-keying on sign-in **never** imports Shopify's
+  marketing state; the *only* path to `confirmed` is the double-opt-in, on either
+  surface. The opt-in is a **separate, explicit act** the customer chooses.
 
-```js
-const res = await fetch(
-  `${BASE_URL}/api/account/summary?conversationKey=${encodeURIComponent(conversationKey)}`,
-  { headers: { "x-ms-chat-key": SHARED_SECRET, "x-ms-session": sessionId } }
-);
-if (!res.ok) { /* 401 → re-auth UI; 404 → "nicht gefunden"; else generic error */ }
-const blob = await res.blob();           // text/html
-const url = URL.createObjectURL(blob);
-const a = Object.assign(document.createElement("a"), {
-  href: url,
-  download: "motionsports-zusammenfassung.html",   // name it yourself; server name is advisory
-});
-a.click();
-URL.revokeObjectURL(url);
-```
+### The match-up (consent carry-forward + session scope)
 
-- The download is **on-demand and may make one AI call** (the German prose
-  summary), so it can take a moment — show a spinner and don't impose a short
-  timeout. If the model/API is unavailable it gracefully falls back to a plain
-  transcript summary (never an error).
-- It reflects the thread's **current** state (latest selected/discussed products,
-  newest transcript) each time it's downloaded.
+Both cases are handled by the existing merge (`decideMerge` →
+`bindShopifyIdentity`, §4) — CA-4 pins and documents them:
+
+- **email-only → signed-in:** the **stamp** branch targets the tier-2 row matched
+  by the verified email and writes **only identity columns**, so a **prior DOI
+  consent under that email carries forward intact** (`email_captures` +
+  the mirrored `customers.marketing_status` stay `confirmed`) — none invented,
+  none silently revoked. A collision/mismatch is logged to
+  `customer_merge_conflicts` and **never fuses** two consent records.
+- **current-anonymous-session → signed-in:** only the **current** session's
+  conversation (the chat that led to sign-in, carried in the signed
+  `state`/pending record) is attached — `WHERE session_id = THIS session`. Other
+  anonymous threads are **never** retroactively scooped.
+
+### §7(3) Bestandskunden (separate basis, see CONSENT_FLOW.md)
+
+A signed-in customer's **completed purchases** (pulled via the Customer Account
+API into `purchase_summary`, §8) also feed the **separate** §7(3)
+existing-customer audience (`customers.bestandskunde_eligible`, recomputed on
+every purchase refresh). That basis is **never merged** with DOI consent and its
+real sends stay gated behind the distinct `BESTANDSKUNDE_SENDS_APPROVED` flag —
+full details in [`CONSENT_FLOW.md`](./CONSENT_FLOW.md).
+
+### Where the opt-in is surfaced for tier 3 — and where it is NOT
+
+The tier-3 chat experience **moves** the marketing opt-in: the end-of-chat
+email-summary + marketing capture widget is **suppressed** for signed-in
+customers, and the opt-in is offered **at sign-in** instead (the CA-4 card). The
+two states the widget reads are both already in the backend; CA-4 just pins the
+contract.
+
+- **Suppression gate — tier.** `/api/auth/me` returns `identity.tier`. The widget
+  **suppresses** the end-of-chat capture/opt-in widget when `tier === 3` (a
+  signed-in customer): they don't need the "type your email + summary" capture —
+  the summary is downloadable (§11) and the opt-in lives at sign-in. **Tiers 1–2
+  are unchanged**: the end-of-chat capture form still shows for anonymous /
+  email-only visitors exactly as before. This is a **frontend gate on an existing
+  field** — no backend behaviour change; sign-in is still identity, not consent.
+- **At-sign-in opt-in actionability — `marketing.optInActionable`.** `/api/auth/me`
+  now also returns `marketing: { status, optInActionable }`. The widget's
+  `optInActionable` flag reads this: the CA-4 card is shown to a signed-in
+  customer who has **not yet recorded a marketing decision**, and hidden once
+  they have. `optInActionable` is computed fail-closed as:
+
+  ```
+  optInActionable = signedIn
+                 && customer has a REAL verified email (not the shopify:<id> placeholder)
+                 && marketing_status === 'none'      // no DOI decision on record yet
+  ```
+
+  `marketing_status` is **our DOI state only** (`customers.marketing_status`,
+  mirrored from `email_captures`) — sign-in **never** imports Shopify's marketing
+  state (§1), so a freshly signed-in customer starts at `'none'` → **actionable**,
+  unless a **prior DOI under their verified email carried forward on merge** (§4
+  stamp branch), in which case it's already `pending`/`confirmed`/`unsubscribed`
+  → **not actionable** (decided). A synthetic-email tier-3 row (no real address to
+  DOI) is also **not actionable**. "Dismissed" (the customer closed the card
+  without ticking) is a **widget-local** state the backend does not track — once a
+  real decision is recorded via `POST /api/account/marketing-opt-in` the backend
+  flips `status` away from `'none'` and `optInActionable` becomes `false` on the
+  next `/api/auth/me`.
+
+The opt-in submit itself is unchanged (`POST /api/account/marketing-opt-in`,
+above): explicit `marketingConsent: true`, the existing DOI, our verified email.
+
+## 11. Conversation summary download (signed-in, S5 structure reused)
+
+A signed-in (tier-3) customer can **download** a summary of any one of their
+threads from the widget's **"Zusammenfassung herunterladen"** button. It is the
+**same** S5 structured summary as the transactional summary **email** — AI prose
+→ chosen products → **Zur Kasse** → divider → **"Vielleicht auch interessant:"**
+alternatives — **assembled by the very same renderer** (`buildSummaryDocument`,
+`lib/summary-email.ts`), then rendered to PDF, not a second layout. The email and
+the download can therefore never drift apart in content.
+
+### Format: PDF (10E-1, replacing the 10B-1 HTML)
+
+The download is a **PDF** (`Content-Type: application/pdf`,
+`Content-Disposition: attachment`), produced by `lib/summary-pdf :: buildSummaryPdf`
+on the repo's **dependency-free** hand-written PDF stack (`lib/pdf-core`, shared
+with the physical-letter PDF — **no headless browser / PDF dependency** on Vercel).
+It renders the structured pieces `buildSummaryDocument` returns (`summary`,
+`chosen`, `cartUrl`, `alternatives`) into a branded document — letterhead + footer,
+the same sections as the email. The widget fetches the endpoint as a guarded XHR
+(so it can send the shared-secret + session headers), then saves the response body
+as a `Blob` behind the button.
+
+### Endpoint — `GET /api/account/summary?conversationKey=<key>`
+
+|               |                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Guard**     | the standard signed-in gate (`requireSignedInCustomer`): origin allowlist + `x-ms-chat-key` + a **live** access token. Anonymous / email-only / logged-out → **401**, fail closed.                                                                                                                                                                                            |
+| **Scope**     | keyed by the thread's **`conversationKey`** (migration 0018). The thread must belong to the caller (`conversation_key + customer_id = self`); a foreign/unknown key is a clean **404** — indistinguishable from missing (no enumeration leak).                                                                                                                                |
+| **Body**      | the branded **PDF** summary document (`application/pdf`).                                                                                                                                                                                                                                                                                                                     |
+| **Cost (S6)** | when it makes a model call (Anthropic summary prose), the token usage is recorded as the **`summary_download`** call site, **linked to the conversation** so it cascade-deletes with the transcript on single-chat delete / erasure. No model call (no API key / empty transcript) → nothing recorded; the document degrades to the plain transcript, exactly like the email. |
+
+The `conversationKey` is the per-thread key the history list / transcript already
+return (§9, migration 0018) and the widget already sends on `/api/chat`. The
+numeric `conversationId` keys the rename/delete routes; the **summary download
+keys on `conversationKey`** (the thread), matching the thread model.
