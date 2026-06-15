@@ -43,7 +43,7 @@
 }
 /* On :root (not .ms-chat-root) because the page-shift rules live on <html>,
    outside the widget tree. Single source of truth for the sidebar width. */
-:root { --ms-chat-sidebar-w: 380px; }
+:root { --ms-chat-sidebar-w: 360px; }
 
 /* ---------- Launcher ---------- */
 .ms-chat-launcher {
@@ -479,13 +479,9 @@ html.ms-chat-page-anim {
   border-bottom: 1px solid var(--msc-border);
   flex: 0 0 auto;
 }
-.ms-chat-wordmark {
-  font-size: 1.15rem;
-  letter-spacing: -0.01em;
-  color: rgb(var(--msc-accent));
-}
-.ms-chat-wordmark b { font-weight: 800; }
-.ms-chat-header-actions { display: flex; align-items: center; gap: 4px; }
+/* Sole header child now that the "Mo" wordmark is gone: take the full width and
+   keep the controls right-aligned (close stays at the far edge). */
+.ms-chat-header-actions { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; justify-content: flex-end; }
 .ms-chat-iconbtn {
   width: 36px;
   height: 36px;

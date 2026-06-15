@@ -1815,11 +1815,9 @@
     panel = el('div', { class: 'ms-chat-panel', role: 'dialog', 'aria-label': 'AI Fitnessberater', 'aria-modal': 'false' });
 
     var header = el('div', { class: 'ms-chat-header' });
-    // Feature 11: the header shows the chatbot's name "Mo" (same wordmark
-    // type treatment; the welcome state shows the animated brand orb).
-    var headerTitle = el('span', { class: 'ms-chat-wordmark' });
-    headerTitle.appendChild(el('b', { text: 'Mo' }));
-    header.appendChild(headerTitle);
+    // The "Mo" wordmark is intentionally omitted from the header so the action
+    // buttons get the full width (the welcome state still shows the animated
+    // brand orb). With no left title, the actions row is the sole flex child.
     var actions = el('div', { class: 'ms-chat-header-actions' });
     // Feature 7: "Per E-Mail teilen" text button (replaces the share icon).
     // Same action as before — opens the email-capture form (same form the
