@@ -12,7 +12,73 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-14, latest) — unobtrusive Feedback entry point in the chat widget
+## ⭐ Session update (2026-06-16, latest) — GDPR remediation (storefront): "Meine Daten herunterladen" data export + § 7(3) UWG at-collection notice
+
+Two storefront-side changes completing the backend GDPR remediation. **(1)** A
+signed-in **data export** ("Meine Daten herunterladen", GDPR Art. 15/20) in the
+chat widget's account drawer, mirroring the existing summary-download fetch +
+download + error pattern. The matching **erase** ("Alle meine Daten löschen",
+`POST /api/account/erase`) already existed and is unchanged. **(2)** The § 7
+Abs. 3 UWG **"at the time of collection" objection notice** at the point of
+purchase. Anonymous + email-only widget paths are **byte-identical** (the export
+control is built into the signed-in-only history drawer and is inert otherwise).
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (export copy in `ACCOUNT_COPY`, `buildExportControl()`, drawer-footer wiring) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (`.ms-chat-history-link:disabled`, `.ms-chat-export-msg`) | ✅ Yes |
+| `snippets/cart-marketing-objection-notice.liquid` | **CREATED** (§ 7(3) notice copy — one place) | ✅ Yes |
+| `snippets/cart-side-inner.liquid` | **MODIFIED** (renders the notice — cart page) | ✅ Yes |
+| `sections/cart-modal.liquid` | **MODIFIED** (renders the notice — cart drawer) | ✅ Yes |
+| `docs/backend-handoff/UWG_7_3_NOTICE_THEME_NOTES.md` | **CREATED** (operator: exact Admin copy + placement) | ❌ No (doc, not a theme asset) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+| `snippets/ms-chat-widget.liquid` | UNCHANGED | ❌ No |
+
+### TASK 1 — data export (`ms-chat-widget.js` / `.css`)
+
+- **`buildExportControl(wrap)`** in the history-drawer footer, between **Abmelden**
+  and the existing **Alle meine Daten löschen**. Signed-in only (same gate as the
+  drawer). A plain `.ms-chat-history-link` button "Meine Daten herunterladen".
+- On click: `GET /api/account/export` with the **same guard headers** as the
+  summary download (`accountHeaders()` → `x-ms-chat-key` + `x-ms-session`; Origin
+  is automatic). Reads `res.blob()`, then `URL.createObjectURL` → a temporary
+  `<a download="motionsports-meine-daten.json">` click → `revokeObjectURL`.
+- **Loading state** (button disabled + "Wird vorbereitet…"); **401** silently
+  drops to anonymous (`accountUnauthorized()`); any other non-200 (e.g. **503**)
+  shows the friendly German error **"Download fehlgeschlagen — bitte später
+  erneut versuchen."** No confirm step (a safe read, unlike erase). New KPI
+  events `account_export_started` / `account_exported`.
+
+### TASK 2 — § 7(3) UWG at-collection notice (cart)
+
+- New snippet `cart-marketing-objection-notice.liquid` holds the German copy
+  (one source of truth) and is rendered at the **foot of the cart summary,
+  directly under the checkout button**, on the cart **page**
+  (`cart-side-inner.liquid`) and in the cart **drawer** (`cart-modal.liquid`) —
+  visible, not collapsed, not in the T&Cs.
+- ⚠ **Lawyer must confirm the exact wording before launch**, and this is a
+  **launch gate**: the backend keeps § 7(3) sends disabled until the notice is
+  live. The copy is phrased as a future possibility ("ggf. auch") and does not
+  present existing-customer marketing as active.
+- **Checkout is NOT customizable from this repo** (no `checkout.liquid`, no
+  Checkout UI extension). The two **legally-mandatory** surfaces — the **checkout
+  contact/email step** and the **order-confirmation notification email** — must
+  be added in **Shopify Admin**. Exact copy + placement:
+  `docs/backend-handoff/UWG_7_3_NOTICE_THEME_NOTES.md`. The cart notice is the
+  in-repo reinforcement, not a substitute for those.
+
+### Verified
+
+- `node --check` passes on `ms-chat-widget.js`.
+- Export mirrors the existing `downloadSummary` fetch/download/error pattern and
+  reuses `accountHeaders()` / `accountUnauthorized()`; it is built only inside the
+  signed-in history drawer, so tiers 1–2 (anonymous + email-only) are unchanged.
+- Cart notice renders via a shared snippet in both cart surfaces; no new CSS file
+  for it (reuses theme utility classes).
+
+---
+
+## ⭐ Session update (2026-06-14) — unobtrusive Feedback entry point in the chat widget
 
 Added a small, optional **Feedback** affordance to the widget per the feedback
 submit contract (`docs/ai-advisor/API_CONTRACT.md` §9). It's a quiet text link
