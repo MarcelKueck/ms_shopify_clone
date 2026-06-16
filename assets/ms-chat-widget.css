@@ -887,7 +887,7 @@ html.ms-chat-page-anim {
 .ms-chat-conv-mini--danger:hover { background: rgb(var(--msc-danger) / 8%); }
 .ms-chat-conv-mini:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* Drawer footer: account-level actions (logout + erase). */
+/* Drawer footer: account-level actions (logout + data export + erase). */
 .ms-chat-history-foot {
   flex: 0 0 auto;
   border-top: 1px solid var(--msc-border);
@@ -909,6 +909,8 @@ html.ms-chat-page-anim {
   text-decoration: underline;
 }
 .ms-chat-history-link:hover { color: rgb(var(--msc-fg)); }
+.ms-chat-history-link:disabled { opacity: 0.6; cursor: progress; text-decoration: none; }
+.ms-chat-export-msg { font-size: 0.8rem; color: rgb(var(--msc-danger)); }
 .ms-chat-history-erase-btn { color: rgb(var(--msc-danger)); }
 .ms-chat-history-erase-btn:hover { color: rgb(var(--msc-danger)); }
 .ms-chat-erase-confirm {

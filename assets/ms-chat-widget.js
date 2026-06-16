@@ -842,6 +842,12 @@
     deleteYes: 'Löschen',
     msgCount: function (n) { return (n || 0) + (n === 1 ? ' Nachricht' : ' Nachrichten'); },
     logout: 'Abmelden',
+    // GDPR Art. 15/20 data export (GET /api/account/export). A safe read, so —
+    // unlike erase — no confirm step; `exportError` is the exact friendly copy
+    // for any non-200 (401 silently drops to anonymous; 503 etc. surface here).
+    exportData: 'Meine Daten herunterladen',
+    exportBusy: 'Wird vorbereitet…',
+    exportError: 'Download fehlgeschlagen — bitte später erneut versuchen.',
     erase: 'Alle meine Daten löschen',
     eraseConfirm: 'Alle deine Beratungen, dein Profil und gespeicherten Daten werden unwiderruflich gelöscht. Wirklich fortfahren?',
     eraseYes: 'Endgültig löschen',
@@ -4149,6 +4155,11 @@
     var outBtn = el('button', { class: 'ms-chat-history-link', type: 'button', text: ACCOUNT_COPY.logout });
     outBtn.addEventListener('click', signOut);
     foot.appendChild(outBtn);
+    // GDPR data-rights pair, signed-in only (same gate as this drawer): export
+    // (Art. 15/20) then the heavier erase (Art. 17).
+    var exportWrap = el('div', { class: 'ms-chat-history-export' });
+    buildExportControl(exportWrap);
+    foot.appendChild(exportWrap);
     var eraseWrap = el('div', { class: 'ms-chat-history-erase' });
     buildEraseControl(eraseWrap);
     foot.appendChild(eraseWrap);
@@ -4459,6 +4470,55 @@
         closeHistory();
         showMessageError(ACCOUNT_COPY.openError);
       });
+  }
+
+  // Download ALL my data (GET /api/account/export, GDPR Art. 15/20). A safe
+  // read, so no confirm step (unlike erase). Mirrors the summary download
+  // (downloadSummary): guarded fetch (accountHeaders → x-ms-chat-key +
+  // x-ms-session, Origin auto) → Blob → a temporary <a download> click →
+  // revokeObjectURL, with a small loading state and a friendly German error.
+  var exportingData = false;
+  function buildExportControl(wrap) {
+    wrap.replaceChildren();
+    var btn = el('button', { class: 'ms-chat-history-link', type: 'button', text: ACCOUNT_COPY.exportData });
+    var msg = el('div', { class: 'ms-chat-export-msg', style: 'display:none' });
+    btn.addEventListener('click', function () {
+      if (exportingData) return;
+      exportingData = true;
+      btn.disabled = true;
+      btn.textContent = ACCOUNT_COPY.exportBusy;
+      msg.style.display = 'none';
+      track('account_export_started', {});
+      fetch(API_BASE + '/api/account/export', { method: 'GET', headers: accountHeaders() })
+        .then(function (res) {
+          if (res.status === 401) { accountUnauthorized(); throw 0; } // session gone → anonymous
+          if (!res.ok) throw new Error('export ' + res.status);       // 503 etc. → friendly error
+          return res.blob();
+        })
+        .then(function (blob) {
+          // 200 application/json (Content-Disposition attachment). Save the
+          // returned bytes under the contract filename; the Blob already carries
+          // its type from the response, so no explicit re-typing is needed.
+          var url = URL.createObjectURL(blob);
+          var a = el('a', { href: url, download: 'motionsports-meine-daten.json' });
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
+          track('account_exported', {});
+        })
+        .catch(function (e) {
+          if (e === 0) return; // 401 already dropped to anonymous (drawer closed)
+          msg.textContent = ACCOUNT_COPY.exportError;
+          msg.style.display = '';
+        })
+        .then(function () {
+          exportingData = false;
+          if (btn) { btn.disabled = false; btn.textContent = ACCOUNT_COPY.exportData; }
+        });
+    });
+    wrap.appendChild(btn);
+    wrap.appendChild(msg);
   }
 
   // Delete ALL my data (POST /api/account/erase, §7.5) — distinct, heavier than
