@@ -4480,7 +4480,7 @@
   var exportingData = false;
   function buildExportControl(wrap) {
     wrap.replaceChildren();
-    var btn = el('button', { class: 'ms-chat-history-link', type: 'button', text: ACCOUNT_COPY.exportData });
+    var btn = el('button', { class: 'ms-chat-history-link ms-chat-history-link--quiet', type: 'button', text: ACCOUNT_COPY.exportData });
     var msg = el('div', { class: 'ms-chat-export-msg', style: 'display:none' });
     btn.addEventListener('click', function () {
       if (exportingData) return;
@@ -4525,7 +4525,7 @@
   // a per-chat delete. Two-step inline confirm in the drawer footer.
   function buildEraseControl(wrap) {
     wrap.replaceChildren();
-    var btn = el('button', { class: 'ms-chat-history-link ms-chat-history-erase-btn', type: 'button', text: ACCOUNT_COPY.erase });
+    var btn = el('button', { class: 'ms-chat-history-link ms-chat-history-link--quiet', type: 'button', text: ACCOUNT_COPY.erase });
     btn.addEventListener('click', function () {
       var box = el('div', { class: 'ms-chat-erase-confirm' });
       box.appendChild(el('div', { class: 'ms-chat-erase-text', text: ACCOUNT_COPY.eraseConfirm }));

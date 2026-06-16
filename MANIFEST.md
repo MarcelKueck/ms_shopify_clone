@@ -12,7 +12,28 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-16, latest) — REMOVE the § 7(3) UWG Bestandskunden notice (client request)
+## ⭐ Session update (2026-06-16, latest) — quieter styling for the data-export & delete-all footer buttons
+
+Restyled the signed-in account-drawer footer buttons **"Meine Daten herunterladen"**
+(export) and **"Alle meine Daten löschen"** (erase) to match the composer's
+unobtrusive **"Feedback geben"** link — smaller (0.72rem), normal weight, muted,
+and **no longer red** — so these sensitive data actions are less likely to be
+clicked by accident. Behaviour is unchanged (the erase keeps its two-step
+confirm). **Abmelden** (logout) keeps its slightly more prominent style.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (both buttons now use `ms-chat-history-link--quiet`) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (new `.ms-chat-history-link--quiet`; removed the unused red `.ms-chat-history-erase-btn`) | ✅ Yes |
+
+### Verified
+
+- `node --check` passes on `ms-chat-widget.js`.
+- No `ms-chat-history-erase-btn` references remain.
+
+---
+
+## ⭐ Session update (2026-06-16) — REMOVE the § 7(3) UWG Bestandskunden notice (client request)
 
 Per the client, the **§ 7 Abs. 3 UWG "at the time of collection" notice is
 removed entirely** (it had been added earlier the same day in #49). This reverts
