@@ -410,9 +410,12 @@
   // model output). True sine S-curves: every path starts at (0,50) and ends
   // at (100,50) — the shared anchor points on the bubble's midline — and
   // crests/troughs in between with different amplitudes and phases. Strokes
-  // are painted by the horizontal gradients; the CSS animates the two <g>
-  // bundles with scaleY/skewX about the centre, which keeps both anchors
-  // pinned. Glow = a wide low-opacity copy of each bundle's main strand.
+  // are painted by the horizontal gradients — both all-red (the brand red):
+  // the `-cool` bundle is the brighter ribbon, `-warm` the deeper one (the
+  // names are now just bundle A/B, kept to match the CSS class hooks). The CSS
+  // animates the two <g> bundles with scaleY/skewX about the centre, which
+  // keeps both anchors pinned. Glow = a wide low-opacity copy of each bundle's
+  // main strand.
   // GRADIENT IDS MUST BE UNIQUE PER INSTANCE (the __UID__ placeholder is
   // replaced on injection): url(#...) resolves to the FIRST matching id in
   // the document, and WebKit/Blink fail to paint gradients defined inside a
@@ -422,20 +425,20 @@
     '<svg class="ms-chat-logo-waves" viewBox="0 0 100 100" aria-hidden="true" focusable="false">' +
       '<defs>' +
         '<linearGradient id="__UID__-cool" x1="0" y1="0" x2="1" y2="0">' +
-          '<stop offset="0" stop-color="#ff8a5e" stop-opacity="0"/>' +
-          '<stop offset="0.08" stop-color="#ff8a5e" stop-opacity="0.5"/>' +
-          '<stop offset="0.3" stop-color="#4678ff"/>' +
-          '<stop offset="0.55" stop-color="#3cc3ff"/>' +
-          '<stop offset="0.78" stop-color="#7bffcd"/>' +
-          '<stop offset="1" stop-color="#96ffbe" stop-opacity="0"/>' +
+          '<stop offset="0" stop-color="#ff5b5b" stop-opacity="0"/>' +
+          '<stop offset="0.08" stop-color="#ff5b5b" stop-opacity="0.55"/>' +
+          '<stop offset="0.3" stop-color="#ff2b2b"/>' +
+          '<stop offset="0.55" stop-color="#ed1f1f"/>' +
+          '<stop offset="0.78" stop-color="#cf2e2e"/>' +
+          '<stop offset="1" stop-color="#cf2e2e" stop-opacity="0"/>' +
         '</linearGradient>' +
         '<linearGradient id="__UID__-warm" x1="0" y1="0" x2="1" y2="0">' +
-          '<stop offset="0" stop-color="#ffc896" stop-opacity="0"/>' +
-          '<stop offset="0.1" stop-color="#ffe2be" stop-opacity="0.6"/>' +
-          '<stop offset="0.35" stop-color="#ffb43c"/>' +
-          '<stop offset="0.62" stop-color="#ff7a32"/>' +
-          '<stop offset="0.85" stop-color="#ff4646"/>' +
-          '<stop offset="1" stop-color="#ff4646" stop-opacity="0"/>' +
+          '<stop offset="0" stop-color="#ff6b6b" stop-opacity="0"/>' +
+          '<stop offset="0.1" stop-color="#ff4040" stop-opacity="0.6"/>' +
+          '<stop offset="0.35" stop-color="#e21f1f"/>' +
+          '<stop offset="0.62" stop-color="#c11d1d"/>' +
+          '<stop offset="0.85" stop-color="#9a0000"/>' +
+          '<stop offset="1" stop-color="#9a0000" stop-opacity="0"/>' +
         '</linearGradient>' +
       '</defs>' +
       '<g class="ms-chat-logo-bundle ms-chat-logo-bundle--cool" stroke="url(#__UID__-cool)">' +
