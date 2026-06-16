@@ -12,7 +12,41 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-16, latest) — GDPR remediation (storefront): "Meine Daten herunterladen" data export + § 7(3) UWG at-collection notice
+## ⭐ Session update (2026-06-16, latest) — REMOVE the § 7(3) UWG Bestandskunden notice (client request)
+
+Per the client, the **§ 7 Abs. 3 UWG "at the time of collection" notice is
+removed entirely** (it had been added earlier the same day in #49). This reverts
+**only** that notice — the **"Meine Daten herunterladen" data export (Art. 15/20)
+stays**, as it is a separate data-subject right, not part of the Bestandskunden
+marketing feature. No backend code is involved.
+
+| Path | Status | Action on the live theme |
+| --- | --- | --- |
+| `snippets/cart-side-inner.liquid` | **REVERTED** to pre-#49 (notice render removed) | ✅ Re-upload |
+| `sections/cart-modal.liquid` | **REVERTED** to pre-#49 (notice render removed) | ✅ Re-upload |
+| `snippets/cart-marketing-objection-notice.liquid` | **DELETED** | 🗑 Delete from the live theme if it was uploaded |
+| `docs/backend-handoff/UWG_7_3_NOTICE_THEME_NOTES.md` | **DELETED** | ❌ No (doc, not a theme asset) |
+| `assets/ms-chat-widget.js` / `.css` | UNCHANGED here (data export from #49 stays) | ❌ No (already shipped with #49) |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+After this, the cart shows **no** § 7(3) notice and nothing is needed in Shopify
+Admin for it (the lawyer / launch-gate / Widerspruch-mailbox steps are all moot).
+The data-export button is unaffected.
+
+### Verified
+
+- `git diff` of the two cart files against pre-#49 (`24d7d94`) is empty — they are
+  byte-identical to their original state.
+- No `cart-marketing-objection-notice` / `widerspruch@` / "Abs. 3 UWG" references
+  remain in `*.liquid` / `*.js` / `*.css`.
+
+---
+
+## ⭐ Session update (2026-06-16) — GDPR remediation (storefront): "Meine Daten herunterladen" data export + § 7(3) UWG at-collection notice
+
+> ⚠ **Superseded in part:** the § 7(3) UWG notice described in this entry was
+> **removed** on the client's request — see the entry above. The data export
+> below remains in place.
 
 Two storefront-side changes completing the backend GDPR remediation. **(1)** A
 signed-in **data export** ("Meine Daten herunterladen", GDPR Art. 15/20) in the
