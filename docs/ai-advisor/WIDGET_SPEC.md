@@ -146,8 +146,8 @@ Persistence rules:
 
 - The Mo logo is **no longer an image asset**: it is a self-contained,
   Siri-style **liquid-glass sphere** — a CLEAR frosted bubble (no dark
-  fill) with a **chromatic rim light** (mint at the top, red bottom-left,
-  blue bottom-right, via layered inset shadows) and a bundle of **true
+  fill) with a **red rim light** (light-red at the top, red bottom-left,
+  deep-red bottom-right, via layered inset shadows) and a bundle of **true
   sine waves** flowing left-to-right inside. Implementation: the
   `.ms-chat-logo` root span carries the glass in pure CSS (a faint
   translucent fill + `backdrop-filter: blur + saturate` frost + the rim,
@@ -156,13 +156,14 @@ Persistence rules:
   server-rendered product-CTA span, at `init()`): cubic-bézier
   **S-curves** that all start at `(0, 50)` and end at `(100, 50)` — the
   **same two anchor points** on the bubble's midline — and crest/trough
-  in between with different amplitudes and phases. The cool bundle
-  (blue → cyan → mint, 3 strands + a wide faint glow copy) crests left
-  and troughs right; the warm bundle (cream → amber → orange → red,
-  2 strands + glow) is mirrored, so the bundles cross like the reference.
-  Strokes are painted by horizontal gradients that fade out at both ends
-  (the bundle converges and dissolves at its shared origins); only a
-  sub-pixel `blur(...)` is applied, so the strands stay **distinct**.
+  in between with different amplitudes and phases. Both bundles are
+  **all red** (the motion-sports brand red): the bright-red bundle
+  (light → bright → brand red `#cf2e2e`, 3 strands + a wide faint glow
+  copy) crests left and troughs right; the deeper-red bundle
+  (`#ff4040` → `#9a0000`, 2 strands + glow) is mirrored, so the two reds
+  cross. Strokes are painted by horizontal gradients that fade out at both
+  ends (the bundle converges and dissolves at its shared origins); **no
+  blur** is applied, so the strands render **razor-sharp**.
   No image file, no external request, no library.
 - **Pinned-anchor motion / seamless loop:** the two `<g>` bundles are
   animated with CSS keyframes; the animation reads as the waves flowing
@@ -173,15 +174,16 @@ Persistence rules:
   unevenly spaced keyframe stops per loop, two different bundle speeds
   and an offset phase make the wavelength/amplitude/phase drift feel
   random and organic, while symmetric keyframes (0% == 100%) keep each
-  loop seamless; a `hue-rotate` swing shifts the colors as they move.
+  loop seamless. The motion is deliberately energetic — a short cycle with
+  a wide `scaleY`/`skewX` swing — so the mark reads as lively and dynamic.
 - **Crisp at any size:** everything is vector- and gradient-based (the
   SVG scales with its span; stroke widths are viewBox-relative), so the
   mark scales
   from the 96px welcome hero down to the 36px avatar/CTA. Custom
   properties tune it per context: `--msc-logo-dur` (wave cycle; longer =
-  calmer), `--msc-logo-blur` (strand softness — keep small),
-  `--msc-logo-rim` (rim-light thickness — scale roughly with rendered
-  size) and `--msc-logo-base` (the translucent glass fill). The component
+  calmer), `--msc-logo-rim` (rim-light thickness — scale roughly with
+  rendered size) and `--msc-logo-base` (the translucent glass fill). The
+  component
   intentionally does not depend on the `--msc-*` theme tokens, so it also
   works outside `.ms-chat-root` (the product-page CTA, which re-asserts
   the rim `box-shadow` past the kurzinfo block's reset).
