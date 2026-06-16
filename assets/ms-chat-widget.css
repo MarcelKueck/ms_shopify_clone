@@ -911,8 +911,15 @@ html.ms-chat-page-anim {
 .ms-chat-history-link:hover { color: rgb(var(--msc-fg)); }
 .ms-chat-history-link:disabled { opacity: 0.6; cursor: progress; text-decoration: none; }
 .ms-chat-export-msg { font-size: 0.8rem; color: rgb(var(--msc-danger)); }
-.ms-chat-history-erase-btn { color: rgb(var(--msc-danger)); }
-.ms-chat-history-erase-btn:hover { color: rgb(var(--msc-danger)); }
+/* Quiet variant — mirrors the composer's "Feedback geben" link so the data-export
+   and delete-all actions sit unobtrusively in the footer (smaller, lighter, not
+   red), making them less likely to be clicked by accident. */
+.ms-chat-history-link--quiet {
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-underline-offset: 2px;
+}
+.ms-chat-history-link--quiet:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 2px; border-radius: 2px; }
 .ms-chat-erase-confirm {
   border: 1px solid rgb(var(--msc-danger) / 35%);
   background: rgb(var(--msc-danger) / 5%);
