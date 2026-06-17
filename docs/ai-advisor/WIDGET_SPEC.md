@@ -145,23 +145,21 @@ Persistence rules:
 ### 4.1a The animated brand mark (`.ms-chat-logo`)
 
 - The Mo logo is **no longer an image asset**: it is a self-contained,
-  **Siri-style morphing-blob orb** — a round orb in which several soft,
-  blurred colour blobs slowly **rotate** and **morph** between organic
-  shapes, blending over a dark base (the animated-3D / "liquid metaballs"
-  look). Implementation: the `.ms-chat-logo` root span carries the orb
-  chrome in pure CSS (a radial base gradient, `overflow: hidden` + pill
-  radius for the round clip, and a `box-shadow` "sphere shading" — a top
-  sheen + a darker inner rim that sells the 3D ball); the blobs are a tiny
-  **inline SVG** (`LOGO_BLOBS` in the JS — injected by `logoEl()` and, for
-  the server-rendered product-CTA span, at `init()`) of four `<path>` blobs
-  on a `0 0 1200 1200` viewBox. No image file, no external request, no
-  library.
-- **Colour (palette-driven):** the blob and background colours are CSS
-  custom properties on `.ms-chat-logo` (`--msc-blob-1..4`,
-  `--msc-blob-bg-0/1`), so the whole mark re-skins in one place. The default
-  is the **motion-sports brand red** (`#cf2e2e` / `#ff3838` / `#8a0000`
-  blobs over a near-black-red base). Ready-made alternates — including a
-  classic multi-colour "Siri" set — are kept in a comment beside the
+  **Siri-style morphing-blob orb** — several soft, blurred colour blobs
+  slowly **rotate** and **morph** between organic shapes, floating inside a
+  translucent, frosted **liquid-glass bubble** (Apple-glass optics).
+  Implementation: the `.ms-chat-logo` root span carries the bubble chrome in
+  pure CSS (a faint translucent fill + `backdrop-filter: blur + saturate`
+  frost, `overflow: hidden` + pill radius for the round clip, and a
+  `box-shadow` chromatic glass rim); the blobs are a tiny **inline SVG**
+  (`LOGO_BLOBS` in the JS — injected by `logoEl()` and, for the
+  server-rendered product-CTA span, at `init()`) of four `<path>` blobs on a
+  `0 0 1200 1200` viewBox. No image file, no external request, no library.
+- **Colour (palette-driven):** the blob colours are CSS custom properties on
+  `.ms-chat-logo` (`--msc-blob-1..4`), so the whole mark re-skins in one
+  place. The default is a **multi-colour rainbow** (blue / purple / cyan /
+  mint blobs inside the clear glass bubble). Ready-made alternates —
+  including the **motion-sports red** set — are kept in a comment beside the
   variables; copy them onto `.ms-chat-logo` to switch.
 - **Blur (scale-invariant):** each blob is softened by an SVG
   `<feGaussianBlur>` whose `stdDeviation` is in **viewBox units**, so the
@@ -179,12 +177,12 @@ Persistence rules:
 - **Crisp at any size:** everything is vector-based (the SVG scales with
   its span; blur is in viewBox units), so the mark scales from the 96px
   welcome hero down to the 36px avatar/CTA. `--msc-logo-rim` tunes the
-  sphere-shading thickness per context. The component intentionally does not
+  glass-rim thickness per context. The component intentionally does not
   depend on the `--msc-*` theme tokens, so it also works outside
-  `.ms-chat-root` (the product-page CTA, which re-asserts the sphere-shading
+  `.ms-chat-root` (the product-page CTA, which re-asserts the glass-rim
   `box-shadow` past the kurzinfo block's reset).
 - **Placement rules — animated where it helps, calm where it doesn't:**
-  - **Launcher:** full motion + a soft pulsing red outer halo (~4s).
+  - **Launcher:** full motion + a soft pulsing iridescent outer halo (~4s).
   - **Welcome state (empty chat):** a 96px full-motion orb is the hero of
     the panel — there is nothing to read yet, so motion is welcome here.
   - **Product-page CTA:** the same orb, full motion — it inherits the blob
