@@ -18,7 +18,7 @@
   'use strict';
 
   var CFG = window.MS_CHAT_CONFIG || {};
-  var API_BASE = String(CFG.apiBase || 'https://motionsports-chatbot.vercel.app').replace(/\/+$/, '');
+  var API_BASE = String(CFG.apiBase || 'https://mo.motionsports.de').replace(/\/+$/, '');
   var CHAT_KEY = CFG.chatKey || '';
   var SHOWROOM_URL = CFG.showroomUrl || 'https://motionsports.de/pages/showroom-munchen-grobenzell';
 

@@ -1179,7 +1179,7 @@
         "id": "ai_advisor_backend_url",
         "label": "Backend URL",
         "info": "Origin of the chat backend. Change only if the backend is deployed elsewhere.",
-        "default": "https://motionsports-chatbot.vercel.app"
+        "default": "https://mo.motionsports.de"
       },
       {
         "type": "text",
