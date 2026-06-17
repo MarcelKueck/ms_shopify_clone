@@ -406,67 +406,45 @@
     return tpl.content.firstElementChild;
   }
 
-  // The wave bundle inside the brand orb (trusted, internal markup — never
-  // model output). True sine S-curves: every path starts at (0,50) and ends
-  // at (100,50) — the shared anchor points on the bubble's midline — and
-  // crests/troughs in between with different amplitudes and phases. Strokes
-  // are painted by the horizontal gradients — both all-red (the brand red):
-  // the `-cool` bundle is the brighter ribbon, `-warm` the deeper one (the
-  // names are now just bundle A/B, kept to match the CSS class hooks). The CSS
-  // animates the two <g> bundles with scaleY/skewX about the centre, which
-  // keeps both anchors pinned. Glow = a wide low-opacity copy of each bundle's
-  // main strand.
-  // GRADIENT IDS MUST BE UNIQUE PER INSTANCE (the __UID__ placeholder is
-  // replaced on injection): url(#...) resolves to the FIRST matching id in
-  // the document, and WebKit/Blink fail to paint gradients defined inside a
-  // display:none subtree — so with shared ids, hiding the launcher while the
-  // panel is open killed the strokes of every other orb (welcome/avatar).
-  var LOGO_WAVES =
-    '<svg class="ms-chat-logo-waves" viewBox="0 0 100 100" aria-hidden="true" focusable="false">' +
+  // The morphing blob bundle inside the brand orb (trusted, internal markup —
+  // never model output). Four soft <path> blobs on a 1200x1200 viewBox; the
+  // CSS rotates each <g> and tweens each path's `d` between a shared set of
+  // organic shapes (the Siri churn). Colours come from the CSS palette vars;
+  // blur is an SVG <feGaussianBlur> per blob (stdDeviation in viewBox units,
+  // so it scales with the orb on every renderer). Each path's start `d` equals
+  // its 0% keyframe, so there's no jump on first paint / where `d` can't animate.
+  // FILTER IDS MUST BE UNIQUE PER INSTANCE (the __UID__ placeholder is replaced
+  // on injection): url(#...) resolves to the FIRST matching id in the document,
+  // and WebKit/Blink fail to paint a filter defined inside a display:none
+  // subtree — so with shared ids, hiding the launcher while the panel is open
+  // broke every other orb (welcome/avatar).
+  var LOGO_BLOBS =
+    '<svg class="ms-chat-logo-blobs" viewBox="0 0 1200 1200" aria-hidden="true" focusable="false">' +
       '<defs>' +
-        '<linearGradient id="__UID__-cool" x1="0" y1="0" x2="1" y2="0">' +
-          '<stop offset="0" stop-color="#ff5b5b" stop-opacity="0"/>' +
-          '<stop offset="0.08" stop-color="#ff5b5b" stop-opacity="0.55"/>' +
-          '<stop offset="0.3" stop-color="#ff2b2b"/>' +
-          '<stop offset="0.55" stop-color="#ed1f1f"/>' +
-          '<stop offset="0.78" stop-color="#cf2e2e"/>' +
-          '<stop offset="1" stop-color="#cf2e2e" stop-opacity="0"/>' +
-        '</linearGradient>' +
-        '<linearGradient id="__UID__-warm" x1="0" y1="0" x2="1" y2="0">' +
-          '<stop offset="0" stop-color="#ff6b6b" stop-opacity="0"/>' +
-          '<stop offset="0.1" stop-color="#ff4040" stop-opacity="0.6"/>' +
-          '<stop offset="0.35" stop-color="#e21f1f"/>' +
-          '<stop offset="0.62" stop-color="#c11d1d"/>' +
-          '<stop offset="0.85" stop-color="#9a0000"/>' +
-          '<stop offset="1" stop-color="#9a0000" stop-opacity="0"/>' +
-        '</linearGradient>' +
+        '<filter id="__UID__-b1" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="26"/></filter>' +
+        '<filter id="__UID__-b2" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="20"/></filter>' +
+        '<filter id="__UID__-b3" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="15"/></filter>' +
+        '<filter id="__UID__-b4" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="100"/></filter>' +
       '</defs>' +
-      '<g class="ms-chat-logo-bundle ms-chat-logo-bundle--cool" stroke="url(#__UID__-cool)">' +
-        '<path d="M0 50 C 16 18, 36 14, 52 40 S 82 74, 100 50" stroke-width="6.5" opacity="0.3"/>' +
-        '<path d="M0 50 C 16 18, 36 14, 52 40 S 82 74, 100 50" stroke-width="2.2"/>' +
-        '<path d="M0 50 C 18 28, 38 24, 54 44 S 84 66, 100 50" stroke-width="1.7" opacity="0.85"/>' +
-        '<path d="M0 50 C 20 38, 42 34, 58 48 S 86 60, 100 50" stroke-width="1.3" opacity="0.7"/>' +
-      '</g>' +
-      '<g class="ms-chat-logo-bundle ms-chat-logo-bundle--warm" stroke="url(#__UID__-warm)">' +
-        '<path d="M0 50 C 16 76, 36 84, 54 60 S 82 26, 100 50" stroke-width="6.5" opacity="0.28"/>' +
-        '<path d="M0 50 C 16 76, 36 84, 54 60 S 82 26, 100 50" stroke-width="2.2"/>' +
-        '<path d="M0 50 C 20 64, 40 68, 58 54 S 86 38, 100 50" stroke-width="1.6" opacity="0.85"/>' +
-      '</g>' +
+      '<g class="ms-chat-blob ms-chat-blob-1"><path filter="url(#__UID__-b1)" d="M 100 600 q 0 -500, 500 -500 t 500 500 t -500 500 T 100 600 z"/></g>' +
+      '<g class="ms-chat-blob ms-chat-blob-2"><path filter="url(#__UID__-b2)" d="M 100 600 q 0 -400, 500 -500 t 400 500 t -500 500 T 100 600 z"/></g>' +
+      '<g class="ms-chat-blob ms-chat-blob-3"><path filter="url(#__UID__-b3)" d="M 100 600 q -50 -400, 500 -500 t 450 550 t -500 500 T 100 600 z"/></g>' +
+      '<g class="ms-chat-blob ms-chat-blob-4"><path filter="url(#__UID__-b4)" d="M 150 600 q 0 -600, 500 -500 t 500 550 t -500 500 T 150 600 z"/></g>' +
     '</svg>';
-  var logoWavesSeq = 0;
-  function logoWaves() {
-    var uid = 'ms-chat-lg' + (++logoWavesSeq) + '-' + Math.random().toString(36).slice(2, 6);
+  var logoBlobsSeq = 0;
+  function logoBlobs() {
+    var uid = 'ms-chat-lg' + (++logoBlobsSeq) + '-' + Math.random().toString(36).slice(2, 6);
     var tpl = document.createElement('template');
-    tpl.innerHTML = LOGO_WAVES.replace(/__UID__/g, uid);
+    tpl.innerHTML = LOGO_BLOBS.replace(/__UID__/g, uid);
     return tpl.content.firstElementChild;
   }
 
-  // Brand logo element: the glass bubble (CSS on .ms-chat-logo) with the
-  // sine-wave SVG inside; the variant (full motion on launcher/welcome,
-  // static avatar) is chosen per context via the extra class.
+  // Brand logo element: the orb (CSS on .ms-chat-logo) with the morphing-blob
+  // SVG inside; the variant (full motion on launcher/welcome, paused avatar)
+  // is chosen per context via the extra class.
   function logoEl(extraClass) {
     var s = el('span', { class: 'ms-chat-logo ' + (extraClass || ''), 'aria-hidden': 'true' });
-    s.appendChild(logoWaves());
+    s.appendChild(logoBlobs());
     return s;
   }
 
@@ -4574,12 +4552,12 @@
     renderAllMessages();
     updateInputState();
     // Server-rendered orb spans (the product-page CTA renders an empty
-    // .ms-chat-logo span in the template) get the same wave SVG as the
+    // .ms-chat-logo span in the template) get the same blob SVG as the
     // JS-built ones.
     try {
       var orbs = document.querySelectorAll('.ms-chat-logo');
       for (var oi = 0; oi < orbs.length; oi++) {
-        if (!orbs[oi].firstElementChild) orbs[oi].appendChild(logoWaves());
+        if (!orbs[oi].firstElementChild) orbs[oi].appendChild(logoBlobs());
       }
     } catch (e) {}
     window.MS_CHAT = window.MS_CHAT || {};

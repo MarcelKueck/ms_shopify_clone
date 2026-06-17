@@ -82,59 +82,58 @@
    the wave bundle inside the orb; a legacy 26px icon rule used to match it
    and shrank it into the top-left corner. */
 
-/* ---------- Brand mark: animated "Mo orb" (launcher + avatar + welcome + CTA) ---------- */
-/* v5 "liquid glass + sine waves" — a CLEAR frosted-glass bubble (no dark
-   fill) with a bundle of TRUE sine waves flowing left-to-right inside: thin
-   all-red S-curves (a bright-red bundle and a deeper-red bundle, both the
-   motion-sports brand red) that all share the same two anchor points on the
-   bubble's midline and crest/trough in between. The glass is CSS on this root
-   span (translucent fill + frosted backdrop + red rim); the waves are a
-   tiny INLINE SVG that the widget JS injects into every `.ms-chat-logo` span
-   (see LOGO_WAVES in ms-chat-widget.js) — still no image asset, no external
-   request, crisp at every size. The rules below style and animate that SVG.
-   NOTE: intentionally does NOT depend on the --msc-* theme tokens above, so
-   it also works outside `.ms-chat-root` (the product-page CTA).
-   Per-context tunables:
-     --msc-logo-dur   wave cycle duration (longer = calmer)
-     --msc-logo-rim   rim-light thickness — scale roughly with rendered size
-     --msc-logo-base  the glass fill (translucent everywhere by design) */
+/* ---------- Brand mark: animated "Mo orb" — Siri-style morphing blobs ---------- */
+/* v6 "liquid metaballs" — a round orb in which several soft, blurred colour
+   blobs slowly ROTATE and MORPH between organic shapes (animated SVG `d:`
+   path()), blending over a dark base: the Siri / animated-3D look. The orb
+   chrome (round clip, base gradient, sphere shading) is pure CSS on this root
+   span; the blobs are a tiny INLINE SVG the widget JS injects into every
+   `.ms-chat-logo` span (see LOGO_BLOBS in ms-chat-widget.js) — no image asset,
+   no external request, resolution-independent at every size. Blur is done in
+   the SVG with <feGaussianBlur> (stdDeviation in viewBox units) so it scales
+   with the orb identically on every renderer. The rules below style/animate it.
+   NOTE: intentionally does NOT depend on the --msc-* theme tokens above, so it
+   also works outside `.ms-chat-root` (the product-page CTA).
+   Per-context tunable:
+     --msc-logo-rim   sphere-shading thickness — scale roughly with size
+   Palette: blob + background colours are CSS custom properties, so the whole
+   mark re-skins in one place. Default = motion-sports red; ready-made
+   alternates (incl. a classic multi-colour "Siri" set) are in the comment
+   below — copy the vars onto `.ms-chat-logo` to switch. */
 .ms-chat-logo {
-  --msc-logo-dur: 3.5s;
+  /* palette — motion-sports red */
+  --msc-blob-bg-0: #2a0808;   /* base glow at the orb centre */
+  --msc-blob-bg-1: #0c0303;   /* base toward the orb rim */
+  --msc-blob-1: #cf2e2e;      /* brand red */
+  --msc-blob-2: #ff3838;      /* bright red */
+  --msc-blob-3: #ff7a6e;      /* hot light-red sheen */
+  --msc-blob-4: #8a0000;      /* deep-red background glow */
+  /* Alternate palettes — copy onto .ms-chat-logo to switch:
+       Classic Siri (multi-colour):
+         --msc-blob-bg-0:#101030; --msc-blob-bg-1:#050515; --msc-blob-1:#984ddf;
+         --msc-blob-2:#4344ad;    --msc-blob-3:#74d9e1;    --msc-blob-4:#050515;
+       Warm ember:
+         --msc-blob-bg-0:#150513; --msc-blob-bg-1:#0a0205; --msc-blob-1:#ff3838;
+         --msc-blob-2:#ff9d7c;    --msc-blob-3:#ffdda0;    --msc-blob-4:#fff6ea; */
   --msc-logo-rim: 2px;
-  --msc-logo-base:
-    radial-gradient(85% 55% at 50% 6%, rgb(255 255 255 / 28%), rgb(255 255 255 / 0%) 60%),
-    radial-gradient(120% 120% at 32% 20%, rgb(255 255 255 / 10%), rgb(255 255 255 / 3%) 50%, rgb(255 150 150 / 12%) 100%);
-  /* Red glass rim: light-red top, red bottom-left, deep-red bottom-right (kept
-     in a var so the product CTA can re-assert it past the kurzinfo
-     box-shadow reset). */
+  /* Sphere shading (kept in a var so the product CTA can re-assert it past the
+     kurzinfo box-shadow reset): a top sheen + a darker inner rim => a 3D ball. */
   --msc-logo-rim-shadow:
-    inset 0 0 calc(var(--msc-logo-rim) * 4) rgb(255 255 255 / 30%),
-    inset 0 calc(var(--msc-logo-rim) * 1.5) calc(var(--msc-logo-rim) * 3) calc(var(--msc-logo-rim) * -1) rgb(255 150 140 / 60%),
-    inset calc(var(--msc-logo-rim) * 1.8) calc(var(--msc-logo-rim) * -2) calc(var(--msc-logo-rim) * 3.5) calc(var(--msc-logo-rim) * -1) rgb(255 70 70 / 65%),
-    inset calc(var(--msc-logo-rim) * -1.8) calc(var(--msc-logo-rim) * -2) calc(var(--msc-logo-rim) * 3.5) calc(var(--msc-logo-rim) * -1) rgb(207 46 46 / 70%);
+    inset 0 calc(var(--msc-logo-rim) * 2) calc(var(--msc-logo-rim) * 4) calc(var(--msc-logo-rim) * -1) rgb(255 255 255 / 35%),
+    inset 0 calc(var(--msc-logo-rim) * -3) calc(var(--msc-logo-rim) * 6) calc(var(--msc-logo-rim) * -2) rgb(0 0 0 / 55%);
   position: relative;
   display: inline-block;
   overflow: hidden;
   border-radius: 999px;
-  background: var(--msc-logo-base);
-  /* The "liquid" part: frost whatever sits behind the bubble. Degrades to
-     the translucent fill alone where backdrop-filter is unsupported. */
-  -webkit-backdrop-filter: blur(6px) saturate(150%);
-  backdrop-filter: blur(6px) saturate(150%);
+  background: radial-gradient(circle at 50% 42%, var(--msc-blob-bg-0), var(--msc-blob-bg-1) 72%);
   box-shadow: var(--msc-logo-rim-shadow);
 }
-/* Wave bundle: an inline SVG (injected by the JS, see LOGO_WAVES) of TRUE
-   sine S-curves — cubic béziers that all start at (0,50) and end at (100,50),
-   the shared anchor points on the bubble's midline, and crest/trough in
-   between with different amplitudes and phases (cool bundle: crest left,
-   trough right; warm bundle mirrored). Strokes are painted by horizontal
-   gradients that fade out at both ends, so the bundle converges and
-   dissolves at its shared origins. Replaces the v4 radial-arc masks, which
-   could only bow one way (half-circles, no sine inflection). */
-/* Doubled selector on purpose: ancestor icon-sizing rules (e.g. a theme's or
-   a container's `... svg { width/height }`) must never shrink the wave SVG. */
-.ms-chat-logo-waves,
-.ms-chat-logo .ms-chat-logo-waves {
+/* The blob SVG fills the orb; the round overflow clip above keeps the soft
+   blobs inside a crisp circle (the orb edge). Doubled selector on purpose:
+   ancestor icon-sizing rules (a theme's `... svg { width/height }`) must never
+   shrink it. */
+.ms-chat-logo-blobs,
+.ms-chat-logo .ms-chat-logo-blobs {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -142,55 +141,78 @@
   display: block;
   pointer-events: none;
 }
-.ms-chat-logo-bundle {
-  fill: none;
-  stroke-linecap: round;
-  /* Pinned-anchor motion: scaleY and skewX about the viewBox centre leave
-     the midline — and with it BOTH anchor points — exactly in place. */
+/* Each blob = a <g> that slowly rotates about the orb centre, wrapping a
+   <path> that morphs between organic shapes and is scaled down so its blur has
+   room. transform-box: view-box anchors both about the 1200x1200 centre. */
+.ms-chat-blob {
   transform-box: view-box;
   transform-origin: 50% 50%;
+  opacity: 0.7;
+  animation: ms-chat-blob-rotate 25s infinite alternate ease-in-out;
 }
-.ms-chat-logo-bundle--cool {
-  animation: ms-chat-logo-wave-a var(--msc-logo-dur) ease-in-out infinite;
+.ms-chat-blob path {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  transform: scale(0.8);
+  animation: ms-chat-blob-anim-1 5s infinite alternate cubic-bezier(0.45, 0.2, 0.55, 0.8);
 }
-.ms-chat-logo-bundle--warm {
-  transform: scaleY(0.85) skewX(0deg);
-  animation: ms-chat-logo-wave-b calc(var(--msc-logo-dur) * 1.45) ease-in-out infinite;
-  animation-delay: calc(var(--msc-logo-dur) * -0.4);
+.ms-chat-blob-1 path { fill: var(--msc-blob-1); }
+.ms-chat-blob-2 { animation-duration: 18s; animation-direction: alternate-reverse; }
+.ms-chat-blob-2 path { fill: var(--msc-blob-2); animation-name: ms-chat-blob-anim-2; animation-duration: 7s; transform: scale(0.78); }
+.ms-chat-blob-3 { animation-duration: 23s; }
+.ms-chat-blob-3 path { fill: var(--msc-blob-3); animation-name: ms-chat-blob-anim-3; animation-duration: 6s; transform: scale(0.76); }
+.ms-chat-blob-4 { animation-duration: 31s; animation-direction: alternate-reverse; opacity: 0.9; }
+.ms-chat-blob-4 path { fill: var(--msc-blob-4); animation-name: ms-chat-blob-anim-4; animation-duration: 10s; transform: scale(0.5); }
+/* The morph: each blob tweens its path `d` between a shared set of organic
+   blob shapes on the 1200x1200 viewBox, at its own pace, while the group
+   rotation slowly sweeps it around — the two combine into the fluid,
+   non-repeating Siri churn. (Animating `d` needs a modern engine; where it's
+   unsupported the blobs fall back to their static start shape + rotation.) */
+@keyframes ms-chat-blob-anim-1 {
+  0%   { d: path("M 100 600 q 0 -500, 500 -500 t 500 500 t -500 500 T 100 600 z"); }
+  30%  { d: path("M 100 600 q -50 -400, 500 -500 t 450 550 t -500 500 T 100 600 z"); }
+  70%  { d: path("M 100 600 q 0 -400, 500 -500 t 400 500 t -500 500 T 100 600 z"); }
+  100% { d: path("M 150 600 q 0 -600, 500 -500 t 500 550 t -500 500 T 150 600 z"); }
 }
-/* The travelling-wave illusion with pinned ends: amplitude breathes via
-   scaleY and the crests lean left/right via skewX — both leave the two
-   anchor points untouched, so the bundle stays cleanly attached at the
-   bubble's left and right. Three unevenly spaced stops per loop, two layer
-   speeds and an offset phase make the parameter drift feel random/organic,
-   while 0% == 100% keeps each loop seamless. */
-@keyframes ms-chat-logo-wave-a {
-  0%, 100% { transform: scaleY(1) skewX(0deg); }
-  35% { transform: scaleY(1.5) skewX(15deg); }
-  70% { transform: scaleY(0.5) skewX(-13deg); }
+@keyframes ms-chat-blob-anim-2 {
+  0%   { d: path("M 100 600 q 0 -400, 500 -500 t 400 500 t -500 500 T 100 600 z"); }
+  40%  { d: path("M 150 600 q 0 -600, 500 -500 t 500 550 t -500 500 T 150 600 z"); }
+  80%  { d: path("M 100 600 q -50 -400, 500 -500 t 450 550 t -500 500 T 100 600 z"); }
+  100% { d: path("M 100 600 q 100 -600, 500 -500 t 400 500 t -500 500 T 100 600 z"); }
 }
-@keyframes ms-chat-logo-wave-b {
-  0%, 100% { transform: scaleY(0.85) skewX(0deg); }
-  30% { transform: scaleY(1.5) skewX(-16deg); }
-  65% { transform: scaleY(0.55) skewX(12deg); }
+@keyframes ms-chat-blob-anim-3 {
+  0%   { d: path("M 100 600 q -50 -400, 500 -500 t 450 550 t -500 500 T 100 600 z"); }
+  35%  { d: path("M 150 600 q 0 -600, 500 -500 t 500 550 t -500 500 T 150 600 z"); }
+  75%  { d: path("M 100 600 q 100 -600, 500 -500 t 400 500 t -500 500 T 100 600 z"); }
+  100% { d: path("M 100 600 q 0 -400, 500 -500 t 400 500 t -500 500 T 100 600 z"); }
+}
+@keyframes ms-chat-blob-anim-4 {
+  0%   { d: path("M 150 600 q 0 -600, 500 -500 t 500 550 t -500 500 T 150 600 z"); }
+  30%  { d: path("M 100 600 q 100 -600, 500 -500 t 400 500 t -500 500 T 100 600 z"); }
+  70%  { d: path("M 100 600 q -50 -400, 500 -500 t 450 550 t -500 500 T 100 600 z"); }
+  100% { d: path("M 150 600 q 0 -600, 500 -500 t 500 550 t -500 500 T 150 600 z"); }
+}
+@keyframes ms-chat-blob-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 /* Launcher = the FULL-motion variant (drawing attention is the goal here),
-   plus a soft pulsing halo. The halo keyframes re-state the rim shadows
+   plus a soft pulsing red halo. The halo keyframes re-state the sphere shading
    because box-shadow animates as one property. */
 .ms-chat-launcher-logo {
   width: 100%;
   height: 100%;
   border-radius: inherit;
   --msc-logo-rim: 3px;
-  animation: ms-chat-logo-halo calc(var(--msc-logo-dur) * 0.66) ease-in-out infinite;
+  animation: ms-chat-logo-halo 4s ease-in-out infinite;
 }
 @keyframes ms-chat-logo-halo {
   0%, 100% { box-shadow: var(--msc-logo-rim-shadow), 0 0 14px 0 rgb(207 46 46 / 40%); }
   50% { box-shadow: var(--msc-logo-rim-shadow), 0 0 22px 5px rgb(255 60 60 / 55%); }
 }
-/* In-chat assistant avatar = the CALM variant: a STILL gradient frame. A
-   constantly-animating element next to every message hurts readability, so
-   the avatar keeps the glass-orb look with the motion switched off. */
+/* In-chat assistant avatar = the CALM variant: the blobs are PAUSED (frozen on
+   their first frame) so a constantly-moving mark beside every message doesn't
+   hurt readability; the generating state resumes them. */
 .ms-chat-avatar {
   width: 36px;
   height: 36px;
@@ -198,7 +220,8 @@
   margin-top: 2px;
   --msc-logo-rim: 1.5px;
 }
-.ms-chat-avatar .ms-chat-logo-bundle { animation: none; }
+.ms-chat-avatar .ms-chat-blob,
+.ms-chat-avatar .ms-chat-blob path { animation-play-state: paused; }
 /* Small "Beta" badge pinned to the launcher's top edge (feature 10). Lives
    inside the launcher button so it hides/shows with it automatically and never
    blocks the click. Sits within the launcher's fixed offsets, so it can't
@@ -1095,25 +1118,21 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
 }
 
 /* Generating state (replaces the three bouncing dots): while a reply is
-   pending, the assistant-slot avatar itself comes alive — the orb's wave
-   bundles run at a calm pace and the whole mark breathes (a gentle scale +
+   pending, the assistant-slot avatar itself comes alive — the orb's blobs
+   resume morphing and the whole mark breathes (a gentle scale +
    opacity pulse). It sits in exactly the avatar slot the real message row
    renders into, so the first streamed tokens read as the mark settling into
    the static avatar beside the text. Calm by design; reduced motion freezes
    it to the static orb (media query at the bottom of this file). */
 .ms-chat-row--gen .ms-chat-avatar {
-  --msc-logo-dur: 3.6s;
   animation: ms-chat-gen-pulse 2.4s ease-in-out infinite;
 }
-/* Re-enable the wave motion that .ms-chat-avatar normally switches off (equal
-   specificity — these win on source order; the reduced-motion block at the
-   end of the file still out-orders them and freezes everything). */
-.ms-chat-row--gen .ms-chat-logo-bundle--cool {
-  animation: ms-chat-logo-wave-a var(--msc-logo-dur) ease-in-out infinite;
-}
-.ms-chat-row--gen .ms-chat-logo-bundle--warm {
-  animation: ms-chat-logo-wave-b calc(var(--msc-logo-dur) * 1.45) ease-in-out infinite;
-  animation-delay: calc(var(--msc-logo-dur) * -0.4);
+/* Resume the blob motion the static avatar pauses (equal specificity — these
+   win on source order; the reduced-motion block at the end of the file still
+   out-orders them and freezes everything). */
+.ms-chat-row--gen .ms-chat-avatar .ms-chat-blob,
+.ms-chat-row--gen .ms-chat-avatar .ms-chat-blob path {
+  animation-play-state: running;
 }
 @keyframes ms-chat-gen-pulse {
   0%, 100% { transform: scale(1); opacity: 0.8; }
@@ -1618,8 +1637,8 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   .ms-chat-nudge,
   .ms-chat-backdrop,
   .ms-chat-row--gen .ms-chat-avatar,
-  .ms-chat-row--gen .ms-chat-logo-bundle--cool,
-  .ms-chat-row--gen .ms-chat-logo-bundle--warm,
+  .ms-chat-row--gen .ms-chat-avatar .ms-chat-blob,
+  .ms-chat-row--gen .ms-chat-avatar .ms-chat-blob path,
   .ms-chat-share--visible,
   .ms-chat-download--visible,
   .ms-chat-signin-btn--visible,
@@ -1638,7 +1657,8 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   .ms-chat-speaking--on svg line { transform: none; }
   html.ms-chat-page-anim { transition: none; }
   /* Freeze the animated brand mark EVERYWHERE (launcher + halo + welcome +
-     product CTA) to its static wave frame. Accessibility beats flair. */
-  .ms-chat-logo .ms-chat-logo-bundle,
+     product CTA) to a static blob frame. Accessibility beats flair. */
+  .ms-chat-logo .ms-chat-blob,
+  .ms-chat-logo .ms-chat-blob path,
   .ms-chat-launcher-logo { animation: none; }
 }
