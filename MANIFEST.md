@@ -12,7 +12,56 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-21, latest) — streaming-TTS splitter mirrors the contract's canonical `splitIntoTtsChunks()`
+## ⭐ Session update (2026-06-21, latest) — chat tab's cart UI auto-refreshes after quick-checkout (no manual reload)
+
+**Bug.** When the shopper uses quick-checkout from the chat (the `add_to_cart`
+card's **"Zur Kasse"** button), the combined cart permalink opens in a **new
+tab** (`target="_blank"`) and the cart is populated server-side over there. The
+**original chat tab** kept its stale, server-rendered cart UI — the header count
+badge (`#CartBubble`) and the cart drawer (`<cart-modal>`) still showed the old
+(often empty) cart until a manual page reload.
+
+**Fix.** The widget now re-fetches the live Shopify cart and reconciles the
+theme's own cart UI **in place** (no full page reload) when the chat tab regains
+focus / becomes visible — and, as a belt-and-braces fallback, for a few seconds
+after the checkout button is clicked. It is **display-only**: it only ever does a
+`GET /cart.js` (plus a Section Rendering re-render of the cart sections),
+**never** POSTs, so it can never double-add, and the chat conversation/state is
+untouched. **Re-upload the one modified theme file.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (storefront cart auto-refresh on focus/visibility + post-checkout poll) | ✅ Yes |
+| `assets/ms-chat-widget.css` | UNCHANGED | ❌ No |
+| `snippets/ms-chat-widget.liquid` | UNCHANGED | ❌ No |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed in `ms-chat-widget.js`
+
+- **New `refreshCartUI()`** — a single-flight `GET /cart.js` (via the theme's
+  locale-aware `window.routes.cart_url`, falling back to `/cart.js`). It always
+  reconciles the header badge and, **only when `item_count` actually changed**,
+  re-renders the drawer and (if the shopper is on it) the cart page — so an open
+  drawer is never disturbed unless its contents really differ.
+- **Reuses the theme's own primitives** — updates `#CartBubble` with the same
+  hidden/empty semantics the theme's own updater uses; refreshes the drawer by
+  calling `document.querySelector('cart-modal').reloadContent()` **directly** (the
+  same Section Rendering fetch the theme runs after its own adds) so the drawer
+  refreshes silently — no notification, no auto-open; re-renders the cart **page**
+  (`.section-main-cart`) via `?section_id=` exactly as the theme does.
+- **Triggers** — `visibilitychange` (on becoming visible; folded into the
+  existing handler), `window` `focus`, and `pageshow` (bfcache restore). Plus a
+  bounded **post-checkout poll** (`+1.2 / 2.5 / 4.5 / 7 s`) armed when "Zur Kasse"
+  is clicked, covering the case where this tab keeps focus (permalink opened in a
+  background tab / popup blocked). Every tick routes through the same idempotent,
+  change-gated `refreshCartUI()`.
+- **No double-add, no chat disturbance** — purely a re-fetch + display reconcile:
+  no `/cart/add` call, and no change to the conversation, messages, voice mode, or
+  auth flow.
+
+---
+
+## ⭐ Session update (2026-06-21) — streaming-TTS splitter mirrors the contract's canonical `splitIntoTtsChunks()`
 
 The streaming voice mode added on 2026-06-14 (TTS audio that plays **while** the
 text streams, through an in-order playback queue) already shipped. This session
