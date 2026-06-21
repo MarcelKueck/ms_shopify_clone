@@ -50,6 +50,14 @@
         showroomUrl: "https://motionsports.de/pages/showroom-munchen-grobenzell",
         allowedFromTheme: true,
         {%- comment -%}
+          Storefront locale (docs/ai-advisor/LOCALE.md). Prefer Shopify's active
+          storefront localization so it matches what the storefront renders;
+          fall back to request.locale. The widget JS normalises this to
+          "en"/"de" (default "de") and, if absent, derives it from the URL path
+          prefix (/en). German is the default and stays byte-identical.
+        {%- endcomment -%}
+        locale: {{ localization.language.iso_code | default: request.locale.iso_code | json }},
+        {%- comment -%}
           Page context for the widget's in-session engagement layer (contextual
           nudge + starter prompts). Server-rendered page facts only — page type
           and, where applicable, the product/collection on the page. Never any
