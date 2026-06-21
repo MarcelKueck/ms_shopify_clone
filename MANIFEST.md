@@ -12,7 +12,79 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-16, latest) — quieter styling for the data-export & delete-all footer buttons
+## ⭐ Session update (2026-06-21, latest) — streaming-TTS splitter mirrors the contract's canonical `splitIntoTtsChunks()`
+
+The streaming voice mode added on 2026-06-14 (TTS audio that plays **while** the
+text streams, through an in-order playback queue) already shipped. This session
+brings the widget's **sentence splitter** into faithful alignment with the
+now-canonicalised `docs/ai-advisor/API_CONTRACT.md` §8.3, which formalises a
+reference splitter (`splitIntoTtsChunks()` / `src/lib/tts-text.mjs`) the widget
+must mirror so its chunk boundaries match what the server synthesizes. The old
+widget splitter was a simpler sentence scan; it could let a **long opening
+sentence stall the first audio** (it had no length cap) and could **mis-split**
+German abbreviations, decimals, and URLs. **Re-upload the one modified theme
+file.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (splitter now mirrors the canonical `splitIntoTtsChunks()`) | ✅ Yes |
+| `assets/ms-chat-widget.css` | UNCHANGED | ❌ No |
+| `snippets/ms-chat-widget.liquid` | UNCHANGED | ❌ No |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### What changed in `ms-chat-widget.js`
+
+- **New pure `splitIntoTtsChunks(buf, { flush })`** (mirrors the backend
+  reference) returns `{ chunks, rest }` — the emitted chunks in stream order plus
+  the unterminated tail to carry into the next delta. It:
+  - emits the moment a sentence terminator (`. ! ? …`) **or a newline** completes
+    a sentence, so the **first** audio starts right after the first sentence;
+  - **coalesces** fragments shorter than `minChars` (now the contract default
+    **40**, down from 60, measured after Markdown stripping) into the next
+    sentence, so a one- or two-word clip is never synthesized;
+  - **force-cuts** any run longer than `maxChars` (**220**) at the last clause
+    boundary (`, ; : – —`) or space — **new**: this is what guarantees a long
+    opening sentence can't stall the ~1 s first-audio start.
+- **New `isTtsSentenceEnd()` + `TTS_ABBR`** guard German abbreviations
+  (`z. B.`, `usw.`, `ca.`, …, plus any single-letter token / initial), decimals
+  (`3.5`) and mid-token dots (`google.com`) so none of those split a sentence —
+  matching the contract's abbreviation/decimal/URL rules.
+- **`streamTtsDrain(flush)` is now a thin driver** over the splitter: it runs
+  `splitIntoTtsChunks(pending, { flush })`, keeps `rest` as the new `pending`, and
+  fires `streamTtsEmit()` once per chunk in order. The per-sentence request,
+  in-order playback **queue**, `seq` echo handling, and KPI all stay as before.
+
+### Voice tone (faster + more energetic) — server-side, no widget change
+
+Per API_CONTRACT.md §8.3 the brisker, more energetic delivery is a **backend**
+default (`TTS_VOICE=coral`, `TTS_SPEED=1.1`, energetic German steering
+instruction — all env-overridable). The widget never sends voice/speed, so no
+theme change is needed for it; it is noted here for completeness.
+
+### Unchanged / out of scope (verified)
+
+- **Playback queue, in-order (`seq`) playback, gap/overlap-free single-element
+  reuse, the play-after-complete fallback, the `429`/`502`→`speechSynthesis`
+  chain, interrupt teardown in `endSpeaking()`, and `voiceAfterReply()`** are all
+  untouched — only the chunk-boundary logic changed.
+- **iOS autoplay** keeps working — the queue still reuses the `ttsAudio` element
+  that `enableVoiceMode() → unlockAudio()` unlocks inside the click gesture.
+- **Reduced-motion and voice-unsupported behavior are untouched** — the splitter
+  is pure text logic inside voice mode, adds no animation, and touches no
+  `prefers-reduced-motion` path.
+
+### Verified
+
+- `node --check` passes on `ms-chat-widget.js`.
+- The shipped `splitIntoTtsChunks()` / `isTtsSentenceEnd()` (extracted from the
+  file and run under node) emit the first sentence then hold the tail; keep
+  `z. B.`, `3.5` and `google.com` inside their sentence; coalesce a short
+  fragment until flush; and force-cut a 200-plus-char terminator-less opener at
+  the last clause boundary (`≤ 220` chars).
+
+---
+
+## ⭐ Session update (2026-06-16) — quieter styling for the data-export & delete-all footer buttons
 
 Restyled the signed-in account-drawer footer buttons **"Meine Daten herunterladen"**
 (export) and **"Alle meine Daten löschen"** (erase) to match the composer's
