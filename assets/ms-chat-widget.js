@@ -1176,6 +1176,125 @@
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Storefront cart sync (BUGFIX).
+  //
+  // The add_to_cart card's "Zur Kasse" button opens the combined cart permalink
+  // in a NEW tab (target="_blank"); the add happens server-side over there. THIS
+  // (chat) tab keeps its stale, server-rendered cart UI — the header count
+  // (#CartBubble) and the cart drawer (<cart-modal>) — until a manual reload.
+  //
+  // Fix: when this tab regains focus / becomes visible, re-fetch the live
+  // Shopify cart (/cart.js) and reconcile the theme's own cart UI in place — no
+  // full page reload. DISPLAY-ONLY: we only GET /cart.js and re-render cart
+  // sections, never POST, so it can never double-add, and the chat
+  // conversation/state is never touched.
+  //
+  // We reuse the theme's own primitives: the #CartBubble badge (same hidden/
+  // empty semantics the theme's updater uses) and <cart-modal>.reloadContent()
+  // (the Section Rendering API call the theme runs after its OWN adds). The cart
+  // PAGE (.section-main-cart, if the shopper is sitting on /cart) is re-rendered
+  // the same way the theme does it.
+  // ---------------------------------------------------------------------------
+  var cartCountKnown = null;       // last reconciled item_count (null = not read yet)
+  var cartRefreshInFlight = false; // single-flight guard across focus/visibility/poll
+
+  // Prefer the theme's locale-aware cart route; fall back to the canonical path.
+  function cartJsUrl() {
+    try { if (window.routes && window.routes.cart_url) return window.routes.cart_url; } catch (e) {}
+    return '/cart.js';
+  }
+
+  // The count the page was rendered with, so the first refresh can tell whether
+  // the cart changed in another tab. Empty/hidden badge == 0 items.
+  function readBubbleCount() {
+    try {
+      var b = document.getElementById('CartBubble');
+      if (!b || b.classList.contains('hidden')) return 0;
+      var n = parseInt((b.textContent || '').replace(/[^\d]/g, ''), 10);
+      return isNaN(n) ? 0 : n;
+    } catch (e) { return 0; }
+  }
+
+  // Mirror the theme's header-badge update: reveal + set the count, or hide when
+  // empty. textContent (never innerHTML) — the badge only ever holds a number.
+  function setCartBubble(count) {
+    try {
+      var b = document.getElementById('CartBubble');
+      if (!b) return;
+      if (count > 0) { b.classList.remove('hidden'); b.textContent = String(count); }
+      else { b.classList.add('hidden'); b.textContent = ''; }
+    } catch (e) {}
+  }
+
+  // Re-render the cart PAGE section in place via the Section Rendering API,
+  // exactly as the theme does after its own cart changes. No-op off /cart.
+  function reloadCartPageSection() {
+    try {
+      var sec = document.querySelector('.section-main-cart');
+      if (!sec || !sec.id) return;
+      var id = sec.id.replace(/^shopify-section-/, '');
+      var url = window.location.origin + window.location.pathname + '?section_id=' + encodeURIComponent(id);
+      fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+        .then(function (r) { return r && r.ok ? r.text() : null; })
+        .then(function (html) {
+          if (html == null) return;
+          var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('#' + sec.id);
+          if (fresh) sec.innerHTML = fresh.innerHTML;
+        })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
+  // Refresh the drawer contents WITHOUT opening it. <cart-modal> exposes
+  // reloadContent() (the same Section Rendering fetch the theme uses), so calling
+  // it directly refreshes the drawer silently — no notification, no auto-open,
+  // the shopper isn't interrupted.
+  function reloadCartDrawer() {
+    try {
+      var modal = document.querySelector('cart-modal');
+      if (modal && typeof modal.reloadContent === 'function') {
+        var p = modal.reloadContent();
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      }
+    } catch (e) {}
+  }
+
+  // Re-fetch the live cart and reconcile the storefront cart UI. Idempotent and
+  // display-only: safe to call on every focus/visibility/poll tick. The heavier
+  // drawer/page re-render runs ONLY when item_count actually changed, so an open
+  // drawer is never disturbed unless its contents really differ.
+  function refreshCartUI() {
+    if (cartRefreshInFlight) return;
+    if (cartCountKnown === null) cartCountKnown = readBubbleCount();
+    cartRefreshInFlight = true;
+    fetch(cartJsUrl(), {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' }
+    })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (cart) {
+        if (!cart) return;
+        var count = typeof cart.item_count === 'number' ? cart.item_count : 0;
+        var changed = count !== cartCountKnown;
+        cartCountKnown = count;
+        setCartBubble(count);            // always reconcile the badge (cheap, idempotent)
+        if (changed) { reloadCartDrawer(); reloadCartPageSection(); }
+      })
+      .catch(function () {})
+      .then(function () { cartRefreshInFlight = false; });
+  }
+
+  // After the shopper clicks "Zur Kasse" the add happens in the OTHER tab and we
+  // can't observe exactly when it lands. Focus/visibility return covers the usual
+  // case; this bounded poll is the belt-and-braces path for when THIS tab keeps
+  // focus (permalink opened in a background tab / popup blocked). Each tick is
+  // just a /cart.js GET, gated by the change check in refreshCartUI().
+  function pollCartAfterCheckout() {
+    [1200, 2500, 4500, 7000].forEach(function (d) { setTimeout(refreshCartUI, d); });
+  }
+
   // tool-add_to_cart -> direct-checkout CTA. Per API_CONTRACT.md the tool id is
   // unchanged but a single call can now cover ONE *or* SEVERAL products in one
   // combined cart: read `productIds` when present, else fall back to the single
@@ -1243,6 +1362,9 @@
           btn.appendChild(el('span', { text: 'Zur Kasse' }));
           btn.addEventListener('click', function () {
             track('add_to_cart_clicked', { productId: resolved[0].id, productIds: resolved.map(function (p) { return p.id; }) });
+            // The permalink populates the cart in the new tab; poll so this tab's
+            // cart UI catches up even if it keeps focus (re-fetch only, no re-add).
+            pollCartAfterCheckout();
           });
           body.appendChild(btn);
           body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Direkt zur sicheren Kasse bei motionsports.de' }));
@@ -1954,11 +2076,19 @@
     // backgrounded so it never keeps the mic open / speaks off-screen.
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) { if (voiceMode) disableVoiceMode(); return; }
+      // Became visible again: re-fetch the cart so a quick-checkout completed in
+      // the new tab is reflected here (header count + drawer) without a reload.
+      refreshCartUI();
       // Became visible again (task §1): if the chat is open and we're not signed
       // in, re-run detection so a sign-in done on the storefront in another tab
       // is picked up promptly and the "Anmelden" affordance never goes stale.
       if (state.open && !auth.signedIn) detectSignedIn(true);
     });
+    // Complementary cart-refresh triggers: window focus catches returning from
+    // another window/app even when the Visibility API didn't flip; pageshow
+    // catches back/forward navigations restored from the bfcache.
+    window.addEventListener('focus', refreshCartUI);
+    window.addEventListener('pageshow', refreshCartUI);
   }
 
   // Feature 7: the share button is hidden until the conversation has at least
