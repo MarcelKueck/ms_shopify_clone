@@ -23,6 +23,36 @@
   var SHOWROOM_URL = CFG.showroomUrl || 'https://motionsports.de/pages/showroom-munchen-grobenzell';
 
   // ---------------------------------------------------------------------------
+  // Locale (docs/ai-advisor/LOCALE.md). German is the default and stays
+  // byte-identical; English is opt-in on the /en storefront. Resolution order:
+  // prefer Shopify's storefront localization (injected from Liquid as
+  // CFG.locale, so it matches what the storefront renders), else fall back to
+  // the URL path prefix. Normalised to "en"/"de", defaulting to "de"; tolerant
+  // like the backend's normalizeLocale ("en", "EN", "en-GB", "en_US" → en). An
+  // /en path is the backend's canonical English trigger, so it always resolves
+  // to English — the widget can never serve German chrome on /en even if the
+  // storefront locale signal is missing.
+  //
+  // The resolved locale is sent to the backend on every locale-bearing call (a
+  // default x-ms-locale header on the guarded groups, plus the body `locale` on
+  // the key POSTs and `?locale=` on the GETs), so Mo's replies, the
+  // backend-rendered emails, the summary PDF and the served consent copy all
+  // switch language together. /api/products and /api/kpi take no locale
+  // (LOCALE.md §1) and are left untouched.
+  // ---------------------------------------------------------------------------
+  function msNormLocale(v) { return /^en/i.test(v == null ? '' : String(v)) ? 'en' : 'de'; }
+  var LOCALE = (CFG.locale != null && String(CFG.locale) !== '') ? msNormLocale(CFG.locale) : 'de';
+  try { if (LOCALE !== 'en' && /^\/en(\/|$|\?|#)/i.test(window.location.pathname)) LOCALE = 'en'; } catch (e) {}
+
+  // Pick the locale variant of a THEME-OWNED user-facing value: the German one
+  // (returned verbatim, so /de renders byte-identically to before) or its
+  // English counterpart. Used for every widget-rendered string plus the two
+  // locale-formatted helpers (euro/date). Backend-served consent/legal copy is
+  // NEVER routed through this — it is fetched per-locale and rendered verbatim
+  // (LOCALE.md §2).
+  function L(de, en) { return LOCALE === 'en' ? en : de; }
+
+  // ---------------------------------------------------------------------------
   // Email-capture form — widget-owned UI CHROME strings only.
   //
   // The LEGAL consent copy (checkbox labels, the shared consent footer, the
@@ -71,6 +101,32 @@
     decline: 'Nein danke, vielleicht später',
     declined: 'Alles klar! Du findest die Option jederzeit oben unter „Per E-Mail teilen“.'
   };
+  // English overlay (LOCALE.md). German above is the source of truth and stays
+  // byte-identical; on /en these CHROME strings switch language. The LEGAL
+  // consent copy is NOT here — it is backend-served per locale and rendered
+  // verbatim.
+  if (LOCALE === 'en') Object.assign(CONSENT_COPY, {
+    title: 'Summary by email',
+    intro: 'I\'d be happy to email you a summary of your consultation along with your cart.',
+    emailLabel: 'Email',
+    emailPlaceholder: 'your@email.com',
+    submit: 'Send summary',
+    sending: 'Sending…',
+    loading: 'Loading consent text…',
+    privacy: 'We only use your email as described above. For offers, confirmation via the double opt-in link in the email is required.',
+    errEmail: 'Please enter a valid email address.',
+    errTransactional: 'Please select at least the summary.',
+    errCopyLoad: 'The consent text could not be loaded.',
+    retry: 'Try again',
+    errRate: 'Too many requests — please wait a moment.',
+    errUpstream: 'Sending isn\'t possible right now — please try again later.',
+    errGeneric: 'Sending failed. Please try again.',
+    successTitle: 'Done!',
+    success: 'We\'ve sent you the summary.',
+    successPending: 'Please also confirm your subscription via the link in the email.',
+    decline: 'No thanks, maybe later',
+    declined: 'No problem! You can find the option any time above under "Share by email".'
+  });
 
   // ---------------------------------------------------------------------------
   // Feedback — a small, unobtrusive way to leave a free-text comment about the
@@ -98,6 +154,22 @@
     thanksTitle: 'Danke!',
     thanks: 'Dein Feedback ist angekommen — das hilft uns sehr.'
   };
+  if (LOCALE === 'en') Object.assign(FEEDBACK_COPY, {
+    entry: 'Give feedback',
+    entryAria: 'Give feedback on the fitness advisor',
+    title: 'Your feedback',
+    intro: 'How was your consultation? Tell us briefly what went well or what we could improve.',
+    placeholder: 'Your feedback (anonymous if you like) …',
+    submit: 'Submit',
+    sending: 'Sending…',
+    cancel: 'Cancel',
+    errEmpty: 'Please write us a short note about what you\'d like to share.',
+    errLong: 'Please keep it a little shorter (max. 4000 characters).',
+    errRate: 'Thanks! You\'ve just sent feedback — please wait a moment.',
+    errGeneric: 'Sending isn\'t possible right now — please try again later.',
+    thanksTitle: 'Thank you!',
+    thanks: 'Your feedback has arrived — that really helps us.'
+  });
 
   // Fail gracefully: no secret -> log a warning, do not render the launcher.
   if (!CHAT_KEY) {
@@ -723,7 +795,10 @@
       return Promise.resolve(consentCopyCache.copy);
     }
     if (consentCopyInflight) return consentCopyInflight;
-    consentCopyInflight = fetch(API_BASE + '/api/consent-copy', { method: 'GET', headers: { 'x-ms-session': sid } })
+    // ?locale= switches the served consent strings (LOCALE.md §2). Query, not a
+    // custom header, so the origin-allowlisted consent-copy GET keeps working
+    // without a new CORS preflight allowance; de is byte-identical to before.
+    consentCopyInflight = fetch(API_BASE + '/api/consent-copy?locale=' + LOCALE, { method: 'GET', headers: { 'x-ms-session': sid } })
       .then(function (res) {
         if (!res.ok) throw new Error('consent-copy ' + res.status);
         return res.json();
@@ -763,7 +838,7 @@
       return Promise.resolve(signInConsentCache.copy);
     }
     if (signInConsentInflight) return signInConsentInflight;
-    signInConsentInflight = fetch(API_BASE + '/api/consent-copy?surface=signin', { method: 'GET', headers: { 'x-ms-session': sid } })
+    signInConsentInflight = fetch(API_BASE + '/api/consent-copy?surface=signin&locale=' + LOCALE, { method: 'GET', headers: { 'x-ms-session': sid } })
       .then(function (res) {
         if (!res.ok) throw new Error('consent-copy signin ' + res.status);
         return res.json();
@@ -835,6 +910,39 @@
     eraseError: 'Löschen gerade nicht möglich — bitte später erneut versuchen.',
     openError: 'Diese Beratung konnte nicht geöffnet werden.'
   };
+  if (LOCALE === 'en') Object.assign(ACCOUNT_COPY, {
+    signInTitle: 'Sign in with your account',
+    signInIntro: 'Sign in with your motion sports account to get more out of your consultation:',
+    benefits: [
+      'Pick up where past consultations left off',
+      'Include your address & orders',
+      'Receive matching offers'
+    ],
+    signInBtn: 'Sign in',
+    signInHeader: 'Sign in',
+    historyTitle: 'Your consultations',
+    historyAria: 'Consultation history',
+    newChat: 'New consultation',
+    loading: 'Loading…',
+    loadError: 'History could not be loaded.',
+    empty: 'No saved consultations yet.',
+    rename: 'Rename',
+    del: 'Delete',
+    save: 'Save',
+    cancel: 'Cancel',
+    deleteConfirm: 'This chat will be deleted.',
+    deleteYes: 'Delete',
+    msgCount: function (n) { return (n || 0) + (n === 1 ? ' message' : ' messages'); },
+    logout: 'Sign out',
+    exportData: 'Download my data',
+    exportBusy: 'Preparing…',
+    exportError: 'Download failed — please try again later.',
+    erase: 'Delete all my data',
+    eraseConfirm: 'All your consultations, your profile and stored data will be permanently deleted. Really continue?',
+    eraseYes: 'Delete permanently',
+    eraseError: 'Deletion isn\'t possible right now — please try again later.',
+    openError: 'This consultation could not be opened.'
+  });
 
   // Device hint: set once we've confirmed a signed-in session so a later visit
   // re-probes /api/auth/me even before the storefront customer hint is read.
@@ -873,7 +981,7 @@
   }
 
   // Guarded account/auth XHR headers (CUSTOMER_ACCOUNT.md §4/§7).
-  function accountHeaders() { return { 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid }; }
+  function accountHeaders() { return { 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE }; }
 
   // Best-effort, non-authoritative pre-hint: is the visitor logged into the
   // storefront? Used ONLY to decide whether the silent /api/auth/me probe is
@@ -1054,7 +1162,11 @@
   function euro(value) {
     var n = Number(value);
     if (!isFinite(n)) return '';
-    return n.toLocaleString('de-DE') + ' €';
+    // en formats prices en-GB EUR ("€1,234.00"), matching the backend summary
+    // email (LOCALE.md §3); de is byte-identical to before.
+    return LOCALE === 'en'
+      ? n.toLocaleString('en-GB', { style: 'currency', currency: 'EUR' })
+      : n.toLocaleString('de-DE') + ' €';
   }
 
   function priceNode(product) {
@@ -1073,7 +1185,7 @@
   // button instead of a subtle text link. Fires a fail-silent KPI event.
   function productButton(product, label) {
     var a = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: product.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer' });
-    a.appendChild(el('span', { text: label || 'Zum Produkt' }));
+    a.appendChild(el('span', { text: label || L('Zum Produkt', 'View product') }));
     a.appendChild(icon('external'));
     a.addEventListener('click', function () { track('product_cta_clicked', { productId: product.id }); });
     return a;
@@ -1101,12 +1213,12 @@
       meta.appendChild(priceNode(p));
       // Sync-fresh stock flag (API_CONTRACT.md §3) — functional, not
       // decorative, so it survives the compact-card cut.
-      if (p.inStock === false) meta.appendChild(el('span', { class: 'ms-chat-soldout-badge', text: 'Ausverkauft' }));
+      if (p.inStock === false) meta.appendChild(el('span', { class: 'ms-chat-soldout-badge', text: L('Ausverkauft', 'Sold out') }));
       item.appendChild(meta);
       body.appendChild(item);
 
       // Prominent primary CTA below the product row.
-      body.appendChild(productButton(p, 'Zum Produkt'));
+      body.appendChild(productButton(p, L('Zum Produkt', 'View product')));
 
       card.appendChild(body);
       return card;
@@ -1158,15 +1270,15 @@
         tbody.appendChild(tr);
       }
 
-      row('Preis', function (p) { var td = el('td'); td.appendChild(priceNode(p)); return td; });
+      row(L('Preis', 'Price'), function (p) { var td = el('td'); td.appendChild(priceNode(p)); return td; });
       specKeys.forEach(function (k) {
         row(k, function (p) {
           var v = (p.specifications && p.specifications[k] != null) ? String(p.specifications[k]) : '—';
           return el('td', { text: v });
         });
       });
-      row('Lieferzeit', function (p) { return el('td', { text: p.deliveryTime || '—' }); });
-      row('', function (p) { var td = el('td'); td.appendChild(productButton(p, 'Zum Produkt')); return td; });
+      row(L('Lieferzeit', 'Delivery time'), function (p) { return el('td', { text: p.deliveryTime || '—' }); });
+      row('', function (p) { var td = el('td'); td.appendChild(productButton(p, L('Zum Produkt', 'View product'))); return td; });
 
       table.appendChild(tbody);
       scroll.appendChild(table);
@@ -1343,11 +1455,11 @@
             item.appendChild(el('img', { class: 'ms-chat-checkout-thumb', src: p.images[0], alt: p.name || '', loading: 'lazy' }));
           }
           var meta = el('div', { class: 'ms-chat-checkout-meta' });
-          meta.appendChild(el('span', { class: 'ms-chat-checkout-name', text: p.name || 'Produkt' }));
+          meta.appendChild(el('span', { class: 'ms-chat-checkout-name', text: p.name || L('Produkt', 'Product') }));
           meta.appendChild(priceNode(p));
           // The server-built cartUrl EXCLUDES sold-out products — mark them so
           // the listed rows match what the checkout click actually contains.
-          if (p.inStock === false) meta.appendChild(el('span', { class: 'ms-chat-soldout-note', text: 'Ausverkauft — nicht im Warenkorb' }));
+          if (p.inStock === false) meta.appendChild(el('span', { class: 'ms-chat-soldout-note', text: L('Ausverkauft — nicht im Warenkorb', 'Sold out — not in cart') }));
           item.appendChild(meta);
           body.appendChild(item);
         });
@@ -1357,9 +1469,9 @@
           // Labeled "Zur Kasse": the permalink lands in checkout, so an
           // add-to-cart label would be misleading. Brand-blue checkout
           // styling makes it the unmistakable primary action.
-          var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--checkout', href: cartUrl, target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Zur Kasse' });
+          var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--checkout', href: cartUrl, target: '_blank', rel: 'noopener noreferrer', 'aria-label': L('Zur Kasse', 'Checkout') });
           btn.appendChild(icon('cart'));
-          btn.appendChild(el('span', { text: 'Zur Kasse' }));
+          btn.appendChild(el('span', { text: L('Zur Kasse', 'Checkout') }));
           btn.addEventListener('click', function () {
             track('add_to_cart_clicked', { productId: resolved[0].id, productIds: resolved.map(function (p) { return p.id; }) });
             // The permalink populates the cart in the new tab; poll so this tab's
@@ -1367,14 +1479,14 @@
             pollCartAfterCheckout();
           });
           body.appendChild(btn);
-          body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Direkt zur sicheren Kasse bei motionsports.de' }));
+          body.appendChild(el('div', { class: 'ms-chat-caption', text: L('Direkt zur sicheren Kasse bei motionsports.de', 'Straight to secure checkout at motionsports.de') }));
         } else {
           // No resolvable variant -> degrade to product-page link(s), never a
           // broken checkout link.
           resolved.forEach(function (p) {
             if (!p.shopifyUrl) return;
             var link = el('a', { class: 'ms-chat-btn ms-chat-btn--secondary', href: p.shopifyUrl, target: '_blank', rel: 'noopener noreferrer' });
-            link.appendChild(el('span', { text: multi ? (p.name || 'Zum Produkt') : 'Zum Produkt' }));
+            link.appendChild(el('span', { text: multi ? (p.name || L('Zum Produkt', 'View product')) : L('Zum Produkt', 'View product') }));
             link.appendChild(icon('external'));
             link.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id }); });
             body.appendChild(link);
@@ -1398,16 +1510,16 @@
       var body = el('div', { class: 'ms-chat-card-body' });
       var head = el('div', { class: 'ms-chat-card-head' });
       head.appendChild(icon('pin'));
-      head.appendChild(el('span', { text: 'Showroom in Gröbenzell bei München' }));
+      head.appendChild(el('span', { text: L('Showroom in Gröbenzell bei München', 'Showroom in Gröbenzell near Munich') }));
       body.appendChild(head);
-      body.appendChild(el('div', { class: 'ms-chat-card-text', text: 'Möchtest du ' + names + ' vor dem Kauf testen? Besuche unseren Showroom!' }));
+      body.appendChild(el('div', { class: 'ms-chat-card-text', text: L('Möchtest du ', 'Would you like to test ') + names + L(' vor dem Kauf testen? Besuche unseren Showroom!', ' before buying? Visit our showroom!') }));
 
       var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: SHOWROOM_URL, target: '_blank', rel: 'noopener noreferrer' });
-      btn.appendChild(el('span', { text: 'Showroom ansehen' }));
+      btn.appendChild(el('span', { text: L('Showroom ansehen', 'View showroom') }));
       btn.appendChild(icon('external'));
       btn.addEventListener('click', function () { track('showroom_clicked', { productIds: prods.map(function (p) { return p.id; }) }); });
       body.appendChild(btn);
-      body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Terminvereinbarung erforderlich' }));
+      body.appendChild(el('div', { class: 'ms-chat-caption', text: L('Terminvereinbarung erforderlich', 'Appointment required') }));
       card.appendChild(body);
       return card;
     });
@@ -1422,6 +1534,15 @@
     maintenance: { title: 'Wartungsvertrag', sub: 'Langfristige Wartung und Ersatzteilversorgung.' },
     general: { title: 'Persönliche Beratung', sub: 'Wir helfen dir gerne weiter.' }
   };
+  if (LOCALE === 'en') Object.assign(REASON_LABELS, {
+    studio_consultation: { title: 'Personal studio consultation', sub: 'A studio specialist will get in touch for an individual concept.' },
+    public_sector_quote: { title: 'Request a formal quote', sub: 'With purchase on account, payment terms and CE documentation.' },
+    physio_consultation: { title: 'Physio / rehab consultation', sub: 'Personal advice on rehab use and medical devices.' },
+    bulk_discount: { title: 'Request a volume discount', sub: 'We\'ll prepare an individual quote.' },
+    leasing: { title: 'Leasing enquiry', sub: 'Flexible financing for business customers.' },
+    maintenance: { title: 'Maintenance contract', sub: 'Long-term maintenance and spare-parts supply.' },
+    general: { title: 'Personal consultation', sub: 'We\'re happy to help.' }
+  });
 
   function buildContactForm(input) {
     var reason = input.reason || 'general';
@@ -1445,7 +1566,7 @@
         var names = res.filter(function (p) { return !!p; }).map(function (p) { return p.name; });
         if (names.length) {
           refsEl.replaceChildren();
-          refsEl.appendChild(el('span', { text: 'Im Bezug: ' }));
+          refsEl.appendChild(el('span', { text: L('Im Bezug: ', 'Regarding: ') }));
           refsEl.appendChild(el('b', { text: names.join(', ') }));
         }
       });
@@ -1469,22 +1590,22 @@
     var orgInput = el('input', { type: 'text', name: 'organization', autocomplete: 'organization' });
     if (orgRequired) orgInput.setAttribute('required', 'required');
     var phoneInput = el('input', { type: 'tel', name: 'phone', autocomplete: 'tel' });
-    var msgInput = el('textarea', { name: 'message', required: 'required', placeholder: 'Beschreibe kurz dein Anliegen…' });
+    var msgInput = el('textarea', { name: 'message', required: 'required', placeholder: L('Beschreibe kurz dein Anliegen…', 'Briefly describe your request…') });
 
     form.appendChild(field('Name *', nameInput));
-    form.appendChild(field('E-Mail *', emailInput));
-    form.appendChild(field(orgRequired ? 'Organisation / Studio *' : 'Organisation', orgInput));
-    form.appendChild(field('Telefon', phoneInput));
-    form.appendChild(field('Nachricht *', msgInput));
+    form.appendChild(field(L('E-Mail *', 'Email *'), emailInput));
+    form.appendChild(field(orgRequired ? L('Organisation / Studio *', 'Organization / Studio *') : L('Organisation', 'Organization'), orgInput));
+    form.appendChild(field(L('Telefon', 'Phone'), phoneInput));
+    form.appendChild(field(L('Nachricht *', 'Message *'), msgInput));
 
     var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
     form.appendChild(errEl);
 
-    var submit = el('button', { type: 'submit', class: 'ms-chat-btn ms-chat-btn--primary' }, ['Anfrage senden']);
+    var submit = el('button', { type: 'submit', class: 'ms-chat-btn ms-chat-btn--primary' }, [L('Anfrage senden', 'Send request')]);
     form.appendChild(submit);
     body.appendChild(form);
 
-    body.appendChild(el('div', { class: 'ms-chat-caption', text: 'Wir melden uns innerhalb von 1-2 Werktagen. Deine Daten werden nur für die Bearbeitung deiner Anfrage verwendet.' }));
+    body.appendChild(el('div', { class: 'ms-chat-caption', text: L('Wir melden uns innerhalb von 1-2 Werktagen. Deine Daten werden nur für die Bearbeitung deiner Anfrage verwendet.', 'We\'ll get back to you within 1-2 business days. Your data is used only to process your request.') }));
 
     function showError(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
     function clearError() { errEl.textContent = ''; errEl.style.display = 'none'; }
@@ -1503,24 +1624,24 @@
       };
       if (input.productIds && input.productIds.length) payload.productIds = input.productIds;
 
-      if (!payload.name) { showError('Bitte gib deinen Namen an.'); return; }
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payload.email)) { showError('Bitte gib eine gültige E-Mail-Adresse an.'); return; }
-      if (orgRequired && !payload.organization) { showError('Bitte gib deine Organisation / dein Studio an.'); return; }
-      if (!payload.message) { showError('Bitte beschreibe kurz dein Anliegen.'); return; }
+      if (!payload.name) { showError(L('Bitte gib deinen Namen an.', 'Please enter your name.')); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payload.email)) { showError(L('Bitte gib eine gültige E-Mail-Adresse an.', 'Please enter a valid email address.')); return; }
+      if (orgRequired && !payload.organization) { showError(L('Bitte gib deine Organisation / dein Studio an.', 'Please enter your organization / studio.')); return; }
+      if (!payload.message) { showError(L('Bitte beschreibe kurz dein Anliegen.', 'Please briefly describe your request.')); return; }
 
       submit.disabled = true;
-      submit.textContent = 'Wird gesendet…';
+      submit.textContent = L('Wird gesendet…', 'Sending…');
 
       fetch(API_BASE + '/api/contact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
         body: JSON.stringify(payload)
       }).then(function (res) {
         if (res.ok) {
           var ok = el('div', { class: 'ms-chat-form-success' });
           ok.appendChild(icon('check'));
-          ok.appendChild(el('h3', { text: 'Vielen Dank!' }));
-          ok.appendChild(el('p', { text: 'Wir haben deine Anfrage erhalten und melden uns innerhalb von 1-2 Werktagen.' }));
+          ok.appendChild(el('h3', { text: L('Vielen Dank!', 'Thank you!') }));
+          ok.appendChild(el('p', { text: L('Wir haben deine Anfrage erhalten und melden uns innerhalb von 1-2 Werktagen.', 'We\'ve received your request and will get back to you within 1-2 business days.') }));
           body.replaceChildren(head, ok);
           return;
         }
@@ -1533,24 +1654,24 @@
             // missing/unreadable).
             var retry = parseInt(res.headers.get('Retry-After'), 10);
             if (!isFinite(retry) || retry <= 0) retry = 30;
-            showError('Zu viele Anfragen — bitte kurz warten.');
-            submit.textContent = 'Anfrage senden';
+            showError(L('Zu viele Anfragen — bitte kurz warten.', 'Too many requests — please wait a moment.'));
+            submit.textContent = L('Anfrage senden', 'Send request');
             setTimeout(function () { submit.disabled = false; }, retry * 1000);
             return;
           }
           if (code === 'upstream_unavailable' || res.status === 502) {
-            msg = 'Senden gerade nicht möglich — bitte später erneut versuchen.';
+            msg = L('Senden gerade nicht möglich — bitte später erneut versuchen.', 'Sending isn\'t possible right now — please try again later.');
           } else if (!msg) {
-            msg = 'Senden fehlgeschlagen. Bitte versuch es erneut.';
+            msg = L('Senden fehlgeschlagen. Bitte versuch es erneut.', 'Sending failed. Please try again.');
           }
           showError(msg);
           submit.disabled = false;
-          submit.textContent = 'Anfrage senden';
+          submit.textContent = L('Anfrage senden', 'Send request');
         });
       }).catch(function () {
-        showError('Senden gerade nicht möglich — bitte später erneut versuchen.');
+        showError(L('Senden gerade nicht möglich — bitte später erneut versuchen.', 'Sending isn\'t possible right now — please try again later.'));
         submit.disabled = false;
-        submit.textContent = 'Anfrage senden';
+        submit.textContent = L('Anfrage senden', 'Send request');
       });
     });
 
@@ -1601,7 +1722,7 @@
         var names = res.filter(function (p) { return !!p; }).map(function (p) { return p.name; });
         if (names.length) {
           refsEl.replaceChildren();
-          refsEl.appendChild(el('span', { text: 'Im Warenkorb: ' }));
+          refsEl.appendChild(el('span', { text: L('Im Warenkorb: ', 'In cart: ') }));
           refsEl.appendChild(el('b', { text: names.join(', ') }));
         }
       });
@@ -1744,8 +1865,8 @@
       legalEl.replaceChildren();
       var impHref = safeHref(c.imprintUrl);
       var privHref = safeHref(c.privacyUrl);
-      if (impHref) legalEl.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: 'Impressum' }));
-      if (privHref) legalEl.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: 'Datenschutz' }));
+      if (impHref) legalEl.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: L('Impressum', 'Imprint') }));
+      if (privHref) legalEl.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: L('Datenschutz', 'Privacy') }));
 
       submit.disabled = false;
     }
@@ -1787,7 +1908,11 @@
         // The backend's pre-composed audit string (labels + shared footer),
         // echoed back VERBATIM — byte-for-byte the text rendered above. Never
         // recomposed or hard-coded client-side (Art. 7 proof of consent).
-        consentTextShown: copy.consentTextShown
+        consentTextShown: copy.consentTextShown,
+        // Stored with the consent record and carried to the summary + DOI
+        // emails. MUST match the locale the consent copy was served in
+        // (LOCALE.md §1) — both derive from the page LOCALE, so they agree.
+        locale: LOCALE
       };
       // Echo of the offer's value moment (telemetry only — opt-in funnel split).
       if (opts.trigger) payload.trigger = opts.trigger;
@@ -1799,7 +1924,7 @@
 
       fetch(API_BASE + '/api/capture-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
         body: JSON.stringify(payload)
       }).then(function (res) {
         if (res.ok) {
@@ -1911,7 +2036,7 @@
   function buildShell() {
     root = el('div', { class: 'ms-chat-root' });
 
-    launcher = el('button', { class: 'ms-chat-launcher', type: 'button', 'aria-label': 'Chat öffnen (Beta)' });
+    launcher = el('button', { class: 'ms-chat-launcher', type: 'button', 'aria-label': L('Chat öffnen (Beta)', 'Open chat (Beta)') });
     launcher.appendChild(logoEl('ms-chat-launcher-logo'));
     // Feature 10: subtle "Beta" badge on the launcher (decorative; the
     // aria-label above carries it for screen readers).
@@ -1921,7 +2046,7 @@
     backdrop = el('div', { class: 'ms-chat-backdrop', 'aria-hidden': 'true' });
     backdrop.addEventListener('click', closePanel);
 
-    panel = el('div', { class: 'ms-chat-panel', role: 'dialog', 'aria-label': 'AI Fitnessberater', 'aria-modal': 'false' });
+    panel = el('div', { class: 'ms-chat-panel', role: 'dialog', 'aria-label': L('AI Fitnessberater', 'AI fitness advisor'), 'aria-modal': 'false' });
 
     var header = el('div', { class: 'ms-chat-header' });
     // The "Mo" wordmark is intentionally omitted from the header so the action
@@ -1933,16 +2058,16 @@
     // assistant's offer_email_summary tool renders inline). Hidden in a fresh
     // conversation; updateShareBtn() reveals it once the first user message is
     // sent (or a history with messages is restored).
-    shareBtn = el('button', { class: 'ms-chat-share', type: 'button', text: 'Per E-Mail teilen', 'aria-label': 'Zusammenfassung per E-Mail teilen', title: 'Zusammenfassung per E-Mail' });
+    shareBtn = el('button', { class: 'ms-chat-share', type: 'button', text: L('Per E-Mail teilen', 'Share by email'), 'aria-label': L('Zusammenfassung per E-Mail teilen', 'Share summary by email'), title: L('Zusammenfassung per E-Mail', 'Summary by email') });
     shareBtn.addEventListener('click', function () { openCaptureForm(); });
     actions.appendChild(shareBtn);
     // Signed-in (tier 3): download the branded PDF summary of the ACTIVE thread
     // (CUSTOMER_ACCOUNT.md §11) — replaces the email-share path that's suppressed
     // for signed-in customers. Same quiet-pill chrome as the share button;
     // updateDownloadBtn() reveals it once a downloadable thread exists.
-    downloadBtn = el('button', { class: 'ms-chat-download', type: 'button', 'aria-label': 'Zusammenfassung herunterladen', title: 'Zusammenfassung herunterladen' });
+    downloadBtn = el('button', { class: 'ms-chat-download', type: 'button', 'aria-label': L('Zusammenfassung herunterladen', 'Download summary'), title: L('Zusammenfassung herunterladen', 'Download summary') });
     downloadBtn.appendChild(icon('download'));
-    downloadBtn.appendChild(el('span', { text: 'Zusammenfassung' }));
+    downloadBtn.appendChild(el('span', { text: L('Zusammenfassung', 'Summary') }));
     downloadBtn.addEventListener('click', downloadSummary);
     actions.appendChild(downloadBtn);
     // Customer Account (tier 3): the "Anmelden" pill (shown only when the auth
@@ -1954,7 +2079,7 @@
     // top-level redirect the in-chat sign-in card triggers, task §2) — it used
     // to merely scroll to an already-visible card, which read as "nothing
     // happened".
-    signInBtn = el('button', { class: 'ms-chat-signin-btn', type: 'button', text: ACCOUNT_COPY.signInHeader, 'aria-label': 'Mit Konto anmelden' });
+    signInBtn = el('button', { class: 'ms-chat-signin-btn', type: 'button', text: ACCOUNT_COPY.signInHeader, 'aria-label': L('Mit Konto anmelden', 'Sign in with account') });
     signInBtn.addEventListener('click', function () { initiateLogin(); });
     actions.appendChild(signInBtn);
     accountBtn = el('button', { class: 'ms-chat-account-btn', type: 'button', 'aria-label': ACCOUNT_COPY.historyAria, title: ACCOUNT_COPY.historyAria });
@@ -1969,10 +2094,10 @@
     modeBtn = el('button', { class: 'ms-chat-iconbtn ms-chat-mode', type: 'button' });
     modeBtn.addEventListener('click', toggleViewMode);
     actions.appendChild(modeBtn);
-    var newBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Neuen Chat starten', title: 'Neuen Chat starten' });
+    var newBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': L('Neuen Chat starten', 'Start new chat'), title: L('Neuen Chat starten', 'Start new chat') });
     newBtn.appendChild(icon('refresh'));
     newBtn.addEventListener('click', function () { startNewChat(); });
-    var closeBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Chat schließen' });
+    var closeBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': L('Chat schließen', 'Close chat') });
     closeBtn.appendChild(icon('close'));
     closeBtn.addEventListener('click', closePanel);
     actions.appendChild(newBtn);
@@ -1990,34 +2115,34 @@
     // Unified composer: textarea (top, borderless) + control row (bottom,
     // right-aligned mic + send) inside ONE bordered rounded surface.
     var composer = el('div', { class: 'ms-chat-composer' });
-    textarea = el('textarea', { class: 'ms-chat-textarea', rows: '1', placeholder: 'Wie kann ich dir helfen?', 'aria-label': 'Nachricht' });
+    textarea = el('textarea', { class: 'ms-chat-textarea', rows: '1', placeholder: L('Wie kann ich dir helfen?', 'How can I help you?'), 'aria-label': L('Nachricht', 'Message') });
     textarea.addEventListener('input', autoGrow);
     textarea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
     });
     composer.appendChild(textarea);
     var controls = el('div', { class: 'ms-chat-input-controls' });
-    sendBtn = el('button', { class: 'ms-chat-send ms-chat-send--hidden', type: 'button', 'aria-label': 'Senden' });
+    sendBtn = el('button', { class: 'ms-chat-send ms-chat-send--hidden', type: 'button', 'aria-label': L('Senden', 'Send') });
     sendBtn.appendChild(icon('send'));
     sendBtn.addEventListener('click', onSend);
     // Voice input: only render the mic button when the browser supports the Web
     // Speech API (Chrome/Edge/Android). On unsupported browsers (Firefox, some
     // iOS) it's simply absent — typed input is unaffected.
     if (voiceSupported()) {
-      micBtn = el('button', { class: 'ms-chat-mic', type: 'button', 'aria-label': 'Spracheingabe starten', 'aria-pressed': 'false', title: 'Spracheingabe' });
+      micBtn = el('button', { class: 'ms-chat-mic', type: 'button', 'aria-label': L('Spracheingabe starten', 'Start voice input'), 'aria-pressed': 'false', title: L('Spracheingabe', 'Voice input') });
       micBtn.appendChild(icon('mic'));
       micBtn.addEventListener('click', toggleVoice);
       controls.appendChild(micBtn);
       // Voice mode (hands-free conversation loop) toggle — NEXT TO the dictate
       // mic, gated on the same recognition capability check. The dictate mic
       // above is unchanged.
-      vmBtn = el('button', { class: 'ms-chat-voicemode', type: 'button', 'aria-label': 'Sprachmodus', 'aria-pressed': 'false', title: 'Sprachmodus' });
+      vmBtn = el('button', { class: 'ms-chat-voicemode', type: 'button', 'aria-label': L('Sprachmodus', 'Voice mode'), 'aria-pressed': 'false', title: L('Sprachmodus', 'Voice mode') });
       vmBtn.appendChild(icon('waveform'));
       vmBtn.addEventListener('click', toggleVoiceMode);
       controls.appendChild(vmBtn);
       // Speaking indicator — shown only while a reply is being read aloud;
       // tapping it stops playback immediately and resumes listening.
-      speakingBtn = el('button', { class: 'ms-chat-speaking', type: 'button', 'aria-label': 'Sprachausgabe stoppen', title: 'Sprachausgabe stoppen', style: 'display:none' });
+      speakingBtn = el('button', { class: 'ms-chat-speaking', type: 'button', 'aria-label': L('Sprachausgabe stoppen', 'Stop voice output'), title: L('Sprachausgabe stoppen', 'Stop voice output'), style: 'display:none' });
       speakingBtn.appendChild(icon('speaking'));
       speakingBtn.addEventListener('click', function () {
         if (!isSpeaking) return;
@@ -2038,7 +2163,7 @@
     // entry point. Deliberately quiet (a small text link) so it never competes
     // with the composer; opens the short feedback card in the message area.
     var footer = el('div', { class: 'ms-chat-footer' });
-    footer.appendChild(el('span', { class: 'ms-chat-disclaimer', text: 'KI-Fitnessberater – Antworten können Fehler enthalten' }));
+    footer.appendChild(el('span', { class: 'ms-chat-disclaimer', text: L('KI-Fitnessberater – Antworten können Fehler enthalten', 'AI fitness advisor – answers may contain errors') }));
     footer.appendChild(el('span', { class: 'ms-chat-footer-sep', 'aria-hidden': 'true', text: '·' }));
     var feedbackLink = el('button', { class: 'ms-chat-feedback-link', type: 'button', text: FEEDBACK_COPY.entry, title: FEEDBACK_COPY.entryAria, 'aria-label': FEEDBACK_COPY.entryAria });
     feedbackLink.addEventListener('click', function () { openFeedbackCard(); });
@@ -2124,7 +2249,7 @@
     if (modeBtn) {
       var toModal = state.viewMode === 'sidebar';
       modeBtn.replaceChildren(icon(toModal ? 'modal' : 'sidebar'));
-      modeBtn.title = toModal ? 'Als zentriertes Fenster öffnen' : 'Als Seitenleiste andocken';
+      modeBtn.title = toModal ? L('Als zentriertes Fenster öffnen', 'Open as centered window') : L('Als Seitenleiste andocken', 'Dock as sidebar');
       modeBtn.setAttribute('aria-label', modeBtn.title);
     }
     syncChrome();
@@ -2214,9 +2339,9 @@
       var prv = recentlyViewedPayload();
       if (prv) pctx.recentlyViewed = prv;
       return { variant: 'product', items: [
-        { text: 'Ist „' + prod.name + '“ gut für Zuhause geeignet?', context: pctx },
-        { text: 'Gibt es eine günstigere Alternative zu „' + prod.name + '“?', context: pctx },
-        { text: 'Wie groß und wie laut ist „' + prod.name + '“?', context: pctx }
+        { text: L('Ist „', 'Is "') + prod.name + L('“ gut für Zuhause geeignet?', '" suitable for home use?'), context: pctx },
+        { text: L('Gibt es eine günstigere Alternative zu „', 'Is there a cheaper alternative to "') + prod.name + L('“?', '"?'), context: pctx },
+        { text: L('Wie groß und wie laut ist „', 'How big and how loud is "') + prod.name + L('“?', '"?'), context: pctx }
       ] };
     }
     var cat = (PAGE_CTX.type === 'collection' && PAGE_CTX.category) ? PAGE_CTX.category : trailCategoryStreak(trail);
@@ -2231,15 +2356,15 @@
       // `type: "browsing"` context with the category leading recentlyViewed.
       var cctx = browsingContext(cat);
       return { variant: 'category', items: [
-        { text: 'Worauf sollte ich bei „' + cat + '“ achten?', context: cctx },
-        { text: 'Hilf mir, das richtige Modell aus „' + cat + '“ zu finden.', context: cctx },
-        { text: 'Was sind eure Bestseller bei „' + cat + '“?', context: cctx }
+        { text: L('Worauf sollte ich bei „', 'What should I look out for with "') + cat + L('“ achten?', '"?'), context: cctx },
+        { text: L('Hilf mir, das richtige Modell aus „', 'Help me find the right model from "') + cat + L('“ zu finden.', '".'), context: cctx },
+        { text: L('Was sind eure Bestseller bei „', 'What are your bestsellers in "') + cat + L('“?', '"?'), context: cctx }
       ] };
     }
     return { variant: 'generic', items: [
-      { text: 'Hilf mir, das richtige Trainingsgerät zu finden.', context: null },
-      { text: 'Was sind eure Bestseller?', context: null },
-      { text: 'Ich trainiere zuhause — was empfiehlst du mir?', context: null }
+      { text: L('Hilf mir, das richtige Trainingsgerät zu finden.', 'Help me find the right training equipment.'), context: null },
+      { text: L('Was sind eure Bestseller?', 'What are your bestsellers?'), context: null },
+      { text: L('Ich trainiere zuhause — was empfiehlst du mir?', 'I train at home — what do you recommend?'), context: null }
     ] };
   }
 
@@ -2369,8 +2494,8 @@
     if (!micBtn) return;
     micBtn.classList.toggle('ms-chat-mic--recording', on);
     micBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    micBtn.setAttribute('aria-label', on ? 'Spracheingabe beenden' : 'Spracheingabe starten');
-    micBtn.title = on ? 'Spracheingabe beenden' : 'Spracheingabe';
+    micBtn.setAttribute('aria-label', on ? L('Spracheingabe beenden', 'Stop voice input') : L('Spracheingabe starten', 'Start voice input'));
+    micBtn.title = on ? L('Spracheingabe beenden', 'Stop voice input') : L('Spracheingabe', 'Voice input');
   }
 
   function stopVoice() {
@@ -2403,7 +2528,7 @@
     recognition.onerror = function (e) {
       setMicState(false);
       if (e && (e.error === 'not-allowed' || e.error === 'service-not-allowed')) {
-        showNotice('warn', 'Mikrofonzugriff wurde blockiert. Bitte erlaube ihn in den Browser-Einstellungen.');
+        showNotice('warn', L('Mikrofonzugriff wurde blockiert. Bitte erlaube ihn in den Browser-Einstellungen.', 'Microphone access was blocked. Please allow it in your browser settings.'));
         if (voiceMode) disableVoiceMode(); // can't run the loop without the mic
       }
     };
@@ -2487,8 +2612,8 @@
     if (!vmBtn) return;
     vmBtn.classList.toggle('ms-chat-voicemode--on', on);
     vmBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    vmBtn.setAttribute('aria-label', on ? 'Sprachmodus beenden' : 'Sprachmodus');
-    vmBtn.title = 'Sprachmodus';
+    vmBtn.setAttribute('aria-label', on ? L('Sprachmodus beenden', 'Stop voice mode') : L('Sprachmodus', 'Voice mode'));
+    vmBtn.title = L('Sprachmodus', 'Voice mode');
   }
 
   function toggleVoiceMode() {
@@ -2645,7 +2770,7 @@
     if (Date.now() < ttsBackoffUntil) { speakViaSynthesis(text, seq); return; }
     fetch(API_BASE + '/api/tts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+      headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
       body: JSON.stringify({ text: text })
     }).then(function (res) {
       if (seq !== speakSeq || !voiceMode || !isSpeaking) return; // superseded / cancelled
@@ -2703,7 +2828,7 @@
   // Neither remote TTS nor local speech worked: show a small hint once, keep
   // the mic loop running (input-only).
   function ttsUnavailable() {
-    if (!ttsHintShown) { ttsHintShown = true; showNotice('warn', 'Sprachausgabe nicht verfügbar.'); }
+    if (!ttsHintShown) { ttsHintShown = true; showNotice('warn', L('Sprachausgabe nicht verfügbar.', 'Voice output unavailable.')); }
     onPlaybackEnded();
   }
 
@@ -2852,7 +2977,7 @@
     s.clips[seq] = { status: 'loading', url: null, text: clean };
     fetch(API_BASE + '/api/tts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+      headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
       body: JSON.stringify({ text: clean, stream: true, seq: seq })
     }).then(function (res) {
       if (streamTts !== s || s.aborted) return; // superseded / already fell back
@@ -3098,7 +3223,7 @@
     var ar = assistantRow();
     ar.row.classList.add('ms-chat-row--gen');
     ar.row.setAttribute('role', 'status');
-    ar.row.setAttribute('aria-label', 'Mo antwortet');
+    ar.row.setAttribute('aria-label', L('Mo antwortet', 'Mo is replying'));
     typingEl = ar.row;
     messagesEl.appendChild(typingEl);
     scrollToBottom();
@@ -3259,7 +3384,7 @@
         // it (showMessageError adds a new row at the end) — the partial
         // answer is kept, never discarded. With nothing rendered it is the
         // whole response, as before.
-        showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
+        showMessageError(L('Es gab ein Problem. Bitte versuch es gleich nochmal.', 'Something went wrong. Please try again in a moment.'));
       }
       // Voice mode: speak the completed reply, then resume listening.
       if (voiceMode) voiceAfterReply(asstParts, streamErrored);
@@ -3279,7 +3404,9 @@
     // Body carries the full history each turn; `context` (when present) primes
     // the assistant with the current product / browsing trail per
     // API_CONTRACT.md §2.
-    var chatBody = { messages: toWire(messages) };
+    // `locale` makes Mo converse in the storefront's language (LOCALE.md §1);
+    // de (default) is byte-identical to before. Also sent as x-ms-locale below.
+    var chatBody = { messages: toWire(messages), locale: LOCALE };
     if (opts.context) chatBody.context = opts.context;
     // Signed-in: address the active thread so several conversations can live
     // under one stable session_id (CUSTOMER_ACCOUNT.md §7.6). OMITTED for
@@ -3293,7 +3420,7 @@
 
     fetch(API_BASE + '/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+      headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
       body: JSON.stringify(chatBody)
     }).then(function (res) {
       if (!res.ok) {
@@ -3437,10 +3564,10 @@
         // seen — don't double it.)
         var notified = streamErrored;
         finalizeStream();
-        if (!notified) showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
+        if (!notified) showMessageError(L('Es gab ein Problem. Bitte versuch es gleich nochmal.', 'Something went wrong. Please try again in a moment.'));
       } else {
         rollback();
-        showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
+        showMessageError(L('Es gab ein Problem. Bitte versuch es gleich nochmal.', 'Something went wrong. Please try again in a moment.'));
         state.streaming = false;
         updateInputState();
         if (voiceMode) restartVoiceLoop(); // keep the hands-free loop alive
@@ -3462,19 +3589,19 @@
     if (res.status === 401 || code === 'unauthorized') {
       try { console.error('[ms-chat] 401 unauthorized — check ms_chat_shared_secret in theme settings.'); } catch (e) {}
       rollback();
-      showMessageError('Chat ist gerade nicht verfügbar.');
+      showMessageError(L('Chat ist gerade nicht verfügbar.', 'Chat is currently unavailable.'));
       return;
     }
     if (res.status === 403 || code === 'forbidden') {
       try { console.error('[ms-chat] 403 forbidden — origin not allowlisted on the backend (ALLOWED_ORIGINS).'); } catch (e) {}
       rollback();
-      showMessageError('Chat ist gerade nicht verfügbar.');
+      showMessageError(L('Chat ist gerade nicht verfügbar.', 'Chat is currently unavailable.'));
       return;
     }
     if (code === 'payload_too_large' || (res.status === 400 && code === 'payload_too_large')) {
       // 40-message cap hit. Offer a clean restart.
       rollback();
-      showNotice('info', 'Dieser Chat ist ziemlich lang geworden. Starte einen neuen Chat, um weiterzumachen.', 'Neuen Chat starten', function () {
+      showNotice('info', L('Dieser Chat ist ziemlich lang geworden. Starte einen neuen Chat, um weiterzumachen.', 'This chat has gotten quite long. Start a new chat to continue.'), L('Neuen Chat starten', 'Start new chat'), function () {
         startNewChat();
       });
       return;
@@ -3483,16 +3610,16 @@
     try { console.error('[ms-chat] chat error', res.status, code); } catch (e) {}
     rollback();
     if (res.status >= 500 || code === 'internal_error' || code === 'upstream_unavailable') {
-      showMessageError('Es gab ein Problem. Bitte versuch es gleich nochmal.');
+      showMessageError(L('Es gab ein Problem. Bitte versuch es gleich nochmal.', 'Something went wrong. Please try again in a moment.'));
     } else {
-      showMessageError('Chat ist gerade nicht verfügbar.');
+      showMessageError(L('Chat ist gerade nicht verfügbar.', 'Chat is currently unavailable.'));
     }
   }
 
   function lockRateLimit(seconds) {
     state.rateLocked = true;
     updateInputState();
-    showNotice('warn', 'Zu viele Anfragen — bitte kurz warten.');
+    showNotice('warn', L('Zu viele Anfragen — bitte kurz warten.', 'Too many requests — please wait a moment.'));
     if (rateTimer) clearTimeout(rateTimer);
     rateTimer = setTimeout(function () {
       state.rateLocked = false;
@@ -3564,16 +3691,16 @@
   // agreement) and reference only the page/category — never behavior.
   function nudgeCopy() {
     if (PAGE_CTX.type === 'product' && PAGE_CTX.productName) {
-      return { text: 'Fragen zum Produkt „' + PAGE_CTX.productName + '“? Ich helf dir gern weiter.', contextual: true };
+      return { text: L('Fragen zum Produkt „', 'Questions about "') + PAGE_CTX.productName + L('“? Ich helf dir gern weiter.', '"? I\'m happy to help.'), contextual: true };
     }
     if (PAGE_CTX.type === 'collection' && PAGE_CTX.category) {
-      return { text: 'Unsicher, was aus „' + PAGE_CTX.category + '“ zu dir passt? Lass es uns klären.', contextual: true };
+      return { text: L('Unsicher, was aus „', 'Not sure which "') + PAGE_CTX.category + L('“ zu dir passt? Lass es uns klären.', '" suits you? Let\'s figure it out.'), contextual: true };
     }
     var streak = trailCategoryStreak();
     if (streak) {
-      return { text: 'Du schaust dir ein paar Produkte aus „' + streak + '“ an — soll ich beim Vergleich helfen?', contextual: true };
+      return { text: L('Du schaust dir ein paar Produkte aus „', 'You\'re looking at a few products from "') + streak + L('“ an — soll ich beim Vergleich helfen?', '" — shall I help you compare?'), contextual: true };
     }
-    return { text: 'Hi, ich bin Mo! Wenn du Fragen hast, helfe ich dir gern bei der Auswahl.', contextual: false };
+    return { text: L('Hi, ich bin Mo! Wenn du Fragen hast, helfe ich dir gern bei der Auswahl.', 'Hi, I\'m Mo! If you have any questions, I\'m happy to help you choose.'), contextual: false };
   }
 
   function removeNudge() {
@@ -3608,7 +3735,7 @@
         if (ctx) sendContextGreeting(ctx);
       }
     });
-    var x = el('button', { class: 'ms-chat-nudge-x', type: 'button', 'aria-label': 'Hinweis schließen' });
+    var x = el('button', { class: 'ms-chat-nudge-x', type: 'button', 'aria-label': L('Hinweis schließen', 'Dismiss') });
     x.appendChild(icon('close'));
     x.addEventListener('click', function () {
       lsSet(NUDGE_DISMISSED_KEY, '1'); // dismissed once -> persists, never shown again
@@ -3724,8 +3851,8 @@
       // if the context's productId were ever dropped server-side. (With
       // existing history this is also the contract's pivot path.)
       var prompt = ptitle
-        ? ('Ich interessiere mich für „' + ptitle + '". Kannst du mich zu diesem Produkt beraten?')
-        : 'Kannst du mich zu diesem Produkt beraten?';
+        ? (L('Ich interessiere mich für „', 'I\'m interested in "') + ptitle + L('". Kannst du mich zu diesem Produkt beraten?', '". Can you advise me on this product?'))
+        : L('Kannst du mich zu diesem Produkt beraten?', 'Can you advise me on this product?');
       sendMessage(prompt, context);
     } catch (e) {
       try { console.error('[ms-chat] openWithProduct failed', e); } catch (e2) {}
@@ -3858,7 +3985,7 @@
 
       fetch(API_BASE + '/api/feedback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
         body: JSON.stringify(payload)
       }).then(function (res) {
         if (res.ok) {
@@ -3938,6 +4065,10 @@
     notFound: 'Für diese Beratung gibt es noch keine Zusammenfassung.',
     error: 'Zusammenfassung konnte gerade nicht erstellt werden — bitte später erneut versuchen.'
   };
+  if (LOCALE === 'en') Object.assign(DOWNLOAD_COPY, {
+    notFound: 'There\'s no summary for this consultation yet.',
+    error: 'The summary couldn\'t be created right now — please try again later.'
+  });
   var downloadingSummary = false;
   function downloadSummary() {
     if (!auth.signedIn || !activeConversationKey || downloadingSummary) return;
@@ -4030,6 +4161,21 @@
     noEmail: 'Für dein Konto ist keine bestätigte E-Mail-Adresse hinterlegt.',
     noEmailBtn: 'E-Mail-Adresse eingeben'
   };
+  if (LOCALE === 'en') Object.assign(OPTIN_COPY, {
+    loading: 'Loading consent text…',
+    submit: 'Sign up',
+    sending: 'Sending…',
+    dismiss: 'Not now',
+    errTick: 'Please tick the box to sign up.',
+    errRate: 'Too many requests — please wait a moment.',
+    errUpstream: 'Sign-up isn\'t possible right now — please try again later.',
+    errGeneric: 'Sign-up failed. Please try again.',
+    successTitle: 'Almost there!',
+    successPending: 'Please confirm your subscription via the link in the email sent to your registered address.',
+    successConfirmed: 'You\'re already subscribed — enjoy our offers!',
+    noEmail: 'There\'s no confirmed email address on file for your account.',
+    noEmailBtn: 'Enter email address'
+  });
 
   // Session-scoped guard: once the customer submits or dismisses the opt-in we
   // stop re-presenting it for the rest of this browser session (it is an
@@ -4121,8 +4267,8 @@
       var legal = el('div', { class: 'ms-chat-legal-links' });
       var impHref = safeHref(c.imprintUrl);
       var privHref = safeHref(c.privacyUrl);
-      if (impHref) legal.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: 'Impressum' }));
-      if (privHref) legal.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: 'Datenschutz' }));
+      if (impHref) legal.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: L('Impressum', 'Imprint') }));
+      if (privHref) legal.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: L('Datenschutz', 'Privacy') }));
       form.appendChild(legal);
 
       var skip = el('button', { type: 'button', class: 'ms-chat-optin-dismiss', text: OPTIN_COPY.dismiss });
@@ -4142,14 +4288,17 @@
           marketingConsent: true,                    // the user's actual tick
           // The served audit string, echoed back VERBATIM (Art. 7 proof) — never
           // recomposed or hard-coded client-side.
-          consentTextShown: copy.consentTextShown
+          consentTextShown: copy.consentTextShown,
+          // Stored with the consent record + carried to the DOI email; matches
+          // the locale the sign-in consent copy was served in (LOCALE.md §1).
+          locale: LOCALE
         };
         submit.disabled = true;
         submit.textContent = OPTIN_COPY.sending;
         // Guarded account XHR (CONSENT_FLOW.md §2.2): same headers as /api/auth/me.
         fetch(API_BASE + '/api/account/marketing-opt-in', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid },
+          headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
           body: JSON.stringify(payload)
         }).then(function (res) {
           if (res.status === 401) { accountUnauthorized(); card.remove(); return; }
@@ -4254,7 +4403,7 @@
       // Signed in: the header shows the customer's name (task §2) in place of
       // the "Anmelden" button; tapping it opens their conversation history.
       accountBtn.classList.toggle('ms-chat-account-btn--shown', auth.signedIn);
-      if (accountNameEl) accountNameEl.textContent = auth.name || 'Konto';
+      if (accountNameEl) accountNameEl.textContent = auth.name || L('Konto', 'Account');
     }
     updateShareBtn();          // hides the email-capture entry point when signed in
     updateWelcomeAuth();       // greeting / sign-in card inside the welcome state
@@ -4267,7 +4416,7 @@
   function updateWelcomeAuth() {
     if (welcomeGreetingEl) {
       if (auth.signedIn) {
-        welcomeGreetingEl.textContent = auth.name ? ('Hallo ' + auth.name + '!') : 'Schön, dass du wieder da bist!';
+        welcomeGreetingEl.textContent = auth.name ? (L('Hallo ', 'Hi ') + auth.name + '!') : L('Schön, dass du wieder da bist!', 'Good to see you again!');
         welcomeGreetingEl.style.display = '';
       } else {
         welcomeGreetingEl.textContent = '';
@@ -4290,7 +4439,7 @@
 
     var head = el('div', { class: 'ms-chat-history-head' });
     historyTitleEl = el('span', { class: 'ms-chat-history-title', text: ACCOUNT_COPY.historyTitle });
-    var back = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': 'Verlauf schließen' });
+    var back = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': L('Verlauf schließen', 'Close history') });
     back.appendChild(icon('close'));
     back.addEventListener('click', closeHistory);
     head.appendChild(historyTitleEl);
@@ -4331,7 +4480,7 @@
   function openHistory() {
     if (!historyEl || !auth.signedIn) return;
     track('account_history_opened', {});
-    historyTitleEl.textContent = auth.name ? ('Hallo ' + auth.name) : ACCOUNT_COPY.historyTitle;
+    historyTitleEl.textContent = auth.name ? (L('Hallo ', 'Hi ') + auth.name) : ACCOUNT_COPY.historyTitle;
     historyEl.classList.add('ms-chat-history--open');
     historyEl.setAttribute('aria-hidden', 'false');
     loadConversations();
@@ -4468,7 +4617,7 @@
     try {
       var d = new Date(iso);
       if (isNaN(d.getTime())) return '';
-      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      return d.toLocaleDateString(L('de-DE', 'en-GB'), { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch (e) { return ''; }
   }
 
