@@ -2628,37 +2628,86 @@
     streamTtsDrain(false);
   }
 
-  // Peel complete sentences off `pending` and emit them as TTS chunks. Short
-  // fragments (< 60 chars after Markdown stripping) are coalesced with the next
-  // sentence so the audio isn't choppy. `flush` (stream end) emits whatever
-  // remains, including the trailing partial sentence.
+  // German abbreviations whose trailing "." must NOT end a sentence (so "z. B.",
+  // "usw.", "ca." never split a thought into a choppy clip). Any SINGLE-letter
+  // token before a dot (initials, the "z."/"B." of "z. B.") is treated the same.
+  // Matched case-insensitively against the word right before the dot.
+  var TTS_ABBR = {
+    usw: 1, etc: 1, ca: 1, bzw: 1, ggf: 1, inkl: 1, evtl: 1, max: 1, min: 1,
+    nr: 1, tel: 1, vgl: 1, sog: 1, bspw: 1, mind: 1, ggfs: 1, zzgl: 1, abzgl: 1
+  };
+
+  // Does the terminator at index i in `s` actually END a sentence? "\n ! ? …"
+  // always do; "." does NOT when it's a decimal (3.5), a mid-token dot
+  // (google.com) or part of a German abbreviation (z. B., usw.).
+  function isTtsSentenceEnd(s, i) {
+    var c = s.charAt(i);
+    if (c === '\n' || c === '!' || c === '?' || c === '…') return true;
+    if (c !== '.') return false;
+    var prev = i > 0 ? s.charAt(i - 1) : '';
+    var next = i + 1 < s.length ? s.charAt(i + 1) : '';
+    if (next >= '0' && next <= '9' && prev >= '0' && prev <= '9') return false; // 3.5
+    // A real end is followed by whitespace / buffer-end / a closing mark; a
+    // letter or digit right after means we're still inside a token (google.com).
+    if (next && !/\s/.test(next) && '.!?…)]»"’”'.indexOf(next) === -1) return false;
+    var m = /([A-Za-zÄÖÜäöüß]+)$/.exec(s.slice(i > 12 ? i - 12 : 0, i));
+    if (m) { var w = m[1].toLowerCase(); if (w.length === 1 || TTS_ABBR[w]) return false; }
+    return true;
+  }
+
+  // Mirror of the backend's canonical splitIntoTtsChunks() (API_CONTRACT.md §8.3 /
+  // src/lib/tts-text.mjs) so the widget's chunk boundaries match what the server
+  // synthesizes. Emit the moment a sentence terminator (. ! ? …) or newline
+  // completes a sentence; COALESCE fragments shorter than minChars (40, measured
+  // after Markdown stripping) into the next sentence so we never synthesize a
+  // one-word clip; FORCE-CUT any run longer than maxChars (220) at the last clause
+  // boundary (, ; : – —) or space, so a long opening sentence can't stall the
+  // first audio (the ~1 s start). Returns { chunks, rest }: emitted chunks (raw
+  // substrings, in stream order) and the unterminated tail to carry into the next
+  // delta. With { flush:true } (stream end) the tail is emitted too.
+  function splitIntoTtsChunks(buf, opts) {
+    var MIN = 40, MAX = 220, CLAUSE = ',;:–—';
+    var flush = !!(opts && opts.flush);
+    var work = String(buf == null ? '' : buf);
+    var chunks = [];
+    for (;;) {
+      if (!work) break;
+      var cut = -1, lastClause = -1, lastSpace = -1;
+      for (var i = 0; i < work.length; i++) {
+        var ch = work.charAt(i);
+        if (isTtsSentenceEnd(work, i)) {
+          while (i + 1 < work.length && isTtsSentenceEnd(work, i + 1)) i++; // absorb "...", "?!"
+          var end = i + 1;
+          if (stripMarkdownForSpeech(work.slice(0, end)).length >= MIN) { cut = end; break; }
+          continue; // sentence too short so far -> coalesce into the next one
+        }
+        if (CLAUSE.indexOf(ch) !== -1) lastClause = i;
+        else if (ch === ' ' || ch === '\t') lastSpace = i;
+        if (i + 1 >= MAX) { // long run, no usable sentence end yet -> force-cut
+          cut = lastClause >= 0 ? lastClause + 1 : (lastSpace >= 0 ? lastSpace + 1 : i + 1);
+          break;
+        }
+      }
+      if (cut <= 0) break; // nothing emittable yet -> hold the whole rest
+      chunks.push(work.slice(0, cut));
+      work = work.slice(cut);
+    }
+    if (flush && work) { chunks.push(work); work = ''; }
+    return { chunks: chunks, rest: work };
+  }
+
+  // Drive the splitter over the accumulated `pending` text and fire one TTS
+  // request per complete chunk, in stream order. `flush` (stream end) drains the
+  // held trailing partial too. The unterminated tail stays in `pending` for the
+  // next delta.
   function streamTtsDrain(flush) {
     var s = streamTts;
     if (!s || s.aborted) return;
-    var MIN = 60, TERM = '.!?…\n';
-    for (;;) {
-      var p = s.pending;
-      if (!p) return;
-      var cut = -1, i = 0;
-      while (i < p.length) {
-        if (TERM.indexOf(p.charAt(i)) !== -1) {
-          while (i + 1 < p.length && TERM.indexOf(p.charAt(i + 1)) !== -1) i++; // absorb runs ("...", "?!")
-          cut = i + 1;
-          if (stripMarkdownForSpeech(p.slice(0, cut)).length >= MIN) break; // long enough -> emit
-        }
-        i++;
-      }
-      if (cut === -1) { // no complete sentence yet
-        if (flush) { s.pending = ''; streamTtsEmit(p); }
-        return;
-      }
-      if (flush || stripMarkdownForSpeech(p.slice(0, cut)).length >= MIN) {
-        s.pending = p.slice(cut);
-        streamTtsEmit(p.slice(0, cut));
-        if (s.aborted) return;
-        continue; // peel any further sentences
-      }
-      return; // only short complete sentences so far -> hold to coalesce
+    var r = splitIntoTtsChunks(s.pending, { flush: flush });
+    s.pending = r.rest;
+    for (var i = 0; i < r.chunks.length; i++) {
+      streamTtsEmit(r.chunks[i]);
+      if (!streamTts || streamTts.aborted) return; // a chunk failed -> fell back
     }
   }
 
