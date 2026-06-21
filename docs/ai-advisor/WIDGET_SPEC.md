@@ -77,6 +77,21 @@ minimum:
 The JS must fail gracefully (log a warning, not throw, don't render the
 launcher) if `chatKey` is empty.
 
+### 2.1 Locale (English on `/en`)
+
+Derive a locale from the storefront path — `/en…` → `"en"`, everything else →
+`"de"` (the default) — and send it on every backend call. The simplest approach
+is a default **`x-ms-locale`** header on each `fetch` (e.g. `x-ms-locale: en`
+from the `/en` storefront); you may instead send a `"locale"` field in the POST
+body or `?locale=en` on GET endpoints. Omit it entirely for German — the German
+experience is byte-identical to today. On `en`, Mo replies in English and the
+transactional/DOI/unsubscribe emails + consent copy switch language.
+
+> ⚠️ The English **consent / legal / refund** copy is a translation that is
+> **not yet legally reviewed** (`enLegalReviewed: false` in the consent payload).
+> Gate the English consent flow on a legal sign-off. **Full contract +
+> per-string coverage: [`LOCALE.md`](./LOCALE.md).**
+
 ---
 
 ## 3. Session id and conversation persistence
@@ -145,55 +160,59 @@ Persistence rules:
 ### 4.1a The animated brand mark (`.ms-chat-logo`)
 
 - The Mo logo is **no longer an image asset**: it is a self-contained,
-  **Siri-style morphing-blob orb** — several soft, blurred colour blobs
-  slowly **rotate** and **morph** between organic shapes, floating inside a
-  translucent, frosted **liquid-glass bubble** (Apple-glass optics).
-  Implementation: the `.ms-chat-logo` root span carries the bubble chrome in
-  pure CSS (a faint translucent fill + `backdrop-filter: blur + saturate`
-  frost, `overflow: hidden` + pill radius for the round clip, and a
-  `box-shadow` chromatic glass rim); the blobs are a tiny **inline SVG**
-  (`LOGO_BLOBS` in the JS — injected by `logoEl()` and, for the
-  server-rendered product-CTA span, at `init()`) of four `<path>` blobs on a
-  `0 0 1200 1200` viewBox. No image file, no external request, no library.
-- **Colour (palette-driven):** the blob colours are CSS custom properties on
-  `.ms-chat-logo` (`--msc-blob-1..4`), so the whole mark re-skins in one
-  place. The default is a **multi-colour rainbow** (blue / purple / cyan /
-  mint blobs inside the clear glass bubble). Ready-made alternates —
-  including the **motion-sports red** set — are kept in a comment beside the
-  variables; copy them onto `.ms-chat-logo` to switch.
-- **Blur (scale-invariant):** each blob is softened by an SVG
-  `<feGaussianBlur>` whose `stdDeviation` is in **viewBox units**, so the
-  softness scales with the orb identically on every renderer (unlike CSS
-  `filter: blur(px)`, which is rendered-size dependent). Filter IDs use a
-  per-instance `__UID__` — a filter referenced from a `display:none` subtree
-  fails to paint in WebKit/Blink, so each orb owns its own `<defs>`.
-- **Motion:** each blob is a `<g>` that rotates about the viewBox centre
-  (`transform-box: view-box`) over 18–31s, wrapping a `<path>` that tweens
-  its `d` between a shared set of blob shapes over 5–10s. The mismatched
-  slow durations and reversed directions make the churn fluid and
-  non-repeating. Each path's start `d` equals its 0% keyframe, so there is
-  no jump on first paint, and where the engine can't animate `d` it falls
-  back to the static start shape + rotation.
-- **Crisp at any size:** everything is vector-based (the SVG scales with
-  its span; blur is in viewBox units), so the mark scales from the 96px
-  welcome hero down to the 36px avatar/CTA. `--msc-logo-rim` tunes the
-  glass-rim thickness per context. The component intentionally does not
-  depend on the `--msc-*` theme tokens, so it also works outside
-  `.ms-chat-root` (the product-page CTA, which re-asserts the glass-rim
-  `box-shadow` past the kurzinfo block's reset).
+  Siri-style **liquid-glass sphere** — a CLEAR frosted bubble (no dark
+  fill) with a **chromatic rim light** (mint at the top, red bottom-left,
+  blue bottom-right, via layered inset shadows) and a bundle of **true
+  sine waves** flowing left-to-right inside. Implementation: the
+  `.ms-chat-logo` root span carries the glass in pure CSS (a faint
+  translucent fill + `backdrop-filter: blur + saturate` frost + the rim,
+  `overflow: hidden`, pill radius); the waves are a tiny **inline SVG**
+  (`LOGO_WAVES` in the JS — injected by `logoEl()` and, for the
+  server-rendered product-CTA span, at `init()`): cubic-bézier
+  **S-curves** that all start at `(0, 50)` and end at `(100, 50)` — the
+  **same two anchor points** on the bubble's midline — and crest/trough
+  in between with different amplitudes and phases. The cool bundle
+  (blue → cyan → mint, 3 strands + a wide faint glow copy) crests left
+  and troughs right; the warm bundle (cream → amber → orange → red,
+  2 strands + glow) is mirrored, so the bundles cross like the reference.
+  Strokes are painted by horizontal gradients that fade out at both ends
+  (the bundle converges and dissolves at its shared origins); only a
+  sub-pixel `blur(...)` is applied, so the strands stay **distinct**.
+  No image file, no external request, no library.
+- **Pinned-anchor motion / seamless loop:** the two `<g>` bundles are
+  animated with CSS keyframes; the animation reads as the waves flowing
+  left-to-right while staying attached at both ends. Only `scaleY`
+  (amplitude breathing) and `skewX` (crest lean) are animated, about the
+  viewBox centre (`transform-box: view-box`) — both transforms leave the
+  midline, and therefore both anchor points, mathematically fixed. Three
+  unevenly spaced keyframe stops per loop, two different bundle speeds
+  and an offset phase make the wavelength/amplitude/phase drift feel
+  random and organic, while symmetric keyframes (0% == 100%) keep each
+  loop seamless; a `hue-rotate` swing shifts the colors as they move.
+- **Crisp at any size:** everything is vector- and gradient-based (the
+  SVG scales with its span; stroke widths are viewBox-relative), so the
+  mark scales
+  from the 96px welcome hero down to the 36px avatar/CTA. Custom
+  properties tune it per context: `--msc-logo-dur` (wave cycle; longer =
+  calmer), `--msc-logo-blur` (strand softness — keep small),
+  `--msc-logo-rim` (rim-light thickness — scale roughly with rendered
+  size) and `--msc-logo-base` (the translucent glass fill). The component
+  intentionally does not depend on the `--msc-*` theme tokens, so it also
+  works outside `.ms-chat-root` (the product-page CTA, which re-asserts
+  the rim `box-shadow` past the kurzinfo block's reset).
 - **Placement rules — animated where it helps, calm where it doesn't:**
-  - **Launcher:** full motion + a soft pulsing iridescent outer halo (~4s).
+  - **Launcher:** full motion (~7s base cycle) + a soft pulsing outer halo.
   - **Welcome state (empty chat):** a 96px full-motion orb is the hero of
     the panel — there is nothing to read yet, so motion is welcome here.
-  - **Product-page CTA:** the same orb, full motion — it inherits the blob
-    animation, so it is as alive as the launcher next to body copy.
-  - **In-chat assistant avatar:** the blobs are **paused** on their first
-    frame, leaving a still blob orb. A constantly-moving element next to
-    every message would hurt readability. (One exception: while a reply is
-    *generating*, the pending row's avatar resumes + pulses as the loading
+  - **Product-page CTA:** the same orb slowed to a gentle ~22s cycle, so it
+    reads as alive without being noisy next to body copy.
+  - **In-chat assistant avatar:** **static** — animation disabled, leaving
+    a still gradient frame. A constantly-moving element next to every
+    message would hurt readability. (One exception: while a reply is
+    *generating*, the pending row's avatar animates as the loading
     indicator — see §4.2 "Generating indicator".)
 - **Reduced motion:** under `prefers-reduced-motion: reduce` **all**
-  variants (launcher, halo, welcome, CTA) freeze to a static blob frame.
+  variants (launcher, halo, welcome, CTA) freeze to the static frame.
 - The previous artwork (`assets/ms-chat-logo-v2.svg`) is no longer
   referenced by the widget or the product template.
 
@@ -408,6 +427,12 @@ arrives; ignore keep-alive/empty lines).
 ---
 
 ## 6. Product hydration & tool cards
+
+Product cards come **only** from the assistant's tool calls (in
+stream-arrival order), never from any retrieval/candidate list — see the
+**card-selection contract** in `BEHAVIOR_REFERENCE.md` §2. `show_product`
+is Mo's explicit, ordered recommendation declaration, so the cards mirror
+what Mo recommends in its prose.
 
 Tool cards reference products by id only; the widget hydrates them from
 `GET ${apiBase}/api/products` (`API_CONTRACT.md` §3):
