@@ -12,7 +12,84 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-21, latest) — chat tab's cart UI auto-refreshes after quick-checkout (no manual reload)
+## ⭐ Session update (2026-06-21, latest) — final pre-launch cleanup: removed the last unused widget asset (the widget code is already dead-code-clean)
+
+Final, behavior-preserving pre-launch sweep of the widget. The widget's code was
+already cleaned in the **2026-06-14** dead-code pass below, so this round found
+**nothing dead left in the JS/CSS/snippet** — the only cruft remaining was one
+orphaned image asset, now removed. **No shipped behavior changed for any identity
+tier (anonymous · email-only capture · signed-in) or any locale (`/de` default ·
+`/en`).** The three widget code files were **not edited** this round, so those
+paths are byte-for-byte identical.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-logo-v2.svg` | **DELETED** (unused — see below) | 🗑️ Delete from the live theme if it was ever uploaded |
+| `assets/ms-chat-widget.js` | UNCHANGED | ❌ No |
+| `assets/ms-chat-widget.css` | UNCHANGED | ❌ No |
+| `snippets/ms-chat-widget.liquid` | UNCHANGED | ❌ No |
+| `MANIFEST.md` | **MODIFIED** (this entry) | ❌ No (not a theme asset) |
+
+### REMOVED (unused asset — behavior-preserving)
+
+- **`assets/ms-chat-logo-v2.svg` (≈536 KB).** The brand orb has been a tiny
+  **inline** SVG injected by the JS (`LOGO_BLOBS` → every `.ms-chat-logo` span)
+  since the orb rework — no image asset, no network request. Nothing in any
+  deployable theme file (`assets/`, `snippets/`, `sections/`, `layout/`,
+  `templates/`, `config/`) referenced this file; it was already flagged
+  **"NO LONGER REFERENCED"** in the 2026-06-10b orb entry below and kept only as
+  history. Git history still preserves the artwork, so it is dropped from the
+  snapshot here and should be deleted from the live theme. Revert: `git restore`
+  the file.
+
+### Confirmed CLEAN (no change needed — verification only)
+
+- **No stale backend URLs / old hosts — everything points at `mo.motionsports.de`.**
+  Repo-wide there is **no** `…vercel.app`, `chat.motionsports.de`, `localhost`,
+  `127.0.0.1`, `ngrok`, or `herokuapp` in any deployable file. The backend base is
+  resolved in exactly three places, all consistent: the snippet default
+  (`ms-chat-widget.liquid:48` → `'https://mo.motionsports.de'`), the JS fallback
+  (`ms-chat-widget.js:21` → `'https://mo.motionsports.de'`), and the theme-setting
+  default (`settings_schema.json` `ai_advisor_backend_url` →
+  `https://mo.motionsports.de`). `settings_data.json` sets **no** override, so the
+  live default is `mo.motionsports.de`. (This closes `AUDIT_FRONTEND.md` **F1** —
+  the old Vercel default is fully gone.) The only other absolute URLs in the JS are
+  the showroom link and the `motionsports.de` checkout caption — both intentional.
+- **No leftover `console.log` / `debugger`.** There are **zero** `console.log` and
+  **zero** `debugger` statements. The 12 remaining `console.*` calls are all
+  intentional, namespaced (`[ms-chat]`) and `try/catch`-guarded **diagnostics** that
+  fire only on real conditions — operator misconfig (`console.warn` for an empty
+  `ms_chat_shared_secret`; `console.error` for 401 "check the shared secret" / 403
+  "origin not allowlisted") and error envelopes / unhandled-stream-event protocol
+  drift (`console.debug`). These are kept on purpose (removing them would lose
+  launch-day diagnosability and change observable console output); none are debug
+  cruft.
+- **No dead code, no commented-out blocks.** Every one of the **225** named
+  functions, **83** module-level vars, and **163** `.ms-chat-*` CSS selectors is
+  referenced; an independent second-pass audit found **no** transitive dead islands,
+  write-only vars, orphan listeners, or orphan CSS, and **no** half-removed remnants
+  of the orb reworks, the EN-locale add, or streaming voice mode. The only block
+  comments are intentional design documentation (e.g. the orb/liquid-glass notes,
+  the "no `.ms-chat-launcher svg` size rule" note) and are left intact.
+- **Identity tiers + locale unchanged.** No edits to the JS/CSS/snippet, so the
+  **anonymous**, **email-only** (in-session `capture-email`), and **signed-in**
+  (`/api/auth/me` + storefront `/api/account/*`) paths and the **`/de`** default /
+  **`/en`** overlay (`msNormLocale` → default `de`, only `/en` or an `en`-prefixed
+  `CFG.locale` flips to English) are byte-for-byte identical to the shipped,
+  lawyer-approved widget.
+
+### Kept on purpose (NOT removed)
+
+- **The legacy `ms-chat-expanded=1 → modal` view-mode migration** (`loadViewMode`).
+  Reading the old localStorage key is **behavior-bearing** (a returning visitor who
+  last used "modal" keeps it); removing it would change behavior, so it stays —
+  exactly as the 2026-06-14 pass decided.
+- **All `console.warn/error/debug` diagnostics** (see above) and the **design-doc
+  comments** in the CSS/JS — documentation, not dead code.
+
+---
+
+## ⭐ Session update (2026-06-21) — chat tab's cart UI auto-refreshes after quick-checkout (no manual reload)
 
 **Bug.** When the shopper uses quick-checkout from the chat (the `add_to_cart`
 card's **"Zur Kasse"** button), the combined cart permalink opens in a **new
