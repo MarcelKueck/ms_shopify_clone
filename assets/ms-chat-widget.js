@@ -4872,6 +4872,71 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Campaign deep link (?mo=open / #mo-open, WIDGET_SPEC §9d). The backend's
+  // campaign emails end in a Mo CTA linking here (CAMPAIGN_MO_DEEPLINK_URL),
+  // so the click lands in an already-open consultation. Purely client-side:
+  // no network calls, no greeting change — the open is exactly a launcher
+  // click on a fully initialized widget. Optional modifiers, only read when
+  // mo=open is present:
+  //   mo_new=1            fresh consultation — don't resume the stored thread
+  //   mo_view=fullscreen  open expanded (the desktop modal mode; mobile is
+  //                       always true fullscreen)
+  // All three params (+ the #mo-open hash) are stripped via replaceState —
+  // the same cleanup idiom as ?ms_auth= in handleAuthReturn — so a reload or
+  // copied URL doesn't re-trigger the auto-open. utm_* params are left
+  // untouched (the shop's analytics, not ours). Fail-silent by design: the
+  // deep link must never break widget init.
+  // ---------------------------------------------------------------------------
+  function handleMoDeepLink() {
+    var wantsOpen = false, wantsNew = false, wantsFullscreen = false;
+    try {
+      var u = new URL(window.location.href);
+      var hashOpen = u.hash === '#mo-open';
+      wantsOpen = u.searchParams.get('mo') === 'open' || hashOpen;
+      if (!wantsOpen) return; // no deep link -> byte-identical behaviour
+      wantsNew = u.searchParams.get('mo_new') === '1';
+      wantsFullscreen = u.searchParams.get('mo_view') === 'fullscreen';
+      u.searchParams.delete('mo');
+      u.searchParams.delete('mo_new');
+      u.searchParams.delete('mo_view');
+      if (hashOpen) u.hash = '';
+      window.history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    } catch (e) { return; }
+    try {
+      if (wantsNew) {
+        // Fresh consultation — startNewChat()'s two branches, but decided by
+        // the local signed-in hint because auth is NOT settled yet at init:
+        // rotating the sid would sever a signed-in identity link
+        // (CUSTOMER_ACCOUNT.md §1). A possibly-signed-in visitor keeps the
+        // sid and just drops the local thread — the first turn then mints a
+        // fresh conversationKey (maybeMintConversationKey), so this becomes
+        // its own history entry. A pure-anonymous visitor rotates exactly
+        // like "Neuen Chat starten".
+        if (shouldProbeAuth()) {
+          lsDel(historyKey());
+          messages = [];
+          activeConversationId = null;
+          clearConvKey();
+        } else {
+          rotateSession();
+          activeConversationKey = null;
+        }
+        renderAllMessages(); // empty -> welcome (init rendered the old thread)
+      }
+      if (wantsFullscreen) {
+        // The widget's expanded state is the desktop modal mode (§4; mobile
+        // is always true fullscreen). Applied to the still-closed panel so
+        // the open animates straight into it — no sidebar -> modal flicker.
+        // Deliberately NOT persisted to VIEW_MODE_KEY: the campaign link
+        // must not overwrite the customer's saved layout preference.
+        state.viewMode = 'modal';
+        applyViewMode();
+      }
+      if (typeof openPanel === 'function') openPanel();
+    } catch (e) {}
+  }
+
+  // ---------------------------------------------------------------------------
   // Init.
   // ---------------------------------------------------------------------------
   function init() {
@@ -4900,6 +4965,9 @@
     // Customer Account: process a sign-in/logout return marker (?ms_auth=…),
     // re-hydrating identity and re-opening the panel onto the SAME conversation.
     handleAuthReturn();
+    // Campaign deep link (?mo=open / #mo-open): auto-open LAST, on the fully
+    // initialized widget, with the modifiers applied before the open.
+    handleMoDeepLink();
   }
 
   // Delegated handler for storefront product-page CTAs. Reading product id +
