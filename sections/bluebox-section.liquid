@@ -1,0 +1,115 @@
+{% assign ai_gen_id = section.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-bluebox-container-{{ ai_gen_id }} {
+    display: block;
+    width: 100%;
+    padding: 20px 0;
+  }
+  .ai-bluebox-wrapper-{{ ai_gen_id }} {
+    max-width: {{ section.settings.max_width }}px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  {% if section.settings.desktop_alignment == 'left' %}
+    @media screen and (min-width: 750px) {
+      .ai-bluebox-wrapper-{{ ai_gen_id }} { margin-left: 0; margin-right: auto; }
+    }
+  {% elsif section.settings.desktop_alignment == 'right' %}
+    @media screen and (min-width: 750px) {
+      .ai-bluebox-wrapper-{{ ai_gen_id }} { margin-left: auto; margin-right: 0; }
+    }
+  {% endif %}
+  .ai-bluebox-content-{{ ai_gen_id }} {
+    background-color: {{ section.settings.background_color }};
+    border-radius: {{ section.settings.border_radius }}px;
+    padding: {{ section.settings.padding_vertical }}px {{ section.settings.padding_horizontal }}px;
+    border: {{ section.settings.border_width }}px solid {{ section.settings.border_color }};
+  }
+  .ai-bluebox-title-{{ ai_gen_id }} {
+    color: {{ section.settings.title_color }};
+    font-size: {{ section.settings.title_size }}px;
+    margin: 0 0 {{ section.settings.title_spacing }}px 0;
+    font-weight: 600;
+  }
+  .ai-bluebox-text-{{ ai_gen_id }} {
+    color: {{ section.settings.text_color }};
+    font-size: {{ section.settings.text_size }}px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .ai-bluebox-text-{{ ai_gen_id }} p { margin: 0 0 12px 0; }
+  .ai-bluebox-text-{{ ai_gen_id }} p:last-child { margin-bottom: 0; }
+  .ai-bluebox-text-{{ ai_gen_id }} ul,
+  .ai-bluebox-text-{{ ai_gen_id }} ol { margin: 0 0 12px 0; padding-left: 20px; }
+  .ai-bluebox-text-{{ ai_gen_id }} li { margin-bottom: 6px; }
+  @media screen and (max-width: 749px) {
+    .ai-bluebox-content-{{ ai_gen_id }} {
+      padding: {{ section.settings.padding_vertical | times: 0.7 }}px {{ section.settings.padding_horizontal | times: 0.7 }}px;
+    }
+    .ai-bluebox-title-{{ ai_gen_id }} { font-size: {{ section.settings.title_size | times: 0.85 }}px; }
+    .ai-bluebox-text-{{ ai_gen_id }} { font-size: {{ section.settings.text_size | times: 0.9 }}px; }
+  }
+{% endstyle %}
+
+<div class="ai-bluebox-container-{{ ai_gen_id }}">
+  <div class="ai-bluebox-wrapper-{{ ai_gen_id }}">
+    <div class="ai-bluebox-content-{{ ai_gen_id }}">
+      {% if section.settings.title != blank %}
+        <h3 class="ai-bluebox-title-{{ ai_gen_id }}">{{ section.settings.title }}</h3>
+      {% endif %}
+      {% if section.settings.text != blank %}
+        <div class="ai-bluebox-text-{{ ai_gen_id }}">{{ section.settings.text }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "BlueBox",
+  "tag": "section",
+  "settings": [
+    { "type": "header", "content": "Inhalt" },
+    { "type": "inline_richtext", "id": "title", "label": "Titel", "default": "Wichtiger Hinweis" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Fügen Sie hier Ihren Text ein.</p>" },
+    { "type": "header", "content": "Layout" },
+    { "type": "range", "id": "max_width", "label": "Maximale Breite", "min": 300, "max": 1400, "step": 50, "unit": "px", "default": 900 },
+    { "type": "select", "id": "desktop_alignment", "label": "Desktop-Ausrichtung", "options": [{"value": "left", "label": "Links"}, {"value": "center", "label": "Zentriert"}, {"value": "right", "label": "Rechts"}], "default": "center" },
+    { "type": "header", "content": "Farben" },
+    { "type": "color", "id": "background_color", "label": "Hintergrundfarbe", "default": "#e3f2fd" },
+    { "type": "color", "id": "border_color", "label": "Rahmenfarbe", "default": "#008ccb" },
+    { "type": "color", "id": "title_color", "label": "Titelfarbe", "default": "#008ccb" },
+    { "type": "color", "id": "text_color", "label": "Textfarbe", "default": "#3a3a3a" },
+    { "type": "header", "content": "Stil" },
+    { "type": "range", "id": "border_radius", "label": "Eckenradius", "min": 0, "max": 40, "step": 4, "unit": "px", "default": 4 },
+    { "type": "range", "id": "border_width", "label": "Rahmenstärke", "min": 0, "max": 8, "step": 1, "unit": "px", "default": 1 },
+    { "type": "range", "id": "padding_vertical", "label": "Innenabstand vertikal", "min": 10, "max": 80, "step": 5, "unit": "px", "default": 30 },
+    { "type": "range", "id": "padding_horizontal", "label": "Innenabstand horizontal", "min": 10, "max": 80, "step": 5, "unit": "px", "default": 30 },
+    { "type": "header", "content": "Typografie" },
+    { "type": "range", "id": "title_size", "label": "Titelgröße", "min": 14, "max": 40, "step": 2, "unit": "px", "default": 14 },
+    { "type": "range", "id": "title_spacing", "label": "Abstand nach Titel", "min": 0, "max": 40, "step": 4, "unit": "px", "default": 12 },
+    { "type": "range", "id": "text_size", "label": "Textgröße", "min": 12, "max": 24, "step": 1, "unit": "px", "default": 14 }
+  ],
+  "presets": [
+    {
+      "name": "BlueBox",
+      "settings": {
+        "max_width": 900,
+        "desktop_alignment": "center",
+        "background_color": "#e3f2fd",
+        "border_color": "#008ccb",
+        "title_color": "#008ccb",
+        "text_color": "#3a3a3a",
+        "border_radius": 4,
+        "border_width": 1,
+        "padding_vertical": 30,
+        "padding_horizontal": 30,
+        "title_size": 14,
+        "title_spacing": 12,
+        "text_size": 14
+      }
+    }
+  ]
+}
+{% endschema %}

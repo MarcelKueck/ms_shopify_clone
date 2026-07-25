@@ -493,6 +493,254 @@ body {
   }
 
 }
+
+/* FH FINAL HEADER RESTORE OVERRIDES */
+
+/* Desktop topbar icons only */
+@media screen and (min-width: 750px) {
+  .header-topbar__right .header-icon-btn,
+  .header-topbar__right .header-icon-btn svg {
+    color: #fff !important;
+    stroke: #fff !important;
+  }
+
+  .header-topbar__right .cart-badge {
+    color: #fff;
+  }
+}
+
+/* Search final */
+.fh-header-search__input,
+.fh-header-search__input:focus {
+  border-color: #000000 !important;
+}
+
+.fh-header-search--desktop {
+  width: 325px !important;
+  display: block;
+  margin-left: 28px !important;
+}
+
+/* Topbar hide mobile: keep trustbar alive */
+@media screen and (max-width: 749px) {
+  {% if section.settings.topbar_hide_mobile %}
+    .header-topbar__left,
+    .header-topbar__right,
+    .fh-mobile-topbar-text {
+      display: none !important;
+    }
+
+    .header-topbar {
+      display: block !important;
+    }
+  {% endif %}
+
+  body {
+    padding-top: calc(var(--header-height, 120px) + 40px) !important;
+  }
+
+  .fh-header-search--desktop {
+    display: none !important;
+  }
+
+  .fh-header-search--mobile {
+    display: block !important;
+    grid-column: 1 / -1;
+    width: min(270px, calc(100vw - 120px));
+    margin: 6px auto 8px;
+  }
+
+  .fh-header-search--mobile .fh-header-search__input {
+    height: 32px;
+    text-align: center;
+    font-size: 15px;
+    border-radius: 7px;
+    padding: 0 10px 0 38px;
+    background-position: 14px center;
+  }
+}
+
+/* Header eTrusted widgets only */
+.fh-header-etrusted,
+.fh-header-etrusted etrusted-widget,
+.fh-header-etrusted etrusted-trusted-stars-service-widget,
+.fh-header-etrusted iframe,
+.fh-header-etrusted .star-rating,
+.fh-header-etrusted .star-rating .filled {
+  background: transparent !important;
+  background-color: transparent !important;
+  --accent-color: #9A0000 !important;
+}
+
+.fh-header-etrusted etrusted-widget,
+.fh-header-etrusted etrusted-trusted-stars-service-widget {
+  color: #fff !important;
+}
+
+.fh-desktop-trustbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.fh-mobile-trustbar {
+  display: none !important;
+}
+
+.fh-mobile-topbar-text {
+  display: none;
+}
+
+@media screen and (min-width: 750px) {
+  .header-topbar__center {
+    min-width: 420px;
+  }
+
+  .fh-desktop-trustbar {
+    min-width: 420px;
+  }
+
+  .fh-desktop-trustbar etrusted-widget,
+  .fh-desktop-trustbar etrusted-trusted-stars-service-widget {
+    display: block !important;
+    width: 420px !important;
+    min-width: 420px !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+}
+
+@media screen and (max-width: 749px) {
+  .header-topbar__center {
+    min-width: 0 !important;
+    width: 100% !important;
+    justify-self: center !important;
+  }
+
+  .fh-desktop-trustbar {
+    display: none !important;
+  }
+
+  .fh-mobile-topbar-text {
+    display: inline;
+  }
+
+  .fh-mobile-trustbar {
+    display: flex !important;
+    width: 100% !important;
+    height: 34px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: #111 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    border-bottom: 0 !important;
+    position: relative;
+    z-index: 999999;
+  }
+
+  .fh-mobile-trustbar etrusted-widget,
+  .fh-mobile-trustbar etrusted-trusted-stars-service-widget {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    transform: none !important;
+    background: transparent !important;
+  }
+
+  .fh-mobile-trustbar iframe {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 24px !important;
+    background: transparent !important;
+  }
+}
+
+/* Mobile header icons restored */
+.fh-mobile-header-icons {
+  display: none;
+}
+
+@media screen and (max-width: 749px) {
+  .fh-mobile-header-icons {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .fh-mobile-header-icons .header-icon-btn,
+  .fh-mobile-header-icons svg {
+    color: #111 !important;
+    stroke: #111 !important;
+  }
+}
+
+/* MacBook / 13 inch navigation fix */
+@media screen and (max-width: 1460px) and (min-width: 750px) {
+  .header__container {
+    gap: 18px !important;
+  }
+
+  .header__nav .menu {
+    gap: 0.55rem !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .header__nav .menu > li > .menu-item,
+  .header__nav .menu > li > a.menu-item,
+  .header__nav .menu > li > details > summary .menu-item,
+  .header__nav .menu > li > dropdown-element > details > summary .menu-item,
+  .header__nav .menu > li > mega-menu-horizontal > details > summary .menu-item {
+    font-size: 0.78rem !important;
+    letter-spacing: -0.015em;
+    white-space: nowrap !important;
+  }
+
+  .fh-header-search--desktop {
+    width: 270px !important;
+    margin-left: 14px !important;
+  }
+
+  .header__logo img,
+  .header__logo .header__logo-img {
+    width: 175px !important;
+    max-width: 175px !important;
+  }
+}
+/* Locale Dropdowns über der darunterliegenden Header-Zeile anzeigen */
+.header-topbar {
+  position: relative !important;
+  z-index: 100000 !important;
+  overflow: visible !important;
+}
+
+.header-topbar__left,
+.header-topbar__country-selector,
+.header-topbar__language-selector,
+.header-topbar dropdown-list,
+.header-topbar details {
+  position: relative !important;
+  z-index: 100001 !important;
+  overflow: visible !important;
+}
+
+.header-topbar .dropdown-menu,
+.header-topbar .locale-selector-dropdown {
+  z-index: 100002 !important;
+}
+
+/* darunterliegende Header-Zeile niedriger stapeln */
+.header {
+  position: relative;
+  z-index: 1000;
+}
+
 </style>
 
 <style data-transparent-header-style>
@@ -534,11 +782,18 @@ font_class: localization_font
 
 <div class="header-topbar__center">
 
-  <div class="fh-desktop-trustbar">
+  <div class="fh-desktop-trustbar fh-header-etrusted">
     <etrusted-widget
-  data-etrusted-widget-id="wdg-b2459965-a58d-4af2-aeea-97b0f30667e4"
-  data-theme="dark">
-</etrusted-widget>
+      data-etrusted-widget-id="wdg-b2459965-a58d-4af2-aeea-97b0f30667e4"
+      data-theme="dark"
+    ></etrusted-widget>
+  </div>
+
+  <div class="fh-mobile-trustbar fh-header-etrusted">
+    <etrusted-widget
+      data-etrusted-widget-id="wdg-b2459965-a58d-4af2-aeea-97b0f30667e4"
+      data-theme="dark"
+    ></etrusted-widget>
   </div>
 
   {% if section.settings.topbar_center_text != blank %}
@@ -556,29 +811,32 @@ font_class: localization_font
 </div>
 
 <div class="header-topbar__right">
-{% if section.settings.topbar_right_link_1_label != blank %}
-<a href="{{ section.settings.topbar_right_link_1_url }}">
-{{ section.settings.topbar_right_link_1_label }}
-</a>
-{% endif %}
+  {% if shop.customer_accounts_enabled %}
+    <a href="{{ routes.account_url }}" class="header-icon-btn header-auth-btn">
+      <span class="sr-only">{{ 'sections.header.account' | t }}</span>
+      {% render 'icon-user' %}
+    </a>
+  {% endif %}
 
-{% if section.settings.topbar_right_link_2_label != blank %}
-<div class="header-topbar__support-dropdown">
-<button type="button" class="header-topbar__button header-topbar__support-toggle" aria-expanded="false" aria-controls="HeaderSupportMenu-{{ section.id }}">
-{{ section.settings.topbar_right_link_2_label }}
-</button>
+  <modal-trigger
+    class="contents"
+    target="#cart-modal"
+    {% if cart_drawer == false %}
+      enabled="false"
+    {% endif %}
+  >
+    <a href="{{ routes.cart_url }}" class="header-icon-btn">
+      <span class="sr-only">{{ 'sections.header.cart' | t }}</span>
 
-<div id="HeaderSupportMenu-{{ section.id }}" class="header-topbar__support-menu" hidden>
-{% if linklists['support-menu'].links.size > 0 %}
-{% for support_link in linklists['support-menu'].links %}
-<a href="{{ support_link.url }}">{{ support_link.title }}</a>
-{% endfor %}
-{% elsif section.settings.topbar_right_link_2_url != blank %}
-<a href="{{ section.settings.topbar_right_link_2_url }}">{{ section.settings.topbar_right_link_2_label }}</a>
-{% endif %}
+      <div class="relative">
+        {% render 'icon-cart' %}
+
+        <div class="cart-badge {% if cart == empty %}hidden{% endif %}" data-fh-cart-bubble>
+  {{ cart.item_count }}
 </div>
-</div>
-{% endif %}
+      </div>
+    </a>
+  </modal-trigger>
 </div>
 </div>
 </div>
@@ -694,54 +952,52 @@ is_active: link.current or link.child_active
 </div>
 
 <div class="header__actions">
-<div class="flex gap-3 md:gap-4">
-{% if section.settings.enable_search %}
-<form class="fh-header-search fh-header-search--desktop" action="{{ routes.search_url }}" method="get" role="search">
-  <input
-    type="search"
-    name="q"
-    class="fh-header-search__input"
-    placeholder="Wonach suchst Du?"
-    autocomplete="off"
-    autocorrect="off"
-    autocapitalize="off"
-    spellcheck="false"
-  >
+  <div class="flex gap-3 md:gap-4">
+    {% if section.settings.enable_search %}
+      <form class="fh-header-search fh-header-search--desktop" action="{{ routes.search_url }}" method="get" role="search">
+        <input
+          type="search"
+          name="q"
+          class="fh-header-search__input"
+          placeholder="Wonach suchst Du?"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        >
 
-  <input type="hidden" name="type" value="product">
-  <input type="hidden" name="options[prefix]" value="last">
-</form>
-{% endif %}
-{% if shop.customer_accounts_enabled %}
-<a
-href="{{ routes.account_url }}"
-class="header-icon-btn header-auth-btn max-lg:hidden"
->
-<span class="sr-only">{{ 'sections.header.account' | t }}</span>
-{% render 'icon-user' %}
-</a>
-{% endif %}
+        <input type="hidden" name="type" value="product">
+        <input type="hidden" name="options[prefix]" value="last">
+      </form>
+    {% endif %}
 
-<modal-trigger
-class="contents"
-target="#cart-modal"
-{% if cart_drawer == false %}
-enabled="false"
-{% endif %}
->
-<a href="{{ routes.cart_url }}" class="header-icon-btn">
-<span class="sr-only">{{ 'sections.header.cart' | t }}</span>
+    <div class="fh-mobile-header-icons">
+      {% if shop.customer_accounts_enabled %}
+        <a href="{{ routes.account_url }}" class="header-icon-btn header-auth-btn">
+          <span class="sr-only">{{ 'sections.header.account' | t }}</span>
+          {% render 'icon-user' %}
+        </a>
+      {% endif %}
 
-<div class="relative">
-{% render 'icon-cart' %}
-
-<div class="cart-badge {% if cart == empty %}hidden{% endif %}" id="CartBubble">
-{{ cart.item_count }}
+      <modal-trigger
+        class="contents"
+        target="#cart-modal"
+        {% if cart_drawer == false %}
+          enabled="false"
+        {% endif %}
+      >
+        <a href="{{ routes.cart_url }}" class="header-icon-btn">
+          <span class="sr-only">{{ 'sections.header.cart' | t }}</span>
+          <div class="relative">
+            {% render 'icon-cart' %}
+            <div class="cart-badge {% if cart == empty %}hidden{% endif %}" data-fh-cart-bubble>
+  {{ cart.item_count }}
 </div>
-</div>
-</a>
-</modal-trigger>
-</div>
+          </div>
+        </a>
+      </modal-trigger>
+    </div>
+  </div>
 </div>
 
 {% if section.settings.enable_search %}
@@ -817,29 +1073,77 @@ toggle.focus();
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-  function setEtrustedDarkTheme() {
+  function updateEtrustedWidgets() {
 
     document
-      .querySelectorAll('etrusted-widget, etrusted-trusted-stars-service-widget')
+      .querySelectorAll('.fh-header-etrusted etrusted-widget')
       .forEach(function(widget) {
 
         widget.setAttribute('data-theme', 'dark');
+        widget.style.setProperty('--accent-color', '#9A0000');
 
-        widget.style.setProperty('--accent-color', '#DB6B22');
+        const innerWidget = widget.querySelector('etrusted-trusted-stars-service-widget');
+
+        if (innerWidget) {
+          innerWidget.style.setProperty('--accent-color', '#9A0000');
+        }
 
       });
 
   }
 
-  setEtrustedDarkTheme();
+  updateEtrustedWidgets();
 
-  var observer = new MutationObserver(setEtrustedDarkTheme);
+  const observer = new MutationObserver(function() {
+    updateEtrustedWidgets();
+  });
 
   observer.observe(document.body, {
     childList: true,
     subtree: true
   });
 
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function updateHeaderCartBubble() {
+    fetch('/cart.js')
+      .then(function(response) {
+        return response.json();
+      })
+      .then(function(cart) {
+        document.querySelectorAll('[data-fh-cart-bubble]').forEach(function(bubble) {
+          bubble.textContent = cart.item_count;
+
+          if (cart.item_count > 0) {
+            bubble.classList.remove('hidden');
+          } else {
+            bubble.classList.add('hidden');
+          }
+        });
+      });
+  }
+
+  document.addEventListener('cart:updated', updateHeaderCartBubble);
+  document.addEventListener('cart:refresh', updateHeaderCartBubble);
+  document.addEventListener('cart:change', updateHeaderCartBubble);
+
+  document.addEventListener('submit', function(event) {
+    if (event.target && event.target.matches('form[action*="/cart/add"]')) {
+      setTimeout(updateHeaderCartBubble, 600);
+      setTimeout(updateHeaderCartBubble, 1200);
+    }
+  });
+
+  document.addEventListener('click', function(event) {
+    if (event.target.closest('[name="add"], button[type="submit"], .product-form__submit')) {
+      setTimeout(updateHeaderCartBubble, 600);
+      setTimeout(updateHeaderCartBubble, 1200);
+    }
+  });
+
+  updateHeaderCartBubble();
 });
 </script>
 {% render 'mobile-menu',

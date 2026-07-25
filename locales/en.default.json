@@ -1,3 +1,12 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin language editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
 {
   "general": {
     "submit": "Submit",
@@ -332,6 +341,7 @@
       "xr_button_label": "View in your space, loads item in augmented reality window",
       "unavailable": "Unavailable",
       "view_full_details": "View full details",
+      "view_product": "View product",
       "low_stock": {
         "one": "Only 1 unit left",
         "other": "Only {{ count }} units left"
@@ -481,6 +491,15 @@
       "max_characters": "{{ max_chars }} characters max",
       "send_on": "YYYY-MM-DD",
       "send_on_label": "Send on (optional)"
+    }
+  },
+  "shopify": {
+    "checkout": {
+      "local_pickup": {
+        "selected_pickup_option_no_longer_available": {
+          "ship_to_address_link": "choose shipping"
+        }
+      }
     }
   }
 }

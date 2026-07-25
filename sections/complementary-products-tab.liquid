@@ -1,66 +1,225 @@
-{% comment %}Zubehör (Komplementärprodukte) – nutzt das Theme-Element <quick-add-button>{% endcomment %}
+{% render 'section-bg-number-vars' %}
+
+{% capture image_sizes %}
+  {% render 'product-carousel-image-sizes',
+      enabled: true,
+      grid_columns: 5,
+      grid_columns_mobile: 2
+  %}
+{% endcapture %}
+
 {% if recommendations.performed and recommendations.products_count > 0 %}
-  <div class="comp-grid">
-    {% for rec in recommendations.products %}
-      {% assign v = rec.selected_or_first_available_variant %}
-      <div class="comp-card">
-        <a class="comp-link" href="{{ rec.url }}" title="{{ rec.title | escape }}">
-          {% if rec.featured_image %}
-            {{ rec.featured_image
-              | image_url: width: 480
-              | image_tag: loading: 'lazy', alt: rec.featured_image.alt | escape }}
-          {% endif %}
 
-          <div class="comp-title">{{ rec.title }}</div>
+  {% capture card_attrs %}
+    data-animation="block"
+    data-animation-group="{{ section.id }}-product-cards"
+  {% endcapture %}
 
-          <div class="comp-price">
-            {% if rec.compare_at_price > rec.price %}
-              <span class="comp-price-now">{{ rec.price | money }}</span>
-              <s class="comp-price-old">{{ rec.compare_at_price | money }}</s>
-            {% else %}
-              <span class="comp-price-now">{{ rec.price | money }}</span>
-            {% endif %}
+  {% capture items %}
+    {% for recommendation in recommendations.products %}
+      {% unless recommendation.tags contains 'globo-product-options' %}
+
+        <div class="grid-carousel-item rp03-item comp-rp03-item">
+          <div class="rp03-card-wrapper comp-rp03-card">
+
+            {% render 'product-card',
+              card_product: recommendation,
+              attrs: card_attrs,
+              sizes: image_sizes
+            %}
+
+            <a href="{{ recommendation.url }}" class="rp03-btn-ansehen comp-rp03-btn">
+              {{ 'products.product.view_product' | t }}
+            </a>
+
           </div>
-        </a>
+        </div>
 
-        {%- if v -%}
-        <quick-add-button class="comp-quick" variant-id="{{ v.id }}" handle="{{ rec.handle }}">
-          <button class="button button-light complementary-product__button-add-to-cart p-0 w-9 h-9 md:w-10 md:h-10 rounded-full comp-add-btn"
-                  type="button" aria-label="In den Warenkorb legen" {% unless v.available %}disabled{% endunless %}>
-            <div class="icon-sm">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-                   stroke="currentColor" stroke-width="var(--icon-stroke-width)"
-                   stroke-linecap="var(--icon-stroke-linecap)" stroke-linejoin="var(--icon-stroke-linejoin)" aria-hidden="true" focusable="false">
-                <path d="M6 7L21 7L19 16L9 16L6 7ZM6 7L5 4H2" vector-effect="non-scaling-stroke"></path>
-                <circle cx="9.5" cy="20.5" r="1.5" fill="currentColor" stroke="none"></circle>
-                <circle cx="17.5" cy="20.5" r="1.5" fill="currentColor" stroke="none"></circle>
-              </svg>
-            </div>
-          </button>
-        </quick-add-button>
-        {%- endif -%}
-      </div>
+      {% endunless %}
     {% endfor %}
+  {% endcapture %}
+
+  <div class="comp-rp03-carousel">
+    {% render 'product-carousel',
+      enabled: true,
+      grid_columns: 5,
+      grid_columns_mobile: 2,
+      slot: items
+    %}
   </div>
+
 {% else %}
+
   <p>Aktuell kein Zubehör empfohlen.</p>
+
 {% endif %}
 
 <style>
-  /* Grid: 2 Spalten mobil, 5 Spalten Desktop */
-  .comp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.9rem}
-  @media (min-width:900px){.comp-grid{grid-template-columns:repeat(5,1fr)}}
+  .comp-rp03-carousel {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 42px;
+  }
 
-  .comp-card{position:relative;border:1px solid #eee;border-radius:.75rem;background:#fff;transition:box-shadow .2s}
-  .comp-card:hover{box-shadow:0 6px 18px rgba(0,0,0,.06)}
-  .comp-link{display:block;text-decoration:none;color:inherit;padding:.75rem}
-  .comp-title{margin-top:.5rem;font-size:.95rem;line-height:1.35}
-  .comp-price{margin-top:.25rem;font-weight:600}
-  .comp-price-old{color:#888;margin-left:.5rem;font-weight:400}
+.comp-rp03-carousel .carousel,
+.comp-rp03-carousel .product-carousel,
+.comp-rp03-carousel .scroll-area,
+.comp-rp03-carousel .scroll-carousel {
+  max-width: 100%;
+}
 
-  /* Quick-Add Button unten rechts */
-  .comp-quick{position:absolute;right:.5rem;bottom:.5rem;z-index:3}
-  .comp-add-btn svg{width:20px;height:20px}
+/* wichtig: scroll-carousel NICHT begrenzen */
+.comp-rp03-carousel scroll-carousel {
+  max-width: none;
+}
+
+  .comp-rp03-carousel .carousel-previous,
+  .comp-rp03-carousel .carousel-next {
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 20;
+  }
+
+  .comp-rp03-carousel .carousel-previous {
+    left: 6px !important;
+  }
+
+  .comp-rp03-carousel .carousel-next {
+    right: 6px !important;
+  }
+
+  .comp-rp03-carousel .rp03-card-wrapper {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid transparent;
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+
+  .comp-rp03-carousel .rp03-card-wrapper:hover {
+    border-color: #E3F2FD;
+    box-shadow: 0 8px 24px rgba(0, 140, 203, .14);
+  }
+
+  .comp-rp03-carousel .rp03-card-wrapper:hover .rp03-btn-ansehen {
+    background: #E3F2FD;
+    color: #000 !important;
+  }
+
+  .comp-rp03-carousel quick-add-button,
+  .comp-rp03-carousel .quick-add-button,
+  .comp-rp03-carousel .quick-add,
+  .comp-rp03-carousel [class*="quick-add"],
+  .comp-rp03-carousel .complementary-product__button-add-to-cart {
+    display: none !important;
+  }
+
+  .comp-rp03-carousel .card__information,
+  .comp-rp03-carousel .card-information,
+  .comp-rp03-carousel .product-card__info,
+  .comp-rp03-carousel .card__content,
+  .comp-rp03-carousel .product-card__content,
+  .comp-rp03-carousel .product-card-info {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .comp-rp03-carousel .product-name,
+.comp-rp03-carousel .product-name a,
+.comp-rp03-carousel h3.product-name,
+.comp-rp03-carousel .card__heading,
+.comp-rp03-carousel .card__heading a {
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: #262626;
+  text-decoration: none;
+}
+
+.comp-rp03-carousel .product-name,
+.comp-rp03-carousel h3.product-name,
+.comp-rp03-carousel .card__heading {
+  min-height: calc(15px * 1.35 * 3);
+  margin-bottom: 14px;
+}
+
+.comp-rp03-carousel span.regular-price,
+.comp-rp03-carousel span.regular-price *,
+.comp-rp03-carousel .price,
+.comp-rp03-carousel .price *,
+.comp-rp03-carousel .price .price-item,
+.comp-rp03-carousel .price .price-item *,
+.comp-rp03-carousel .price__regular,
+.comp-rp03-carousel .price__regular *,
+.comp-rp03-carousel .price__sale,
+.comp-rp03-carousel .price__sale * {
+  font-weight: 800 !important;
+  font-style: bold !important;
+  color: #111;
+}
+
+  .comp-rp03-carousel .rp03-btn-ansehen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: auto;
+    padding: 14px 18px;
+    border-radius: 0 0 16px 16px;
+    background: #111;
+    color: #fff !important;
+    font-size: 13px;
+    font-weight: 300;
+    line-height: 1;
+    text-decoration: none !important;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    transition: background .2s ease;
+  }
+
+  .comp-rp03-carousel .rp03-btn-ansehen:hover {
+    background: #008CCB;
+    color: #000 !important;
+  }
+
+  @media (max-width: 640px) {
+    .comp-rp03-carousel {
+      padding: 0 28px;
+    }
+
+    .comp-rp03-carousel .carousel-previous {
+      left: 0 !important;
+    }
+
+    .comp-rp03-carousel .carousel-next {
+      right: 0 !important;
+    }
+
+    .comp-rp03-carousel .card__information,
+    .comp-rp03-carousel .card-information,
+    .comp-rp03-carousel .product-card__info,
+    .comp-rp03-carousel .card__content,
+    .comp-rp03-carousel .product-card__content,
+    .comp-rp03-carousel .product-card-info {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .comp-rp03-carousel .rp03-btn-ansehen {
+      padding: 12px 10px;
+      font-size: 12px;
+    }
+  }
 </style>
 
-{% schema %}{"name":"Zubehör Tab","settings":[]} {% endschema %}
+{% schema %}
+{
+  "name": "Zubehör Tab",
+  "settings": []
+}
+{% endschema %}

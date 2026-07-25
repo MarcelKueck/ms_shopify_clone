@@ -319,9 +319,7 @@ label,
 
   --color-separator: 229 231 235;
   --color-outline: 209 213 219;
-
   --color-border: 212 212 212;
-
   --color-background: var(--color-base-background);
   --color-foreground: var(--color-base-foreground);
   --color-headings: var(--color-base-headings);
@@ -11075,7 +11073,7 @@ a[href*="montage-service-klasse-c3"]:hover {
   text-decoration: none !important;
 }
 
-div.dropdown-menu.py-2.locale-selector-dropdown {padding-top:91px!important;} 
+div.dropdown-menu.py-2.locale-selector-dropdown {padding-top:0px!important;} 
 .menu-item { position: relative; display: inline-block; padding-bottom: 6px; } 
 .menu-item::after { content: ""; 
   position: absolute; 
@@ -11267,4 +11265,313 @@ margin-top:-11px;
 /* Währungs-/Länder Dropdown breiter */
 .header-topbar .locale-selector-dropdown {
   min-width: 130% !important;
+}
+
+.header-topbar .locale-selector-dropdown {
+  top: 36px !important;
+}
+
+/* Leichter Außenschatten für Accordion Plus */
+.accordion-plus-block,
+[data-block-type*="accordion"] {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+}
+
+/* Trennlinie unter der Überschrift im geöffneten Element */
+.accordion-plus-block details[open] summary,
+[data-block-type*="accordion"] details[open] summary {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.10);
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Rich Text Inhalte – Accordion Plus (generierte Inner-Klasse) */
+[class*="ai-accordion-plus-content-inner"] ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+[class*="ai-accordion-plus-content-inner"] ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+[class*="ai-accordion-plus-content-inner"] li {
+  display: list-item;
+  margin-bottom: 0.35em;
+}
+
+[class*="ai-accordion-plus-content-inner"] p {
+  margin-bottom: 0.75em;
+}
+
+[class*="ai-accordion-plus-content-inner"] strong,
+[class*="ai-accordion-plus-content-inner"] b {
+  font-weight: 700;
+}
+
+[class*="ai-accordion-plus-content-inner"] em,
+[class*="ai-accordion-plus-content-inner"] i {
+  font-style: italic;
+}
+
+[class*="ai-accordion-plus-content-inner"] a {
+  text-decoration: underline;
+  color: inherit;
+}
+
+[class*="ai-accordion-plus-content-inner"] h2 {
+  font-size: 1.15em;
+  font-weight: 700;
+  margin-bottom: 0.5em;
+}
+
+[class*="ai-accordion-plus-content-inner"] h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+}
+
+[class*="ai-accordion-plus-content-inner"] blockquote {
+  border-left: 3px solid rgba(0, 0, 0, 0.2);
+  padding-left: 1em;
+  margin: 0.75em 0;
+  opacity: 0.85;
+}
+
+
+/* BlueBox – Kontaktblock Datenschutz */
+#ms-dsgvo .ms-contact {
+  background: rgba(0, 140, 203, 0.06);
+  border: 1px solid rgba(0, 140, 203, 0.2);
+  border-radius: 6px;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.8;
+}
+
+/* ============================================
+   PRODUCT MODULE 03
+   Related / Featured
+   ============================================ */
+
+.rp03-section,
+.fp03-section {
+  background-color: var(--pm03-bg, #f8f8f8);
+  padding-top: 50px;
+  margin-bottom: 30px;
+}
+
+.rp03-section product-recommendations,
+.rp03-section product-recommendations > div,
+.rp03-section .section-body,
+.fp03-section .section-body {
+  background-color: transparent;
+}
+
+.rp03-section .section-header h2,
+.rp03-section .section-header [class*="heading"],
+.fp03-section .section-header h2,
+.fp03-section .section-header [class*="heading"] {
+  color: var(--pm03-heading-color, #262626);
+}
+
+.rp03-section .section-header .subheading,
+.fp03-section .section-header .subheading {
+  color: var(--pm03-subheading-color, #008CCB);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Karten */
+.rp03-section .rp03-card-wrapper,
+.fp03-section .fp03-card-wrapper {
+  background: #ffffff;
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border: none;
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+  flex: 1;
+}
+
+/* Hover-Rahmen ohne Innenversatz */
+.rp03-section .rp03-card-wrapper,
+.fp03-section .fp03-card-wrapper {
+  position: relative;
+}
+
+.rp03-section .rp03-card-wrapper::after,
+.fp03-section .fp03-card-wrapper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  pointer-events: none;
+  z-index: 20;
+  transition: border-color .25s ease;
+}
+
+.rp03-section .rp03-item:hover .rp03-card-wrapper::after,
+.fp03-section .fp03-item:hover .fp03-card-wrapper::after {
+  border-color: #E3F2FD;
+}
+
+/* Button bei Hover blau */
+.rp03-section .rp03-item:hover .rp03-btn-ansehen,
+.fp03-section .fp03-item:hover .fp03-btn-ansehen {
+  background-color: #E3F2FD;
+    color: #000000 !important;
+}
+
+/* Produktkarte neutralisieren */
+.rp03-section .product-card,
+.fp03-section .product-card {
+  background: transparent !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
+  flex: 1;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Bildbereich komplett randlos */
+.rp03-section .product-card__media,
+.fp03-section .product-card__media,
+.rp03-section .product-card__image-wrapper,
+.fp03-section .product-card__image-wrapper,
+.rp03-section .product-card__image,
+.fp03-section .product-card__image,
+.rp03-section .product-card__figure,
+.fp03-section .product-card__figure,
+.rp03-section .media-wrapper,
+.fp03-section .media-wrapper,
+.rp03-section .media {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  overflow: hidden !important;
+}
+
+.rp03-section .product-card img,
+.fp03-section .product-card img,
+.rp03-section .product-card__image img,
+.fp03-section .product-card__image img,
+.rp03-section .media img,
+.fp03-section .media img {
+  display: block !important;
+  width: 100% !important;
+  height: auto;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Quick Add ausblenden */
+.rp03-section quick-add-button,
+.fp03-section quick-add-button {
+  display: none !important;
+}
+
+/* Produktinfos */
+.rp03-section .product-card__info,
+.fp03-section .product-card__info {
+  padding: 12px 14px 12px;
+}
+
+/* Produktname */
+.rp03-section .product-name a,
+.fp03-section .product-name a {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #111111;
+  text-decoration: none;
+}
+
+/* Preis */
+.rp03-section .price,
+.fp03-section .price {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #111111;
+}
+
+/* Sterne */
+.rp03-section .product-rating svg,
+.rp03-section .product-rating [class*="star"],
+.rp03-section .product-rating,
+.fp03-section .product-rating svg,
+.fp03-section .product-rating [class*="star"],
+.fp03-section .product-rating {
+  color: #FFD700;
+  fill: #FFD700;
+  font-size: 0.78rem;
+}
+
+.rp03-section .product-rating span,
+.fp03-section .product-rating span {
+  color: #666666;
+  font-size: 0.72rem;
+}
+
+/* Carousel */
+.rp03-section .grid-carousel,
+.fp03-section .grid-carousel {
+  scrollbar-width: none;
+  align-items: stretch;
+}
+
+.rp03-section .grid-carousel::-webkit-scrollbar,
+.fp03-section .grid-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.rp03-section .grid-carousel-item.rp03-item,
+.fp03-section .grid-carousel-item.fp03-item {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Button */
+.rp03-section .rp03-btn-ansehen,
+.fp03-section .fp03-btn-ansehen {
+  display: block;
+  width: 100%;
+  padding: 12px 0;
+  background-color: #111111;
+  color: #ffffff !important;
+  font-size: 0.78rem;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  text-decoration: none !important;
+  box-sizing: border-box;
+  transition: background-color 0.2s ease;
+}
+
+.rp03-section .rp03-btn-ansehen:hover,
+.fp03-section .fp03-btn-ansehen:hover {
+  background-color: #E3F2FD;
+  color: #000000 !important;
+}
+
+/* Mehr Abstand unter Varianten-Swatches */
+.rp03-section .product-card [class*="swatch"],
+.fp03-section .product-card [class*="swatch"],
+.comp-rp03-carousel .product-card [class*="swatch"] {
+  margin-bottom: 14px !important;
 }

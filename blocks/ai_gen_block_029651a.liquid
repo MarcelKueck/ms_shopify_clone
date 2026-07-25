@@ -1,0 +1,608 @@
+{% doc %}
+  @prompt
+    Ich wünsche mir einen Bildslider über die volle Breite bei dem ich ausgesuchte Bilder im Hintergrund darstellen kann (einzeln oder mehrere als Slider), die Höhe des Elements bestimmen kann.
+    Es muss einen Weg geben wie ich individuell im Artikel Bilder hinterlege die hier dargestellt werden, damit es dynmaisch für jeden Artikel andere Bilder gibt. Die Gleichzeitig soll ein Text  über das Bild gelegt werden Können. Überschrift. Untertitel. Text.
+    
+    Also kurz: Ein Bildslider mit Text drauf, Bilder individuell für jeden Artikel einstellbar. (maximal 4)
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-product-slider-{{ ai_gen_id }} {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    display: block;
+  }
+
+  .ai-product-slider-container-{{ ai_gen_id }} {
+    position: relative;
+    width: 100%;
+    height: {{ block.settings.slider_height }}px;
+  }
+
+  .ai-product-slider-slides-{{ ai_gen_id }} {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .ai-product-slider-slide-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.6s ease-in-out;
+    pointer-events: none;
+  }
+
+  .ai-product-slider-slide-{{ ai_gen_id }}.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ai-product-slider-image-{{ ai_gen_id }} {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .ai-product-slider-placeholder-{{ ai_gen_id }} {
+    width: 100%;
+    height: 100%;
+    background-color: #f4f4f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .ai-product-slider-placeholder-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+    max-width: 500px;
+    max-height: 500px;
+  }
+
+  .ai-product-slider-empty-state-{{ ai_gen_id }} {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    font-size: 14px;
+    color: #666;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .ai-product-slider-content-{{ ai_gen_id }} {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: {{ block.settings.text_alignment }};
+    color: {{ block.settings.text_color }};
+    width: 90%;
+    max-width: 800px;
+    z-index: 2;
+  }
+
+  .ai-product-slider-heading-{{ ai_gen_id }} {
+    font-size: {{ block.settings.heading_size }}px;
+    margin: 0 0 16px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .ai-product-slider-subheading-{{ ai_gen_id }} {
+    font-size: {{ block.settings.subheading_size }}px;
+    margin: 0 0 12px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .ai-product-slider-text-{{ ai_gen_id }} {
+    font-size: {{ block.settings.text_size }}px;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .ai-product-slider-overlay-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, {{ block.settings.overlay_opacity }});
+    z-index: 1;
+  }
+
+  .ai-product-slider-nav-{{ ai_gen_id }} {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: {{ block.settings.nav_button_color }};
+    color: {{ block.settings.nav_button_icon_color }};
+    border: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    transition: opacity 0.3s ease;
+    opacity: 0.8;
+  }
+
+  .ai-product-slider-nav-{{ ai_gen_id }}:hover {
+    opacity: 1;
+  }
+
+  .ai-product-slider-nav-prev-{{ ai_gen_id }} {
+    left: 20px;
+  }
+
+  .ai-product-slider-nav-next-{{ ai_gen_id }} {
+    right: 20px;
+  }
+
+  .ai-product-slider-nav-{{ ai_gen_id }} svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .ai-product-slider-dots-{{ ai_gen_id }} {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 3;
+  }
+
+  .ai-product-slider-dot-{{ ai_gen_id }} {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: {{ block.settings.nav_button_icon_color }};
+    opacity: 0.5;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .ai-product-slider-dot-{{ ai_gen_id }}.active {
+    opacity: 1;
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-product-slider-container-{{ ai_gen_id }} {
+      height: {{ block.settings.slider_height | times: 0.6 }}px;
+    }
+
+    .ai-product-slider-heading-{{ ai_gen_id }} {
+      font-size: {{ block.settings.heading_size | times: 0.6 }}px;
+    }
+
+    .ai-product-slider-subheading-{{ ai_gen_id }} {
+      font-size: {{ block.settings.subheading_size | times: 0.7 }}px;
+    }
+
+    .ai-product-slider-text-{{ ai_gen_id }} {
+      font-size: {{ block.settings.text_size | times: 0.8 }}px;
+    }
+
+    .ai-product-slider-nav-{{ ai_gen_id }} {
+      width: 36px;
+      height: 36px;
+    }
+
+    .ai-product-slider-nav-{{ ai_gen_id }} svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .ai-product-slider-nav-prev-{{ ai_gen_id }} {
+      left: 10px;
+    }
+
+    .ai-product-slider-nav-next-{{ ai_gen_id }} {
+      right: 10px;
+    }
+  }
+{% endstyle %}
+
+<product-image-slider-{{ ai_gen_id }}
+  class="ai-product-slider-{{ ai_gen_id }}"
+  data-autoplay="{{ block.settings.autoplay }}"
+  data-autoplay-speed="{{ block.settings.autoplay_speed }}"
+  {{ block.shopify_attributes }}
+>
+  <div class="ai-product-slider-container-{{ ai_gen_id }}">
+    <div class="ai-product-slider-slides-{{ ai_gen_id }}">
+      {% liquid
+        assign has_images = false
+        for i in (1..4)
+          assign image_key = 'slide_' | append: i | append: '_image'
+          if product.metafields.custom[image_key] != blank
+            assign has_images = true
+            break
+          endif
+        endfor
+      %}
+
+      {% if has_images %}
+        {% for i in (1..4) %}
+          {% liquid
+            assign image_key = 'slide_' | append: i | append: '_image'
+            assign slide_image = product.metafields.custom[image_key]
+          %}
+
+          {% if slide_image != blank %}
+            <div
+              class="ai-product-slider-slide-{{ ai_gen_id }} {% if forloop.first %}active{% endif %}"
+              data-slide-index="{{ forloop.index0 }}"
+            >
+              <div class="ai-product-slider-overlay-{{ ai_gen_id }}"></div>
+              <img
+                src="{{ slide_image | image_url: width: 2000 }}"
+                alt="{{ slide_image.alt | escape }}"
+                loading="lazy"
+                width="{{ slide_image.width }}"
+                height="{{ slide_image.height }}"
+                class="ai-product-slider-image-{{ ai_gen_id }}"
+              >
+              <div class="ai-product-slider-content-{{ ai_gen_id }}">
+                {% if block.settings.heading != blank %}
+                  <h2 class="ai-product-slider-heading-{{ ai_gen_id }}">{{ block.settings.heading }}</h2>
+                {% endif %}
+                {% if block.settings.subheading != blank %}
+                  <h3 class="ai-product-slider-subheading-{{ ai_gen_id }}">{{ block.settings.subheading }}</h3>
+                {% endif %}
+                {% if block.settings.text != blank %}
+                  <div class="ai-product-slider-text-{{ ai_gen_id }}">{{ block.settings.text }}</div>
+                {% endif %}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% else %}
+        <div class="ai-product-slider-slide-{{ ai_gen_id }} active">
+          <div class="ai-product-slider-placeholder-{{ ai_gen_id }}">
+            {{ 'image' | placeholder_svg_tag }}
+            <div class="ai-product-slider-empty-state-{{ ai_gen_id }}">
+              Fügen Sie Bilder über Produkt-Metafelder hinzu: slide_1_image, slide_2_image, slide_3_image, slide_4_image
+            </div>
+          </div>
+          <div class="ai-product-slider-content-{{ ai_gen_id }}">
+            {% if block.settings.heading != blank %}
+              <h2 class="ai-product-slider-heading-{{ ai_gen_id }}">{{ block.settings.heading }}</h2>
+            {% endif %}
+            {% if block.settings.subheading != blank %}
+              <h3 class="ai-product-slider-subheading-{{ ai_gen_id }}">{{ block.settings.subheading }}</h3>
+            {% endif %}
+            {% if block.settings.text != blank %}
+              <div class="ai-product-slider-text-{{ ai_gen_id }}">{{ block.settings.text }}</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if has_images %}
+      {% liquid
+        assign slide_count = 0
+        for i in (1..4)
+          assign image_key = 'slide_' | append: i | append: '_image'
+          if product.metafields.custom[image_key] != blank
+            assign slide_count = slide_count | plus: 1
+          endif
+        endfor
+      %}
+
+      {% if slide_count > 1 %}
+        <button
+          class="ai-product-slider-nav-{{ ai_gen_id }} ai-product-slider-nav-prev-{{ ai_gen_id }}"
+          aria-label="Vorheriges Bild"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+
+        <button
+          class="ai-product-slider-nav-{{ ai_gen_id }} ai-product-slider-nav-next-{{ ai_gen_id }}"
+          aria-label="Nächstes Bild"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+
+        <div class="ai-product-slider-dots-{{ ai_gen_id }}">
+          {% for i in (1..slide_count) %}
+            <button
+              class="ai-product-slider-dot-{{ ai_gen_id }} {% if forloop.first %}active{% endif %}"
+              data-slide-index="{{ forloop.index0 }}"
+              aria-label="Gehe zu Bild {{ forloop.index }}"
+            ></button>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</product-image-slider-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class ProductImageSlider{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+        this.currentSlide = 0;
+        this.autoplayInterval = null;
+      }
+
+      connectedCallback() {
+        this.slides = this.querySelectorAll('.ai-product-slider-slide-{{ ai_gen_id }}');
+        this.dots = this.querySelectorAll('.ai-product-slider-dot-{{ ai_gen_id }}');
+        this.prevButton = this.querySelector('.ai-product-slider-nav-prev-{{ ai_gen_id }}');
+        this.nextButton = this.querySelector('.ai-product-slider-nav-next-{{ ai_gen_id }}');
+        this.autoplay = this.dataset.autoplay === 'true';
+        this.autoplaySpeed = parseInt(this.dataset.autoplaySpeed) * 1000;
+
+        if (this.slides.length > 1) {
+          this.setupEventListeners();
+          if (this.autoplay) {
+            this.startAutoplay();
+          }
+        }
+      }
+
+      setupEventListeners() {
+        if (this.prevButton) {
+          this.prevButton.addEventListener('click', () => {
+            this.goToSlide(this.currentSlide - 1);
+            this.resetAutoplay();
+          });
+        }
+
+        if (this.nextButton) {
+          this.nextButton.addEventListener('click', () => {
+            this.goToSlide(this.currentSlide + 1);
+            this.resetAutoplay();
+          });
+        }
+
+        this.dots.forEach((dot, index) => {
+          dot.addEventListener('click', () => {
+            this.goToSlide(index);
+            this.resetAutoplay();
+          });
+        });
+      }
+
+      goToSlide(index) {
+        if (index < 0) {
+          index = this.slides.length - 1;
+        } else if (index >= this.slides.length) {
+          index = 0;
+        }
+
+        this.slides[this.currentSlide].classList.remove('active');
+        if (this.dots[this.currentSlide]) {
+          this.dots[this.currentSlide].classList.remove('active');
+        }
+
+        this.currentSlide = index;
+
+        this.slides[this.currentSlide].classList.add('active');
+        if (this.dots[this.currentSlide]) {
+          this.dots[this.currentSlide].classList.add('active');
+        }
+      }
+
+      startAutoplay() {
+        this.autoplayInterval = setInterval(() => {
+          this.goToSlide(this.currentSlide + 1);
+        }, this.autoplaySpeed);
+      }
+
+      resetAutoplay() {
+        if (this.autoplay) {
+          clearInterval(this.autoplayInterval);
+          this.startAutoplay();
+        }
+      }
+
+      disconnectedCallback() {
+        if (this.autoplayInterval) {
+          clearInterval(this.autoplayInterval);
+        }
+      }
+    }
+
+    customElements.define('product-image-slider-{{ ai_gen_id }}', ProductImageSlider{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Produkt Bildslider",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Slider-Einstellungen"
+    },
+    {
+      "type": "paragraph",
+      "content": "Erstellen Sie 4 Metafelder vom Typ 'Datei' im Produkt mit den Namensräumen: custom.slide_1_image, custom.slide_2_image, custom.slide_3_image, custom.slide_4_image"
+    },
+    {
+      "type": "range",
+      "id": "slider_height",
+      "label": "Höhe",
+      "min": 300,
+      "max": 800,
+      "step": 50,
+      "unit": "px",
+      "default": 500
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "Automatisches Abspielen",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "autoplay_speed",
+      "label": "Autoplay-Geschwindigkeit",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "unit": "s",
+      "default": 5
+    },
+    {
+      "type": "header",
+      "content": "Text-Inhalt"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Überschrift",
+      "default": "Produktüberschrift"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Untertitel",
+      "default": "Untertitel hier"
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Beschreibungstext für Ihr Produkt"
+    },
+    {
+      "type": "header",
+      "content": "Text-Stil"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Textausrichtung",
+      "options": [
+        {
+          "value": "left",
+          "label": "Links"
+        },
+        {
+          "value": "center",
+          "label": "Zentriert"
+        },
+        {
+          "value": "right",
+          "label": "Rechts"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Textfarbe",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Überschriftgröße",
+      "min": 20,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "subheading_size",
+      "label": "Untertitelgröße",
+      "min": 14,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "text_size",
+      "label": "Textgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Overlay"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Overlay-Deckkraft",
+      "min": 0,
+      "max": 0.8,
+      "step": 0.1,
+      "default": 0.3
+    },
+    {
+      "type": "header",
+      "content": "Navigation"
+    },
+    {
+      "type": "color",
+      "id": "nav_button_color",
+      "label": "Schaltflächenfarbe",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "nav_button_icon_color",
+      "label": "Symbolfarbe",
+      "default": "#000000"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Produkt Bildslider"
+    }
+  ]
+}
+{% endschema %}

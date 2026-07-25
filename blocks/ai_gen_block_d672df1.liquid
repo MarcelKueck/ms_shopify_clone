@@ -1,0 +1,413 @@
+{% doc %}
+  @prompt
+    Du hast mir hier ein Code- und Designkonstrukt geschaffen mit dem sich Textboxen mit einem blauen Plus öffnen lassen und Text freigeben. 
+    
+    Ich hätte gerne diese Boxen mit Überschrift und RTF als neues Element namens "Akkordeon PLUS" zur generellen Verwendung in meiner Seite.
+    
+    , Super. Kannst Du mir noch eine Einstellung für die Breite des Elements integrieren? Es muss nicht immer "full width" sein 
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-accordion-plus-{{ ai_gen_id }} {
+    display: block;
+    width: 100%;
+    max-width: {{ block.settings.max_width }}px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .ai-accordion-plus-item-{{ ai_gen_id }} {
+    border: 1px solid {{ block.settings.border_color }};
+    border-radius: {{ block.settings.border_radius }}px;
+    margin-bottom: {{ block.settings.item_spacing }}px;
+    background-color: {{ block.settings.background_color }};
+    overflow: hidden;
+  }
+
+  .ai-accordion-plus-header-{{ ai_gen_id }} {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: {{ block.settings.padding }}px;
+    cursor: pointer;
+    background-color: {{ block.settings.header_background_color }};
+    transition: background-color 0.3s ease;
+  }
+
+  .ai-accordion-plus-header-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.header_hover_background_color }};
+  }
+
+  .ai-accordion-plus-title-{{ ai_gen_id }} {
+    margin: 0;
+    font-size: {{ block.settings.title_font_size }}px;
+    color: {{ block.settings.title_color }};
+    font-weight: 600;
+    flex-grow: 1;
+  }
+
+  .ai-accordion-plus-icon-{{ ai_gen_id }} {
+    width: {{ block.settings.icon_size }}px;
+    height: {{ block.settings.icon_size }}px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 16px;
+    transition: transform 0.3s ease;
+  }
+
+  .ai-accordion-plus-icon-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+    stroke: {{ block.settings.icon_color }};
+    stroke-width: 2;
+  }
+
+  .ai-accordion-plus-item-{{ ai_gen_id }}.active .ai-accordion-plus-icon-{{ ai_gen_id }} {
+    transform: rotate(45deg);
+  }
+
+  .ai-accordion-plus-content-{{ ai_gen_id }} {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .ai-accordion-plus-content-inner-{{ ai_gen_id }} {
+    padding: 0 {{ block.settings.padding }}px {{ block.settings.padding }}px;
+    color: {{ block.settings.content_color }};
+    font-size: {{ block.settings.content_font_size }}px;
+    line-height: 1.6;
+  }
+
+  .ai-accordion-plus-content-inner-{{ ai_gen_id }} p {
+    margin: 0 0 12px;
+  }
+
+  .ai-accordion-plus-content-inner-{{ ai_gen_id }} p:last-child {
+    margin-bottom: 0;
+  }
+{% endstyle %}
+
+<accordion-plus-{{ ai_gen_id }} class="ai-accordion-plus-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  {% for i in (1..5) %}
+    {% liquid
+      assign title_key = 'accordion_' | append: i | append: '_title'
+      assign content_key = 'accordion_' | append: i | append: '_content'
+      assign open_key = 'accordion_' | append: i | append: '_open'
+      
+      assign title = block.settings[title_key]
+      assign content = block.settings[content_key]
+      assign is_open = block.settings[open_key]
+    %}
+
+    {% if title != blank %}
+      <div class="ai-accordion-plus-item-{{ ai_gen_id }} {% if is_open %}active{% endif %}" data-accordion-item>
+        <div class="ai-accordion-plus-header-{{ ai_gen_id }}" data-accordion-header>
+          <h3 class="ai-accordion-plus-title-{{ ai_gen_id }}">{{ title }}</h3>
+          <div class="ai-accordion-plus-icon-{{ ai_gen_id }}">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </div>
+        </div>
+        <div class="ai-accordion-plus-content-{{ ai_gen_id }}" data-accordion-content>
+          <div class="ai-accordion-plus-content-inner-{{ ai_gen_id }}">
+            {{ content }}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+</accordion-plus-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class AccordionPlus{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        this.items = this.querySelectorAll('[data-accordion-item]');
+        this.setupAccordion();
+      }
+
+      setupAccordion() {
+        this.items.forEach((item) => {
+          const header = item.querySelector('[data-accordion-header]');
+          const content = item.querySelector('[data-accordion-content]');
+          const contentInner = content.querySelector('.ai-accordion-plus-content-inner-{{ ai_gen_id }}');
+
+          if (item.classList.contains('active')) {
+            content.style.maxHeight = contentInner.scrollHeight + 'px';
+          }
+
+          header.addEventListener('click', () => {
+            const isActive = item.classList.contains('active');
+
+            if (isActive) {
+              item.classList.remove('active');
+              content.style.maxHeight = '0';
+            } else {
+              item.classList.add('active');
+              content.style.maxHeight = contentInner.scrollHeight + 'px';
+            }
+          });
+        });
+
+        window.addEventListener('resize', () => {
+          this.items.forEach((item) => {
+            if (item.classList.contains('active')) {
+              const content = item.querySelector('[data-accordion-content]');
+              const contentInner = content.querySelector('.ai-accordion-plus-content-inner-{{ ai_gen_id }}');
+              content.style.maxHeight = contentInner.scrollHeight + 'px';
+            }
+          });
+        });
+      }
+    }
+
+    customElements.define('accordion-plus-{{ ai_gen_id }}', AccordionPlus{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Akkordeon PLUS",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Akkordeon 1"
+    },
+    {
+      "type": "text",
+      "id": "accordion_1_title",
+      "label": "Überschrift"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_1_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_1_open",
+      "label": "Standardmäßig geöffnet",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 2"
+    },
+    {
+      "type": "text",
+      "id": "accordion_2_title",
+      "label": "Überschrift"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_2_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_2_open",
+      "label": "Standardmäßig geöffnet",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 3"
+    },
+    {
+      "type": "text",
+      "id": "accordion_3_title",
+      "label": "Überschrift"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_3_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_3_open",
+      "label": "Standardmäßig geöffnet",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 4"
+    },
+    {
+      "type": "text",
+      "id": "accordion_4_title",
+      "label": "Überschrift"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_4_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_4_open",
+      "label": "Standardmäßig geöffnet",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 5"
+    },
+    {
+      "type": "text",
+      "id": "accordion_5_title",
+      "label": "Überschrift"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_5_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_5_open",
+      "label": "Standardmäßig geöffnet",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Maximale Breite",
+      "min": 400,
+      "max": 1800,
+      "step": 100,
+      "unit": "px",
+      "default": 1200
+    },
+    {
+      "type": "range",
+      "id": "item_spacing",
+      "label": "Abstand zwischen Elementen",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "padding",
+      "label": "Innenabstand",
+      "min": 8,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Eckenradius",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "header",
+      "content": "Farben"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Hintergrund",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "header_background_color",
+      "label": "Kopfzeile Hintergrund",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "header_hover_background_color",
+      "label": "Kopfzeile Hover-Hintergrund",
+      "default": "#f5f5f5"
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Rahmen",
+      "default": "#e0e0e0"
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Überschrift",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "content_color",
+      "label": "Inhalt",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Plus-Icon",
+      "default": "#008ccb"
+    },
+    {
+      "type": "header",
+      "content": "Typografie"
+    },
+    {
+      "type": "range",
+      "id": "title_font_size",
+      "label": "Überschrift Schriftgröße",
+      "min": 12,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "content_font_size",
+      "label": "Inhalt Schriftgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "icon_size",
+      "label": "Icon-Größe",
+      "min": 16,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    }
+  ],
+  "presets": [
+    {
+      "name": "Akkordeon PLUS"
+    }
+  ]
+}
+{% endschema %}

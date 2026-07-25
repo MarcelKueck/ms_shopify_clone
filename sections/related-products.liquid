@@ -26,10 +26,16 @@
       <div class="section-body">
         {% capture items %}
           {% for recommendation in recommendations.products %}
-            <div class="grid-carousel-item">
-              {% render 'product-card', card_product: recommendation, attrs: card_attrs, sizes: image_sizes %}
-            </div>
-          {% endfor %}
+  {% unless recommendation.tags contains 'globo-product-options' %}
+    <div class="grid-carousel-item">
+      {% render 'product-card',
+        card_product: recommendation,
+        attrs: card_attrs,
+        sizes: image_sizes
+      %}
+    </div>
+  {% endunless %}
+{% endfor %}
         {% endcapture %}
 
         {% render 'product-carousel',

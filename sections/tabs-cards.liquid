@@ -120,237 +120,327 @@
   </div>
 
   <style>
-    /* === Container === */
-    #section-{{ section.id }} .container {
-      max-width: {{ section.settings.max_width }}px;
-      margin: 0 auto;
-      padding: 0 1rem;
+  /* === Container === */
+  #section-{{ section.id }} .container {
+    max-width: {{ section.settings.max_width }}px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  #section-{{ section.id }} .tabs-heading {
+    margin-bottom: 1rem;
+  }
+
+/* ===================================================
+   Tabs – leichte Reiter
+   =================================================== */
+
+#section-{{ section.id }} .tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  align-items: stretch;
+  border: 1px solid #7dc7ec;
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 0;
+  margin-bottom: 1rem;
+  background: #f5fbff;
+}
+
+#section-{{ section.id }} .tab-btn {
+  position: relative;
+  border: 0;
+  border-right: 1px solid #b8e1f5;
+  background: #f5fbff;
+  cursor: pointer;
+  text-align: center;
+  padding: 13px 12px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #008ccb;
+  white-space: nowrap;
+  outline: none;
+  letter-spacing: .02em;
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
+}
+
+#section-{{ section.id }} .tab-btn:last-child {
+  border-right: 0;
+}
+
+#section-{{ section.id }} .tab-btn::after {
+  display: none;
+}
+
+#section-{{ section.id }} .tab-btn:hover,
+#section-{{ section.id }} .tab-btn.is-active,
+#section-{{ section.id }} .tab-btn.is-active:hover {
+  background: #e3f6ff;
+  color: #008ccb;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+#section-{{ section.id }} .tab-btn:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(0,140,203,.18);
+}
+
+/* === Panels / Rahmen um die Tab-Sektion === */
+#section-{{ section.id }} .tab-panels {
+  margin-top: 1rem;
+}
+
+#section-{{ section.id }} .panel-card {
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+  padding: 1.5rem;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,.045);
+}
+
+@media (min-width: 900px) {
+  #section-{{ section.id }} .tab-panels .tab-panel .panel-card {
+    min-height: {{ section.settings.card_min_h }}px;
+  }
+}
+
+  /* === Richtext-Spacing allgemein === */
+  #section-{{ section.id }} .panel-card p {
+    margin: 0 0 1rem;
+    line-height: 1.55;
+  }
+
+  #section-{{ section.id }} .panel-card ul,
+  #section-{{ section.id }} .panel-card ol {
+    margin: 0 0 1rem 1.5rem;
+    padding-left: 0;
+  }
+
+  #section-{{ section.id }} .panel-card ul {
+    list-style: disc;
+  }
+
+  #section-{{ section.id }} .panel-card ol {
+    list-style: decimal;
+  }
+
+  #section-{{ section.id }} .panel-card li {
+    margin: .3rem 0;
+    line-height: 1.5;
+  }
+
+  /* === Tab 2: zweispaltig === */
+  #section-{{ section.id }} .tab2-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  @media (min-width: 900px) {
+    #section-{{ section.id }} .tab2-grid {
+      grid-template-columns: 1fr 1fr;
     }
-    #section-{{ section.id }} .tabs-heading { margin-bottom: 1rem; }
+  }
 
-    /* === Tabs-Leiste: nur untere Linie, keine Außenrahmen === */
-    #section-{{ section.id }} .tabs {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: .5rem;
-      align-items: stretch;
-      padding-bottom: .25rem;
-      border: none;
-      border-bottom: 1px solid #e5e5e5;
-    }
+  #section-{{ section.id }} .tab2-left p {
+    margin: 0 0 1rem;
+    line-height: 1.55;
+  }
 
-    /* === Tab-Buttons === */
-    #section-{{ section.id }} .tab-btn {
-      border: none;
-      border-bottom: 1px solid transparent;
-      background: transparent;
-      cursor: pointer;
-      white-space: nowrap;
-      text-align: center;
-      padding: 1rem;
-      font-weight: 400;
-      font-size: 18px;
-      transition: color .2s ease, border-color .2s ease;
-      color: #000;
-      outline: none;
-    }
-    #section-{{ section.id }} .tab-btn:focus { outline: none; box-shadow: none; }
-    #section-{{ section.id }} .tab-btn.is-active,
-    #section-{{ section.id }} .tab-btn.is-active:hover {
-      font-weight: 900;
-      color: #000;
-      border-bottom: 1px solid #FF0000;
-    }
-    #section-{{ section.id }} .tab-btn:not(.is-active):hover { color: #000; border-bottom-color: transparent; }
+  #section-{{ section.id }} .tab2-right .tab2-image {
+    margin-bottom: 1rem;
+  }
 
-    /* === Panels === */
-    #section-{{ section.id }} .tab-panels { margin-top: 1rem; }
-    #section-{{ section.id }} .panel-card {
-      border: 1px solid rgba(0,0,0,.08);
-      border-radius: 1rem;
-      padding: 1.25rem;
-      background: #fff;
-      box-shadow: 0 8px 28px rgba(0,0,0,.06);
-    }
-    @media (min-width: 900px) {
-      #section-{{ section.id }} .tab-panels .tab-panel .panel-card {
-        min-height: {{ section.settings.card_min_h }}px;
-      }
-    }
+  #section-{{ section.id }} .tab2-right img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: .5rem;
+  }
 
-    /* === Richtext-Spacing allgemein === */
-    #section-{{ section.id }} .panel-card p { margin: 0 0 1rem; line-height: 1.55; }
-    #section-{{ section.id }} .panel-card ul,
-    #section-{{ section.id }} .panel-card ol { margin: 0 0 1rem 1.5rem; padding-left: 0; }
-    #section-{{ section.id }} .panel-card ul { list-style: disc; }
-    #section-{{ section.id }} .panel-card ol { list-style: decimal; }
-    #section-{{ section.id }} .panel-card li { margin: .3rem 0; line-height: 1.5; }
+  /* === Nur Tab 2: Bullets aus, Streifen beibehalten === */
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul {
+    list-style: none;
+    margin: 0;
+    padding-left: 0;
+  }
 
-    /* === Tab 2: zweispaltig === */
-    #section-{{ section.id }} .tab2-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
-    @media (min-width: 900px) { #section-{{ section.id }} .tab2-grid { grid-template-columns: 1fr 1fr; } }
-    #section-{{ section.id }} .tab2-left p { margin: 0 0 1rem; line-height: 1.55; }
-    #section-{{ section.id }} .tab2-right .tab2-image { margin-bottom: 1rem; }
-    #section-{{ section.id }} .tab2-right img { display: block; width: 100%; height: auto; border-radius: .5rem; }
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li {
+    padding: 4px 6px;
+  }
 
-    /* === Nur Tab 2: Bullets aus, Streifen beibehalten === */
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul { list-style: none; margin: 0; padding-left: 0; }
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li { padding: 4px 6px; }
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li:nth-child(odd) { background-color: #fff; }
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li:nth-child(even) { background-color: #eee; }
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li:nth-child(odd) {
+    background-color: #fff;
+  }
 
-    /* ---- Loox: Sprungmarke Offset ---- */
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li:nth-child(even) {
+    background-color: #eee;
+  }
+
+  /* ---- Loox: Sprungmarke Offset ---- */
+  #section-{{ section.id }} .loox-faq-anchor {
+    position: relative;
+    top: -220px;
+    height: 1px;
+  }
+
+  @media (max-width: 640px) {
     #section-{{ section.id }} .loox-faq-anchor {
-      position: relative;
-      top: -220px;
-      height: 1px;
+      top: -70px;
     }
-    @media (max-width: 640px) {
-      #section-{{ section.id }} .loox-faq-anchor { top: -70px; }
-    }
+  }
 
-    /* ===== Tab 3: Loox – darf NICHT abgeschnitten werden ===== */
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(3),
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(3) .panel-card {
-      overflow: visible !important;
-      height: auto !important;
-      max-height: none !important;
-    }
+  /* ===== Tab 3: Loox – darf NICHT abgeschnitten werden ===== */
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(3),
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(3) .panel-card {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
 
-    /* Loox Masonry-Layout absichern */
-    #section-{{ section.id }} #looxReviews {
-      position: relative !important;
-      overflow: visible !important;
-      min-height: 1px;
-    }
-    #section-{{ section.id }} #looxReviews #grid {
-      position: relative !important;
-      overflow: visible !important;
-    }
+  #section-{{ section.id }} #looxReviews {
+    position: relative !important;
+    overflow: visible !important;
+    min-height: 1px;
+  }
 
-    /* === Mobil: 2×2 Tabs === */
-    @media (max-width: 640px) {
-      #section-{{ section.id }} .tabs { grid-template-columns: repeat(2, 1fr); gap: .25rem; padding-bottom: .2rem; }
-      #section-{{ section.id }} .tab-btn {
-        padding: .6rem .4rem;
-        font-size: 14px;
-        line-height: 1.1;
-        white-space: normal;
-        word-break: break-word;
-        min-width: 0;
-      }
-      #section-{{ section.id }} .tab-btn { border-bottom-width: 1px; }
-    }
+  #section-{{ section.id }} #looxReviews #grid {
+    position: relative !important;
+    overflow: visible !important;
+  }
 
-    /* === Mobil: kein „nach rechts schwimmen“ === */
-    @media (max-width: 767px) {
-      #section-{{ section.id }} { overflow-x: hidden; }
-      #section-{{ section.id }} .tabs { overflow-x: hidden; }
-    }
+  /* === Tab 4: Buttons in Blau === */
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .comp-add-btn,
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button,
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart {
+    background-color: #008CCB !important;
+    border-color: #008CCB !important;
+    color: #fff !important;
+  }
 
-    /* === Tab 4: Buttons in Blau === */
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .comp-add-btn,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart {
-      background-color: #008CCB !important; border-color: #008CCB !important; color: #fff !important;
-    }
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .comp-add-btn:hover,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:hover,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:hover {
-      background-color: #0079AF !important; border-color: #0079AF !important;
-    }
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:focus,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:focus {
-      outline: 0; box-shadow: 0 0 0 2px rgba(0,140,203,.25) !important;
-    }
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:active,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:active {
-      filter: brightness(.95);
-    }
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .comp-add-btn:hover,
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:hover,
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:hover {
+    background-color: #0079AF !important;
+    border-color: #0079AF !important;
+  }
 
-    /* Tab 4: Preis nicht fett */
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price *,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price .price-item,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price .price-item * {
-      font-weight: 400 !important; font-style: normal;
-    }
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price *,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price,
-    #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price * {
-      font-weight: 400 !important; font-style: normal !important; font-variation-settings: normal !important;
-    }
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:focus,
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:focus {
+    outline: 0;
+    box-shadow: 0 0 0 2px rgba(0,140,203,.25) !important;
+  }
 
-/* =========================================================
-   TAB 1 – ANGEPASSTE FORMATIERUNG (an Tabs 2–4 angeglichen)
-   ========================================================= */
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:active,
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:active {
+    filter: brightness(.95);
+  }
 
-#section-{{ section.id }} 
-.tab-panels 
-.tab-panel:nth-child(1) 
-.panel-card {
-  overflow: visible;
+/* Tab 4: Preis fett */
+#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price,
+#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price *,
+#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price,
+#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price *,
+#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price-item,
+#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price-item *,
+#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card [class*="price"],
+#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card [class*="price"] * {
+  font-weight: 800 !important;
+  font-variation-settings: "wght" 800 !important;
+  color: #111 !important;
 }
 
-/* Headings – reduziert & konsistent */
-#section-{{ section.id }} 
-.tab-panels 
-.tab-panel:nth-child(1) 
-.panel-card h1 {
-  font-size: 1.5rem;      /* vorher 2rem */
-  font-weight: 700;
-  margin: 0 0 .75rem;
+  /* =========================================================
+     TAB 1 – ANGEPASSTE FORMATIERUNG
+     ========================================================= */
+
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card {
+    overflow: visible;
+  }
+
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 .75rem;
+  }
+
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 1.25rem 0 .5rem;
+  }
+
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 1rem 0 .4rem;
+  }
+
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card p {
+    font-size: .85rem;
+    line-height: 1.55;
+    margin: 0 0 .9rem;
+  }
+
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+    margin: 0 0 .9rem;
+  }
+
+  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card li {
+    margin: .3rem 0;
+    line-height: 1.5;
+  }
+
+  /* === Mobil: 2×2 Tabs === */
+  @media (max-width: 640px) {
+    #section-{{ section.id }} .tabs {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0;
+      margin-bottom: 1rem;
+    }
+
+#section-{{ section.id }} .tab-btn {
+  padding: 11px 8px;
+  font-size: 13px;
+  font-weight: 500;
+      line-height: 1.2;
+      white-space: normal;
+      word-break: break-word;
+      min-width: 0;
+    }
+
+    /* horizontale Linie zwischen oberer und unterer Tab-Reihe */
+#section-{{ section.id }} .tab-btn:nth-child(-n+2) {
+  border-bottom: 1px solid #b8e1f5;
 }
 
-#section-{{ section.id }} 
-.tab-panels 
-.tab-panel:nth-child(1) 
-.panel-card h2 {
-  font-size: 1.25rem;     /* vorher 1.6rem */
-  font-weight: 700;
-  margin: 1.25rem 0 .5rem;
-}
+    #section-{{ section.id }} .tab-btn::after {
+      left: 24%;
+      right: 24%;
+    }
 
-#section-{{ section.id }} 
-.tab-panels 
-.tab-panel:nth-child(1) 
-.panel-card h3 {
-  font-size: 1.1rem;      /* vorher 1.25rem */
-  font-weight: 600;
-  margin: 1rem 0 .4rem;
-}
+    #section-{{ section.id }} .panel-card {
+      padding: 1.1rem;
+      border-radius: 12px;
+    }
+  }
 
-/* Text – identisch zu Tab 2–4 */
-#section-{{ section.id }} 
-.tab-panels 
-.tab-panel:nth-child(1) 
-.panel-card p {
-  font-size: .85rem;      /* vorher 1rem */
-  line-height: 1.55;
-  margin: 0 0 .9rem;
-}
+  /* === Mobil: kein „nach rechts schwimmen“ === */
+  @media (max-width: 767px) {
+    #section-{{ section.id }} {
+      overflow-x: hidden;
+    }
 
-/* Listen */
-#section-{{ section.id }} 
-.tab-panels 
-.tab-panel:nth-child(1) 
-.panel-card ul {
-  list-style: disc;
-  padding-left: 1.25rem;
-  margin: 0 0 .9rem;
-}
-
-#section-{{ section.id }} 
-.tab-panels 
-.tab-panel:nth-child(1) 
-.panel-card li {
-  margin: .3rem 0;
-  line-height: 1.5;
-}
-
-
-  </style>
+    #section-{{ section.id }} .tabs {
+      overflow-x: hidden;
+    }
+  }
+</style>
 
   <script>
     (function() {
@@ -556,4 +646,3 @@ document.addEventListener(
   }
   {% endschema %}
 </section>
-}

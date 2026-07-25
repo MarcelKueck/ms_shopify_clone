@@ -1,0 +1,630 @@
+{% doc %}
+  @prompt
+    ich benötige das Akkordeon PLUS mit der Möglichkeit Background Farbeinstellungen vornehmen zu können sowie mehr Einstellungen an breite, höhe für die akkordions vornehmen  zu können, ich kann nicht angeben ob das modul zentriert, links oder rechts bündig sein sollen, die hintgerundfarbe von dem gesamten abschnitt muss noch einzustellen sein
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-accordion-plus-section-{{ ai_gen_id }} {
+    width: 100%;
+    background-color: {{ block.settings.section_background_color }};
+    padding: {{ block.settings.section_padding_vertical }}px 0;
+  }
+
+  .ai-accordion-plus-wrapper-{{ ai_gen_id }} {
+    width: 100%;
+    display: flex;
+    {% if block.settings.alignment == 'left' %}
+      justify-content: flex-start;
+    {% elsif block.settings.alignment == 'center' %}
+      justify-content: center;
+    {% elsif block.settings.alignment == 'right' %}
+      justify-content: flex-end;
+    {% endif %}
+  }
+
+  .ai-accordion-plus-{{ ai_gen_id }} {
+    width: {{ block.settings.desktop_width_percent }}%;
+    max-width: 100%;
+    display: block;
+  }
+
+  .ai-accordion-plus-container-{{ ai_gen_id }} {
+    display: flex;
+    flex-direction: column;
+    gap: {{ block.settings.item_spacing }}px;
+  }
+
+  .ai-accordion-plus-item-{{ ai_gen_id }} {
+    background-color: {{ block.settings.background_color }};
+    border-radius: {{ block.settings.border_radius }}px;
+    overflow: hidden;
+    border: {{ block.settings.border_width }}px solid {{ block.settings.border_color }};
+  }
+
+  .ai-accordion-plus-header-{{ ai_gen_id }} {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: {{ block.settings.header_padding_vertical }}px {{ block.settings.header_padding_horizontal }}px;
+    background-color: {{ block.settings.header_background_color }};
+    color: {{ block.settings.header_text_color }};
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.3s ease;
+    font-size: {{ block.settings.header_font_size }}px;
+    font-weight: {{ block.settings.header_font_weight }};
+  }
+
+  .ai-accordion-plus-header-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.header_hover_background_color }};
+  }
+
+  .ai-accordion-plus-header-{{ ai_gen_id }}[aria-expanded="true"] {
+    background-color: {{ block.settings.header_active_background_color }};
+    color: {{ block.settings.header_active_text_color }};
+  }
+
+  .ai-accordion-plus-title-{{ ai_gen_id }} {
+    flex-grow: 1;
+    margin: 0;
+  }
+
+  .ai-accordion-plus-icon-{{ ai_gen_id }} {
+    width: {{ block.settings.icon_size }}px;
+    height: {{ block.settings.icon_size }}px;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+    color: {{ block.settings.icon_color }};
+  }
+
+  .ai-accordion-plus-header-{{ ai_gen_id }}[aria-expanded="true"] .ai-accordion-plus-icon-{{ ai_gen_id }} {
+    transform: rotate(45deg);
+    color: {{ block.settings.icon_active_color }};
+  }
+
+  .ai-accordion-plus-content-{{ ai_gen_id }} {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .ai-accordion-plus-content-inner-{{ ai_gen_id }} {
+    padding: {{ block.settings.content_padding_vertical }}px {{ block.settings.content_padding_horizontal }}px;
+    color: {{ block.settings.content_text_color }};
+    font-size: {{ block.settings.content_font_size }}px;
+    line-height: 1.6;
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-accordion-plus-section-{{ ai_gen_id }} {
+      padding: {{ block.settings.section_padding_vertical | times: 0.7 }}px 0;
+    }
+
+    .ai-accordion-plus-wrapper-{{ ai_gen_id }} {
+      justify-content: flex-start;
+    }
+
+    .ai-accordion-plus-{{ ai_gen_id }} {
+      width: 100%;
+    }
+
+    .ai-accordion-plus-header-{{ ai_gen_id }} {
+      font-size: {{ block.settings.header_font_size | times: 0.9 }}px;
+      padding: {{ block.settings.header_padding_vertical | times: 0.8 }}px {{ block.settings.header_padding_horizontal | times: 0.8 }}px;
+    }
+
+    .ai-accordion-plus-content-inner-{{ ai_gen_id }} {
+      font-size: {{ block.settings.content_font_size | times: 0.9 }}px;
+      padding: {{ block.settings.content_padding_vertical | times: 0.8 }}px {{ block.settings.content_padding_horizontal | times: 0.8 }}px;
+    }
+  }
+{% endstyle %}
+
+<div class="ai-accordion-plus-section-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  <div class="ai-accordion-plus-wrapper-{{ ai_gen_id }}">
+    <accordion-plus-{{ ai_gen_id }} class="ai-accordion-plus-{{ ai_gen_id }}">
+      <div class="ai-accordion-plus-container-{{ ai_gen_id }}">
+        {% for i in (1..5) %}
+          {% liquid
+            assign title_key = 'accordion_' | append: i | append: '_title'
+            assign content_key = 'accordion_' | append: i | append: '_content'
+            assign enabled_key = 'accordion_' | append: i | append: '_enabled'
+            assign open_key = 'accordion_' | append: i | append: '_open_by_default'
+
+            assign title = block.settings[title_key]
+            assign content = block.settings[content_key]
+            assign enabled = block.settings[enabled_key]
+            assign open_default = block.settings[open_key]
+          %}
+
+          {% if enabled and title != blank %}
+            <div class="ai-accordion-plus-item-{{ ai_gen_id }}">
+              <button
+                class="ai-accordion-plus-header-{{ ai_gen_id }}"
+                aria-expanded="{% if open_default %}true{% else %}false{% endif %}"
+                aria-controls="ai-accordion-plus-content-{{ ai_gen_id }}-{{ i }}"
+              >
+                <h3 class="ai-accordion-plus-title-{{ ai_gen_id }}">{{ title }}</h3>
+                <svg
+                  class="ai-accordion-plus-icon-{{ ai_gen_id }}"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+              <div
+                class="ai-accordion-plus-content-{{ ai_gen_id }}"
+                id="ai-accordion-plus-content-{{ ai_gen_id }}-{{ i }}"
+                {% if open_default %}style="max-height: 1000px;"{% endif %}
+              >
+                <div class="ai-accordion-plus-content-inner-{{ ai_gen_id }}">
+                  {{ content }}
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </accordion-plus-{{ ai_gen_id }}>
+  </div>
+</div>
+
+<script>
+  (function() {
+    class AccordionPlus{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        this.headers = this.querySelectorAll('.ai-accordion-plus-header-{{ ai_gen_id }}');
+        this.setupEventListeners();
+        this.initializeOpenItems();
+      }
+
+      setupEventListeners() {
+        this.headers.forEach((header) => {
+          header.addEventListener('click', () => {
+            this.toggleAccordion(header);
+          });
+        });
+      }
+
+      initializeOpenItems() {
+        this.headers.forEach((header) => {
+          if (header.getAttribute('aria-expanded') === 'true') {
+            const content = document.getElementById(header.getAttribute('aria-controls'));
+            if (content) {
+              content.style.maxHeight = content.scrollHeight + 'px';
+            }
+          }
+        });
+      }
+
+      toggleAccordion(header) {
+        const content = document.getElementById(header.getAttribute('aria-controls'));
+        const isExpanded = header.getAttribute('aria-expanded') === 'true';
+
+        if (isExpanded) {
+          header.setAttribute('aria-expanded', 'false');
+          content.style.maxHeight = '0';
+        } else {
+          header.setAttribute('aria-expanded', 'true');
+          content.style.maxHeight = content.scrollHeight + 'px';
+        }
+      }
+    }
+
+    customElements.define('accordion-plus-{{ ai_gen_id }}', AccordionPlus{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Accordion plus",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Section background"
+    },
+    {
+      "type": "color",
+      "id": "section_background_color",
+      "label": "Background color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_vertical",
+      "label": "Vertical padding",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "alignment",
+      "label": "Alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "desktop_width_percent",
+      "label": "Desktop width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "item_spacing",
+      "label": "Space between items",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "label": "Border width",
+      "min": 0,
+      "max": 8,
+      "step": 1,
+      "unit": "px",
+      "default": 1
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border color",
+      "default": "#e5e5e5"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Item background color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "header",
+      "content": "Header style"
+    },
+    {
+      "type": "range",
+      "id": "header_padding_vertical",
+      "label": "Vertical padding",
+      "min": 8,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "header_padding_horizontal",
+      "label": "Horizontal padding",
+      "min": 8,
+      "max": 60,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "header_font_size",
+      "label": "Font size",
+      "min": 12,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "select",
+      "id": "header_font_weight",
+      "label": "Font weight",
+      "options": [
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semi bold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        }
+      ],
+      "default": "600"
+    },
+    {
+      "type": "color",
+      "id": "header_background_color",
+      "label": "Background color",
+      "default": "#f9f9f9"
+    },
+    {
+      "type": "color",
+      "id": "header_text_color",
+      "label": "Text color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "header_hover_background_color",
+      "label": "Hover background color",
+      "default": "#f0f0f0"
+    },
+    {
+      "type": "color",
+      "id": "header_active_background_color",
+      "label": "Active background color",
+      "default": "#e5e5e5"
+    },
+    {
+      "type": "color",
+      "id": "header_active_text_color",
+      "label": "Active text color",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Icon style"
+    },
+    {
+      "type": "range",
+      "id": "icon_size",
+      "label": "Icon size",
+      "min": 16,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "icon_active_color",
+      "label": "Active icon color",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Content style"
+    },
+    {
+      "type": "range",
+      "id": "content_padding_vertical",
+      "label": "Vertical padding",
+      "min": 8,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "content_padding_horizontal",
+      "label": "Horizontal padding",
+      "min": 8,
+      "max": 60,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "content_font_size",
+      "label": "Font size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "color",
+      "id": "content_text_color",
+      "label": "Text color",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Accordion 1"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_1_enabled",
+      "label": "Enable accordion 1",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_1_open_by_default",
+      "label": "Open by default",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_1_title",
+      "label": "Title",
+      "default": "Shipping information"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_1_content",
+      "label": "Content",
+      "default": "<p>Free shipping on orders over €50. Standard delivery takes 3-5 business days.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Accordion 2"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_2_enabled",
+      "label": "Enable accordion 2",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_2_open_by_default",
+      "label": "Open by default",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_2_title",
+      "label": "Title",
+      "default": "Return policy"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_2_content",
+      "label": "Content",
+      "default": "<p>Returns accepted within 30 days of purchase. Items must be unused and in original packaging.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Accordion 3"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_3_enabled",
+      "label": "Enable accordion 3",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_3_open_by_default",
+      "label": "Open by default",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_3_title",
+      "label": "Title",
+      "default": "Product care"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_3_content",
+      "label": "Content",
+      "default": "<p>Machine wash cold with like colors. Tumble dry low. Do not bleach or iron.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Accordion 4"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_4_enabled",
+      "label": "Enable accordion 4",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_4_open_by_default",
+      "label": "Open by default",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_4_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_4_content",
+      "label": "Content"
+    },
+    {
+      "type": "header",
+      "content": "Accordion 5"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_5_enabled",
+      "label": "Enable accordion 5",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_5_open_by_default",
+      "label": "Open by default",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_5_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_5_content",
+      "label": "Content"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Accordion plus"
+    }
+  ]
+}
+{% endschema %}

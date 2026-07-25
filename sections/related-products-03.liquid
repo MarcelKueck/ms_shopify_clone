@@ -1,0 +1,192 @@
+{% render 'section-bg-number-vars' %}
+
+{% capture image_sizes %}
+  {% render 'product-carousel-image-sizes',
+      enabled: section.settings.carousel,
+      grid_columns: section.settings.grid_columns,
+      grid_columns_mobile: section.settings.grid_columns_mobile
+  %}
+{% endcapture %}
+
+<product-recommendations
+  section-id="{{ section.id }}"
+  product-id="{{ product.id }}"
+  limit="{{ section.settings.products_count }}"
+  intent="related"
+>
+  {% if recommendations.performed and recommendations.products_count > 0 %}
+    {% capture card_attrs %}
+      data-animation="block"
+      data-animation-group="{{ section.id }}-product-cards"
+    {% endcapture %}
+
+    <div
+      {% render 'section-attrs' %}
+      style="
+        --pm03-bg: {{ section.settings.background_color }};
+        --pm03-heading-color: {{ section.settings.heading_color }};
+        --pm03-subheading-color: {{ section.settings.subheading_color }};
+      "
+    >
+      {% render 'section-header' %}
+
+      <div class="section-body">
+        {% capture items %}
+          {% for recommendation in recommendations.products %}
+            {% unless recommendation.tags contains 'globo-product-options' %}
+              <div class="grid-carousel-item rp03-item">
+                <div class="rp03-card-wrapper">
+                  {% render 'product-card',
+                    card_product: recommendation,
+                    attrs: card_attrs,
+                    sizes: image_sizes
+                  %}
+
+                  <a href="{{ recommendation.url }}" class="rp03-btn-ansehen">
+                    {{ 'products.product.view_product' | t }}
+                  </a>
+                </div>
+              </div>
+            {% endunless %}
+          {% endfor %}
+        {% endcapture %}
+
+        {% render 'product-carousel',
+          enabled: section.settings.carousel,
+          grid_columns: section.settings.grid_columns,
+          grid_columns_mobile: section.settings.grid_columns_mobile,
+          slot: items
+        %}
+      </div>
+    </div>
+  {% endif %}
+</product-recommendations>
+
+{% schema %}
+{
+  "name": "Related products 03",
+  "class": "overflow-hidden rp03-section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Zeigt automatisch verwandte Produkte via Shopify Recommendations API."
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "Volle Breite",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "carousel",
+      "label": "Karussell aktivieren",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "products_count",
+      "min": 2,
+      "max": 20,
+      "label": "Anzahl Produkte",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "grid_columns",
+      "label": "Spalten Desktop",
+      "min": 2,
+      "max": 5,
+      "default": 4
+    },
+    {
+      "type": "select",
+      "id": "grid_columns_mobile",
+      "label": "Spalten Mobile",
+      "options": [
+        { "value": "1", "label": "1" },
+        { "value": "2", "label": "2" }
+      ],
+      "default": "2"
+    },
+    {
+      "type": "header",
+      "content": "Farben"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Hintergrundfarbe",
+      "default": "#f8f8f8"
+    },
+    {
+      "type": "color",
+      "id": "subheading_color",
+      "label": "Farbe Subheading",
+      "default": "#008CCB"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Farbe Überschrift",
+      "default": "#262626"
+    },
+    {
+      "type": "header",
+      "content": "Überschrift"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Subheading"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Überschrift",
+      "default": "Weitere Empfehlungen für dich."
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "Überschriftsgröße",
+      "options": [
+        { "value": "h2", "label": "h2" },
+        { "value": "h3", "label": "h3" },
+        { "value": "h4", "label": "h4" }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Textausrichtung",
+      "options": [
+        { "value": "text-left", "label": "Links" },
+        { "value": "text-center", "label": "Mitte" },
+        { "value": "text-right", "label": "Rechts" }
+      ],
+      "default": "text-left"
+    },
+    {
+      "type": "select",
+      "id": "heading_html_tag",
+      "label": "Heading HTML Tag",
+      "options": [
+        { "value": "h2", "label": "h2" },
+        { "value": "h3", "label": "h3" },
+        { "value": "p", "label": "p" }
+      ],
+      "default": "p"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Related products 03"
+    }
+  ],
+  "enabled_on": {
+    "templates": ["product"]
+  }
+}
+{% endschema %}
