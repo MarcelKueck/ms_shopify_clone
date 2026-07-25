@@ -859,6 +859,49 @@ conversation; the email ask stays where it is (§6a, after value).
   replays it. Skipped entirely under `prefers-reduced-motion` (JS check
   + CSS freeze), and skipped while the panel is open.
 
+## 9d. Campaign deep link (`?mo=open` auto-open)
+
+The backend's campaign emails (see the `mo` repo's `docs/CAMPAIGNS.md`;
+base URL + params configurable via `CAMPAIGN_MO_DEEPLINK_URL`) end in a
+promo CTA for the Mo advisor. That CTA links to the storefront with a
+**deep link that auto-opens the widget** — the primary (but not only)
+source of these links.
+
+**Accepted forms** (detected on init):
+
+- Query param: `?mo=open`
+- Hash: `#mo-open` (behaves exactly like `?mo=open`)
+
+**Optional modifiers** — read only when `mo=open` is present, each
+independent of the other:
+
+- `mo_new=1` — start a **fresh consultation**: the stored conversation
+  thread is not resumed. A pure-anonymous visitor gets the same
+  session-id rotation as "Neuen Chat starten"; a (possibly) signed-in
+  visitor keeps the session id (it's the identity link,
+  `CUSTOMER_ACCOUNT.md` §1) and just drops the local thread — the first
+  turn mints a fresh `conversationKey`, so it becomes its own history
+  entry.
+- `mo_view=fullscreen` — open **expanded**: the desktop **modal** view
+  mode (§4's centered near-fullscreen layout; mobile is always true
+  fullscreen). Applied **before** the open so the panel animates straight
+  into it — no sidebar → modal flicker. The customer's persisted layout
+  preference (`ms-chat-view-mode`) is **not** overwritten.
+
+**Behaviour**: the auto-open runs **last in `init()`**, on the fully
+initialized widget, and is otherwise exactly a launcher click — the
+normal welcome/greeting state, **no extra network calls**, and the
+identical anonymous or signed-in experience a manual open gives.
+Fail-silent: any error is swallowed and must never break widget init;
+without the params, behaviour is byte-identical to before.
+
+**URL cleanup**: all three params (`mo`, `mo_new`, `mo_view`) — and the
+`#mo-open` hash if used — are stripped via `history.replaceState`
+(the same idiom as the `?ms_auth=` cleanup, §3 of
+`CUSTOMER_ACCOUNT.md`), so a reload or a copied URL doesn't re-trigger
+the auto-open. `utm_*` params are left untouched — they belong to the
+shop's analytics, not the widget.
+
 ## 10. Acceptance checklist
 
 - [ ] Drops into a Shopify theme as a snippet; no build step; works with
