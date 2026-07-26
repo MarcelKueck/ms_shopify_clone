@@ -3,19 +3,29 @@
   Rendert die Q&A-Paare aus dem Produkt-Metafeld custom.qa (Typ: JSON).
 
   Erwartetes Format des Metafelds (Array, älteste zuerst, max. 20 Einträge):
-  [{ "q": "Frage …", "a": "Antwort …" }, ...]
+  [{ "q": "Frage …", "a": "Antwort …", "q_en": "Question …", "a_en": "Answer …" }, ...]
+  q/a (Deutsch) sind Pflicht, q_en/a_en (Englisch) sind optional.
 
   Verhalten:
   - Rendert nur Einträge mit nicht-leerem q UND a; alles andere wird still übersprungen.
+  - Auf englischer Storefront (request.locale.iso_code beginnt mit "en") wird pro
+    Eintrag q_en/a_en angezeigt, wenn BEIDE vorhanden sind – sonst Fallback auf q/a.
+    Alle anderen Sprachen zeigen immer q/a.
   - Ist kein gültiger Eintrag vorhanden, wird gar nichts ausgegeben.
   - Alle Texte werden escaped – kein rohes HTML aus dem Metafeld.
-  - Zusätzlich wird ein separater JSON-LD-Block (schema.org FAQPage) ausgegeben.
+  - Zusätzlich wird ein separater JSON-LD-Block (schema.org FAQPage) ausgegeben,
+    aufgebaut aus denselben sprach-aufgelösten Texten wie der sichtbare Tab.
 
   Verwendung: {% render 'product-qa', product: product %}
 {% endcomment %}
 
 {%- liquid
   assign qa_value = product.metafields.custom.qa.value
+  assign qa_use_en = false
+  assign qa_locale = request.locale.iso_code | slice: 0, 2 | downcase
+  if qa_locale == 'en'
+    assign qa_use_en = true
+  endif
   assign qa_valid_count = 0
   if qa_value
     for qa_item in qa_value limit: 20
@@ -34,11 +44,19 @@
       {%- assign qa_q = qa_item['q'] | strip_html | strip -%}
       {%- assign qa_a = qa_item['a'] | strip_html | strip -%}
       {%- if qa_q != '' and qa_a != '' -%}
+        {%- if qa_use_en -%}
+          {%- assign qa_q_en = qa_item['q_en'] | strip_html | strip -%}
+          {%- assign qa_a_en = qa_item['a_en'] | strip_html | strip -%}
+          {%- if qa_q_en != '' and qa_a_en != '' -%}
+            {%- assign qa_q = qa_q_en -%}
+            {%- assign qa_a = qa_a_en -%}
+          {%- endif -%}
+        {%- endif -%}
         <details class="product-qa__item">
           <summary class="product-qa__question">{{ qa_q | escape }}</summary>
           <div class="product-qa__answer">
             <p>{{ qa_a | escape }}</p>
-            <p class="product-qa__meta">Beantwortet vom motion sports Team</p>
+            <p class="product-qa__meta">{{ 'products.product.qa_answered_by' | t }}</p>
           </div>
         </details>
       {%- endif -%}
@@ -115,6 +133,14 @@
         {%- assign qa_q = qa_item['q'] | strip_html | strip -%}
         {%- assign qa_a = qa_item['a'] | strip_html | strip -%}
         {%- if qa_q != '' and qa_a != '' -%}
+          {%- if qa_use_en -%}
+            {%- assign qa_q_en = qa_item['q_en'] | strip_html | strip -%}
+            {%- assign qa_a_en = qa_item['a_en'] | strip_html | strip -%}
+            {%- if qa_q_en != '' and qa_a_en != '' -%}
+              {%- assign qa_q = qa_q_en -%}
+              {%- assign qa_a = qa_a_en -%}
+            {%- endif -%}
+          {%- endif -%}
           {%- unless qa_ld_first -%},{%- endunless -%}
           {%- assign qa_ld_first = false -%}
           {
