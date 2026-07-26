@@ -1,0 +1,133 @@
+{% comment %}
+  Snippet: product-qa
+  Rendert die Q&A-Paare aus dem Produkt-Metafeld custom.qa (Typ: JSON).
+
+  Erwartetes Format des Metafelds (Array, älteste zuerst, max. 20 Einträge):
+  [{ "q": "Frage …", "a": "Antwort …" }, ...]
+
+  Verhalten:
+  - Rendert nur Einträge mit nicht-leerem q UND a; alles andere wird still übersprungen.
+  - Ist kein gültiger Eintrag vorhanden, wird gar nichts ausgegeben.
+  - Alle Texte werden escaped – kein rohes HTML aus dem Metafeld.
+  - Zusätzlich wird ein separater JSON-LD-Block (schema.org FAQPage) ausgegeben.
+
+  Verwendung: {% render 'product-qa', product: product %}
+{% endcomment %}
+
+{%- liquid
+  assign qa_value = product.metafields.custom.qa.value
+  assign qa_valid_count = 0
+  if qa_value
+    for qa_item in qa_value limit: 20
+      assign qa_q = qa_item['q'] | strip_html | strip
+      assign qa_a = qa_item['a'] | strip_html | strip
+      if qa_q != '' and qa_a != ''
+        assign qa_valid_count = qa_valid_count | plus: 1
+      endif
+    endfor
+  endif
+-%}
+
+{%- if qa_valid_count > 0 -%}
+  <div class="product-qa">
+    {%- for qa_item in qa_value limit: 20 -%}
+      {%- assign qa_q = qa_item['q'] | strip_html | strip -%}
+      {%- assign qa_a = qa_item['a'] | strip_html | strip -%}
+      {%- if qa_q != '' and qa_a != '' -%}
+        <details class="product-qa__item">
+          <summary class="product-qa__question">{{ qa_q | escape }}</summary>
+          <div class="product-qa__answer">
+            <p>{{ qa_a | escape }}</p>
+            <p class="product-qa__meta">Beantwortet vom motion sports Team</p>
+          </div>
+        </details>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+
+  <style>
+    .product-qa .product-qa__item {
+      border-bottom: 1px solid rgba(0,0,0,.08);
+    }
+
+    .product-qa .product-qa__item:last-child {
+      border-bottom: 0;
+    }
+
+    .product-qa .product-qa__question {
+      cursor: pointer;
+      list-style: none;
+      position: relative;
+      padding: .9rem 2rem .9rem 0;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .product-qa .product-qa__question::-webkit-details-marker {
+      display: none;
+    }
+
+    .product-qa .product-qa__question::after {
+      content: "+";
+      position: absolute;
+      right: .25rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: #008ccb;
+    }
+
+    .product-qa .product-qa__item[open] > .product-qa__question::after {
+      content: "\2212";
+    }
+
+    .product-qa .product-qa__question:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px rgba(0,140,203,.18);
+      border-radius: 6px;
+    }
+
+    .product-qa .product-qa__answer {
+      padding: 0 0 1rem;
+    }
+
+    .product-qa .product-qa__answer p {
+      margin: 0 0 .5rem;
+      line-height: 1.55;
+    }
+
+    .product-qa .product-qa__meta {
+      font-size: .8rem;
+      color: #777;
+      margin: 0;
+    }
+  </style>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {%- assign qa_ld_first = true -%}
+      {%- for qa_item in qa_value limit: 20 -%}
+        {%- assign qa_q = qa_item['q'] | strip_html | strip -%}
+        {%- assign qa_a = qa_item['a'] | strip_html | strip -%}
+        {%- if qa_q != '' and qa_a != '' -%}
+          {%- unless qa_ld_first -%},{%- endunless -%}
+          {%- assign qa_ld_first = false -%}
+          {
+            "@type": "Question",
+            "name": {{ qa_q | json }},
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": {{ qa_a | json }}
+            }
+          }
+        {%- endif -%}
+      {%- endfor -%}
+    ]
+  }
+  </script>
+{%- endif -%}

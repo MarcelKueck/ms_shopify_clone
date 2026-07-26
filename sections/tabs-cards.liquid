@@ -14,6 +14,30 @@
     {% endif %}
 
     {% assign blocks = section.blocks %}
+
+    {%- liquid
+      # Q&A-Tab: nur rendern, wenn das Metafeld custom.qa (JSON) mindestens
+      # einen gültigen Eintrag mit nicht-leerem q UND a enthält.
+      assign qa_count = 0
+      if section.settings.show_qa_tab
+        assign qa_value = product.metafields.custom.qa.value
+        if qa_value
+          for qa_item in qa_value limit: 20
+            assign qa_q = qa_item['q'] | strip_html | strip
+            assign qa_a = qa_item['a'] | strip_html | strip
+            if qa_q != '' and qa_a != ''
+              assign qa_count = qa_count | plus: 1
+            endif
+          endfor
+        endif
+      endif
+      assign tab_count = blocks.size
+      if qa_count > 0
+        assign tab_count = tab_count | plus: 1
+        assign qa_tab_index = blocks.size | plus: 1
+      endif
+    -%}
+
     {% if blocks.size > 0 %}
 
       <div class="tabs" role="tablist" aria-label="{{ section.settings.heading | default: 'Tabs' }}">
@@ -30,6 +54,17 @@
             {{ block.settings.tab_title | escape }}
           </button>
         {% endfor %}
+        {% if qa_count > 0 %}
+          <button
+            id="tab-{{ section.id }}-{{ qa_tab_index }}"
+            class="tab-btn"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-{{ section.id }}-{{ qa_tab_index }}"
+          >
+            Q&amp;A
+          </button>
+        {% endif %}
       </div>
 
       <div class="tab-panels">
@@ -112,6 +147,19 @@
             </div>
           </div>
         {% endfor %}
+        {% if qa_count > 0 %}
+          <div
+            id="panel-{{ section.id }}-{{ qa_tab_index }}"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-{{ section.id }}-{{ qa_tab_index }}"
+            hidden
+          >
+            <div class="panel-card">
+              {% render 'product-qa', product: product %}
+            </div>
+          </div>
+        {% endif %}
       </div>
 
     {% else %}
@@ -137,7 +185,7 @@
 
 #section-{{ section.id }} .tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat({{ tab_count | default: 4 }}, 1fr);
   gap: 0;
   align-items: stretch;
   border: 1px solid #7dc7ec;
@@ -419,6 +467,19 @@
   border-bottom: 1px solid #b8e1f5;
 }
 
+    {% if qa_count > 0 %}
+    /* 5 Tabs im 2er-Raster: Linie auch unter der zweiten Reihe,
+       letzter Tab (Q&A) über volle Breite */
+    #section-{{ section.id }} .tab-btn:nth-child(-n+4) {
+      border-bottom: 1px solid #b8e1f5;
+    }
+
+    #section-{{ section.id }} .tab-btn:last-child {
+      grid-column: 1 / -1;
+      border-right: 0;
+    }
+    {% endif %}
+
     #section-{{ section.id }} .tab-btn::after {
       left: 24%;
       right: 24%;
@@ -623,7 +684,8 @@ document.addEventListener(
       { "type": "text", "id": "heading", "label": "Überschrift", "default": "Mehr Informationen" },
       { "type": "range", "id": "max_width", "min": 720, "max": 1400, "step": 10, "unit": "px", "label": "Max. Breite", "default": 1100 },
       { "type": "range", "id": "card_min_h", "min": 0, "max": 800, "step": 10, "unit": "px", "label": "Min. Kartenhöhe (Desktop)", "default": 0 },
-      { "type": "range", "id": "comp_limit", "min": 2, "max": 12, "step": 1, "label": "Zubehör: Anzahl Produkte", "default": 8 }
+      { "type": "range", "id": "comp_limit", "min": 2, "max": 12, "step": 1, "label": "Zubehör: Anzahl Produkte", "default": 8 },
+      { "type": "checkbox", "id": "show_qa_tab", "label": "Q&A-Tab anzeigen", "default": true }
     ],
     "blocks": [
       {
