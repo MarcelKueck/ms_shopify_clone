@@ -469,14 +469,27 @@
 
     {% if qa_count > 0 %}
     /* 5 Tabs im 2er-Raster: Linie auch unter der zweiten Reihe,
-       letzter Tab (Q&A) über volle Breite */
+       letzter Tab (Q&A) über volle Breite. Die !important-Regeln stellen
+       sicher, dass die dritte Raster-Zeile auch dann sichtbar bleibt, wenn
+       Custom-CSS aus dem Theme-Editor das Tab-Raster auf 2 Zeilen bzw. eine
+       feste Höhe fixiert (sonst wird der Q&A-Tab auf Mobil abgeschnitten). */
     #section-{{ section.id }} .tab-btn:nth-child(-n+4) {
       border-bottom: 1px solid #b8e1f5;
     }
 
+    #section-{{ section.id }} .tabs {
+      grid-template-rows: none !important;
+      grid-auto-rows: auto !important;
+      height: auto !important;
+      max-height: none !important;
+    }
+
     #section-{{ section.id }} .tab-btn:last-child {
+      display: block !important;
+      visibility: visible !important;
       grid-column: 1 / -1;
       border-right: 0;
+      border-bottom: 0;
     }
     {% endif %}
 
