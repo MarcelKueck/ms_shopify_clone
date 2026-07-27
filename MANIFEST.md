@@ -12,7 +12,45 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-06-21, latest) — final pre-launch cleanup: removed the last unused widget asset (the widget code is already dead-code-clean)
+## ⭐ Session update (2026-07-27, latest) — marketing opt-in push: starters removed, prominent sign-in card, Accept/Decline consent gate
+
+Conversion-focused rework of the widget's marketing-consent funnel (2 opt-ins
+from 1000+ chats → the checkbox was invisible, especially on mobile). Consent
+stays GDPR-clean: served-copy-only, `lawyerApproved`-gated, DOI unchanged, no
+pre-selection anywhere.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (starters removed; sign-in card copy; consent gate; opt-in card button-consent) | ✅ Yes |
+| `assets/ms-chat-widget.css` | **MODIFIED** (`.ms-chat-gate*`, `.ms-chat-signin-*` accents; `.ms-chat-starter*` removed) | ✅ Yes |
+| `snippets/ms-chat-widget.liquid` | **MODIFIED** (comment only — starters no longer read pageContext) | ✅ Yes |
+| `docs/backend-handoff/CONSENT_GATE_THEME_NOTES.md` | **CREATED** (backend contract for the anonymous gate) | ❌ No (not a theme asset) |
+
+### Changes
+
+- **Starter prompt chips REMOVED** from the welcome state (unused, often
+  nonsensical, and they pushed the sign-in surface below the mobile fold).
+  `starter_shown` / `starter_clicked` KPIs no longer fire.
+- **Sign-in card promoted to the welcome hero slot**: accent-gradient border,
+  benefit copy incl. "Persönliche Angebote & Aktionen zuerst sehen", full-width
+  "Jetzt anmelden" CTA + "Kein Konto? Einfach lostippen" reassurance.
+- **NEW marketing consent gate**: an Accept/Decline dialog (bottom sheet on
+  mobile) shown once per session right after the user's first message; the
+  reply streams behind it and is never conditional on the choice. Signed-in →
+  served `surface=signin` copy + existing `/api/account/marketing-opt-in`.
+  Anonymous → served `surface=chat` copy + `POST /api/chat-marketing-opt-in`
+  with a typed email — **fail-closed (renders nothing) until the backend ships
+  that surface** (see the handoff note). Accept is remembered forever
+  (device), decline snoozes 24h, backdrop/Esc defers to the next session.
+- **At-sign-in opt-in card converted to the same button-consent mechanic**
+  (served statement fully visible + explicit accept tap; checkbox removed).
+  The email-capture form is unchanged (its audit string covers both consents).
+- New KPIs: `consent_gate_shown` / `_accepted` / `_declined` / `_dismissed`
+  (`{ surface }`).
+
+---
+
+## ⭐ Session update (2026-06-21) — final pre-launch cleanup: removed the last unused widget asset (the widget code is already dead-code-clean)
 
 Final, behavior-preserving pre-launch sweep of the widget. The widget's code was
 already cleaned in the **2026-06-14** dead-code pass below, so this round found
