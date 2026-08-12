@@ -643,27 +643,8 @@ html.ms-chat-page-anim {
 .ms-chat-welcome-auth { margin-top: 16px; text-align: left; }
 .ms-chat-welcome-auth:empty { margin-top: 0; }
 
-/* Sign-in benefits card (welcome + inline). With the starter chips gone this
-   card sits directly under the welcome orb and is the primary conversion
-   surface for account sign-in — accent-tinted so it reads as an invitation,
-   not a wall of text. */
-.ms-chat-signin-card {
-  margin: 0 auto;
-  border: 1px solid rgb(var(--msc-accent) / 35%);
-  background:
-    linear-gradient(rgb(var(--msc-bg)), rgb(var(--msc-bg))) padding-box,
-    linear-gradient(135deg, rgb(var(--msc-accent) / 55%), rgb(var(--msc-accent) / 12%)) border-box;
-  border-color: transparent;
-  box-shadow: 0 6px 24px rgb(var(--msc-accent) / 10%);
-}
-.ms-chat-signin-cta { width: 100%; justify-content: center; }
-.ms-chat-signin-hint {
-  margin-top: 8px;
-  text-align: center;
-  font-size: 0.76rem;
-  color: var(--msc-muted);
-  line-height: 1.4;
-}
+/* Sign-in benefits card (welcome + inline). */
+.ms-chat-signin-card { margin: 0 auto; }
 .ms-chat-signin-benefits {
   list-style: none;
   margin: 2px 0 4px;
@@ -719,95 +700,6 @@ html.ms-chat-page-anim {
 }
 .ms-chat-optin-dismiss:hover { color: rgb(var(--msc-fg)); }
 .ms-chat-optin-dismiss:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 2px; }
-
-/* Marketing consent gate — the Accept/Decline dialog presented over the chat
-   after the user's first message of a session. Bottom sheet on mobile (thumb
-   reach), centered on desktop. The reply keeps streaming behind the dimmed
-   backdrop; both buttons (and backdrop/Esc) lead back to it. */
-.ms-chat-gate {
-  position: absolute;
-  inset: 0;
-  z-index: 7; /* above the history drawer (5) */
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-.ms-chat-gate-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgb(0 0 0 / 35%);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-.ms-chat-gate-card {
-  position: relative;
-  z-index: 1;
-  width: calc(100% - 24px);
-  max-width: 400px;
-  box-sizing: border-box;
-  margin: 0 12px calc(12px + env(safe-area-inset-bottom, 0px));
-  padding: 18px 16px 14px;
-  background: rgb(var(--msc-bg));
-  border: 1px solid var(--msc-border);
-  border-radius: var(--msc-card-radius);
-  box-shadow: 0 18px 48px rgb(0 0 0 / 28%);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  text-align: left;
-  outline: none;
-  max-height: calc(100% - 48px);
-  overflow-y: auto;
-  animation: ms-chat-gate-in 260ms ease-out both;
-}
-@keyframes ms-chat-gate-in {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ms-chat-gate-card { animation: none; }
-}
-@media (min-width: 641px) {
-  .ms-chat-gate { align-items: center; }
-  .ms-chat-gate-card { margin: 0; }
-}
-.ms-chat-gate-logo { width: 56px; height: 56px; align-self: center; --msc-logo-rim: 2px; }
-.ms-chat-gate-headline {
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.35;
-  color: rgb(var(--msc-heading));
-  text-align: center;
-}
-.ms-chat-gate-benefits {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.ms-chat-gate-benefits li {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: rgb(var(--msc-fg) / 88%);
-}
-.ms-chat-gate-benefits li svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-  margin-top: 2px;
-  color: rgb(var(--msc-success));
-}
-/* The served consent statement — small but fully visible, never truncated. */
-.ms-chat-gate-consent {
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: rgb(var(--msc-fg) / 80%);
-}
-.ms-chat-gate-accept { margin-top: 2px; }
 
 /* History drawer — slides over the panel from the right edge; signed-in only. */
 .ms-chat-history {
@@ -1097,6 +989,34 @@ html.ms-chat-page-anim {
   display: inline-block;
   --msc-logo-rim: 2.5px;
 }
+/* Context-seeded starter prompts beneath the welcome orb (engagement layer —
+   deliberately supersedes the "no copy at all" welcome rule): 2-3 tappable
+   pill chips; tapping one sends it as the first user message. Quiet bordered
+   chips so the orb stays the hero. */
+.ms-chat-starters {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.ms-chat-starter {
+  width: 100%;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: 14px;
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-fg));
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+  padding: 10px 14px;
+  min-height: 44px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.ms-chat-starter:hover { background: var(--msc-surface); }
+.ms-chat-starter:focus-visible { outline: 2px solid rgb(var(--msc-accent)); outline-offset: 1px; }
 /* Returning-customer hint — BACKEND-SERVED text, rendered only when the
    backend marks it enabled (no widget fallback copy). Small + unobtrusive:
    shown above the email field in the capture form. */

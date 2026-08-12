@@ -59,7 +59,7 @@
         locale: {{ localization.language.iso_code | default: request.locale.iso_code | json }},
         {%- comment -%}
           Page context for the widget's in-session engagement layer (contextual
-          nudge). Server-rendered page facts only — page type
+          nudge + starter prompts). Server-rendered page facts only — page type
           and, where applicable, the product/collection on the page. Never any
           user data; the JS keeps its browsing trail purely in localStorage.
         {%- endcomment %}

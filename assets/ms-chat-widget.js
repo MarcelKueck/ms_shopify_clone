@@ -856,45 +856,6 @@
     return signInConsentInflight;
   }
 
-  // Anonymous in-chat marketing opt-in copy — the consent-gate surface for
-  // visitors who are NOT signed in (no transactional label; the email is typed
-  // in the gate itself). Fetched from GET /api/consent-copy?surface=chat and
-  // held in its own short-lived cache. Served-only like every other consent
-  // surface: until the backend ships this surface (see
-  // docs/backend-handoff/CONSENT_GATE_THEME_NOTES.md) the fetch fails and the
-  // anonymous gate simply never renders — fail-closed, no fallback copy.
-  var chatConsentCache = null;    // { copy, at }
-  var chatConsentInflight = null; // de-duped GET while a fetch is pending
-
-  function validChatConsentCopy(c) {
-    return !!(c && typeof c === 'object' &&
-      typeof c.marketingLabel === 'string' && c.marketingLabel &&
-      typeof c.consentTextShown === 'string' && c.consentTextShown);
-  }
-
-  function fetchChatConsentCopy() {
-    if (chatConsentCache && (Date.now() - chatConsentCache.at) < CONSENT_COPY_TTL_MS) {
-      return Promise.resolve(chatConsentCache.copy);
-    }
-    if (chatConsentInflight) return chatConsentInflight;
-    chatConsentInflight = fetch(API_BASE + '/api/consent-copy?surface=chat&locale=' + LOCALE, { method: 'GET', headers: { 'x-ms-session': sid } })
-      .then(function (res) {
-        if (!res.ok) throw new Error('consent-copy chat ' + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        chatConsentInflight = null;
-        if (!validChatConsentCopy(data)) throw new Error('consent-copy chat: invalid payload');
-        chatConsentCache = { copy: data, at: Date.now() };
-        return data;
-      })
-      .catch(function (err) {
-        chatConsentInflight = null;
-        throw err;
-      });
-    return chatConsentInflight;
-  }
-
   // ---------------------------------------------------------------------------
   // Customer Account sign-in (tier 3) + signed-in conversation history.
   //
@@ -914,17 +875,15 @@
   // ---------------------------------------------------------------------------
   // UI CHROME only (German). No legal/consent copy lives here.
   var ACCOUNT_COPY = {
-    signInTitle: 'Hol mehr aus deiner Beratung',
-    signInIntro: 'Mit deinem motion sports Konto wird Mo zu deinem persönlichen Berater:',
+    signInTitle: 'Mit deinem Konto anmelden',
+    signInIntro: 'Melde dich mit deinem motion sports Konto an, um mehr aus deiner Beratung zu machen:',
     benefits: [
       'An frühere Beratungen anknüpfen',
-      'Bestellungen & Adresse einbeziehen',
-      'Persönliche Angebote & Aktionen zuerst sehen'
+      'Adresse & Bestellungen einbeziehen',
+      'Passende Angebote erhalten'
     ],
-    signInBtn: 'Jetzt anmelden',
+    signInBtn: 'Anmelden',
     signInHeader: 'Anmelden',
-    // Reassurance under the CTA: signing in is optional, the chat works now.
-    signInHint: 'Kein Konto? Einfach lostippen — Mo hilft dir sofort.',
     historyTitle: 'Deine Beratungen',
     historyAria: 'Beratungsverlauf',
     newChat: 'Neue Beratung',
@@ -952,16 +911,15 @@
     openError: 'Diese Beratung konnte nicht geöffnet werden.'
   };
   if (LOCALE === 'en') Object.assign(ACCOUNT_COPY, {
-    signInTitle: 'Get more out of your consultation',
-    signInIntro: 'With your motion sports account, Mo becomes your personal advisor:',
+    signInTitle: 'Sign in with your account',
+    signInIntro: 'Sign in with your motion sports account to get more out of your consultation:',
     benefits: [
       'Pick up where past consultations left off',
-      'Include your orders & address',
-      'See personal offers & promotions first'
+      'Include your address & orders',
+      'Receive matching offers'
     ],
-    signInBtn: 'Sign in now',
+    signInBtn: 'Sign in',
     signInHeader: 'Sign in',
-    signInHint: 'No account? Just start typing — Mo helps you right away.',
     historyTitle: 'Your consultations',
     historyAria: 'Consultation history',
     newChat: 'New consultation',
@@ -1973,9 +1931,6 @@
           // Unlock returning-customer memory for the rest of this page's
           // session (in-memory only — see the capturedEmail privacy gate).
           capturedEmail = email;
-          // A marketing tick here is the same decision the consent gate asks
-          // for — remember it (device-local UX memory) so the gate stays quiet.
-          if (marketing) recordMktDecision('accepted');
           // Branch the success copy on the DOI state (API_CONTRACT.md §7.1):
           // only a pending marketing opt-in needs the "confirm the link" line.
           return res.json().catch(function () { return null; }).then(function (data) {
@@ -2360,14 +2315,66 @@
     }
   }
 
+  // Context-seeded starter prompts for the welcome state. Seeding order:
+  // current/last product -> current category or a trail category streak ->
+  // strong general starters. Copy is page/category-referencing (tone rule),
+  // grammar-safe for any product/category name, and NEVER asks for an email —
+  // a starter's only job is to start the conversation.
+  var starterMeta = null; // { variant, count, tracked } — for the starter_shown KPI
+  function starterSeed() {
+    var trail = loadTrail();
+    var prod = null;
+    if (PAGE_CTX.type === 'product' && PAGE_CTX.productName) {
+      prod = { id: PAGE_CTX.productHandle || PAGE_CTX.productId || '', name: PAGE_CTX.productName };
+    } else {
+      for (var i = 0; i < trail.length; i++) {
+        if (trail[i].type === 'product' && trail[i].name) { prod = { id: trail[i].id, name: trail[i].name }; break; }
+      }
+    }
+    if (prod) {
+      // Same context shape the product-page CTA (openWithProduct) sends,
+      // plus the browsing trail (API_CONTRACT.md §2 allows recentlyViewed on
+      // a "product" context too — it becomes background knowledge).
+      var pctx = { type: 'product', productId: prod.id, productTitle: prod.name };
+      var prv = recentlyViewedPayload();
+      if (prv) pctx.recentlyViewed = prv;
+      return { variant: 'product', items: [
+        { text: L('Ist „', 'Is "') + prod.name + L('“ gut für Zuhause geeignet?', '" suitable for home use?'), context: pctx },
+        { text: L('Gibt es eine günstigere Alternative zu „', 'Is there a cheaper alternative to "') + prod.name + L('“?', '"?'), context: pctx },
+        { text: L('Wie groß und wie laut ist „', 'How big and how loud is "') + prod.name + L('“?', '"?'), context: pctx }
+      ] };
+    }
+    var cat = (PAGE_CTX.type === 'collection' && PAGE_CTX.category) ? PAGE_CTX.category : trailCategoryStreak(trail);
+    if (!cat) {
+      for (var j = 0; j < trail.length; j++) {
+        if (trail[j].type === 'collection' && trail[j].name) { cat = trail[j].name; break; }
+      }
+    }
+    if (cat) {
+      // A bare `type: "category"` context does not exist in the contract —
+      // the whole context would be ignored. Category starters ride on a
+      // `type: "browsing"` context with the category leading recentlyViewed.
+      var cctx = browsingContext(cat);
+      return { variant: 'category', items: [
+        { text: L('Worauf sollte ich bei „', 'What should I look out for with "') + cat + L('“ achten?', '"?'), context: cctx },
+        { text: L('Hilf mir, das richtige Modell aus „', 'Help me find the right model from "') + cat + L('“ zu finden.', '".'), context: cctx },
+        { text: L('Was sind eure Bestseller bei „', 'What are your bestsellers in "') + cat + L('“?', '"?'), context: cctx }
+      ] };
+    }
+    return { variant: 'generic', items: [
+      { text: L('Hilf mir, das richtige Trainingsgerät zu finden.', 'Help me find the right training equipment.'), context: null },
+      { text: L('Was sind eure Bestseller?', 'What are your bestsellers?'), context: null },
+      { text: L('Ich trainiere zuhause — was empfiehlst du mir?', 'I train at home — what do you recommend?'), context: null }
+    ] };
+  }
+
   // Welcome state: the animated brand orb is the hero (an empty chat has
   // nothing to read, so full motion is fine here — reduced-motion still
   // freezes it via CSS). The prompt line lives in the composer placeholder
-  // ("Wie kann ich dir helfen?"). The starter prompt chips were removed
-  // (they saw no use and pushed the sign-in surface below the fold on
-  // mobile); beneath the orb sits ONLY the auth slot — the sign-in card for
-  // settled-anonymous visitors, the marketing opt-in for eligible signed-in
-  // customers — so it is visible without scrolling.
+  // ("Wie kann ich dir helfen?"); beneath the orb, 2-3 TAPPABLE context-seeded
+  // starters (deliberately supersedes the earlier "no copy at all" rule —
+  // WIDGET_SPEC §9c). Tapping one sends it as the first user message,
+  // carrying the same context shape openWithProduct already sends.
   function buildWelcome() {
     var w = el('div', { class: 'ms-chat-welcome' });
     w.appendChild(logoEl('ms-chat-welcome-logo'));
@@ -2375,6 +2382,19 @@
     // for anonymous so the welcome stays byte-identical when no one signs in.
     welcomeGreetingEl = el('div', { class: 'ms-chat-welcome-greeting', style: 'display:none' });
     w.appendChild(welcomeGreetingEl);
+    var seed = starterSeed();
+    starterMeta = { variant: seed.variant, count: seed.items.length, tracked: false };
+    var list = el('div', { class: 'ms-chat-starters' });
+    seed.items.forEach(function (item, idx) {
+      var b = el('button', { class: 'ms-chat-starter', type: 'button', text: item.text });
+      b.addEventListener('click', function () {
+        if (state.streaming || state.rateLocked) return;
+        track('starter_clicked', { variant: seed.variant, index: idx });
+        sendMessage(item.text, item.context);
+      });
+      list.appendChild(b);
+    });
+    w.appendChild(list);
     // Sign-in benefits card slot (filled by updateWelcomeAuth when the auth
     // state settles as not-signed-in; empty otherwise).
     welcomeAuthEl = el('div', { class: 'ms-chat-welcome-auth' });
@@ -2398,9 +2418,13 @@
     if (state.open) return;
     state.open = true;
     // Engagement layer: an opened chat ends the nudge's eligibility for this
-    // session.
+    // session, and a visible welcome state means the starters are shown.
     ssSet(SS_CHAT_OPENED, '1');
     removeNudge();
+    if (starterMeta && !starterMeta.tracked && welcomeEl && welcomeEl.parentNode === messagesEl) {
+      starterMeta.tracked = true;
+      track('starter_shown', { variant: starterMeta.variant, count: starterMeta.count });
+    }
     // Customer Account: resolve signed-in state on first open (lazy — no
     // network for pure-anonymous visitors; see resolveAuthOnOpen). Arm the
     // history auto-surface (task §1); it flushes once auth has settled (now if
@@ -3282,13 +3306,6 @@
     autoGrow();
 
     startStream({ userMsg: userMsg, userRow: userRow, restoreText: text, context: context || null });
-
-    // Marketing consent gate: presented after the user's first message of the
-    // session, while the reply streams in behind it (the reply is never
-    // conditional on the choice). All frequency/eligibility rules live in
-    // consentGateEligible(); the short delay lets the sent message visibly
-    // land first so the dialog reads as an interlude, not a wall.
-    setTimeout(maybeShowConsentGate, 700);
   }
 
   // Fresh-open contextual greeting (API_CONTRACT.md §2): POST the context
@@ -4114,12 +4131,9 @@
       ul.appendChild(li);
     });
     body.appendChild(ul);
-    var btn = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary ms-chat-signin-cta' }, [ACCOUNT_COPY.signInBtn]);
+    var btn = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary' }, [ACCOUNT_COPY.signInBtn]);
     btn.addEventListener('click', function () { initiateLogin(); });
     body.appendChild(btn);
-    // Reassurance line: the card must sell the account without gatekeeping the
-    // chat — anonymous visitors should feel free to just start typing.
-    body.appendChild(el('div', { class: 'ms-chat-signin-hint', text: ACCOUNT_COPY.signInHint }));
     card.appendChild(body);
     return card;
   }
@@ -4131,9 +4145,11 @@
   // here.
   var OPTIN_COPY = {
     loading: 'Einwilligungstext wird geladen…',
-    submit: 'Ja, Angebote aktivieren',
+    submit: 'Anmelden',
     sending: 'Wird gesendet…',
     dismiss: 'Nicht jetzt',
+    // Unticked submit -> a gentle "please tick" hint; never auto-submitted.
+    errTick: 'Bitte setze das Häkchen, um dich anzumelden.',
     errRate: 'Zu viele Anfragen — bitte kurz warten.',
     errUpstream: 'Anmeldung gerade nicht möglich — bitte später erneut versuchen.',
     errGeneric: 'Anmeldung fehlgeschlagen. Bitte versuch es erneut.',
@@ -4147,9 +4163,10 @@
   };
   if (LOCALE === 'en') Object.assign(OPTIN_COPY, {
     loading: 'Loading consent text…',
-    submit: 'Yes, activate offers',
+    submit: 'Sign up',
     sending: 'Sending…',
     dismiss: 'Not now',
+    errTick: 'Please tick the box to sign up.',
     errRate: 'Too many requests — please wait a moment.',
     errUpstream: 'Sign-up isn\'t possible right now — please try again later.',
     errGeneric: 'Sign-up failed. Please try again.',
@@ -4173,45 +4190,71 @@
   // session guard for "dismissed/submitted this session".
   function optInActionable() { return auth.signedIn && auth.optInActionable && !signInOptInDone; }
 
-  // The opt-in card (CONSENT_FLOW.md §2, mechanic updated to match the consent
-  // gate): the SAME double-opt-in as the capture form, minus the "type your
-  // email" step. Renders the served v3 copy verbatim — a benefit headline
-  // (framing, NOT consent text), the served consent STATEMENT fully visible,
-  // the served footer, and imprint/privacy links. The affirmative act is an
-  // explicit tap on the accept button directly beneath the shown text
-  // (button-consent — never pre-decided, never auto-submitted); it runs the
-  // existing DOI path (POST /api/account/marketing-opt-in) echoing
-  // consentTextShown verbatim. Dismissing records nothing and blocks nothing.
+  // The opt-in card (CONSENT_FLOW.md §2): the SAME double-opt-in as the capture
+  // form, minus the "type your email" step. Renders the served v3 copy verbatim
+  // — a benefit headline (framing, NOT consent text), ONE marketing checkbox
+  // that ALWAYS starts UNCHECKED and is never auto-toggled, the served footer,
+  // and imprint/privacy links. Submitting runs the existing DOI path
+  // (POST /api/account/marketing-opt-in) echoing consentTextShown verbatim; an
+  // unticked submit records nothing and blocks nothing.
   function buildMarketingOptInCard() {
     var card = el('div', { class: 'ms-chat-card ms-chat-optin-card' });
     var body = el('div', { class: 'ms-chat-card-body' });
     card.appendChild(body);
     body.appendChild(el('div', { class: 'ms-chat-consent-loading', text: OPTIN_COPY.loading }));
 
-    var copy = null;
+    var copy = null, mkt = null, group = null, attnActive = false;
     var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
     function showError(m) { errEl.textContent = m; errEl.style.display = 'block'; }
     function clearError() { errEl.textContent = ''; errEl.style.display = 'none'; }
 
     function dismiss() { markOptInDone(); card.remove(); }
 
+    // Unchecked-marketing attention treatment (mirrors the capture form): accent
+    // outline + one brief shake + an inline hint. No request is sent; the tick
+    // is the consent, so we never proceed without it.
+    function flagAttention() {
+      showError(OPTIN_COPY.errTick);
+      attnActive = true;
+      if (group) {
+        group.classList.remove('ms-chat-consent-group--attn');
+        void group.offsetWidth; // restart the shake on repeat clicks
+        group.classList.add('ms-chat-consent-group--attn');
+      }
+      if (mkt) { try { mkt.input.focus(); } catch (e) {} }
+    }
+    function clearAttention() {
+      if (!attnActive) return;
+      attnActive = false;
+      if (group) group.classList.remove('ms-chat-consent-group--attn');
+      clearError();
+    }
+
     function renderForm(c) {
       copy = c;
       body.replaceChildren();
-      // Benefit framing ABOVE the consent statement — explicitly NOT part of
+      // Benefit framing ABOVE the checkbox — explicitly NOT part of
       // consentTextShown (CONSENT_FLOW.md §2.1); rendered as served.
       if (typeof c.headline === 'string' && c.headline) {
         body.appendChild(el('div', { class: 'ms-chat-optin-headline', text: c.headline }));
       }
       var form = el('form', { class: 'ms-chat-form ms-chat-optin', novalidate: 'novalidate' });
 
-      // The SERVED consent statement, fully visible (never truncated) directly
-      // above the accept button — tapping that button IS the clear affirmative
-      // act for exactly this text (Planet49-safe: nothing is pre-decided, and
-      // there is no code path that submits without the tap).
-      form.appendChild(el('div', { class: 'ms-chat-gate-consent', text: c.marketingLabel }));
+      // ONE marketing checkbox — ALWAYS UNCHECKED, never pre-ticked, never
+      // auto-toggled by any other interaction. Same DELIBERATE LEGAL invariant
+      // as the capture form (Planet49 / UWG): the opt-in is won by placement and
+      // copy, never by a pre-tick. There is no code path that sets .checked.
+      var row = el('label', { class: 'ms-chat-consent ms-chat-consent--marketing' });
+      var input = el('input', { type: 'checkbox' });
+      row.appendChild(input);
+      row.appendChild(el('span', { class: 'ms-chat-consent-text' }, [c.marketingLabel]));
+      mkt = { row: row, input: input };
+      group = el('div', { class: 'ms-chat-consent-group' });
+      group.appendChild(row);
+      form.appendChild(group);
+      input.addEventListener('change', function () { if (input.checked) clearAttention(); });
 
-      // Shared footer beneath the statement — backend-served, part of the audit text.
+      // Shared footer beneath the box — backend-served, part of the audit text.
       if (typeof c.consentFooter === 'string' && c.consentFooter) {
         form.appendChild(el('div', { class: 'ms-chat-consent-footer', text: c.consentFooter }));
       }
@@ -4237,9 +4280,12 @@
       form.addEventListener('submit', function (ev) {
         ev.preventDefault();
         clearError();
-        if (!copy) return; // served copy not loaded -> cannot submit
+        if (!copy || !mkt) return; // served copy not loaded -> cannot submit
+        // Opt-in is OPTIONAL: an unticked submit records nothing and blocks
+        // nothing — it only flags the box. We never auto-send marketingConsent.
+        if (!mkt.input.checked) { flagAttention(); return; }
         var payload = {
-          marketingConsent: true,   // the user's explicit accept tap on the shown text
+          marketingConsent: true,                    // the user's actual tick
           // The served audit string, echoed back VERBATIM (Art. 7 proof) — never
           // recomposed or hard-coded client-side.
           consentTextShown: copy.consentTextShown,
@@ -4266,12 +4312,19 @@
               ok.appendChild(el('p', { text: confirmed ? OPTIN_COPY.successConfirmed : OPTIN_COPY.successPending }));
               body.replaceChildren(ok);
               markOptInDone();
-              recordMktDecision('accepted'); // quiets the consent gate on this device
               scrollToBottom();
             });
           }
           return res.json().catch(function () { return null; }).then(function (data) {
             var code = data && data.error && data.error.code;
+            if (code === 'marketing_consent_required') {
+              // Defensive: the widget already blocks an unticked submit; if the
+              // backend still rejects, show the same targeted box attention.
+              submit.disabled = false;
+              submit.textContent = OPTIN_COPY.submit;
+              flagAttention();
+              return;
+            }
             if (res.status === 422 || code === 'no_verified_email') {
               // Rare: no verified email on file -> fall back to the typed-email
               // capture form (the existing, unchanged path).
@@ -4339,327 +4392,6 @@
     } catch (e) {
       try { console.error('[ms-chat] presentSignInOptIn failed', e); } catch (e2) {}
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Marketing consent gate — the primary opt-in surface.
-  //
-  // An Accept/Decline dialog presented ONCE per browser session, right after
-  // the user sends their first message (the reply streams in behind it, so the
-  // visitor has already invested in the conversation — the value moment). The
-  // reply is NEVER conditional on the choice: Accept and Decline both land in
-  // the same answered chat, and backdrop/Esc simply defers the question.
-  //
-  // Two variants, both rendering SERVED consent copy verbatim (never
-  // hard-coded, lawyerApproved-gated — same rules as every consent surface):
-  //   * signed-in + optInActionable  -> surface=signin copy,
-  //     POST /api/account/marketing-opt-in (no email field; account email).
-  //   * anonymous / email-only       -> surface=chat copy + a typed email,
-  //     POST /api/chat-marketing-opt-in. Fail-closed until the backend ships
-  //     that surface (docs/backend-handoff/CONSENT_GATE_THEME_NOTES.md).
-  //
-  // The consent mechanic is a CLEAR AFFIRMATIVE ACT: the served marketingLabel
-  // + consentFooter are fully visible above the buttons and only an explicit
-  // "Accept" tap sends marketingConsent:true (button-consent, like a cookie
-  // dialog — never pre-decided, never auto-submitted). Anti-nag rules, chosen
-  // deliberately (GDPR "freely given" + the no-dark-patterns golden rule):
-  //   * shown at most once per browser session,
-  //   * an ACCEPT is remembered forever (device + backend record),
-  //   * a DECLINE snoozes the gate for 24h (next session after that may ask
-  //     again — persistent, but never a same-visit or per-message nag),
-  //   * backdrop/Esc = "later": no snooze, next session asks again.
-  // ---------------------------------------------------------------------------
-  var GATE_COPY = {
-    aria: 'Angebote aktivieren',
-    // Benefit framing (UI chrome, like the sign-in card's bullets — NOT part
-    // of the consent text): personalized offers, first access to promotions.
-    benefits: [
-      'Persönliche Empfehlungen, passend zu deiner Beratung',
-      'Exklusive Angebote & Rabattaktionen zuerst erfahren'
-    ],
-    emailLabel: 'Deine E-Mail-Adresse',
-    emailPlaceholder: 'deine@email.de',
-    accept: 'Ja, Angebote aktivieren',
-    decline: 'Nein, danke',
-    sending: 'Wird gesendet…',
-    successTitle: 'Fast geschafft!',
-    successPending: 'Bitte bestätige deine Anmeldung über den Link in der E-Mail — erst danach bekommst du unsere Angebote.',
-    successConfirmed: 'Du bist bereits angemeldet — viel Freude mit unseren Angeboten!',
-    continueBtn: 'Weiter zur Antwort',
-    errEmail: 'Bitte gib eine gültige E-Mail-Adresse ein.',
-    errRate: 'Zu viele Anfragen — bitte kurz warten.',
-    errUpstream: 'Gerade nicht möglich — bitte versuch es später erneut.',
-    errGeneric: 'Das hat leider nicht geklappt. Bitte versuch es erneut.'
-  };
-  if (LOCALE === 'en') Object.assign(GATE_COPY, {
-    aria: 'Activate offers',
-    benefits: [
-      'Personal recommendations matching your consultation',
-      'Exclusive offers & discount promotions — hear about them first'
-    ],
-    emailLabel: 'Your email address',
-    emailPlaceholder: 'you@example.com',
-    accept: 'Yes, activate offers',
-    decline: 'No, thanks',
-    sending: 'Sending…',
-    successTitle: 'Almost there!',
-    successPending: 'Please confirm via the link in the email — only then will you receive our offers.',
-    successConfirmed: 'You\'re already subscribed — enjoy our offers!',
-    continueBtn: 'Back to the answer',
-    errEmail: 'Please enter a valid email address.',
-    errRate: 'Too many requests — please wait a moment.',
-    errUpstream: 'Not possible right now — please try again later.',
-    errGeneric: 'That didn\'t work. Please try again.'
-  });
-
-  // Device-local marketing-decision memory. This is UX memory ONLY (when to
-  // stop asking) — never proof of consent; the backend's DOI record stays the
-  // single legal source of truth. Accepted -> never ask again on this device;
-  // declined -> quiet for MKT_DECLINE_SNOOZE_MS.
-  var MKT_DECISION_KEY = 'ms-chat-mkt-decision';
-  var MKT_DECLINE_SNOOZE_MS = 24 * 60 * 60 * 1000;
-  var GATE_SS_KEY = 'ms-chat-gate-shown'; // presented once per browser session
-
-  function loadMktDecision() {
-    try {
-      var raw = lsGet(MKT_DECISION_KEY);
-      if (!raw) return null;
-      var d = JSON.parse(raw);
-      return (d && typeof d === 'object' && typeof d.state === 'string') ? d : null;
-    } catch (e) { return null; }
-  }
-  function recordMktDecision(state) {
-    try { lsSet(MKT_DECISION_KEY, JSON.stringify({ state: state, at: Date.now() })); } catch (e) {}
-  }
-
-  var gateEl = null; // the open gate overlay (at most one)
-
-  function consentGateEligible() {
-    if (gateEl || ssGet(GATE_SS_KEY)) return false;
-    if (voiceMode) return false;      // never interrupt the hands-free loop
-    if (!auth.settled) return false;  // unknown tier -> wait for the next turn
-    var d = loadMktDecision();
-    if (d && d.state === 'accepted') return false;
-    if (d && d.state === 'declined' && (Date.now() - d.at) < MKT_DECLINE_SNOOZE_MS) return false;
-    // Signed-in: the backend knows the real decision state — trust it (also
-    // covers "dismissed the welcome opt-in card this session").
-    if (auth.signedIn) return optInActionable();
-    return true; // anonymous/email-only: device memory is all we have
-  }
-
-  // Called (debounced by the session guard) right after a user message is
-  // sent. Copy is fetched BEFORE anything is shown: no served copy or
-  // lawyerApproved !== true -> no gate at all (fail-closed, silent).
-  function maybeShowConsentGate() {
-    if (!consentGateEligible()) return;
-    var surface = auth.signedIn ? 'signin' : 'chat';
-    var load = auth.signedIn ? fetchSignInConsentCopy() : fetchChatConsentCopy();
-    load.then(function (c) {
-      if (!c || c.lawyerApproved !== true) return;
-      // Re-check after the async fetch (a second send, sign-out, voice mode…).
-      if (!consentGateEligible() || !state.open) return;
-      presentConsentGate(c, surface);
-    }).catch(function () {}); // surface not served yet -> render nothing
-  }
-
-  function presentConsentGate(c, surface) {
-    ssSet(GATE_SS_KEY, '1');
-    track('consent_gate_shown', { surface: surface });
-
-    var wrap = el('div', { class: 'ms-chat-gate', role: 'dialog', 'aria-modal': 'true', 'aria-label': GATE_COPY.aria });
-    var backdrop = el('div', { class: 'ms-chat-gate-backdrop' });
-    var card = el('div', { class: 'ms-chat-gate-card', tabindex: '-1' });
-    wrap.appendChild(backdrop);
-    wrap.appendChild(card);
-
-    function close() {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-      gateEl = null;
-      scrollToBottom(); // reveal the streamed answer behind the gate
-      try { textarea.focus(); } catch (e) {}
-    }
-    // "Later" (backdrop / Esc): softer than a decline — no snooze recorded,
-    // the session guard alone keeps this visit quiet.
-    function defer() { track('consent_gate_dismissed', { surface: surface }); close(); }
-    backdrop.addEventListener('click', defer);
-    wrap.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape') { ev.stopPropagation(); defer(); return; }
-      // Minimal focus trap: keep Tab cycling inside the dialog.
-      if (ev.key === 'Tab') {
-        var f = card.querySelectorAll('button, input, a[href]');
-        if (!f.length) return;
-        var first = f[0], last = f[f.length - 1];
-        if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
-        else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
-      }
-    });
-
-    // The brand orb keeps the dialog friendly — this is Mo asking, not a
-    // legal wall.
-    card.appendChild(logoEl('ms-chat-gate-logo'));
-
-    // Served benefit headline (framing, NOT part of consentTextShown).
-    if (typeof c.headline === 'string' && c.headline) {
-      card.appendChild(el('div', { class: 'ms-chat-gate-headline', text: c.headline }));
-    }
-    // Benefit bullets — UI chrome framing (same precedent as the sign-in
-    // card's bullets): personalized offers & first access to promotions. No
-    // concrete discount promise (the copy ceiling stays with legal).
-    var ul = el('ul', { class: 'ms-chat-gate-benefits' });
-    GATE_COPY.benefits.forEach(function (b) {
-      var li = el('li');
-      li.appendChild(icon('check'));
-      li.appendChild(el('span', { text: b }));
-      ul.appendChild(li);
-    });
-    card.appendChild(ul);
-
-    var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
-    function showError(m) { errEl.textContent = m; errEl.style.display = 'block'; }
-    function clearError() { errEl.textContent = ''; errEl.style.display = 'none'; }
-
-    // Anonymous variant: the typed email lives IN the gate (one step, no
-    // follow-up form).
-    var emailInput = null;
-    if (surface === 'chat') {
-      var emailId = 'msc-gate-' + Math.random().toString(36).slice(2, 8);
-      emailInput = el('input', { type: 'email', name: 'email', autocomplete: 'email', placeholder: GATE_COPY.emailPlaceholder, id: emailId, class: 'ms-chat-gate-email' });
-      var fld = el('div', { class: 'ms-chat-field' });
-      var lbl = el('label', { text: GATE_COPY.emailLabel });
-      lbl.setAttribute('for', emailId);
-      fld.appendChild(lbl);
-      fld.appendChild(emailInput);
-      card.appendChild(fld);
-      // Enter in the email field = the accept tap (no <form> wraps the gate).
-      emailInput.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); accept.click(); }
-      });
-    }
-
-    // The SERVED consent statement — fully visible above the buttons; tapping
-    // "Accept" IS the affirmative act for exactly this text. Echoed back as
-    // consentTextShown verbatim (Art. 7 audit record).
-    card.appendChild(el('div', { class: 'ms-chat-gate-consent', text: c.marketingLabel }));
-    if (typeof c.consentFooter === 'string' && c.consentFooter) {
-      card.appendChild(el('div', { class: 'ms-chat-consent-footer', text: c.consentFooter }));
-    }
-    var legal = el('div', { class: 'ms-chat-legal-links' });
-    var impHref = safeHref(c.imprintUrl);
-    var privHref = safeHref(c.privacyUrl);
-    if (impHref) legal.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: L('Impressum', 'Imprint') }));
-    if (privHref) legal.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: L('Datenschutz', 'Privacy') }));
-    card.appendChild(legal);
-
-    card.appendChild(errEl);
-
-    var accept = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary ms-chat-gate-accept' }, [GATE_COPY.accept]);
-    // Decline is a REAL, equally reachable choice (same size, right below) —
-    // quieter styling is allowed, a hidden/hard decline is not.
-    var decline = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--secondary ms-chat-gate-decline' }, [GATE_COPY.decline]);
-    card.appendChild(accept);
-    card.appendChild(decline);
-
-    decline.addEventListener('click', function () {
-      recordMktDecision('declined');
-      markOptInDone(); // also quiets the welcome opt-in card this session
-      track('consent_gate_declined', { surface: surface });
-      close();
-    });
-
-    function showSuccess(confirmed) {
-      var ok = el('div', { class: 'ms-chat-form-success' });
-      ok.appendChild(icon('check'));
-      ok.appendChild(el('h3', { text: GATE_COPY.successTitle }));
-      ok.appendChild(el('p', { text: confirmed ? GATE_COPY.successConfirmed : GATE_COPY.successPending }));
-      var cont = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary' }, [GATE_COPY.continueBtn]);
-      cont.addEventListener('click', close);
-      card.replaceChildren(ok, cont);
-      try { cont.focus(); } catch (e) {}
-    }
-
-    function setBusy(busy) {
-      accept.disabled = busy;
-      decline.disabled = busy;
-      accept.textContent = busy ? GATE_COPY.sending : GATE_COPY.accept;
-    }
-
-    function handleFailure(res, data) {
-      var code = data && data.error && data.error.code;
-      if (res && (res.status === 429 || code === 'rate_limited')) {
-        var retry = parseInt(res.headers.get('Retry-After'), 10);
-        if (!isFinite(retry) || retry <= 0) retry = 30;
-        showError(GATE_COPY.errRate);
-        decline.disabled = false;
-        accept.textContent = GATE_COPY.accept;
-        setTimeout(function () { accept.disabled = false; }, retry * 1000);
-        return;
-      }
-      var msg = (data && data.error && data.error.message) || '';
-      if (!res || res.status === 502 || res.status === 503 || code === 'upstream_unavailable') msg = GATE_COPY.errUpstream;
-      else if (!msg) msg = GATE_COPY.errGeneric;
-      showError(msg);
-      setBusy(false);
-    }
-
-    accept.addEventListener('click', function () {
-      clearError();
-      var email = null;
-      if (emailInput) {
-        email = emailInput.value.trim();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-          showError(GATE_COPY.errEmail);
-          try { emailInput.focus(); } catch (e) {}
-          return;
-        }
-      }
-      setBusy(true);
-      var payload = {
-        marketingConsent: true, // the user's explicit Accept tap on the shown text
-        // The served audit string, echoed back VERBATIM (Art. 7) — never
-        // recomposed client-side.
-        consentTextShown: c.consentTextShown,
-        locale: LOCALE
-      };
-      var url;
-      if (surface === 'signin') {
-        url = API_BASE + '/api/account/marketing-opt-in';
-      } else {
-        url = API_BASE + '/api/chat-marketing-opt-in';
-        payload.sessionId = sid;
-        payload.email = email;
-        payload.trigger = 'chat_gate'; // funnel split vs the capture form
-      }
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
-        body: JSON.stringify(payload)
-      }).then(function (res) {
-        if (surface === 'signin' && res.status === 401) { accountUnauthorized(); close(); return; }
-        if (surface === 'signin' && res.status === 422) {
-          // No verified account email -> fall back to the typed-email capture
-          // form (the existing, unchanged path).
-          close();
-          openCaptureForm();
-          return;
-        }
-        if (res.ok) {
-          return res.json().catch(function () { return null; }).then(function (data) {
-            var m = data && data.marketing;
-            var confirmed = !!(m && (m.alreadyConfirmed === true || m.status === 'confirmed'));
-            if (email) capturedEmail = email; // returning-customer memory (in-memory gate)
-            recordMktDecision('accepted');
-            markOptInDone();
-            track('consent_gate_accepted', { surface: surface });
-            showSuccess(confirmed);
-          });
-        }
-        return res.json().catch(function () { return null; }).then(function (data) { handleFailure(res, data); });
-      }).catch(function () { handleFailure(null, null); });
-    });
-
-    gateEl = wrap;
-    panel.appendChild(wrap);
-    try { card.focus(); } catch (e) {}
   }
 
   // Reflect the resolved auth state across the chrome. Called on every auth
@@ -5140,71 +4872,6 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Campaign deep link (?mo=open / #mo-open, WIDGET_SPEC §9d). The backend's
-  // campaign emails end in a Mo CTA linking here (CAMPAIGN_MO_DEEPLINK_URL),
-  // so the click lands in an already-open consultation. Purely client-side:
-  // no network calls, no greeting change — the open is exactly a launcher
-  // click on a fully initialized widget. Optional modifiers, only read when
-  // mo=open is present:
-  //   mo_new=1            fresh consultation — don't resume the stored thread
-  //   mo_view=fullscreen  open expanded (the desktop modal mode; mobile is
-  //                       always true fullscreen)
-  // All three params (+ the #mo-open hash) are stripped via replaceState —
-  // the same cleanup idiom as ?ms_auth= in handleAuthReturn — so a reload or
-  // copied URL doesn't re-trigger the auto-open. utm_* params are left
-  // untouched (the shop's analytics, not ours). Fail-silent by design: the
-  // deep link must never break widget init.
-  // ---------------------------------------------------------------------------
-  function handleMoDeepLink() {
-    var wantsOpen = false, wantsNew = false, wantsFullscreen = false;
-    try {
-      var u = new URL(window.location.href);
-      var hashOpen = u.hash === '#mo-open';
-      wantsOpen = u.searchParams.get('mo') === 'open' || hashOpen;
-      if (!wantsOpen) return; // no deep link -> byte-identical behaviour
-      wantsNew = u.searchParams.get('mo_new') === '1';
-      wantsFullscreen = u.searchParams.get('mo_view') === 'fullscreen';
-      u.searchParams.delete('mo');
-      u.searchParams.delete('mo_new');
-      u.searchParams.delete('mo_view');
-      if (hashOpen) u.hash = '';
-      window.history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
-    } catch (e) { return; }
-    try {
-      if (wantsNew) {
-        // Fresh consultation — startNewChat()'s two branches, but decided by
-        // the local signed-in hint because auth is NOT settled yet at init:
-        // rotating the sid would sever a signed-in identity link
-        // (CUSTOMER_ACCOUNT.md §1). A possibly-signed-in visitor keeps the
-        // sid and just drops the local thread — the first turn then mints a
-        // fresh conversationKey (maybeMintConversationKey), so this becomes
-        // its own history entry. A pure-anonymous visitor rotates exactly
-        // like "Neuen Chat starten".
-        if (shouldProbeAuth()) {
-          lsDel(historyKey());
-          messages = [];
-          activeConversationId = null;
-          clearConvKey();
-        } else {
-          rotateSession();
-          activeConversationKey = null;
-        }
-        renderAllMessages(); // empty -> welcome (init rendered the old thread)
-      }
-      if (wantsFullscreen) {
-        // The widget's expanded state is the desktop modal mode (§4; mobile
-        // is always true fullscreen). Applied to the still-closed panel so
-        // the open animates straight into it — no sidebar -> modal flicker.
-        // Deliberately NOT persisted to VIEW_MODE_KEY: the campaign link
-        // must not overwrite the customer's saved layout preference.
-        state.viewMode = 'modal';
-        applyViewMode();
-      }
-      if (typeof openPanel === 'function') openPanel();
-    } catch (e) {}
-  }
-
-  // ---------------------------------------------------------------------------
   // Init.
   // ---------------------------------------------------------------------------
   function init() {
@@ -5233,9 +4900,6 @@
     // Customer Account: process a sign-in/logout return marker (?ms_auth=…),
     // re-hydrating identity and re-opening the panel onto the SAME conversation.
     handleAuthReturn();
-    // Campaign deep link (?mo=open / #mo-open): auto-open LAST, on the fully
-    // initialized widget, with the modifiers applied before the open.
-    handleMoDeepLink();
   }
 
   // Delegated handler for storefront product-page CTAs. Reading product id +
