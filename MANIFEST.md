@@ -12,7 +12,48 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-07-27, latest) — marketing opt-in push: starters removed, prominent sign-in card, Accept/Decline consent gate
+## ⭐ Session update (2026-08-12, latest) — order attribution: widget stamps the live cart with the session's opaque marker
+
+Frontend half of the backend's order-attribution pipeline (backend repo:
+`docs/ORDER_ATTRIBUTION.md` + `docs/API_CONTRACT.md` §10). The widget stamps
+the LIVE storefront cart with a server-minted opaque token so any purchase
+after a Mo consultation — including products found via manual search — carries
+the `_mo` note attribute on the order and is counted by the backend's orders
+webhook ("Mo-zugeordneter Umsatz", tiers "Beraten & gekauft" / "Beraten,
+anderes gekauft").
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (new order-attribution block + hooks in `buildShowProduct`, the checkout-button click, `rotateSession`, the erase flow, `init`) | ✅ Yes |
+
+### Changes
+
+- **Consent gate first (mandatory):** everything below runs ONLY while
+  Shopify's Customer Privacy API reports
+  `analyticsProcessingAllowed() === true`; the widget also subscribes to the
+  `visitorConsentCollected` document event and starts stamping if consent
+  arrives later. No consent → complete silent no-op.
+- **Lazy token mint, once per session:** the first time a `show_product` card
+  renders, `POST {apiBase}/api/attribution/token` (existing `x-ms-chat-key` +
+  `x-ms-session` guards, no body). The `{ token, cartAttributes }` pair is
+  cached in memory + localStorage (`ms-mo-attr`, keyed to the session id so a
+  rotated session never reuses it). Errors (401/403/429/5xx/network) give up
+  silently for the page view.
+- **Live-cart stamp** — same-origin fire-and-forget
+  `POST /cart/update.js { attributes: cartAttributes }` — fired (a) right
+  after the token is minted, (b) on every "Zur Kasse" click BEFORE the cart
+  permalink opens (a completed checkout clears cart attributes), (c) once per
+  page load when a cached token exists and consent allows. Stamping is
+  idempotent.
+- **Never blocks shopping:** every call is non-awaited/fail-silent
+  (`keepalive` on the stamp so it survives navigations); nothing throws.
+- **Privacy:** the raw session id is NEVER placed in URLs or cart attributes —
+  only the opaque server token. No other tracking added. `rotateSession` and
+  the signed-in "delete my data" flow drop the cached token.
+
+---
+
+## ⭐ Session update (2026-07-27) — marketing opt-in push: starters removed, prominent sign-in card, Accept/Decline consent gate
 
 Conversion-focused rework of the widget's marketing-consent funnel (2 opt-ins
 from 1000+ chats → the checkbox was invisible, especially on mobile). Consent

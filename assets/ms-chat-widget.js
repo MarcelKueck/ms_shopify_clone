@@ -241,6 +241,9 @@
     sid = uuid();
     lsSet(SID_KEY, sid);
     messages = [];
+    // The order-attribution token is minted per session id — a rotated
+    // session must not keep stamping carts with the old session's token.
+    moAttrReset();
   }
 
   // ---------------------------------------------------------------------------
@@ -1201,6 +1204,10 @@
     return hydrate([input.productId]).then(function (res) {
       var p = res[0];
       if (!p) return null; // render-nothing guard
+      // A product card is about to render -> the session is "consulted";
+      // lazily mint the order-attribution token + stamp the live cart
+      // (consent-gated, fail-silent — see the attribution block below).
+      moAttrOnProductCard();
       var card = el('div', { class: 'ms-chat-card' });
       var body = el('div', { class: 'ms-chat-card-body' });
 
@@ -1407,6 +1414,156 @@
     [1200, 2500, 4500, 7000].forEach(function (d) { setTimeout(refreshCartUI, d); });
   }
 
+  // ---------------------------------------------------------------------------
+  // Order attribution — stamp the LIVE storefront cart with the session's
+  // opaque marker (backend repo: docs/ORDER_ATTRIBUTION.md + API_CONTRACT.md
+  // §10). Once stamped, WHATEVER lands in the cart — Mo's checkout button or a
+  // product the shopper found via manual search — the resulting order carries
+  // the "_mo" note attribute, and the backend's orders webhook can attribute
+  // it to this consultation (tiers "Beraten & gekauft" / "Beraten, anderes
+  // gekauft").
+  //
+  // INVARIANTS (do not weaken):
+  //   * CONSENT-GATED: nothing here runs unless Shopify's Customer Privacy API
+  //     reports analytics processing is allowed. No consent -> silent no-op.
+  //   * OPAQUE TOKEN ONLY: the raw session id NEVER goes into a URL or a cart
+  //     attribute — only the server-minted token from /api/attribution/token.
+  //   * FAIL-SILENT + NON-BLOCKING: every call is fire-and-forget; the
+  //     shopping flow never waits on (or breaks because of) attribution.
+  //   * LAZY: the token is minted only once the session is "consulted" (a
+  //     product card rendered) or the shopper clicks Mo's checkout button —
+  //     never on mere page load. Minting is idempotent per session
+  //     (repeat POSTs return the same token).
+  //
+  // Re-stamping matters: a completed checkout clears the cart's attributes,
+  // so we stamp (a) right after the token is minted, (b) before every Mo
+  // checkout-link click, (c) once per page load when a cached token exists.
+  // /cart/update.js merges attributes, so repeat stamps are idempotent.
+  // ---------------------------------------------------------------------------
+  var MO_ATTR_KEY = 'ms-mo-attr';
+  var moAttr = null;             // { sid, token, cartAttributes } in-memory cache
+  var moAttrInflight = false;    // single-flight guard on the token mint
+  var moAttrFailed = false;      // mint failed -> give up silently for THIS page view
+  var moAttrConsulted = false;   // a product card rendered (session is "consulted")
+  var moAttrPageStamped = false; // render/page-load paths stamp at most once per load
+
+  function moAnalyticsAllowed() {
+    try {
+      var cp = window.Shopify && window.Shopify.customerPrivacy;
+      return !!(cp && typeof cp.analyticsProcessingAllowed === 'function' &&
+        cp.analyticsProcessingAllowed() === true);
+    } catch (e) { return false; }
+  }
+
+  function moAttrValid(c) {
+    return !!(c && typeof c === 'object' && typeof c.token === 'string' && c.token &&
+      c.cartAttributes && typeof c.cartAttributes === 'object' && !Array.isArray(c.cartAttributes));
+  }
+
+  // Cached token, memory-first then localStorage. The stored copy is keyed to
+  // the sid it was minted for: after a session rotation a stale entry must not
+  // stamp carts with the OLD session's token, so it's dropped.
+  function moAttrLoad() {
+    if (moAttr) return moAttr;
+    var raw = lsGet(MO_ATTR_KEY);
+    if (!raw) return null;
+    try {
+      var c = JSON.parse(raw);
+      if (moAttrValid(c) && c.sid === sid) { moAttr = c; return c; }
+    } catch (e) {}
+    lsDel(MO_ATTR_KEY); // stale / another session's cache
+    return null;
+  }
+
+  function moAttrReset() {
+    moAttr = null;
+    moAttrFailed = false;
+    moAttrConsulted = false;
+    lsDel(MO_ATTR_KEY);
+  }
+
+  // The actual stamp: same-origin, fire-and-forget, consent re-checked at call
+  // time (consent can be withdrawn mid-page). keepalive so a stamp fired right
+  // before a navigation still lands.
+  function moStampCart() {
+    var c = moAttrLoad();
+    if (!c || !moAnalyticsAllowed()) return;
+    try {
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attributes: c.cartAttributes }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  // Ensure a token exists, then stamp. viaRender=true is the card-render /
+  // page-load path and stamps at most once per page load (history re-renders
+  // several product cards at once — one stamp is enough); the checkout-click
+  // path passes false and ALWAYS re-stamps (a completed checkout clears the
+  // attributes). 401/403/429/5xx/network: give up silently for this page view.
+  function moAttrEnsure(viaRender) {
+    if (!moAnalyticsAllowed()) return;
+    if (moAttrLoad()) {
+      if (viaRender && moAttrPageStamped) return;
+      moAttrPageStamped = true;
+      moStampCart();
+      return;
+    }
+    if (moAttrInflight || moAttrFailed) return;
+    moAttrInflight = true;
+    try {
+      fetch(API_BASE + '/api/attribution/token', {
+        method: 'POST',
+        headers: { 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid }
+      })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          moAttrInflight = false;
+          if (!data || data.ok !== true || !moAttrValid(data)) { moAttrFailed = true; return; }
+          var c = { sid: sid, token: data.token, cartAttributes: data.cartAttributes };
+          moAttr = c;
+          try { lsSet(MO_ATTR_KEY, JSON.stringify(c)); } catch (e) {}
+          moAttrPageStamped = true;
+          moStampCart();
+        })
+        .catch(function () { moAttrInflight = false; moAttrFailed = true; });
+    } catch (e) { moAttrInflight = false; moAttrFailed = true; }
+  }
+
+  // First product card rendered -> the session is "consulted"; mint lazily.
+  function moAttrOnProductCard() {
+    moAttrConsulted = true;
+    moAttrEnsure(true);
+  }
+
+  function initAttribution() {
+    // Consent may arrive AFTER page load (banner interaction): start stamping
+    // the moment Shopify announces it.
+    try {
+      document.addEventListener('visitorConsentCollected', function () {
+        if (!moAnalyticsAllowed()) return;
+        // Cached token -> re-stamp; consulted but tokenless -> mint now.
+        if (moAttrLoad() || moAttrConsulted) moAttrEnsure(true);
+      });
+    } catch (e) {}
+    // Once per page load: re-stamp if a cached token exists and consent
+    // allows (a checkout in between cleared the attributes). Shopify loads
+    // customerPrivacy async, so retry briefly before giving up — the consent
+    // event above stays armed either way. Never mints here.
+    var tries = 0;
+    (function tick() {
+      if (moAnalyticsAllowed()) {
+        if (moAttrLoad()) moAttrEnsure(true);
+        return;
+      }
+      var cpLoaded = !!(window.Shopify && window.Shopify.customerPrivacy);
+      if (cpLoaded || ++tries > 5) return; // consent denied, or API never loaded
+      setTimeout(tick, tries * 1000);
+    })();
+  }
+
   // tool-add_to_cart -> direct-checkout CTA. Per API_CONTRACT.md the tool id is
   // unchanged but a single call can now cover ONE *or* SEVERAL products in one
   // combined cart: read `productIds` when present, else fall back to the single
@@ -1473,6 +1630,11 @@
           btn.appendChild(icon('cart'));
           btn.appendChild(el('span', { text: L('Zur Kasse', 'Checkout') }));
           btn.addEventListener('click', function () {
+            // Re-stamp the live cart BEFORE the permalink opens (a completed
+            // checkout clears cart attributes). Fire-and-forget: mints the
+            // token first if this session doesn't have one yet, never blocks
+            // or delays the navigation.
+            moAttrEnsure(false);
             track('add_to_cart_clicked', { productId: resolved[0].id, productIds: resolved.map(function (p) { return p.id; }) });
             // The permalink populates the cart in the new tab; poll so this tab's
             // cart UI catches up even if it keeps focus (re-fetch only, no re-add).
@@ -4859,6 +5021,9 @@
           .then(function (data) {
             if (data && data.erased) {
               track('account_erased', {});
+              // Erasure severs the backend's attribution tokens too — drop the
+              // cached one so the widget stops stamping with a dead token.
+              moAttrReset();
               lsDel(historyKey()); messages = []; activeConversationId = null; clearConvKey();
               applyAuth(null); // session no longer resolves
               renderAllMessages();
@@ -4897,6 +5062,9 @@
     recordTrail();
     initNudgeTriggers();
     playLauncherAttention();
+    // Order attribution: arm the consent listener + once-per-page-load
+    // re-stamp of the live cart (only when a cached token already exists).
+    initAttribution();
     // Customer Account: process a sign-in/logout return marker (?ms_auth=…),
     // re-hydrating identity and re-opening the panel onto the SAME conversation.
     handleAuthReturn();
