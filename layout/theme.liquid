@@ -255,6 +255,183 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 });
 </script>
+<script>
+  (function () {
+    if (window.pdaRecommendationSliderReady) {
+      return;
+    }
+
+    window.pdaRecommendationSliderReady = true;
+
+    function getSlider(button) {
+      return button.closest('[data-pda-slider]');
+    }
+
+    function getViewport(slider) {
+      return slider
+        ? slider.querySelector('[data-pda-slider-viewport]')
+        : null;
+    }
+
+    function getScrollDistance(slider) {
+      var viewport = getViewport(slider);
+      var track = slider.querySelector('.pda-recommendations-track');
+      var card = slider.querySelector('.pda-recommendation-card');
+
+      if (!viewport || !track || !card) {
+        return 0;
+      }
+
+      var trackStyles = window.getComputedStyle(track);
+      var gap =
+        parseFloat(trackStyles.columnGap) ||
+        parseFloat(trackStyles.gap) ||
+        0;
+
+      var cardWidth = card.getBoundingClientRect().width;
+
+      return (cardWidth + gap) * 3;
+    }
+
+    function updateButtons(slider) {
+      var viewport = getViewport(slider);
+
+      if (!viewport) {
+        return;
+      }
+
+      var previousButton = slider.querySelector(
+        '[data-pda-slider-prev]'
+      );
+
+      var nextButton = slider.querySelector(
+        '[data-pda-slider-next]'
+      );
+
+      var maximumScroll =
+        viewport.scrollWidth - viewport.clientWidth;
+
+      if (previousButton) {
+        previousButton.disabled = viewport.scrollLeft <= 2;
+      }
+
+      if (nextButton) {
+        nextButton.disabled =
+          maximumScroll <= 2 ||
+          viewport.scrollLeft >= maximumScroll - 2;
+      }
+    }
+
+    document.addEventListener('click', function (event) {
+      var nextButton = event.target.closest(
+        '[data-pda-slider-next]'
+      );
+
+      var previousButton = event.target.closest(
+        '[data-pda-slider-prev]'
+      );
+
+      var button = nextButton || previousButton;
+
+      if (!button) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      var slider = getSlider(button);
+      var viewport = getViewport(slider);
+
+      if (!slider || !viewport) {
+        return;
+      }
+
+      var distance = getScrollDistance(slider);
+
+      if (!distance) {
+        return;
+      }
+
+      viewport.scrollBy({
+        left: nextButton ? distance : -distance,
+        behavior: 'smooth'
+      });
+
+      window.setTimeout(function () {
+        updateButtons(slider);
+      }, 450);
+    });
+
+    document.addEventListener(
+      'scroll',
+      function (event) {
+        var viewport = event.target;
+
+        if (
+          !viewport ||
+          !viewport.matches ||
+          !viewport.matches('[data-pda-slider-viewport]')
+        ) {
+          return;
+        }
+
+        var slider = viewport.closest('[data-pda-slider]');
+
+        if (slider) {
+          updateButtons(slider);
+        }
+      },
+      true
+    );
+
+    function initializeSliders() {
+      document
+        .querySelectorAll('[data-pda-slider]')
+        .forEach(function (slider) {
+          updateButtons(slider);
+        });
+    }
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      initializeSliders
+    );
+
+    document.addEventListener(
+      'shopify:section:load',
+      initializeSliders
+    );
+
+    var observer = new MutationObserver(function (mutations) {
+      var sliderAdded = mutations.some(function (mutation) {
+        return Array.from(mutation.addedNodes).some(function (node) {
+          return (
+            node.nodeType === 1 &&
+            (
+              node.matches('[data-pda-slider]') ||
+              node.querySelector('[data-pda-slider]')
+            )
+          );
+        });
+      });
+
+      if (sliderAdded) {
+        window.requestAnimationFrame(initializeSliders);
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    window.addEventListener('resize', initializeSliders);
+
+    initializeSliders();
+  })();
+</script>
+
     {% render 'ms-chat-widget' %}
   </body>
 </html>

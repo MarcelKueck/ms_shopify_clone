@@ -1,0 +1,1423 @@
+{% doc %}
+  @prompt
+    Bitter erstelle mir ein modernes einzigartiges video with text modul. Das Modul soll bestmöglich anpassen zu sein, Abstände, Positionierung, Farben, Buttons, Überschriften, Schriftstärke und mehr. , das video soll aus unserer datenbank auch entnommen werden können. das design kann noch cooler und moderner gestaltet werden. , die buttoneinstellungen müssen noch verbessert werden, effekt und zeichen
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-video-text-{{ ai_gen_id }} {
+    display: block;
+    width: 100%;
+    background: {{ block.settings.section_background_color }};
+    padding-top: {{ block.settings.padding_top }}px;
+    padding-bottom: {{ block.settings.padding_bottom }}px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-video-text-container-{{ ai_gen_id }} {
+    max-width: {{ block.settings.container_width }}px;
+    margin: 0 auto;
+    padding-left: {{ block.settings.padding_horizontal }}px;
+    padding-right: {{ block.settings.padding_horizontal }}px;
+  }
+
+  .ai-video-text-wrapper-{{ ai_gen_id }} {
+    display: flex;
+    gap: {{ block.settings.gap }}px;
+    align-items: {{ block.settings.vertical_alignment }};
+    {% if block.settings.layout == 'video-left' %}
+      flex-direction: row;
+    {% elsif block.settings.layout == 'video-right' %}
+      flex-direction: row-reverse;
+    {% elsif block.settings.layout == 'video-top' %}
+      flex-direction: column;
+    {% else %}
+      flex-direction: column-reverse;
+    {% endif %}
+  }
+
+  .ai-video-text-video-column-{{ ai_gen_id }} {
+    {% if block.settings.layout == 'video-left' or block.settings.layout == 'video-right' %}
+      flex: 0 0 {{ block.settings.video_width }}%;
+    {% else %}
+      width: 100%;
+    {% endif %}
+  }
+
+  .ai-video-text-content-column-{{ ai_gen_id }} {
+    {% if block.settings.layout == 'video-left' or block.settings.layout == 'video-right' %}
+      flex: 1;
+    {% else %}
+      width: 100%;
+    {% endif %}
+  }
+
+  .ai-video-text-video-wrapper-{{ ai_gen_id }} {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%;
+    border-radius: {{ block.settings.video_border_radius }}px;
+    overflow: hidden;
+    background-color: {{ block.settings.video_background_color }};
+    box-shadow: {{ block.settings.video_shadow_x }}px {{ block.settings.video_shadow_y }}px {{ block.settings.video_shadow_blur }}px rgba(0, 0, 0, {{ block.settings.video_shadow_opacity }});
+  }
+
+  .ai-video-text-video-wrapper-{{ ai_gen_id }} video,
+  .ai-video-text-video-wrapper-{{ ai_gen_id }} iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .ai-video-text-video-placeholder-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    gap: 16px;
+  }
+
+  .ai-video-text-video-placeholder-{{ ai_gen_id }} svg {
+    width: 80px;
+    height: 80px;
+    opacity: 0.9;
+    color: #ffffff;
+  }
+
+  .ai-video-text-placeholder-text-{{ ai_gen_id }} {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.9;
+  }
+
+  .ai-video-text-content-{{ ai_gen_id }} {
+    display: flex;
+    flex-direction: column;
+    gap: {{ block.settings.content_gap }}px;
+    text-align: {{ block.settings.text_alignment }};
+  }
+
+  .ai-video-text-eyebrow-{{ ai_gen_id }} {
+    font-size: {{ block.settings.eyebrow_size }}px;
+    font-weight: {{ block.settings.eyebrow_weight }};
+    color: {{ block.settings.eyebrow_color }};
+    text-transform: {{ block.settings.eyebrow_transform }};
+    letter-spacing: {{ block.settings.eyebrow_letter_spacing }}px;
+    margin: 0;
+    position: relative;
+    display: inline-block;
+  }
+
+  {% if block.settings.eyebrow_underline %}
+    .ai-video-text-eyebrow-{{ ai_gen_id }}::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 40px;
+      height: 2px;
+      background-color: {{ block.settings.eyebrow_color }};
+    }
+  {% endif %}
+
+  .ai-video-text-heading-{{ ai_gen_id }} {
+    font-size: {{ block.settings.heading_size }}px;
+    font-weight: {{ block.settings.heading_weight }};
+    color: {{ block.settings.heading_color }};
+    line-height: {{ block.settings.heading_line_height }};
+    margin: 0;
+  }
+
+  .ai-video-text-description-{{ ai_gen_id }} {
+    font-size: {{ block.settings.description_size }}px;
+    font-weight: {{ block.settings.description_weight }};
+    color: {{ block.settings.description_color }};
+    line-height: {{ block.settings.description_line_height }};
+    margin: 0;
+  }
+
+  .ai-video-text-buttons-{{ ai_gen_id }} {
+    display: flex;
+    gap: {{ block.settings.button_gap }}px;
+    {% if block.settings.text_alignment == 'left' %}
+      justify-content: flex-start;
+    {% elsif block.settings.text_alignment == 'center' %}
+      justify-content: center;
+    {% else %}
+      justify-content: flex-end;
+    {% endif %}
+    flex-wrap: wrap;
+  }
+
+  .ai-video-text-button-{{ ai_gen_id }} {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: {{ block.settings.button_padding_vertical }}px {{ block.settings.button_padding_horizontal }}px;
+    font-size: {{ block.settings.button_font_size }}px;
+    font-weight: {{ block.settings.button_font_weight }};
+    text-decoration: none;
+    text-transform: {{ block.settings.button_text_transform }};
+    letter-spacing: {{ block.settings.button_letter_spacing }}px;
+    border-radius: {{ block.settings.button_border_radius }}px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: {{ block.settings.button_border_width }}px solid transparent;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  {% if block.settings.button_hover_effect == 'ripple' %}
+    .ai-video-text-button-{{ ai_gen_id }}::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s ease, height 0.6s ease;
+      z-index: -1;
+    }
+
+    .ai-video-text-button-{{ ai_gen_id }}:hover::before {
+      width: 400px;
+      height: 400px;
+    }
+  {% elsif block.settings.button_hover_effect == 'slide' %}
+    .ai-video-text-button-{{ ai_gen_id }}::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      transition: left 0.4s ease;
+      z-index: -1;
+    }
+
+    .ai-video-text-button-{{ ai_gen_id }}:hover::before {
+      left: 0;
+    }
+  {% elsif block.settings.button_hover_effect == 'glow' %}
+    .ai-video-text-button-{{ ai_gen_id }}::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: {{ block.settings.button_border_radius }}px;
+      background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      z-index: -1;
+    }
+
+    .ai-video-text-button-{{ ai_gen_id }}:hover::before {
+      opacity: 1;
+    }
+  {% elsif block.settings.button_hover_effect == 'scale' %}
+    .ai-video-text-button-{{ ai_gen_id }}:hover {
+      transform: scale(1.05);
+    }
+  {% endif %}
+
+  .ai-video-text-button-icon-{{ ai_gen_id }} {
+    width: {{ block.settings.button_icon_size }}px;
+    height: {{ block.settings.button_icon_size }}px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    stroke-width: {{ block.settings.button_icon_stroke }};
+  }
+
+  {% if block.settings.button_icon_animation == 'slide' %}
+    .ai-video-text-button-{{ ai_gen_id }}:hover .ai-video-text-button-icon-{{ ai_gen_id }} {
+      transform: translateX(4px);
+    }
+  {% elsif block.settings.button_icon_animation == 'bounce' %}
+    .ai-video-text-button-{{ ai_gen_id }}:hover .ai-video-text-button-icon-{{ ai_gen_id }} {
+      animation: ai-icon-bounce-{{ ai_gen_id }} 0.6s ease;
+    }
+
+    @keyframes ai-icon-bounce-{{ ai_gen_id }} {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(6px); }
+    }
+  {% elsif block.settings.button_icon_animation == 'rotate' %}
+    .ai-video-text-button-{{ ai_gen_id }}:hover .ai-video-text-button-icon-{{ ai_gen_id }} {
+      transform: rotate(90deg);
+    }
+  {% elsif block.settings.button_icon_animation == 'pulse' %}
+    .ai-video-text-button-{{ ai_gen_id }}:hover .ai-video-text-button-icon-{{ ai_gen_id }} {
+      animation: ai-icon-pulse-{{ ai_gen_id }} 0.8s ease infinite;
+    }
+
+    @keyframes ai-icon-pulse-{{ ai_gen_id }} {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+  {% endif %}
+
+  .ai-video-text-button-primary-{{ ai_gen_id }} {
+    background-color: {{ block.settings.button_primary_bg }};
+    color: {{ block.settings.button_primary_color }};
+    border-color: {{ block.settings.button_primary_border }};
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .ai-video-text-button-primary-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.button_primary_bg_hover }};
+    color: {{ block.settings.button_primary_color_hover }};
+    border-color: {{ block.settings.button_primary_border_hover }};
+    {% if block.settings.button_hover_effect != 'scale' %}
+      transform: translateY(-2px);
+    {% endif %}
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .ai-video-text-button-secondary-{{ ai_gen_id }} {
+    background-color: {{ block.settings.button_secondary_bg }};
+    color: {{ block.settings.button_secondary_color }};
+    border-color: {{ block.settings.button_secondary_border }};
+  }
+
+  .ai-video-text-button-secondary-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.button_secondary_bg_hover }};
+    color: {{ block.settings.button_secondary_color_hover }};
+    border-color: {{ block.settings.button_secondary_border_hover }};
+    {% if block.settings.button_hover_effect != 'scale' %}
+      transform: translateY(-2px);
+    {% endif %}
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-video-text-wrapper-{{ ai_gen_id }} {
+      flex-direction: column;
+      gap: {{ block.settings.gap_mobile }}px;
+    }
+
+    .ai-video-text-video-column-{{ ai_gen_id }},
+    .ai-video-text-content-column-{{ ai_gen_id }} {
+      flex: none;
+      width: 100%;
+    }
+
+    .ai-video-text-heading-{{ ai_gen_id }} {
+      font-size: {{ block.settings.heading_size_mobile }}px;
+    }
+
+    .ai-video-text-description-{{ ai_gen_id }} {
+      font-size: {{ block.settings.description_size_mobile }}px;
+    }
+
+    .ai-video-text-{{ ai_gen_id }} {
+      padding-top: {{ block.settings.padding_top_mobile }}px;
+      padding-bottom: {{ block.settings.padding_bottom_mobile }}px;
+    }
+
+    .ai-video-text-content-{{ ai_gen_id }} {
+      text-align: {{ block.settings.text_alignment_mobile }};
+    }
+
+    .ai-video-text-buttons-{{ ai_gen_id }} {
+      {% if block.settings.text_alignment_mobile == 'left' %}
+        justify-content: flex-start;
+      {% elsif block.settings.text_alignment_mobile == 'center' %}
+        justify-content: center;
+      {% else %}
+        justify-content: flex-end;
+      {% endif %}
+    }
+  }
+{% endstyle %}
+
+<video-text-block-{{ ai_gen_id }} class="ai-video-text-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  <div class="ai-video-text-container-{{ ai_gen_id }}">
+    <div class="ai-video-text-wrapper-{{ ai_gen_id }}">
+      <div class="ai-video-text-video-column-{{ ai_gen_id }}">
+        <div class="ai-video-text-video-wrapper-{{ ai_gen_id }}">
+          {% if block.settings.video_shopify != blank %}
+            {{ block.settings.video_shopify | video_tag: autoplay: block.settings.autoplay, loop: block.settings.loop, controls: block.settings.controls, muted: block.settings.mute }}
+          {% elsif block.settings.video_url != blank %}
+            {% if block.settings.video_url contains 'youtube.com' or block.settings.video_url contains 'youtu.be' %}
+              {% assign video_id = block.settings.video_url | split: 'v=' | last | split: '&' | first %}
+              {% if block.settings.video_url contains 'youtu.be' %}
+                {% assign video_id = block.settings.video_url | split: 'youtu.be/' | last | split: '?' | first %}
+              {% endif %}
+              <iframe
+                src="https://www.youtube.com/embed/{{ video_id }}?autoplay={{ block.settings.autoplay }}&mute={{ block.settings.mute }}&loop={{ block.settings.loop }}&controls={{ block.settings.controls }}"
+                frameborder="0"
+                allow="autoplay; encrypted-media"
+                allowfullscreen
+              ></iframe>
+            {% elsif block.settings.video_url contains 'vimeo.com' %}
+              {% assign video_id = block.settings.video_url | split: 'vimeo.com/' | last | split: '?' | first %}
+              <iframe
+                src="https://player.vimeo.com/video/{{ video_id }}?autoplay={{ block.settings.autoplay }}&muted={{ block.settings.mute }}&loop={{ block.settings.loop }}&controls={{ block.settings.controls }}"
+                frameborder="0"
+                allow="autoplay; fullscreen"
+                allowfullscreen
+              ></iframe>
+            {% else %}
+              <video
+                {% if block.settings.autoplay %}autoplay{% endif %}
+                {% if block.settings.mute %}muted{% endif %}
+                {% if block.settings.loop %}loop{% endif %}
+                {% if block.settings.controls %}controls{% endif %}
+                playsinline
+              >
+                <source src="{{ block.settings.video_url }}" type="video/mp4">
+              </video>
+            {% endif %}
+          {% else %}
+            <div class="ai-video-text-video-placeholder-{{ ai_gen_id }}">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span class="ai-video-text-placeholder-text-{{ ai_gen_id }}">Video hinzufügen</span>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="ai-video-text-content-column-{{ ai_gen_id }}">
+        <div class="ai-video-text-content-{{ ai_gen_id }}">
+          {% if block.settings.eyebrow != blank %}
+            <p class="ai-video-text-eyebrow-{{ ai_gen_id }}">{{ block.settings.eyebrow }}</p>
+          {% endif %}
+
+          {% if block.settings.heading != blank %}
+            <h2 class="ai-video-text-heading-{{ ai_gen_id }}">{{ block.settings.heading }}</h2>
+          {% endif %}
+
+          {% if block.settings.description != blank %}
+            <div class="ai-video-text-description-{{ ai_gen_id }}">{{ block.settings.description }}</div>
+          {% endif %}
+
+          {% if block.settings.button_primary_label != blank or block.settings.button_secondary_label != blank %}
+            <div class="ai-video-text-buttons-{{ ai_gen_id }}">
+              {% if block.settings.button_primary_label != blank %}
+                <a
+                  href="{{ block.settings.button_primary_link }}"
+                  class="ai-video-text-button-{{ ai_gen_id }} ai-video-text-button-primary-{{ ai_gen_id }}"
+                >
+                  <span>{{ block.settings.button_primary_label }}</span>
+                  {% if block.settings.show_button_icon %}
+                    {% if block.settings.button_icon_style == 'arrow' %}
+                      <svg class="ai-video-text-button-icon-{{ ai_gen_id }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                      </svg>
+                    {% elsif block.settings.button_icon_style == 'chevron' %}
+                      <svg class="ai-video-text-button-icon-{{ ai_gen_id }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                      </svg>
+                    {% elsif block.settings.button_icon_style == 'plus' %}
+                      <svg class="ai-video-text-button-icon-{{ ai_gen_id }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    {% elsif block.settings.button_icon_style == 'external' %}
+                      <svg class="ai-video-text-button-icon-{{ ai_gen_id }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                    {% endif %}
+                  {% endif %}
+                </a>
+              {% endif %}
+
+              {% if block.settings.button_secondary_label != blank %}
+                <a
+                  href="{{ block.settings.button_secondary_link }}"
+                  class="ai-video-text-button-{{ ai_gen_id }} ai-video-text-button-secondary-{{ ai_gen_id }}"
+                >
+                  <span>{{ block.settings.button_secondary_label }}</span>
+                  {% if block.settings.show_button_icon %}
+                    {% if block.settings.button_icon_style == 'arrow' %}
+                      <svg class="ai-video-text-button-icon-{{ ai_gen_id }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                      </svg>
+                    {% elsif block.settings.button_icon_style == 'chevron' %}
+                      <svg class="ai-video-text-button-icon-{{ ai_gen_id }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                      </svg>
+                    {% elsif block.settings.button_icon_style == 'plus' %}
+                      <svg class="ai-video-text-button-icon-{{ ai_gen_id }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    {% elsif block.settings.button_icon_style == 'external' %}
+                      <svg class="ai-video-text-button-icon-{{ ai_gen_id }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                    {% endif %}
+                  {% endif %}
+                </a>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</video-text-block-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class VideoTextBlock{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        this.video = this.querySelector('video');
+        if (this.video) {
+          this.setupVideoObserver();
+        }
+      }
+
+      setupVideoObserver() {
+        const options = {
+          root: null,
+          rootMargin: '0px',
+          threshold: 0.5
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              if (this.video.paused) {
+                this.video.play().catch(() => {});
+              }
+            } else {
+              if (!this.video.paused) {
+                this.video.pause();
+              }
+            }
+          });
+        }, options);
+
+        observer.observe(this);
+      }
+    }
+
+    customElements.define('video-text-block-{{ ai_gen_id }}', VideoTextBlock{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Video mit Text",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "options": [
+        {
+          "value": "video-left",
+          "label": "Video links"
+        },
+        {
+          "value": "video-right",
+          "label": "Video rechts"
+        },
+        {
+          "value": "video-top",
+          "label": "Video oben"
+        },
+        {
+          "value": "video-bottom",
+          "label": "Video unten"
+        }
+      ],
+      "default": "video-left"
+    },
+    {
+      "type": "range",
+      "id": "video_width",
+      "label": "Video Breite",
+      "min": 30,
+      "max": 70,
+      "step": 5,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "container_width",
+      "label": "Container Breite",
+      "min": 1000,
+      "max": 1800,
+      "step": 100,
+      "unit": "px",
+      "default": 1400
+    },
+    {
+      "type": "range",
+      "id": "gap",
+      "label": "Abstand zwischen Video und Text",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "gap_mobile",
+      "label": "Abstand mobil",
+      "min": 0,
+      "max": 60,
+      "step": 5,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "select",
+      "id": "vertical_alignment",
+      "label": "Vertikale Ausrichtung",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Oben"
+        },
+        {
+          "value": "center",
+          "label": "Mitte"
+        },
+        {
+          "value": "flex-end",
+          "label": "Unten"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Video"
+    },
+    {
+      "type": "video",
+      "id": "video_shopify",
+      "label": "Video aus Shopify Datenbank"
+    },
+    {
+      "type": "text",
+      "id": "video_url",
+      "label": "Video URL",
+      "info": "YouTube, Vimeo oder direkte MP4 URL (wird nur verwendet wenn kein Shopify Video ausgewählt ist)"
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "Autoplay",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "mute",
+      "label": "Stumm",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "loop",
+      "label": "Wiederholen",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "controls",
+      "label": "Steuerelemente anzeigen",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "video_border_radius",
+      "label": "Video Eckenradius",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "color",
+      "id": "video_background_color",
+      "label": "Video Hintergrundfarbe",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Video Schatten"
+    },
+    {
+      "type": "range",
+      "id": "video_shadow_x",
+      "label": "Schatten X",
+      "min": -20,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "video_shadow_y",
+      "label": "Schatten Y",
+      "min": -20,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "video_shadow_blur",
+      "label": "Schatten Weichzeichnung",
+      "min": 0,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "video_shadow_opacity",
+      "label": "Schatten Deckkraft",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.2
+    },
+    {
+      "type": "header",
+      "content": "Inhalt"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Überschrift klein"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "Überschrift",
+      "default": "Entdecken Sie unsere Produkte"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "Beschreibung",
+      "default": "<p>Hochwertige Fitnessgeräte für Ihr Zuhause und Studio. Erleben Sie Premium-Qualität und modernes Design.</p>"
+    },
+    {
+      "type": "range",
+      "id": "content_gap",
+      "label": "Abstand zwischen Elementen",
+      "min": 5,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Textausrichtung Desktop",
+      "options": [
+        {
+          "value": "left",
+          "label": "Links"
+        },
+        {
+          "value": "center",
+          "label": "Mitte"
+        },
+        {
+          "value": "right",
+          "label": "Rechts"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment_mobile",
+      "label": "Textausrichtung Mobil",
+      "options": [
+        {
+          "value": "left",
+          "label": "Links"
+        },
+        {
+          "value": "center",
+          "label": "Mitte"
+        },
+        {
+          "value": "right",
+          "label": "Rechts"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Überschrift klein Stil"
+    },
+    {
+      "type": "range",
+      "id": "eyebrow_size",
+      "label": "Schriftgröße",
+      "min": 10,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "select",
+      "id": "eyebrow_weight",
+      "label": "Schriftstärke",
+      "options": [
+        {
+          "value": "300",
+          "label": "Leicht"
+        },
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Mittel"
+        },
+        {
+          "value": "600",
+          "label": "Halbfett"
+        },
+        {
+          "value": "700",
+          "label": "Fett"
+        }
+      ],
+      "default": "600"
+    },
+    {
+      "type": "select",
+      "id": "eyebrow_transform",
+      "label": "Textumwandlung",
+      "options": [
+        {
+          "value": "none",
+          "label": "Keine"
+        },
+        {
+          "value": "uppercase",
+          "label": "Großbuchstaben"
+        },
+        {
+          "value": "lowercase",
+          "label": "Kleinbuchstaben"
+        }
+      ],
+      "default": "uppercase"
+    },
+    {
+      "type": "range",
+      "id": "eyebrow_letter_spacing",
+      "label": "Buchstabenabstand",
+      "min": 0,
+      "max": 5,
+      "step": 0.5,
+      "unit": "px",
+      "default": 1
+    },
+    {
+      "type": "color",
+      "id": "eyebrow_color",
+      "label": "Farbe",
+      "default": "#666666"
+    },
+    {
+      "type": "checkbox",
+      "id": "eyebrow_underline",
+      "label": "Unterstrich anzeigen",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Überschrift Stil"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Schriftgröße Desktop",
+      "min": 20,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "heading_size_mobile",
+      "label": "Schriftgröße Mobil",
+      "min": 20,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "select",
+      "id": "heading_weight",
+      "label": "Schriftstärke",
+      "options": [
+        {
+          "value": "300",
+          "label": "Leicht"
+        },
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Mittel"
+        },
+        {
+          "value": "600",
+          "label": "Halbfett"
+        },
+        {
+          "value": "700",
+          "label": "Fett"
+        }
+      ],
+      "default": "700"
+    },
+    {
+      "type": "range",
+      "id": "heading_line_height",
+      "label": "Zeilenhöhe",
+      "min": 1,
+      "max": 2,
+      "step": 0.1,
+      "default": 1.2
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Farbe",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Beschreibung Stil"
+    },
+    {
+      "type": "range",
+      "id": "description_size",
+      "label": "Schriftgröße Desktop",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "description_size_mobile",
+      "label": "Schriftgröße Mobil",
+      "min": 12,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "select",
+      "id": "description_weight",
+      "label": "Schriftstärke",
+      "options": [
+        {
+          "value": "300",
+          "label": "Leicht"
+        },
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Mittel"
+        },
+        {
+          "value": "600",
+          "label": "Halbfett"
+        }
+      ],
+      "default": "400"
+    },
+    {
+      "type": "range",
+      "id": "description_line_height",
+      "label": "Zeilenhöhe",
+      "min": 1,
+      "max": 2,
+      "step": 0.1,
+      "default": 1.6
+    },
+    {
+      "type": "color",
+      "id": "description_color",
+      "label": "Farbe",
+      "default": "#333333"
+    },
+    {
+      "type": "header",
+      "content": "Buttons"
+    },
+    {
+      "type": "text",
+      "id": "button_primary_label",
+      "label": "Primärer Button Text"
+    },
+    {
+      "type": "url",
+      "id": "button_primary_link",
+      "label": "Primärer Button Link"
+    },
+    {
+      "type": "text",
+      "id": "button_secondary_label",
+      "label": "Sekundärer Button Text"
+    },
+    {
+      "type": "url",
+      "id": "button_secondary_link",
+      "label": "Sekundärer Button Link"
+    },
+    {
+      "type": "range",
+      "id": "button_gap",
+      "label": "Abstand zwischen Buttons",
+      "min": 5,
+      "max": 30,
+      "step": 5,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "header",
+      "content": "Button Stil"
+    },
+    {
+      "type": "range",
+      "id": "button_font_size",
+      "label": "Schriftgröße",
+      "min": 12,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "select",
+      "id": "button_font_weight",
+      "label": "Schriftstärke",
+      "options": [
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Mittel"
+        },
+        {
+          "value": "600",
+          "label": "Halbfett"
+        },
+        {
+          "value": "700",
+          "label": "Fett"
+        }
+      ],
+      "default": "600"
+    },
+    {
+      "type": "select",
+      "id": "button_text_transform",
+      "label": "Textumwandlung",
+      "options": [
+        {
+          "value": "none",
+          "label": "Keine"
+        },
+        {
+          "value": "uppercase",
+          "label": "Großbuchstaben"
+        },
+        {
+          "value": "lowercase",
+          "label": "Kleinbuchstaben"
+        },
+        {
+          "value": "capitalize",
+          "label": "Erster Buchstabe groß"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "range",
+      "id": "button_letter_spacing",
+      "label": "Buchstabenabstand",
+      "min": 0,
+      "max": 3,
+      "step": 0.5,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "button_padding_vertical",
+      "label": "Innenabstand vertikal",
+      "min": 5,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "button_padding_horizontal",
+      "label": "Innenabstand horizontal",
+      "min": 10,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Eckenradius",
+      "min": 0,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "button_border_width",
+      "label": "Rahmenbreite",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Button Effekte"
+    },
+    {
+      "type": "select",
+      "id": "button_hover_effect",
+      "label": "Hover Effekt",
+      "options": [
+        {
+          "value": "ripple",
+          "label": "Ripple"
+        },
+        {
+          "value": "slide",
+          "label": "Slide"
+        },
+        {
+          "value": "glow",
+          "label": "Glow"
+        },
+        {
+          "value": "scale",
+          "label": "Scale"
+        },
+        {
+          "value": "none",
+          "label": "Keine"
+        }
+      ],
+      "default": "ripple"
+    },
+    {
+      "type": "header",
+      "content": "Button Icon"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_button_icon",
+      "label": "Icon anzeigen",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "button_icon_style",
+      "label": "Icon Stil",
+      "options": [
+        {
+          "value": "arrow",
+          "label": "Pfeil"
+        },
+        {
+          "value": "chevron",
+          "label": "Chevron"
+        },
+        {
+          "value": "plus",
+          "label": "Plus"
+        },
+        {
+          "value": "external",
+          "label": "Extern"
+        }
+      ],
+      "default": "arrow"
+    },
+    {
+      "type": "select",
+      "id": "button_icon_animation",
+      "label": "Icon Animation",
+      "options": [
+        {
+          "value": "slide",
+          "label": "Slide"
+        },
+        {
+          "value": "bounce",
+          "label": "Bounce"
+        },
+        {
+          "value": "rotate",
+          "label": "Rotate"
+        },
+        {
+          "value": "pulse",
+          "label": "Pulse"
+        },
+        {
+          "value": "none",
+          "label": "Keine"
+        }
+      ],
+      "default": "slide"
+    },
+    {
+      "type": "range",
+      "id": "button_icon_size",
+      "label": "Icon Größe",
+      "min": 12,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "button_icon_stroke",
+      "label": "Icon Strichstärke",
+      "min": 1,
+      "max": 3,
+      "step": 0.5,
+      "default": 2
+    },
+    {
+      "type": "header",
+      "content": "Primärer Button Farben"
+    },
+    {
+      "type": "color",
+      "id": "button_primary_bg",
+      "label": "Hintergrund",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_primary_color",
+      "label": "Text",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "button_primary_border",
+      "label": "Rahmen",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_primary_bg_hover",
+      "label": "Hintergrund Hover",
+      "default": "#333333"
+    },
+    {
+      "type": "color",
+      "id": "button_primary_color_hover",
+      "label": "Text Hover",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "button_primary_border_hover",
+      "label": "Rahmen Hover",
+      "default": "#333333"
+    },
+    {
+      "type": "header",
+      "content": "Sekundärer Button Farben"
+    },
+    {
+      "type": "color",
+      "id": "button_secondary_bg",
+      "label": "Hintergrund",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "button_secondary_color",
+      "label": "Text",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_secondary_border",
+      "label": "Rahmen",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_secondary_bg_hover",
+      "label": "Hintergrund Hover",
+      "default": "#f4f4f4"
+    },
+    {
+      "type": "color",
+      "id": "button_secondary_color_hover",
+      "label": "Text Hover",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_secondary_border_hover",
+      "label": "Rahmen Hover",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Abstände"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Innenabstand oben Desktop",
+      "min": 0,
+      "max": 150,
+      "step": 5,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Innenabstand unten Desktop",
+      "min": 0,
+      "max": 150,
+      "step": 5,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Innenabstand oben Mobil",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Innenabstand unten Mobil",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_horizontal",
+      "label": "Innenabstand horizontal",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Farben"
+    },
+    {
+      "type": "color",
+      "id": "section_background_color",
+      "label": "Hintergrundfarbe",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "desktop_width_percent",
+      "label": "Desktop Breite",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    }
+  ],
+  "presets": [
+    {
+      "name": "Video mit Text"
+    }
+  ]
+}
+{% endschema %}

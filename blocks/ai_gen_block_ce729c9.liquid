@@ -1,0 +1,362 @@
+{% doc %}
+  @prompt
+    Kannst du mir ein modernes Modul bauen, in welchem wir variabel Image Bilder der Produkte ausgeben können. Ziel ist Bilder mit gewissen Abstand, Größe, Hoover etc. neben einander darzustellen. Wenn keine Bilder gepflegt sind, dann soll das Modul nicht sichtbar sein. Positionierung soll zwischen Product und Tabs-Product sein.
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-product-image-gallery-{{ ai_gen_id }} {
+    display: block;
+    width: {{ block.settings.desktop_width_percent }}%;
+    max-width: 100%;
+    margin: {{ block.settings.spacing_top }}px auto {{ block.settings.spacing_bottom }}px;
+  }
+
+  .ai-product-image-gallery__container-{{ ai_gen_id }} {
+    display: grid;
+    grid-template-columns: repeat({{ block.settings.columns_desktop }}, 1fr);
+    gap: {{ block.settings.image_spacing }}px;
+    width: 100%;
+  }
+
+  .ai-product-image-gallery__item-{{ ai_gen_id }} {
+    position: relative;
+    overflow: hidden;
+    border-radius: {{ block.settings.image_border_radius }}px;
+    background-color: {{ block.settings.image_background_color }};
+  }
+
+  .ai-product-image-gallery__image-wrapper-{{ ai_gen_id }} {
+    position: relative;
+    width: 100%;
+    padding-bottom: {{ block.settings.image_aspect_ratio }}%;
+    overflow: hidden;
+  }
+
+  .ai-product-image-gallery__image-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform {{ block.settings.hover_animation_duration }}s ease;
+  }
+
+  {% if block.settings.enable_hover_zoom %}
+    .ai-product-image-gallery__item-{{ ai_gen_id }}:hover .ai-product-image-gallery__image-{{ ai_gen_id }} {
+      transform: scale({{ block.settings.hover_zoom_scale }});
+    }
+  {% endif %}
+
+  {% if block.settings.enable_hover_overlay %}
+    .ai-product-image-gallery__overlay-{{ ai_gen_id }} {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: {{ block.settings.overlay_color }};
+      opacity: 0;
+      transition: opacity {{ block.settings.hover_animation_duration }}s ease;
+      pointer-events: none;
+    }
+
+    .ai-product-image-gallery__item-{{ ai_gen_id }}:hover .ai-product-image-gallery__overlay-{{ ai_gen_id }} {
+      opacity: {{ block.settings.overlay_opacity }};
+    }
+  {% endif %}
+
+  @media screen and (max-width: 749px) {
+    .ai-product-image-gallery__container-{{ ai_gen_id }} {
+      grid-template-columns: repeat({{ block.settings.columns_mobile }}, 1fr);
+      gap: {{ block.settings.image_spacing | times: 0.75 }}px;
+    }
+  }
+{% endstyle %}
+
+{% liquid
+  assign has_images = false
+  
+  if block.settings.image_1 != blank or block.settings.image_2 != blank or block.settings.image_3 != blank or block.settings.image_4 != blank or block.settings.image_5 != blank or block.settings.image_6 != blank
+    assign has_images = true
+  endif
+%}
+
+{% if has_images %}
+  <product-image-gallery-{{ ai_gen_id }} class="ai-product-image-gallery-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+    <div class="ai-product-image-gallery__container-{{ ai_gen_id }}">
+      {% for i in (1..6) %}
+        {% liquid
+          assign image_key = 'image_' | append: i
+          assign image = block.settings[image_key]
+        %}
+        
+        {% if image != blank %}
+          <div class="ai-product-image-gallery__item-{{ ai_gen_id }}">
+            <div class="ai-product-image-gallery__image-wrapper-{{ ai_gen_id }}">
+              <img
+                src="{{ image | image_url: width: 800 }}"
+                srcset="{{ image | image_url: width: 400 }} 400w,
+                        {{ image | image_url: width: 600 }} 600w,
+                        {{ image | image_url: width: 800 }} 800w,
+                        {{ image | image_url: width: 1000 }} 1000w"
+                sizes="(min-width: 750px) calc((100vw - 40px) / {{ block.settings.columns_desktop }}), calc((100vw - 20px) / {{ block.settings.columns_mobile }})"
+                alt="{{ image.alt | escape }}"
+                loading="lazy"
+                width="{{ image.width }}"
+                height="{{ image.height }}"
+                class="ai-product-image-gallery__image-{{ ai_gen_id }}"
+              >
+              {% if block.settings.enable_hover_overlay %}
+                <div class="ai-product-image-gallery__overlay-{{ ai_gen_id }}"></div>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </product-image-gallery-{{ ai_gen_id }}>
+
+  <script>
+    (function() {
+      class ProductImageGallery{{ ai_gen_id }} extends HTMLElement {
+        constructor() {
+          super();
+        }
+
+        connectedCallback() {
+          this.images = this.querySelectorAll('.ai-product-image-gallery__image-{{ ai_gen_id }}');
+          this.setupAccessibility();
+        }
+
+        setupAccessibility() {
+          this.images.forEach((img) => {
+            const wrapper = img.closest('.ai-product-image-gallery__item-{{ ai_gen_id }}');
+            wrapper.setAttribute('role', 'img');
+            if (img.alt) {
+              wrapper.setAttribute('aria-label', img.alt);
+            }
+          });
+        }
+      }
+
+      customElements.define('product-image-gallery-{{ ai_gen_id }}', ProductImageGallery{{ ai_gen_id }});
+    })();
+  </script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Product image gallery",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Images"
+    },
+    {
+      "type": "paragraph",
+      "content": "Add up to 6 product images. The block will only appear if at least one image is added."
+    },
+    {
+      "type": "image_picker",
+      "id": "image_1",
+      "label": "Image 1"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_2",
+      "label": "Image 2"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_3",
+      "label": "Image 3"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_4",
+      "label": "Image 4"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_5",
+      "label": "Image 5"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_6",
+      "label": "Image 6"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "Columns on desktop",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "label": "Columns on mobile",
+      "options": [
+        {
+          "value": "1",
+          "label": "1"
+        },
+        {
+          "value": "2",
+          "label": "2"
+        }
+      ],
+      "default": "2"
+    },
+    {
+      "type": "range",
+      "id": "image_spacing",
+      "label": "Image spacing",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "desktop_width_percent",
+      "label": "Desktop width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "spacing_top",
+      "label": "Spacing top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom",
+      "label": "Spacing bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Image style"
+    },
+    {
+      "type": "select",
+      "id": "image_aspect_ratio",
+      "label": "Image aspect ratio",
+      "options": [
+        {
+          "value": "100",
+          "label": "Square (1:1)"
+        },
+        {
+          "value": "133",
+          "label": "Portrait (3:4)"
+        },
+        {
+          "value": "75",
+          "label": "Landscape (4:3)"
+        },
+        {
+          "value": "56.25",
+          "label": "Wide (16:9)"
+        }
+      ],
+      "default": "100"
+    },
+    {
+      "type": "range",
+      "id": "image_border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "color",
+      "id": "image_background_color",
+      "label": "Background color",
+      "default": "#f9f9f9"
+    },
+    {
+      "type": "header",
+      "content": "Hover effects"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_hover_zoom",
+      "label": "Enable zoom on hover",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "hover_zoom_scale",
+      "label": "Zoom scale",
+      "min": 1,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 1.1
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_hover_overlay",
+      "label": "Enable overlay on hover",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Overlay color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Overlay opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.2
+    },
+    {
+      "type": "range",
+      "id": "hover_animation_duration",
+      "label": "Animation duration",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "unit": "s",
+      "default": 0.3
+    }
+  ],
+  "presets": [
+    {
+      "name": "Product image gallery"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,203 @@
+{% comment %}
+  Snippet: product-qa
+  Rendert die Q&A-Paare aus dem Produkt-Metafeld custom.qa (Typ: JSON).
+
+  Erwartetes Format des Metafelds (Array, älteste zuerst, max. 20 Einträge):
+  [{ "q": "Frage …", "a": "Antwort …", "a_html": "… <a …>…</a> …",
+     "q_en": "Question …", "a_en": "Answer …", "a_en_html": "…" }, ...]
+  q/a (Deutsch) sind Pflicht, alle anderen Felder optional.
+
+  a_html / a_en_html (Produktlinks aus dem Admin-"Wissen"-Tab): nur vorhanden,
+  wenn die Antwort einen Link enthält. Server-seitig VOR-GERENDERTES, bereits
+  vollständig escapetes HTML, dessen einzige Tags einfache
+  <a href="https://…" target="_blank" rel="noopener noreferrer">-Anker sind
+  (kein Inline-Styling, keine anderen Tags). Das Plain-Feld (a/a_en) kann dann
+  rohes Markdown "[Text](URL)" enthalten — deshalb rendert der Tab die
+  HTML-Variante RAW (unescaped, KEIN Markdown-Parser im Theme) und nutzt das
+  Plain-Feld nur als Fallback für Einträge ohne Link (escaped wie bisher).
+
+  Verhalten:
+  - Rendert nur Einträge mit nicht-leerem q UND a; alles andere wird still übersprungen.
+  - Auf englischer Storefront (request.locale.iso_code beginnt mit "en") wird pro
+    Eintrag q_en/a_en (+ a_en_html) angezeigt, wenn BEIDE q_en/a_en vorhanden
+    sind – sonst Fallback auf die deutschen Felder. Alle anderen Sprachen
+    zeigen immer die deutschen Felder.
+  - Ist kein gültiger Eintrag vorhanden, wird gar nichts ausgegeben.
+  - Fragen (q/q_en) sind IMMER Plain-Text und werden escaped — nie als HTML.
+  - Zeilenumbrüche (\n) bleiben in beiden Antwort-Varianten erhalten
+    (newline_to_br — fügt in a_html nur <br> ein, unbedenklich).
+  - Zusätzlich wird ein separater JSON-LD-Block (schema.org FAQPage) ausgegeben,
+    aufgebaut aus denselben sprach-aufgelösten Texten wie der sichtbare Tab
+    (bei Link-Antworten aus dem HTML, per strip_html — so leakt kein Markdown).
+
+  Verwendung: {% render 'product-qa', product: product %}
+{% endcomment %}
+
+{%- liquid
+  assign qa_value = product.metafields.custom.qa.value
+  assign qa_use_en = false
+  assign qa_locale = request.locale.iso_code | slice: 0, 2 | downcase
+  if qa_locale == 'en'
+    assign qa_use_en = true
+  endif
+  assign qa_valid_count = 0
+  if qa_value
+    for qa_item in qa_value limit: 20
+      assign qa_q = qa_item['q'] | strip_html | strip
+      assign qa_a = qa_item['a'] | strip_html | strip
+      if qa_q != '' and qa_a != ''
+        assign qa_valid_count = qa_valid_count | plus: 1
+      endif
+    endfor
+  endif
+-%}
+
+{%- if qa_valid_count > 0 -%}
+  <div class="product-qa">
+    {%- for qa_item in qa_value limit: 20 -%}
+      {%- assign qa_q = qa_item['q'] | strip_html | strip -%}
+      {%- assign qa_a = qa_item['a'] | strip_html | strip -%}
+      {%- if qa_q != '' and qa_a != '' -%}
+        {%- assign qa_a_html = qa_item['a_html'] | strip -%}
+        {%- if qa_use_en -%}
+          {%- assign qa_q_en = qa_item['q_en'] | strip_html | strip -%}
+          {%- assign qa_a_en = qa_item['a_en'] | strip_html | strip -%}
+          {%- if qa_q_en != '' and qa_a_en != '' -%}
+            {%- assign qa_q = qa_q_en -%}
+            {%- assign qa_a = qa_a_en -%}
+            {%- comment -%} Englisches Paar aktiv → auch die englische HTML-
+              Variante (oder keine, wenn die Antwort keinen Link hat). {%- endcomment -%}
+            {%- assign qa_a_html = qa_item['a_en_html'] | strip -%}
+          {%- endif -%}
+        {%- endif -%}
+        <details class="product-qa__item">
+          <summary class="product-qa__question">{{ qa_q | escape }}</summary>
+          <div class="product-qa__answer">
+            {%- if qa_a_html != blank -%}
+              {%- comment -%} Server-seitig vor-gerendert + escaped (nur
+                <a>-Anker) — RAW ausgeben, NICHT erneut escapen. {%- endcomment -%}
+              <p>{{ qa_a_html | newline_to_br }}</p>
+            {%- else -%}
+              <p>{{ qa_a | escape | newline_to_br }}</p>
+            {%- endif -%}
+            <p class="product-qa__meta">{{ 'products.product.qa_answered_by' | t }}</p>
+          </div>
+        </details>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+
+  <style>
+    .product-qa .product-qa__item {
+      border-bottom: 1px solid rgba(0,0,0,.08);
+    }
+
+    .product-qa .product-qa__item:last-child {
+      border-bottom: 0;
+    }
+
+    .product-qa .product-qa__question {
+      cursor: pointer;
+      list-style: none;
+      position: relative;
+      padding: .9rem 2rem .9rem 0;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .product-qa .product-qa__question::-webkit-details-marker {
+      display: none;
+    }
+
+    .product-qa .product-qa__question::after {
+      content: "+";
+      position: absolute;
+      right: .25rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: #008ccb;
+    }
+
+    .product-qa .product-qa__item[open] > .product-qa__question::after {
+      content: "\2212";
+    }
+
+    .product-qa .product-qa__question:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px rgba(0,140,203,.18);
+      border-radius: 6px;
+    }
+
+    .product-qa .product-qa__answer {
+      padding: 0 0 1rem;
+    }
+
+    .product-qa .product-qa__answer p {
+      margin: 0 0 .5rem;
+      line-height: 1.55;
+    }
+
+    /* Produktlinks aus a_html/a_en_html — die Anker kommen ohne eigenes
+       Styling und erben hier den Shop-Linkstil (Markenblau + Unterstrich). */
+    .product-qa .product-qa__answer a {
+      color: #008ccb;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .product-qa .product-qa__answer a:hover {
+      color: #0077ac;
+    }
+
+    .product-qa .product-qa__meta {
+      font-size: .8rem;
+      color: #777;
+      margin: 0;
+    }
+  </style>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {%- assign qa_ld_first = true -%}
+      {%- for qa_item in qa_value limit: 20 -%}
+        {%- assign qa_q = qa_item['q'] | strip_html | strip -%}
+        {%- assign qa_a = qa_item['a'] | strip_html | strip -%}
+        {%- if qa_q != '' and qa_a != '' -%}
+          {%- assign qa_a_html = qa_item['a_html'] | strip -%}
+          {%- if qa_use_en -%}
+            {%- assign qa_q_en = qa_item['q_en'] | strip_html | strip -%}
+            {%- assign qa_a_en = qa_item['a_en'] | strip_html | strip -%}
+            {%- if qa_q_en != '' and qa_a_en != '' -%}
+              {%- assign qa_q = qa_q_en -%}
+              {%- assign qa_a = qa_a_en -%}
+              {%- assign qa_a_html = qa_item['a_en_html'] | strip -%}
+            {%- endif -%}
+          {%- endif -%}
+          {%- comment -%} Link-Antworten: Linktext statt Markdown im JSON-LD
+            (strip_html reduziert die Anker auf ihren Text). {%- endcomment -%}
+          {%- if qa_a_html != blank -%}
+            {%- assign qa_a = qa_a_html | strip_html | strip -%}
+          {%- endif -%}
+          {%- unless qa_ld_first -%},{%- endunless -%}
+          {%- assign qa_ld_first = false -%}
+          {
+            "@type": "Question",
+            "name": {{ qa_q | json }},
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": {{ qa_a | json }}
+            }
+          }
+        {%- endif -%}
+      {%- endfor -%}
+    ]
+  }
+  </script>
+{%- endif -%}

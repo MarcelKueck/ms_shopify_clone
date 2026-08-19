@@ -1,0 +1,870 @@
+{% doc %}
+  @prompt
+    kopiere mir 1 zu 1 den image with text overlay und baue noch ein das man die höhe der bilder sowhol desktop als auch mobil einstellen kann, kann kein mobiles bild einfügen, die breite sollte auch für mobil einstellbar sein sowie die overlay capacity. ganz viele glow und shadow effekte für den button einfügen., zusätzlich muss das bild noch in dem abschnitte positioniert werden können, also left, center, right, das bild muss zenterierbar sein, es ist immer noch nicht zentrierbar. das bild muss in der mitte von dem abschnitt zentriert werden können, leider bleibt das bild immer noch links wenn ich die desktop width auf 75 einstelle
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-image-text-overlay-container-{{ ai_gen_id }} {
+    width: 100%;
+    display: block;
+  }
+
+  .ai-image-text-overlay-wrapper-{{ ai_gen_id }} {
+    width: {{ block.settings.mobile_width_percent }}%;
+    margin-left: auto;
+    margin-right: auto;
+    {% if block.settings.image_position == 'flex-start' %}
+      margin-left: 0;
+      margin-right: auto;
+    {% elsif block.settings.image_position == 'flex-end' %}
+      margin-left: auto;
+      margin-right: 0;
+    {% endif %}
+  }
+
+  @media screen and (min-width: 750px) {
+    .ai-image-text-overlay-wrapper-{{ ai_gen_id }} {
+      width: {{ block.settings.desktop_width_percent }}%;
+    }
+  }
+
+  .ai-image-text-overlay-{{ ai_gen_id }} {
+    position: relative;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: {{ block.settings.border_radius }}px;
+    height: {{ block.settings.mobile_height }}px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .ai-image-text-overlay-{{ ai_gen_id }} {
+      height: {{ block.settings.desktop_height }}px;
+    }
+  }
+
+  .ai-image-text-overlay-image-{{ ai_gen_id }} {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    object-position: {{ block.settings.mobile_image_position }};
+  }
+
+  @media screen and (min-width: 750px) {
+    .ai-image-text-overlay-image-{{ ai_gen_id }} {
+      object-position: {{ block.settings.desktop_image_position }};
+    }
+  }
+
+  .ai-image-text-overlay-image-desktop-{{ ai_gen_id }} {
+    display: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .ai-image-text-overlay-image-desktop-{{ ai_gen_id }} {
+      display: block;
+    }
+    .ai-image-text-overlay-image-mobile-{{ ai_gen_id }} {
+      display: none;
+    }
+  }
+
+  .ai-image-text-overlay-placeholder-{{ ai_gen_id }} {
+    width: 100%;
+    height: 100%;
+    background-color: #f4f4f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .ai-image-text-overlay-placeholder-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+    max-width: 500px;
+    max-height: 500px;
+  }
+
+  .ai-image-text-overlay-empty-state-{{ ai_gen_id }} {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    font-size: 14px;
+    color: #666;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .ai-image-text-overlay-content-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: {{ block.settings.vertical_alignment }};
+    justify-content: {{ block.settings.horizontal_alignment }};
+    padding: {{ block.settings.content_padding }}px;
+    z-index: 2;
+  }
+
+  .ai-image-text-overlay-text-box-{{ ai_gen_id }} {
+    background-color: {{ block.settings.text_box_background }};
+    color: {{ block.settings.text_color }};
+    padding: {{ block.settings.text_box_padding }}px;
+    border-radius: {{ block.settings.text_box_border_radius }}px;
+    max-width: {{ block.settings.text_box_max_width }}%;
+    text-align: {{ block.settings.text_alignment }};
+  }
+
+  .ai-image-text-overlay-heading-{{ ai_gen_id }} {
+    font-size: {{ block.settings.heading_size }}px;
+    margin: 0 0 {{ block.settings.heading_spacing }}px 0;
+    color: {{ block.settings.text_color }};
+  }
+
+  .ai-image-text-overlay-text-{{ ai_gen_id }} {
+    font-size: {{ block.settings.text_size }}px;
+    margin: 0;
+    color: {{ block.settings.text_color }};
+  }
+
+  .ai-image-text-overlay-text-{{ ai_gen_id }} p {
+    margin: 0;
+  }
+
+  .ai-image-text-overlay-button-{{ ai_gen_id }} {
+    display: inline-block;
+    margin-top: {{ block.settings.button_spacing }}px;
+    padding: {{ block.settings.button_padding_vertical }}px {{ block.settings.button_padding_horizontal }}px;
+    background-color: {{ block.settings.button_background }};
+    color: {{ block.settings.button_text_color }};
+    text-decoration: none;
+    border-radius: {{ block.settings.button_border_radius }}px;
+    font-size: {{ block.settings.button_text_size }}px;
+    transition: all 0.3s ease;
+    position: relative;
+    {% if block.settings.button_glow_enabled %}
+      box-shadow: 
+        0 0 {{ block.settings.button_glow_blur }}px {{ block.settings.button_glow_spread }}px {{ block.settings.button_glow_color }},
+        0 {{ block.settings.button_shadow_y }}px {{ block.settings.button_shadow_blur }}px {{ block.settings.button_shadow_spread }}px {{ block.settings.button_shadow_color }};
+    {% else %}
+      box-shadow: 0 {{ block.settings.button_shadow_y }}px {{ block.settings.button_shadow_blur }}px {{ block.settings.button_shadow_spread }}px {{ block.settings.button_shadow_color }};
+    {% endif %}
+  }
+
+  .ai-image-text-overlay-button-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.button_hover_background }};
+    transform: translateY(-{{ block.settings.button_hover_lift }}px);
+    {% if block.settings.button_glow_enabled %}
+      box-shadow: 
+        0 0 {{ block.settings.button_hover_glow_blur }}px {{ block.settings.button_hover_glow_spread }}px {{ block.settings.button_hover_glow_color }},
+        0 {{ block.settings.button_hover_shadow_y }}px {{ block.settings.button_hover_shadow_blur }}px {{ block.settings.button_hover_shadow_spread }}px {{ block.settings.button_hover_shadow_color }};
+    {% else %}
+      box-shadow: 0 {{ block.settings.button_hover_shadow_y }}px {{ block.settings.button_hover_shadow_blur }}px {{ block.settings.button_hover_shadow_spread }}px {{ block.settings.button_hover_shadow_color }};
+    {% endif %}
+  }
+
+  .ai-image-text-overlay-overlay-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: {{ block.settings.overlay_color }};
+    opacity: {{ block.settings.mobile_overlay_opacity }};
+    z-index: 1;
+  }
+
+  @media screen and (min-width: 750px) {
+    .ai-image-text-overlay-overlay-{{ ai_gen_id }} {
+      opacity: {{ block.settings.overlay_opacity }};
+    }
+  }
+{% endstyle %}
+
+<image-text-overlay-{{ ai_gen_id }}
+  class="ai-image-text-overlay-container-{{ ai_gen_id }}"
+  {{ block.shopify_attributes }}
+>
+  <div class="ai-image-text-overlay-wrapper-{{ ai_gen_id }}">
+    <div class="ai-image-text-overlay-{{ ai_gen_id }}">
+      {% if block.settings.desktop_image or block.settings.mobile_image %}
+        {% if block.settings.desktop_image %}
+          <img
+            src="{{ block.settings.desktop_image | image_url: width: 2000 }}"
+            alt="{{ block.settings.desktop_image.alt | escape }}"
+            loading="lazy"
+            width="{{ block.settings.desktop_image.width }}"
+            height="{{ block.settings.desktop_image.height }}"
+            class="ai-image-text-overlay-image-{{ ai_gen_id }} ai-image-text-overlay-image-desktop-{{ ai_gen_id }}"
+          >
+        {% endif %}
+        {% if block.settings.mobile_image %}
+          <img
+            src="{{ block.settings.mobile_image | image_url: width: 1000 }}"
+            alt="{{ block.settings.mobile_image.alt | escape }}"
+            loading="lazy"
+            width="{{ block.settings.mobile_image.width }}"
+            height="{{ block.settings.mobile_image.height }}"
+            class="ai-image-text-overlay-image-{{ ai_gen_id }} ai-image-text-overlay-image-mobile-{{ ai_gen_id }}"
+          >
+        {% elsif block.settings.desktop_image %}
+          <img
+            src="{{ block.settings.desktop_image | image_url: width: 1000 }}"
+            alt="{{ block.settings.desktop_image.alt | escape }}"
+            loading="lazy"
+            width="{{ block.settings.desktop_image.width }}"
+            height="{{ block.settings.desktop_image.height }}"
+            class="ai-image-text-overlay-image-{{ ai_gen_id }} ai-image-text-overlay-image-mobile-{{ ai_gen_id }}"
+          >
+        {% endif %}
+      {% else %}
+        <div class="ai-image-text-overlay-placeholder-{{ ai_gen_id }}">
+          {{ 'image' | placeholder_svg_tag }}
+          <div class="ai-image-text-overlay-empty-state-{{ ai_gen_id }}">
+            Next, add an image
+          </div>
+        </div>
+      {% endif %}
+
+      {% if block.settings.show_overlay %}
+        <div class="ai-image-text-overlay-overlay-{{ ai_gen_id }}"></div>
+      {% endif %}
+
+      <div class="ai-image-text-overlay-content-{{ ai_gen_id }}">
+        <div class="ai-image-text-overlay-text-box-{{ ai_gen_id }}">
+          {% if block.settings.heading != blank %}
+            <h2 class="ai-image-text-overlay-heading-{{ ai_gen_id }}">
+              {{ block.settings.heading }}
+            </h2>
+          {% endif %}
+
+          {% if block.settings.text != blank %}
+            <div class="ai-image-text-overlay-text-{{ ai_gen_id }}">
+              {{ block.settings.text }}
+            </div>
+          {% endif %}
+
+          {% if block.settings.button_label != blank and block.settings.button_link != blank %}
+            <a
+              href="{{ block.settings.button_link }}"
+              class="ai-image-text-overlay-button-{{ ai_gen_id }}"
+            >
+              {{ block.settings.button_label }}
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</image-text-overlay-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class ImageTextOverlay{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        this.style.display = 'block';
+      }
+    }
+
+    customElements.define('image-text-overlay-{{ ai_gen_id }}', ImageTextOverlay{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Image with text overlay",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Image"
+    },
+    {
+      "type": "image_picker",
+      "id": "desktop_image",
+      "label": "Desktop image"
+    },
+    {
+      "type": "image_picker",
+      "id": "mobile_image",
+      "label": "Mobile image"
+    },
+    {
+      "type": "range",
+      "id": "desktop_height",
+      "label": "Desktop height",
+      "min": 200,
+      "max": 1000,
+      "step": 50,
+      "unit": "px",
+      "default": 600
+    },
+    {
+      "type": "range",
+      "id": "mobile_height",
+      "label": "Mobile height",
+      "min": 200,
+      "max": 800,
+      "step": 50,
+      "unit": "px",
+      "default": 400
+    },
+    {
+      "type": "range",
+      "id": "desktop_width_percent",
+      "label": "Desktop width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "mobile_width_percent",
+      "label": "Mobile width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "select",
+      "id": "image_position",
+      "label": "Block position",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "flex-end",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "desktop_image_position",
+      "label": "Desktop image position",
+      "options": [
+        {
+          "value": "left center",
+          "label": "Left"
+        },
+        {
+          "value": "center center",
+          "label": "Center"
+        },
+        {
+          "value": "right center",
+          "label": "Right"
+        },
+        {
+          "value": "center top",
+          "label": "Top"
+        },
+        {
+          "value": "center bottom",
+          "label": "Bottom"
+        }
+      ],
+      "default": "center center"
+    },
+    {
+      "type": "select",
+      "id": "mobile_image_position",
+      "label": "Mobile image position",
+      "options": [
+        {
+          "value": "left center",
+          "label": "Left"
+        },
+        {
+          "value": "center center",
+          "label": "Center"
+        },
+        {
+          "value": "right center",
+          "label": "Right"
+        },
+        {
+          "value": "center top",
+          "label": "Top"
+        },
+        {
+          "value": "center bottom",
+          "label": "Bottom"
+        }
+      ],
+      "default": "center center"
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 64,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "header",
+      "content": "Overlay"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_overlay",
+      "label": "Show overlay",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Overlay color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Desktop overlay opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.3
+    },
+    {
+      "type": "range",
+      "id": "mobile_overlay_opacity",
+      "label": "Mobile overlay opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.3
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Image with text overlay"
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>Add your text here to describe your image or provide additional information.</p>"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Heading size",
+      "min": 16,
+      "max": 72,
+      "step": 2,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "text_size",
+      "label": "Text size",
+      "min": 12,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "heading_spacing",
+      "label": "Heading spacing",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Content position"
+    },
+    {
+      "type": "select",
+      "id": "horizontal_alignment",
+      "label": "Horizontal alignment",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "flex-end",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "vertical_alignment",
+      "label": "Vertical alignment",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Top"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "flex-end",
+          "label": "Bottom"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "content_padding",
+      "label": "Content padding",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Text box style"
+    },
+    {
+      "type": "color",
+      "id": "text_box_background",
+      "label": "Background color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "text_box_padding",
+      "label": "Padding",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "text_box_border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 64,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "text_box_max_width",
+      "label": "Max width",
+      "min": 30,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 80
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Text alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Shop now"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "Background color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_hover_background",
+      "label": "Hover background color",
+      "default": "#333333"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "button_text_size",
+      "label": "Text size",
+      "min": 12,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "button_padding_vertical",
+      "label": "Vertical padding",
+      "min": 8,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "button_padding_horizontal",
+      "label": "Horizontal padding",
+      "min": 16,
+      "max": 64,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 64,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "button_spacing",
+      "label": "Spacing above button",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Button shadow"
+    },
+    {
+      "type": "color",
+      "id": "button_shadow_color",
+      "label": "Shadow color",
+      "default": "rgba(0, 0, 0, 0.2)"
+    },
+    {
+      "type": "range",
+      "id": "button_shadow_y",
+      "label": "Shadow Y offset",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "button_shadow_blur",
+      "label": "Shadow blur",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "button_shadow_spread",
+      "label": "Shadow spread",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Button glow"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_glow_enabled",
+      "label": "Enable glow effect",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "button_glow_color",
+      "label": "Glow color",
+      "default": "rgba(0, 140, 203, 0.5)"
+    },
+    {
+      "type": "range",
+      "id": "button_glow_blur",
+      "label": "Glow blur",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "button_glow_spread",
+      "label": "Glow spread",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "header",
+      "content": "Button hover effects"
+    },
+    {
+      "type": "range",
+      "id": "button_hover_lift",
+      "label": "Hover lift",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 2
+    },
+    {
+      "type": "color",
+      "id": "button_hover_shadow_color",
+      "label": "Hover shadow color",
+      "default": "rgba(0, 0, 0, 0.3)"
+    },
+    {
+      "type": "range",
+      "id": "button_hover_shadow_y",
+      "label": "Hover shadow Y offset",
+      "min": 0,
+      "max": 30,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "button_hover_shadow_blur",
+      "label": "Hover shadow blur",
+      "min": 0,
+      "max": 60,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "button_hover_shadow_spread",
+      "label": "Hover shadow spread",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "color",
+      "id": "button_hover_glow_color",
+      "label": "Hover glow color",
+      "default": "rgba(0, 140, 203, 0.8)"
+    },
+    {
+      "type": "range",
+      "id": "button_hover_glow_blur",
+      "label": "Hover glow blur",
+      "min": 0,
+      "max": 60,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "button_hover_glow_spread",
+      "label": "Hover glow spread",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    }
+  ],
+  "presets": [
+    {
+      "name": "Image with text overlay"
+    }
+  ]
+}
+{% endschema %}

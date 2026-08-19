@@ -1,0 +1,1087 @@
+{% doc %}
+  @prompt
+    baue mir ein modernes, einzigartites, ausgefallens product highlight modul. Das ausgewählte Produkt soll hervorstchen, mit bildern videos, informationen und mehr ausgewiesen werden können. die einstellungen sollen flexibel gestaltet werden, wie abstand, farben, positionierung, höhe, breite, butons mit effekten. , bitte auch einstellen, dass das modul auch mobil optimiert werden kann. für das produkt sollen als main bilder oder videos ausgewählt werden können, bitte nochmal das design überarbeiten, dieses ist nicht exklusiv und kreativ genug. Zudem wollen wir ein Bild oder Video auswählen können. Für die Buttons gibt es keine Effekte zum auswählen, hierbei vorallem glow oder shadow effekte einabuen., du musst noch die modul so anlegen, dass wir es speichern können, da fehlen einige eisntellungen und die features bitte wieder in den kästchen einzeigen mit dem hoover effekt, kannst du bei den features den haken vor den text stellen bitte , bitte die höhe der feature kästchen verkleinern. button effekete einbauen, glow, shadow und mirror etc. zudem produktbewertungen einfügen sowie anpassung von titel preis
+    
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-product-highlight-{{ ai_gen_id }} {
+    display: block;
+    width: 100%;
+    padding: {{ block.settings.section_padding_top }}px {{ block.settings.section_padding_horizontal }}px {{ block.settings.section_padding_bottom }}px;
+    background: {{ block.settings.background_color }};
+  }
+
+  .ai-product-highlight__container-{{ ai_gen_id }} {
+    max-width: {{ block.settings.container_max_width }}px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: {{ block.settings.content_gap }}px;
+    align-items: {{ block.settings.vertical_alignment }};
+  }
+
+  .ai-product-highlight__media-{{ ai_gen_id }} {
+    position: relative;
+    width: 100%;
+    border-radius: {{ block.settings.media_border_radius }}px;
+    overflow: hidden;
+    background: {{ block.settings.media_background }};
+  }
+
+  .ai-product-highlight__media-{{ ai_gen_id }} img,
+  .ai-product-highlight__media-{{ ai_gen_id }} video {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .ai-product-highlight__media-placeholder-{{ ai_gen_id }} {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f4f4;
+  }
+
+  .ai-product-highlight__media-placeholder-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+    max-width: 300px;
+    max-height: 300px;
+  }
+
+  .ai-product-highlight__content-{{ ai_gen_id }} {
+    padding: {{ block.settings.content_padding }}px;
+  }
+
+  .ai-product-highlight__title-{{ ai_gen_id }} {
+    font-size: {{ block.settings.title_size }}px;
+    color: {{ block.settings.title_color }};
+    margin: 0 0 {{ block.settings.title_margin_bottom }}px;
+    line-height: 1.2;
+  }
+
+  .ai-product-highlight__price-{{ ai_gen_id }} {
+    font-size: {{ block.settings.price_size }}px;
+    color: {{ block.settings.price_color }};
+    margin: 0 0 {{ block.settings.price_margin_bottom }}px;
+    font-weight: 600;
+  }
+
+  .ai-product-highlight__price-compare-{{ ai_gen_id }} {
+    text-decoration: line-through;
+    opacity: 0.6;
+    margin-right: 10px;
+  }
+
+  .ai-product-highlight__rating-{{ ai_gen_id }} {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: {{ block.settings.rating_margin_bottom }}px;
+  }
+
+  .ai-product-highlight__stars-{{ ai_gen_id }} {
+    display: flex;
+    gap: 2px;
+  }
+
+  .ai-product-highlight__star-{{ ai_gen_id }} {
+    width: {{ block.settings.star_size }}px;
+    height: {{ block.settings.star_size }}px;
+    fill: {{ block.settings.star_color }};
+  }
+
+  .ai-product-highlight__star-{{ ai_gen_id }}.empty {
+    fill: #e0e0e0;
+  }
+
+  .ai-product-highlight__rating-count-{{ ai_gen_id }} {
+    font-size: {{ block.settings.rating_text_size }}px;
+    color: {{ block.settings.text_color }};
+  }
+
+  .ai-product-highlight__description-{{ ai_gen_id }} {
+    font-size: {{ block.settings.description_size }}px;
+    color: {{ block.settings.text_color }};
+    line-height: 1.6;
+    margin-bottom: {{ block.settings.description_margin_bottom }}px;
+  }
+
+  .ai-product-highlight__features-{{ ai_gen_id }} {
+    display: grid;
+    grid-template-columns: repeat({{ block.settings.features_columns }}, 1fr);
+    gap: {{ block.settings.features_gap }}px;
+    margin-bottom: {{ block.settings.features_margin_bottom }}px;
+  }
+
+  .ai-product-highlight__feature-{{ ai_gen_id }} {
+    background: {{ block.settings.feature_background }};
+    border: {{ block.settings.feature_border_width }}px solid {{ block.settings.feature_border_color }};
+    border-radius: {{ block.settings.feature_border_radius }}px;
+    padding: {{ block.settings.feature_padding }}px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ai-product-highlight__feature-{{ ai_gen_id }}:hover {
+    background: {{ block.settings.feature_hover_background }};
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .ai-product-highlight__feature-icon-{{ ai_gen_id }} {
+    width: {{ block.settings.feature_icon_size }}px;
+    height: {{ block.settings.feature_icon_size }}px;
+    flex-shrink: 0;
+    fill: {{ block.settings.feature_icon_color }};
+  }
+
+  .ai-product-highlight__feature-text-{{ ai_gen_id }} {
+    font-size: {{ block.settings.feature_text_size }}px;
+    color: {{ block.settings.feature_text_color }};
+    margin: 0;
+  }
+
+  .ai-product-highlight__button-{{ ai_gen_id }} {
+    display: inline-block;
+    padding: {{ block.settings.button_padding_vertical }}px {{ block.settings.button_padding_horizontal }}px;
+    background: {{ block.settings.button_background }};
+    color: {{ block.settings.button_text_color }};
+    font-size: {{ block.settings.button_text_size }}px;
+    border: none;
+    border-radius: {{ block.settings.button_border_radius }}px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  {% if block.settings.button_effect == 'glow' %}
+    .ai-product-highlight__button-{{ ai_gen_id }} {
+      box-shadow: 0 0 {{ block.settings.button_glow_size }}px {{ block.settings.button_glow_color }};
+    }
+
+    .ai-product-highlight__button-{{ ai_gen_id }}:hover {
+      box-shadow: 0 0 {{ block.settings.button_glow_size | times: 1.5 }}px {{ block.settings.button_glow_color }};
+      background: {{ block.settings.button_hover_background }};
+    }
+  {% elsif block.settings.button_effect == 'shadow' %}
+    .ai-product-highlight__button-{{ ai_gen_id }} {
+      box-shadow: 0 {{ block.settings.button_shadow_offset }}px {{ block.settings.button_shadow_blur }}px {{ block.settings.button_shadow_color }};
+    }
+
+    .ai-product-highlight__button-{{ ai_gen_id }}:hover {
+      box-shadow: 0 {{ block.settings.button_shadow_offset | times: 1.5 }}px {{ block.settings.button_shadow_blur | times: 1.5 }}px {{ block.settings.button_shadow_color }};
+      transform: translateY(-2px);
+      background: {{ block.settings.button_hover_background }};
+    }
+  {% elsif block.settings.button_effect == 'mirror' %}
+    .ai-product-highlight__button-{{ ai_gen_id }}::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .ai-product-highlight__button-{{ ai_gen_id }}:hover::before {
+      left: 100%;
+    }
+
+    .ai-product-highlight__button-{{ ai_gen_id }}:hover {
+      background: {{ block.settings.button_hover_background }};
+    }
+  {% else %}
+    .ai-product-highlight__button-{{ ai_gen_id }}:hover {
+      background: {{ block.settings.button_hover_background }};
+    }
+  {% endif %}
+
+  @media screen and (max-width: 749px) {
+    .ai-product-highlight__container-{{ ai_gen_id }} {
+      grid-template-columns: 1fr;
+      gap: {{ block.settings.mobile_content_gap }}px;
+    }
+
+    {% if block.settings.mobile_media_position == 'bottom' %}
+      .ai-product-highlight__media-{{ ai_gen_id }} {
+        order: 2;
+      }
+
+      .ai-product-highlight__content-{{ ai_gen_id }} {
+        order: 1;
+      }
+    {% endif %}
+
+    .ai-product-highlight__features-{{ ai_gen_id }} {
+      grid-template-columns: 1fr;
+    }
+
+    .ai-product-highlight__title-{{ ai_gen_id }} {
+      font-size: {{ block.settings.mobile_title_size }}px;
+    }
+
+    .ai-product-highlight__price-{{ ai_gen_id }} {
+      font-size: {{ block.settings.mobile_price_size }}px;
+    }
+
+    .ai-product-highlight-{{ ai_gen_id }} {
+      padding: {{ block.settings.mobile_section_padding }}px {{ block.settings.section_padding_horizontal }}px;
+    }
+  }
+{% endstyle %}
+
+<product-highlight-{{ ai_gen_id }} class="ai-product-highlight-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  <div class="ai-product-highlight__container-{{ ai_gen_id }}">
+    <div class="ai-product-highlight__media-{{ ai_gen_id }}">
+      {% if block.settings.media_type == 'video' and block.settings.product_video != blank %}
+        <video autoplay loop muted playsinline>
+          <source src="{{ block.settings.product_video }}" type="video/mp4">
+        </video>
+      {% elsif block.settings.product_image %}
+        <img
+          src="{{ block.settings.product_image | image_url: width: 1200 }}"
+          alt="{{ block.settings.product_image.alt | escape }}"
+          loading="lazy"
+          width="{{ block.settings.product_image.width }}"
+          height="{{ block.settings.product_image.height }}"
+        >
+      {% elsif block.settings.featured_product and block.settings.featured_product.featured_image %}
+        <img
+          src="{{ block.settings.featured_product.featured_image | image_url: width: 1200 }}"
+          alt="{{ block.settings.featured_product.featured_image.alt | escape }}"
+          loading="lazy"
+          width="{{ block.settings.featured_product.featured_image.width }}"
+          height="{{ block.settings.featured_product.featured_image.height }}"
+        >
+      {% else %}
+        <div class="ai-product-highlight__media-placeholder-{{ ai_gen_id }}">
+          {{ 'product-1' | placeholder_svg_tag }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="ai-product-highlight__content-{{ ai_gen_id }}">
+      {% if block.settings.show_title %}
+        <h2 class="ai-product-highlight__title-{{ ai_gen_id }}">
+          {% if block.settings.custom_title != blank %}
+            {{ block.settings.custom_title }}
+          {% elsif block.settings.featured_product %}
+            {{ block.settings.featured_product.title }}
+          {% else %}
+            Produktname
+          {% endif %}
+        </h2>
+      {% endif %}
+
+      {% if block.settings.show_rating %}
+        <div class="ai-product-highlight__rating-{{ ai_gen_id }}">
+          <div class="ai-product-highlight__stars-{{ ai_gen_id }}">
+            {% for i in (1..5) %}
+              <svg class="ai-product-highlight__star-{{ ai_gen_id }} {% if i > block.settings.rating_value %}empty{% endif %}" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            {% endfor %}
+          </div>
+          {% if block.settings.show_rating_count %}
+            <span class="ai-product-highlight__rating-count-{{ ai_gen_id }}">
+              ({{ block.settings.rating_count }})
+            </span>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if block.settings.show_price %}
+        <div class="ai-product-highlight__price-{{ ai_gen_id }}">
+          {% if block.settings.custom_price != blank %}
+            {% if block.settings.custom_compare_price != blank %}
+              <span class="ai-product-highlight__price-compare-{{ ai_gen_id }}">{{ block.settings.custom_compare_price }}</span>
+            {% endif %}
+            {{ block.settings.custom_price }}
+          {% elsif block.settings.featured_product %}
+            {% if block.settings.featured_product.compare_at_price > block.settings.featured_product.price %}
+              <span class="ai-product-highlight__price-compare-{{ ai_gen_id }}">{{ block.settings.featured_product.compare_at_price | money }}</span>
+            {% endif %}
+            {{ block.settings.featured_product.price | money }}
+          {% else %}
+            €99,99
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if block.settings.description != blank %}
+        <div class="ai-product-highlight__description-{{ ai_gen_id }}">
+          {{ block.settings.description }}
+        </div>
+      {% endif %}
+
+      {% if block.settings.show_features %}
+        <div class="ai-product-highlight__features-{{ ai_gen_id }}">
+          {% if block.settings.feature_1 != blank %}
+            <div class="ai-product-highlight__feature-{{ ai_gen_id }}">
+              <svg class="ai-product-highlight__feature-icon-{{ ai_gen_id }}" viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <p class="ai-product-highlight__feature-text-{{ ai_gen_id }}">{{ block.settings.feature_1 }}</p>
+            </div>
+          {% endif %}
+          {% if block.settings.feature_2 != blank %}
+            <div class="ai-product-highlight__feature-{{ ai_gen_id }}">
+              <svg class="ai-product-highlight__feature-icon-{{ ai_gen_id }}" viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <p class="ai-product-highlight__feature-text-{{ ai_gen_id }}">{{ block.settings.feature_2 }}</p>
+            </div>
+          {% endif %}
+          {% if block.settings.feature_3 != blank %}
+            <div class="ai-product-highlight__feature-{{ ai_gen_id }}">
+              <svg class="ai-product-highlight__feature-icon-{{ ai_gen_id }}" viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <p class="ai-product-highlight__feature-text-{{ ai_gen_id }}">{{ block.settings.feature_3 }}</p>
+            </div>
+          {% endif %}
+          {% if block.settings.feature_4 != blank %}
+            <div class="ai-product-highlight__feature-{{ ai_gen_id }}">
+              <svg class="ai-product-highlight__feature-icon-{{ ai_gen_id }}" viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              <p class="ai-product-highlight__feature-text-{{ ai_gen_id }}">{{ block.settings.feature_4 }}</p>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if block.settings.button_text != blank %}
+        <a
+          href="{% if block.settings.button_link != blank %}{{ block.settings.button_link }}{% elsif block.settings.featured_product %}{{ block.settings.featured_product.url }}{% else %}#{% endif %}"
+          class="ai-product-highlight__button-{{ ai_gen_id }}"
+        >
+          {{ block.settings.button_text }}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</product-highlight-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class ProductHighlight{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        const video = this.querySelector('video');
+        if (video) {
+          video.play().catch(() => {});
+        }
+      }
+    }
+
+    customElements.define('product-highlight-{{ ai_gen_id }}', ProductHighlight{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Product highlight",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Produkt"
+    },
+    {
+      "type": "product",
+      "id": "featured_product",
+      "label": "Produkt auswählen"
+    },
+    {
+      "type": "header",
+      "content": "Medien"
+    },
+    {
+      "type": "select",
+      "id": "media_type",
+      "label": "Medientyp",
+      "options": [
+        {
+          "value": "image",
+          "label": "Bild"
+        },
+        {
+          "value": "video",
+          "label": "Video"
+        }
+      ],
+      "default": "image"
+    },
+    {
+      "type": "image_picker",
+      "id": "product_image",
+      "label": "Produktbild"
+    },
+    {
+      "type": "url",
+      "id": "product_video",
+      "label": "Video URL"
+    },
+    {
+      "type": "color",
+      "id": "media_background",
+      "label": "Medien Hintergrund",
+      "default": "#f4f4f4"
+    },
+    {
+      "type": "range",
+      "id": "media_border_radius",
+      "label": "Medien Eckenradius",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Titel"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_title",
+      "label": "Titel anzeigen",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "custom_title",
+      "label": "Eigener Titel"
+    },
+    {
+      "type": "range",
+      "id": "title_size",
+      "label": "Titelgröße",
+      "min": 20,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 42
+    },
+    {
+      "type": "range",
+      "id": "mobile_title_size",
+      "label": "Titelgröße mobil",
+      "min": 16,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Titelfarbe",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "title_margin_bottom",
+      "label": "Titel Abstand unten",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Preis"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price",
+      "label": "Preis anzeigen",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "custom_price",
+      "label": "Eigener Preis"
+    },
+    {
+      "type": "text",
+      "id": "custom_compare_price",
+      "label": "Eigener Vergleichspreis"
+    },
+    {
+      "type": "range",
+      "id": "price_size",
+      "label": "Preisgröße",
+      "min": 14,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "range",
+      "id": "mobile_price_size",
+      "label": "Preisgröße mobil",
+      "min": 12,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 22
+    },
+    {
+      "type": "color",
+      "id": "price_color",
+      "label": "Preisfarbe",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "price_margin_bottom",
+      "label": "Preis Abstand unten",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Bewertungen"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rating",
+      "label": "Bewertungen anzeigen",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "rating_value",
+      "label": "Bewertung",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rating_count",
+      "label": "Anzahl Bewertungen anzeigen",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "rating_count",
+      "label": "Anzahl Bewertungen",
+      "min": 0,
+      "max": 1000,
+      "step": 10,
+      "default": 150
+    },
+    {
+      "type": "range",
+      "id": "star_size",
+      "label": "Sterngröße",
+      "min": 12,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "color",
+      "id": "star_color",
+      "label": "Sternfarbe",
+      "default": "#FFD700"
+    },
+    {
+      "type": "range",
+      "id": "rating_text_size",
+      "label": "Bewertungstext Größe",
+      "min": 10,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "rating_margin_bottom",
+      "label": "Bewertung Abstand unten",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Beschreibung"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "Beschreibung"
+    },
+    {
+      "type": "range",
+      "id": "description_size",
+      "label": "Beschreibungsgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "description_margin_bottom",
+      "label": "Beschreibung Abstand unten",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "Features"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_features",
+      "label": "Features anzeigen",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "feature_1",
+      "label": "Feature 1"
+    },
+    {
+      "type": "text",
+      "id": "feature_2",
+      "label": "Feature 2"
+    },
+    {
+      "type": "text",
+      "id": "feature_3",
+      "label": "Feature 3"
+    },
+    {
+      "type": "text",
+      "id": "feature_4",
+      "label": "Feature 4"
+    },
+    {
+      "type": "range",
+      "id": "features_columns",
+      "label": "Spalten Desktop",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "features_gap",
+      "label": "Abstand zwischen Features",
+      "min": 5,
+      "max": 40,
+      "step": 5,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "features_margin_bottom",
+      "label": "Features Abstand unten",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "color",
+      "id": "feature_background",
+      "label": "Feature Hintergrund",
+      "default": "#f9f9f9"
+    },
+    {
+      "type": "color",
+      "id": "feature_hover_background",
+      "label": "Feature Hover Hintergrund",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "feature_border_width",
+      "label": "Feature Rahmenbreite",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 1
+    },
+    {
+      "type": "color",
+      "id": "feature_border_color",
+      "label": "Feature Rahmenfarbe",
+      "default": "#e0e0e0"
+    },
+    {
+      "type": "range",
+      "id": "feature_border_radius",
+      "label": "Feature Eckenradius",
+      "min": 0,
+      "max": 30,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "feature_padding",
+      "label": "Feature Innenabstand",
+      "min": 5,
+      "max": 30,
+      "step": 5,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "feature_icon_size",
+      "label": "Feature Icon Größe",
+      "min": 12,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "color",
+      "id": "feature_icon_color",
+      "label": "Feature Icon Farbe",
+      "default": "#008ccb"
+    },
+    {
+      "type": "range",
+      "id": "feature_text_size",
+      "label": "Feature Textgröße",
+      "min": 10,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "color",
+      "id": "feature_text_color",
+      "label": "Feature Textfarbe",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Button Text",
+      "default": "Jetzt kaufen"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button Link"
+    },
+    {
+      "type": "select",
+      "id": "button_effect",
+      "label": "Button Effekt",
+      "options": [
+        {
+          "value": "none",
+          "label": "Kein Effekt"
+        },
+        {
+          "value": "glow",
+          "label": "Glow"
+        },
+        {
+          "value": "shadow",
+          "label": "Shadow"
+        },
+        {
+          "value": "mirror",
+          "label": "Mirror"
+        }
+      ],
+      "default": "glow"
+    },
+    {
+      "type": "range",
+      "id": "button_text_size",
+      "label": "Button Textgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "button_padding_vertical",
+      "label": "Button Padding vertikal",
+      "min": 5,
+      "max": 30,
+      "step": 5,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "button_padding_horizontal",
+      "label": "Button Padding horizontal",
+      "min": 10,
+      "max": 60,
+      "step": 5,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "Button Hintergrund",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_hover_background",
+      "label": "Button Hover Hintergrund",
+      "default": "#008ccb"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button Textfarbe",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Button Eckenradius",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "button_glow_size",
+      "label": "Glow Größe",
+      "min": 5,
+      "max": 40,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "color",
+      "id": "button_glow_color",
+      "label": "Glow Farbe",
+      "default": "#008ccb"
+    },
+    {
+      "type": "range",
+      "id": "button_shadow_offset",
+      "label": "Shadow Versatz",
+      "min": 2,
+      "max": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "button_shadow_blur",
+      "label": "Shadow Weichzeichnung",
+      "min": 5,
+      "max": 40,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "color",
+      "id": "button_shadow_color",
+      "label": "Shadow Farbe",
+      "default": "rgba(0, 0, 0, 0.3)"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "vertical_alignment",
+      "label": "Vertikale Ausrichtung",
+      "options": [
+        {
+          "value": "start",
+          "label": "Oben"
+        },
+        {
+          "value": "center",
+          "label": "Mitte"
+        },
+        {
+          "value": "end",
+          "label": "Unten"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "container_max_width",
+      "label": "Container Max Breite",
+      "min": 800,
+      "max": 1800,
+      "step": 100,
+      "unit": "px",
+      "default": 1400
+    },
+    {
+      "type": "range",
+      "id": "content_gap",
+      "label": "Abstand zwischen Medien und Inhalt",
+      "min": 20,
+      "max": 100,
+      "step": 10,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "mobile_content_gap",
+      "label": "Abstand Mobil",
+      "min": 10,
+      "max": 60,
+      "step": 5,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "content_padding",
+      "label": "Inhalt Innenabstand",
+      "min": 0,
+      "max": 60,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "select",
+      "id": "mobile_media_position",
+      "label": "Medien Position Mobil",
+      "options": [
+        {
+          "value": "top",
+          "label": "Oben"
+        },
+        {
+          "value": "bottom",
+          "label": "Unten"
+        }
+      ],
+      "default": "top"
+    },
+    {
+      "type": "header",
+      "content": "Abstände"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top",
+      "label": "Abstand oben",
+      "min": 0,
+      "max": 150,
+      "step": 10,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "section_padding_bottom",
+      "label": "Abstand unten",
+      "min": 0,
+      "max": 150,
+      "step": 10,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "section_padding_horizontal",
+      "label": "Abstand horizontal",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "mobile_section_padding",
+      "label": "Abstand vertikal Mobil",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Farben"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Hintergrundfarbe",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Textfarbe",
+      "default": "#000000"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Product highlight"
+    }
+  ]
+}
+{% endschema %}

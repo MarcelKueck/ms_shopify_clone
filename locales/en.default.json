@@ -354,7 +354,9 @@
       "size_chart": "Size chart",
       "on_backorder": "On backorder",
       "sku": "SKU: {{ sku }}",
-      "select_options": "Select options"
+      "select_options": "Select options",
+      "qa_tab_label": "Q&A",
+      "qa_answered_by": "Answered by the motion sports team"
     },
     "pickup_availability": {
       "view_info": {

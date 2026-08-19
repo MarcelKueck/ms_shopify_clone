@@ -89,10 +89,13 @@
   .ai-accordion-plus-content-inner-{{ ai_gen_id }} p:last-child {
     margin-bottom: 0;
   }
+
+
+  
 {% endstyle %}
 
 <accordion-plus-{{ ai_gen_id }} class="ai-accordion-plus-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
-  {% for i in (1..5) %}
+  {% for i in (1..7) %}
     {% liquid
       assign title_key = 'accordion_' | append: i | append: '_title'
       assign content_key = 'accordion_' | append: i | append: '_content'
@@ -281,7 +284,43 @@
     },
     {
       "type": "header",
-      "content": "Layout"
+      "content": "Akkordeon 6"
+    },
+    {
+      "type": "text",
+      "id": "accordion_6_title",
+      "label": "Überschrift"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_6_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_6_open",
+      "label": "Standardmäßig geöffnet",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 7"
+    },
+    {
+      "type": "text",
+      "id": "accordion_7_title",
+      "label": "Überschrift"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_7_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_7_open",
+      "label": "Standardmäßig geöffnet",
+      "default": false
     },
     {
       "type": "range",

@@ -1,0 +1,776 @@
+{%- comment -%}
+  Product detail accordions
+
+  Benötigte Parameter:
+  - product
+  - section
+  - delivery_content
+{%- endcomment -%}
+
+<div class="pda-accordions">
+
+  {%- comment -%}
+    1. Highlights / USPs
+    Standardmäßig geöffnet
+  {%- endcomment -%}
+
+  {%- if product.metafields.custom.kurzinfo != blank -%}
+    <details class="pda-accordion pda-accordion--highlights" open>
+      <summary class="pda-accordion__summary">
+        <span class="pda-accordion__title">
+          Highlights
+        </span>
+
+        <span class="pda-accordion__icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 12 8"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            focusable="false"
+          >
+            <path
+              d="M1 1.25L6 6.25L11 1.25"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
+      </summary>
+
+      <div class="pda-accordion__content pda-accordion__content--highlights">
+        {{ product.metafields.custom.kurzinfo | metafield_tag }}
+      </div>
+    </details>
+  {%- endif -%}
+
+
+  {%- comment -%}
+    2. Produktempfehlungen
+
+    Quelle:
+    Shopify Search & Discovery – komplementäre Produkte.
+    Diese werden als Standard-Metafeld gespeichert:
+    shopify--discovery--product_recommendation.complementary_products
+
+    Wichtig:
+    Wir lesen das Metafeld direkt aus, statt die Product Recommendations API
+    zu verwenden. Dadurch bleiben auch aktuell nicht verfügbare / ausverkaufte
+    Produkte in der gepflegten Liste erhalten.
+  {%- endcomment -%}
+
+  {%- assign pda_complementary_metafield = product.metafields['shopify--discovery--product_recommendation']['complementary_products'] -%}
+  {%- assign pda_complementary_products = pda_complementary_metafield.value -%}
+
+  <details class="pda-accordion pda-accordion--recommendations">
+    <summary class="pda-accordion__summary">
+      <span class="pda-accordion__title">
+        Produktempfehlungen
+      </span>
+
+      <span class="pda-accordion__icon" aria-hidden="true">
+        <svg
+          viewBox="0 0 12 8"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          focusable="false"
+        >
+          <path
+            d="M1 1.25L6 6.25L11 1.25"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </span>
+    </summary>
+
+    <div class="pda-accordion__content pda-accordion__content--recommendations">
+      <div class="pda-product-recommendations">
+
+        {%- if pda_complementary_products != blank -%}
+
+          {%- capture pda_recommendation_items -%}
+            {%- assign pda_rendered_products = 0 -%}
+
+            {%- for recommendation in pda_complementary_products limit: 10 -%}
+              {%- unless recommendation.tags contains 'globo-product-options' -%}
+                <div class="pda-recommendation-card{% unless recommendation.available %} pda-recommendation-card--sold-out{% endunless %}">
+                  {% render 'product-card',
+                    card_product: recommendation,
+                    sizes: '(max-width: 749px) 50vw, 180px'
+                  %}
+                </div>
+
+                {%- assign pda_rendered_products = pda_rendered_products | plus: 1 -%}
+              {%- endunless -%}
+            {%- endfor -%}
+          {%- endcapture -%}
+
+          {%- if pda_rendered_products > 0 -%}
+            <div
+              class="pda-recommendations-slider"
+              data-pda-slider
+              data-product-count="{{ pda_rendered_products }}"
+            >
+              {%- if pda_rendered_products > 2 -%}
+                <button
+                  type="button"
+                  class="pda-slider-arrow pda-slider-arrow--prev"
+                  aria-label="Vorherige Produktempfehlungen"
+                  data-pda-slider-prev
+                  disabled
+                >
+                  <svg
+                    viewBox="0 0 12 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M10 2L2 10L10 18"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+              {%- endif -%}
+
+              <div class="pda-recommendations-viewport" data-pda-slider-viewport>
+                <div class="pda-recommendations-track">
+                  {{ pda_recommendation_items }}
+                </div>
+              </div>
+
+              {%- if pda_rendered_products > 2 -%}
+                <button
+                  type="button"
+                  class="pda-slider-arrow pda-slider-arrow--next"
+                  aria-label="Weitere Produktempfehlungen"
+                  data-pda-slider-next
+                >
+                  <svg
+                    viewBox="0 0 12 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M2 2L10 10L2 18"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+              {%- endif -%}
+            </div>
+          {%- else -%}
+            <p class="pda-recommendations-empty">
+              Für dieses Produkt sind derzeit keine Empfehlungen vorhanden.
+            </p>
+          {%- endif -%}
+
+        {%- else -%}
+          <p class="pda-recommendations-empty">
+            Für dieses Produkt sind derzeit keine Empfehlungen vorhanden.
+          </p>
+        {%- endif -%}
+
+      </div>
+    </div>
+  </details>
+
+
+  {%- comment -%}
+    3. Lieferzeitpunkt
+    delivery_content wird beim Rendern des Snippets übergeben.
+  {%- endcomment -%}
+
+  {%- if delivery_content != blank -%}
+    <details class="pda-accordion pda-accordion--delivery">
+      <summary class="pda-accordion__summary">
+        <span class="pda-accordion__title">
+          Lieferung voraussichtlich bis
+          <strong>{{ delivery_content }}</strong>
+        </span>
+
+        <span class="pda-accordion__icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 12 8"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            focusable="false"
+          >
+            <path
+              d="M1 1.25L6 6.25L11 1.25"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
+      </summary>
+
+      <div class="pda-accordion__content pda-accordion__content--delivery">
+        <p>
+          Die Lieferung erfolgt voraussichtlich bis
+          <strong>{{ delivery_content }}</strong>.
+        </p>
+      </div>
+    </details>
+  {%- endif -%}
+
+</div>
+<style>
+  /*
+   * Produktempfehlungen: sichtbare horizontale Scrollbars vollständig
+   * unterdrücken, ohne die Pfeil-/Touch-Navigation zu deaktivieren.
+   */
+  .pda-accordion__content--recommendations,
+  .pda-product-recommendations,
+  .pda-recommendations-slider {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden !important;
+  }
+
+  .pda-recommendations-viewport {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+
+  .pda-recommendations-viewport::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  .pda-recommendations-track {
+    display: grid !important;
+    grid-auto-flow: column !important;
+    grid-template-columns: none !important;
+    grid-auto-columns: calc((100% - 32px) / 3) !important;
+    gap: 16px !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pda-recommendation-card {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  @media (max-width: 749px) {
+    .pda-recommendations-track {
+      grid-auto-columns: calc((100% - 12px) / 2) !important;
+      gap: 12px !important;
+    }
+  }
+</style>
+
+<script>
+  (function () {
+    function getPdaMaximumScroll(slider) {
+      var viewport = slider.querySelector(
+        '[data-pda-slider-viewport]'
+      );
+
+      var cards = slider.querySelectorAll(
+        '.pda-recommendation-card'
+      );
+
+      if (!viewport || !cards.length) {
+        return 0;
+      }
+
+      var lastCard = cards[cards.length - 1];
+      var viewportRect = viewport.getBoundingClientRect();
+      var lastCardRect = lastCard.getBoundingClientRect();
+
+      /*
+       * Tatsächliches Ende der letzten Produktkarte relativ zum
+       * scrollbaren Viewport. Dadurch ignorieren wir leere Breite,
+       * die durch Track-/Theme-CSS entstehen kann.
+       */
+      var contentEnd =
+        viewport.scrollLeft +
+        (lastCardRect.right - viewportRect.left);
+
+      return Math.max(
+        0,
+        Math.ceil(contentEnd - viewport.clientWidth)
+      );
+    }
+
+    function clampPdaScroll(slider) {
+      var viewport = slider.querySelector(
+        '[data-pda-slider-viewport]'
+      );
+
+      if (!viewport) {
+        return;
+      }
+
+      var maximumScroll = getPdaMaximumScroll(slider);
+
+      if (viewport.scrollLeft > maximumScroll + 1) {
+        viewport.scrollLeft = maximumScroll;
+      }
+    }
+
+    function updatePdaSliderButtons(slider) {
+      var viewport = slider.querySelector(
+        '[data-pda-slider-viewport]'
+      );
+
+      var previousButton = slider.querySelector(
+        '[data-pda-slider-prev]'
+      );
+
+      var nextButton = slider.querySelector(
+        '[data-pda-slider-next]'
+      );
+
+      if (!viewport) {
+        return;
+      }
+
+      var maximumScroll = getPdaMaximumScroll(slider);
+
+      if (previousButton) {
+        previousButton.disabled =
+          viewport.scrollLeft <= 2;
+      }
+
+      if (nextButton) {
+        nextButton.disabled =
+          maximumScroll <= 2 ||
+          viewport.scrollLeft >= maximumScroll - 2;
+      }
+    }
+
+    function getPdaScrollDistance(slider) {
+      var card = slider.querySelector(
+        '.pda-recommendation-card'
+      );
+
+      var track = slider.querySelector(
+        '.pda-recommendations-track'
+      );
+
+      if (!card || !track) {
+        return 0;
+      }
+
+      var styles = window.getComputedStyle(track);
+
+      var gap =
+        parseFloat(styles.columnGap) ||
+        parseFloat(styles.gap) ||
+        0;
+
+      var visibleCards =
+  window.matchMedia('(max-width: 749px)').matches
+    ? 2
+    : 3;
+
+return (
+  card.getBoundingClientRect().width + gap
+) * visibleCards;
+    }
+
+    function bindPdaSlider(slider) {
+      if (
+        !slider ||
+        slider.dataset.pdaSliderBound === 'true'
+      ) {
+        return;
+      }
+
+      var viewport = slider.querySelector(
+        '[data-pda-slider-viewport]'
+      );
+
+      var previousButton = slider.querySelector(
+        '[data-pda-slider-prev]'
+      );
+
+      var nextButton = slider.querySelector(
+        '[data-pda-slider-next]'
+      );
+
+      if (!viewport) {
+        return;
+      }
+
+      slider.dataset.pdaSliderBound = 'true';
+
+      if (previousButton) {
+        previousButton.addEventListener(
+          'click',
+          function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            var distance =
+              getPdaScrollDistance(slider);
+
+            viewport.scrollTo({
+              left: Math.max(
+                0,
+                viewport.scrollLeft - distance
+              ),
+              behavior: 'smooth'
+            });
+          }
+        );
+      }
+
+      if (nextButton) {
+        nextButton.addEventListener(
+          'click',
+          function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            var distance =
+              getPdaScrollDistance(slider);
+
+            var maximumScroll =
+              getPdaMaximumScroll(slider);
+
+            viewport.scrollTo({
+              left: Math.min(
+                maximumScroll,
+                viewport.scrollLeft + distance
+              ),
+              behavior: 'smooth'
+            });
+          }
+        );
+      }
+
+      viewport.addEventListener(
+        'scroll',
+        function () {
+          clampPdaScroll(slider);
+          updatePdaSliderButtons(slider);
+        },
+        { passive: true }
+      );
+
+      clampPdaScroll(slider);
+      updatePdaSliderButtons(slider);
+    }
+
+    function initializePdaSliders(root) {
+      var context = root || document;
+
+      /*
+       * Root kann selbst ein Slider sein.
+       */
+      if (
+        context.matches &&
+        context.matches('[data-pda-slider]')
+      ) {
+        bindPdaSlider(context);
+      }
+
+      /*
+       * Alle enthaltenen Slider initialisieren.
+       */
+      if (context.querySelectorAll) {
+        context
+          .querySelectorAll('[data-pda-slider]')
+          .forEach(function (slider) {
+            bindPdaSlider(slider);
+          });
+      }
+    }
+
+    /*
+     * Bereits vorhandene Slider initialisieren.
+     */
+    initializePdaSliders(document);
+
+    /*
+     * Shopify lädt Produktempfehlungen nachträglich.
+     * Der Observer initialisiert die Buttons, sobald
+     * der Slider tatsächlich im DOM vorhanden ist.
+     */
+    var pdaObserver = new MutationObserver(
+      function (mutations) {
+        mutations.forEach(function (mutation) {
+          mutation.addedNodes.forEach(function (node) {
+            if (node.nodeType !== 1) {
+              return;
+            }
+
+            initializePdaSliders(node);
+          });
+        });
+      }
+    );
+
+    pdaObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+
+    /*
+     * Shopify Theme-Editor.
+     */
+    document.addEventListener(
+      'shopify:section:load',
+      function (event) {
+        initializePdaSliders(event.target);
+      }
+    );
+
+    /*
+     * Buttonzustände nach Größenänderungen aktualisieren.
+     */
+    window.addEventListener('resize', function () {
+      document
+        .querySelectorAll('[data-pda-slider]')
+        .forEach(function (slider) {
+          updatePdaSliderButtons(slider);
+        });
+    });
+  })();
+</script>
+<script>
+  (function () {
+    if (window.pdaCartModalRefreshBound) {
+      return;
+    }
+
+    window.pdaCartModalRefreshBound = true;
+
+    function getCartModalSectionId() {
+      var cartModal = document.querySelector('#cart-modal');
+
+      if (!cartModal) {
+        return null;
+      }
+
+      var sectionWrapper = cartModal.closest(
+        '[id^="shopify-section-"]'
+      );
+
+      if (!sectionWrapper) {
+        return null;
+      }
+
+      return sectionWrapper.id.replace(
+        'shopify-section-',
+        ''
+      );
+    }
+
+    function refreshCartModal() {
+      var sectionId = getCartModalSectionId();
+
+      if (!sectionId) {
+        return Promise.resolve();
+      }
+
+      var root =
+        window.Shopify &&
+        window.Shopify.routes &&
+        window.Shopify.routes.root
+          ? window.Shopify.routes.root
+          : '/';
+
+      var url =
+        root +
+        '?sections=' +
+        encodeURIComponent(sectionId);
+
+      return fetch(url, {
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error(
+              'Cart-Modal konnte nicht aktualisiert werden.'
+            );
+          }
+
+          return response.json();
+        })
+        .then(function (sections) {
+          var html = sections[sectionId];
+
+          if (!html) {
+            return;
+          }
+
+          var parser = new DOMParser();
+          var parsedDocument = parser.parseFromString(
+            html,
+            'text/html'
+          );
+
+          var newSection =
+            parsedDocument.querySelector(
+              '#shopify-section-' + CSS.escape(sectionId)
+            );
+
+          var currentSection =
+            document.getElementById(
+              'shopify-section-' + sectionId
+            );
+
+          if (newSection && currentSection) {
+            currentSection.replaceWith(newSection);
+            return;
+          }
+
+          /*
+           * Fallback, falls Shopify nur den
+           * inneren Section-Inhalt zurückgibt.
+           */
+          var newCartModal =
+            parsedDocument.querySelector('#cart-modal');
+
+          var currentCartModal =
+            document.querySelector('#cart-modal');
+
+          if (newCartModal && currentCartModal) {
+            currentCartModal.replaceWith(newCartModal);
+          }
+        });
+    }
+
+    function waitForCartChange(previousItemCount) {
+      var attempts = 0;
+      var maximumAttempts = 20;
+
+      function checkCart(resolve) {
+        attempts++;
+
+        var root =
+          window.Shopify &&
+          window.Shopify.routes &&
+          window.Shopify.routes.root
+            ? window.Shopify.routes.root
+            : '/';
+
+        fetch(root + 'cart.js', {
+          headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+          .then(function (response) {
+            return response.json();
+          })
+          .then(function (cart) {
+            if (
+              cart.item_count !== previousItemCount ||
+              attempts >= maximumAttempts
+            ) {
+              resolve(cart);
+              return;
+            }
+
+            window.setTimeout(function () {
+              checkCart(resolve);
+            }, 150);
+          })
+          .catch(function () {
+            resolve(null);
+          });
+      }
+
+      return new Promise(function (resolve) {
+        checkCart(resolve);
+      });
+    }
+
+    document.addEventListener(
+      'click',
+      function (event) {
+        var button = event.target.closest(
+          '.pda-product-recommendations quick-add-button button'
+        );
+
+        if (!button) {
+          return;
+        }
+
+        /*
+         * Wir greifen nicht in den bestehenden
+         * Quick-Add-Vorgang ein. Wir warten nur,
+         * bis sich der Warenkorb auf dem Server
+         * tatsächlich geändert hat.
+         */
+        var root =
+          window.Shopify &&
+          window.Shopify.routes &&
+          window.Shopify.routes.root
+            ? window.Shopify.routes.root
+            : '/';
+
+        fetch(root + 'cart.js', {
+          headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+          .then(function (response) {
+            return response.json();
+          })
+          .then(function (cartBefore) {
+            return waitForCartChange(
+              cartBefore.item_count
+            );
+          })
+          .then(function () {
+            return refreshCartModal();
+          })
+          .then(function () {
+            document.dispatchEvent(
+              new CustomEvent('cart:updated', {
+                bubbles: true
+              })
+            );
+
+            document.dispatchEvent(
+              new CustomEvent('cart:refresh', {
+                bubbles: true
+              })
+            );
+          })
+          .catch(function (error) {
+            console.error(
+              'PDA Cart-Modal Refresh:',
+              error
+            );
+          });
+      },
+      true
+    );
+  })();
+</script>

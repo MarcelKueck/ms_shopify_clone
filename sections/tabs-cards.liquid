@@ -14,6 +14,30 @@
     {% endif %}
 
     {% assign blocks = section.blocks %}
+
+    {%- liquid
+      # Q&A-Tab: nur rendern, wenn das Metafeld custom.qa (JSON) mindestens
+      # einen gültigen Eintrag mit nicht-leerem q UND a enthält.
+      assign qa_count = 0
+      if section.settings.show_qa_tab
+        assign qa_value = product.metafields.custom.qa.value
+        if qa_value
+          for qa_item in qa_value limit: 20
+            assign qa_q = qa_item['q'] | strip_html | strip
+            assign qa_a = qa_item['a'] | strip_html | strip
+            if qa_q != '' and qa_a != ''
+              assign qa_count = qa_count | plus: 1
+            endif
+          endfor
+        endif
+      endif
+      assign tab_count = blocks.size
+      if qa_count > 0
+        assign tab_count = tab_count | plus: 1
+        assign qa_tab_index = blocks.size | plus: 1
+      endif
+    -%}
+
     {% if blocks.size > 0 %}
 
       <div class="tabs" role="tablist" aria-label="{{ section.settings.heading | default: 'Tabs' }}">
@@ -30,11 +54,35 @@
             {{ block.settings.tab_title | escape }}
           </button>
         {% endfor %}
+        {% if qa_count > 0 %}
+          <button
+            id="tab-{{ section.id }}-{{ qa_tab_index }}"
+            class="tab-btn"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-{{ section.id }}-{{ qa_tab_index }}"
+          >
+            {{ 'products.product.qa_tab_label' | t }}
+          </button>
+        {% endif %}
       </div>
 
       <div class="tab-panels">
         {% for block in blocks %}
           {% assign is_active = forloop.first %}
+
+          <button
+            type="button"
+            id="accordion-{{ section.id }}-{{ forloop.index }}"
+            class="accordion-btn"
+            aria-expanded="false"
+            aria-controls="panel-{{ section.id }}-{{ forloop.index }}"
+            data-tab-index="{{ forloop.index0 }}"
+          >
+            <span>{{ block.settings.tab_title | escape }}</span>
+            <span class="accordion-icon" aria-hidden="true"></span>
+          </button>
+
           <div
             id="panel-{{ section.id }}-{{ forloop.index }}"
             class="tab-panel{% if is_active %} is-active{% endif %}"
@@ -112,6 +160,31 @@
             </div>
           </div>
         {% endfor %}
+        {% if qa_count > 0 %}
+          <button
+            type="button"
+            id="accordion-{{ section.id }}-{{ qa_tab_index }}"
+            class="accordion-btn"
+            aria-expanded="false"
+            aria-controls="panel-{{ section.id }}-{{ qa_tab_index }}"
+            data-tab-index="{{ qa_tab_index | minus: 1 }}"
+          >
+            <span>{{ 'products.product.qa_tab_label' | t }}</span>
+            <span class="accordion-icon" aria-hidden="true"></span>
+          </button>
+
+          <div
+            id="panel-{{ section.id }}-{{ qa_tab_index }}"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-{{ section.id }}-{{ qa_tab_index }}"
+            hidden
+          >
+            <div class="panel-card">
+              {% render 'product-qa', product: product %}
+            </div>
+          </div>
+        {% endif %}
       </div>
 
     {% else %}
@@ -135,35 +208,56 @@
    Tabs – leichte Reiter
    =================================================== */
 
+/* ===================================================
+   Desktop-Tabs
+   =================================================== */
+
+/* ===================================================
+   Desktop-Tabs – kräftigere Darstellung
+   =================================================== */
+
 #section-{{ section.id }} .tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat({{ tab_count | default: 4 }}, 1fr);
   gap: 0;
   align-items: stretch;
-  border: 1px solid #7dc7ec;
+
+  border: 1.5px solid #cfcfcf;
   border-radius: 12px;
   overflow: hidden;
+
   padding: 0;
-  margin-bottom: 1rem;
-  background: #f5fbff;
+  margin-bottom: 1.5rem;
+  background: #fff;
 }
 
 #section-{{ section.id }} .tab-btn {
   position: relative;
+  min-height: 58px;
+
   border: 0;
-  border-right: 1px solid #b8e1f5;
-  background: #f5fbff;
+  border-right: 1.5px solid #cfcfcf;
+
+  background: #fff;
+  color: #111;
+
   cursor: pointer;
   text-align: center;
-  padding: 13px 12px;
-  font-size: 16px;
-  font-weight: 500;
+
+  padding: 16px 18px;
+
+  font-size: 17px;
+  font-weight: 400;
   line-height: 1.2;
-  color: #008ccb;
+  letter-spacing: .01em;
+
   white-space: nowrap;
   outline: none;
-  letter-spacing: .02em;
-  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
+
+  transition:
+    background-color .2s ease,
+    color .2s ease,
+    box-shadow .2s ease;
 }
 
 #section-{{ section.id }} .tab-btn:last-child {
@@ -174,18 +268,48 @@
   display: none;
 }
 
-#section-{{ section.id }} .tab-btn:hover,
-#section-{{ section.id }} .tab-btn.is-active,
-#section-{{ section.id }} .tab-btn.is-active:hover {
-  background: #e3f6ff;
-  color: #008ccb;
-  font-weight: 500;
+/* Aktiver Tab: hellblauer Hintergrund und blaue Kontur */
+#section-{{ section.id }} .tab-btn.is-active {
+  z-index: 2;
+  background: #f5fbff;
+  color: #111;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #59aee0;
+}
+
+/* Hover: hellblauer Hintergrund, aber keinerlei zusätzliche Kontur */
+#section-{{ section.id }} .tab-btn:hover {
+  z-index: 2;
+  background: #f5fbff;
+  color: #111;
   box-shadow: none;
 }
 
-#section-{{ section.id }} .tab-btn:focus {
+/* Auch beim Hover über dem aktiven Tab Kontur ausblenden */
+#section-{{ section.id }} .tab-btn.is-active:hover {
+  background: #f5fbff;
+  color: #111;
+  box-shadow: none;
+}
+
+/* Linke Rundung beim ersten aktiven Tab */
+#section-{{ section.id }} .tab-btn:first-child.is-active,
+#section-{{ section.id }} .tab-btn:first-child:hover {
+  border-radius: 10px 0 0 10px;
+}
+
+/* Rechte Rundung beim letzten aktiven Tab */
+#section-{{ section.id }} .tab-btn:last-child.is-active,
+#section-{{ section.id }} .tab-btn:last-child:hover {
+  border-radius: 0 10px 10px 0;
+}
+
+/* Tastaturfokus */
+#section-{{ section.id }} .tab-btn:focus-visible {
+  z-index: 3;
   outline: none;
-  box-shadow: inset 0 0 0 2px rgba(0,140,203,.18);
+  box-shadow:
+    inset 0 0 0 3px rgba(0, 140, 203, .55);
 }
 
 /* === Panels / Rahmen um die Tab-Sektion === */
@@ -262,21 +386,21 @@
   }
 
   /* === Nur Tab 2: Bullets aus, Streifen beibehalten === */
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul {
+  #section-{{ section.id }} #panel-{{ section.id }}-2 .panel-card ul {
     list-style: none;
     margin: 0;
     padding-left: 0;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li {
+  #section-{{ section.id }} #panel-{{ section.id }}-2 .panel-card ul li {
     padding: 4px 6px;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li:nth-child(odd) {
+  #section-{{ section.id }} #panel-{{ section.id }}-2 .panel-card ul li:nth-child(odd) {
     background-color: #fff;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(2) .panel-card ul li:nth-child(even) {
+  #section-{{ section.id }} #panel-{{ section.id }}-2 .panel-card ul li:nth-child(even) {
     background-color: #eee;
   }
 
@@ -294,8 +418,8 @@
   }
 
   /* ===== Tab 3: Loox – darf NICHT abgeschnitten werden ===== */
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(3),
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(3) .panel-card {
+  #section-{{ section.id }} #panel-{{ section.id }}-3,
+  #section-{{ section.id }} #panel-{{ section.id }}-3 .panel-card {
     overflow: visible !important;
     height: auto !important;
     max-height: none !important;
@@ -313,41 +437,41 @@
   }
 
   /* === Tab 4: Buttons in Blau === */
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .comp-add-btn,
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button,
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart {
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .comp-add-btn,
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card quick-add-button > button,
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .complementary-product__button-add-to-cart {
     background-color: #008CCB !important;
     border-color: #008CCB !important;
     color: #fff !important;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .comp-add-btn:hover,
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:hover,
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:hover {
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .comp-add-btn:hover,
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card quick-add-button > button:hover,
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .complementary-product__button-add-to-cart:hover {
     background-color: #0079AF !important;
     border-color: #0079AF !important;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:focus,
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:focus {
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card quick-add-button > button:focus,
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .complementary-product__button-add-to-cart:focus {
     outline: 0;
     box-shadow: 0 0 0 2px rgba(0,140,203,.25) !important;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card quick-add-button > button:active,
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .complementary-product__button-add-to-cart:active {
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card quick-add-button > button:active,
+  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .complementary-product__button-add-to-cart:active {
     filter: brightness(.95);
   }
 
 /* Tab 4: Preis fett */
-#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price,
-#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card span.regular-price *,
-#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price,
-#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price *,
-#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price-item,
-#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card .price-item *,
-#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card [class*="price"],
-#section-{{ section.id }} .tab-panels .tab-panel:nth-child(4) .panel-card [class*="price"] * {
+#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card span.regular-price,
+#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card span.regular-price *,
+#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .price,
+#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .price *,
+#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .price-item,
+#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .price-item *,
+#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card [class*="price"],
+#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card [class*="price"] * {
   font-weight: 800 !important;
   font-variation-settings: "wght" 800 !important;
   color: #111 !important;
@@ -357,76 +481,155 @@
      TAB 1 – ANGEPASSTE FORMATIERUNG
      ========================================================= */
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card {
+  #section-{{ section.id }} #panel-{{ section.id }}-1 .panel-card {
     overflow: visible;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card h1 {
+  #section-{{ section.id }} #panel-{{ section.id }}-1 .panel-card h1 {
     font-size: 1.5rem;
     font-weight: 700;
     margin: 0 0 .75rem;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card h2 {
+  #section-{{ section.id }} #panel-{{ section.id }}-1 .panel-card h2 {
     font-size: 1.25rem;
     font-weight: 700;
     margin: 1.25rem 0 .5rem;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card h3 {
+  #section-{{ section.id }} #panel-{{ section.id }}-1 .panel-card h3 {
     font-size: 1.1rem;
     font-weight: 600;
     margin: 1rem 0 .4rem;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card p {
+  #section-{{ section.id }} #panel-{{ section.id }}-1 .panel-card p {
     font-size: .85rem;
     line-height: 1.55;
     margin: 0 0 .9rem;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card ul {
+  #section-{{ section.id }} #panel-{{ section.id }}-1 .panel-card ul {
     list-style: disc;
     padding-left: 1.25rem;
     margin: 0 0 .9rem;
   }
 
-  #section-{{ section.id }} .tab-panels .tab-panel:nth-child(1) .panel-card li {
+  #section-{{ section.id }} #panel-{{ section.id }}-1 .panel-card li {
     margin: .3rem 0;
     line-height: 1.5;
   }
 
-  /* === Mobil: 2×2 Tabs === */
-  @media (max-width: 640px) {
+  /* ===================================================
+     Mobil: Akkordeon statt Tab-Raster
+     =================================================== */
+  #section-{{ section.id }} .accordion-btn {
+    display: none;
+  }
+
+  @media (max-width: 767px) {
     #section-{{ section.id }} .tabs {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0;
-      margin-bottom: 1rem;
+      display: none;
     }
 
-#section-{{ section.id }} .tab-btn {
-  padding: 11px 8px;
-  font-size: 13px;
-  font-weight: 500;
-      line-height: 1.2;
-      white-space: normal;
-      word-break: break-word;
-      min-width: 0;
+    #section-{{ section.id }} .tab-panels {
+      margin-top: 0;
+      border-top: 1px solid rgba(0,0,0,.12);
     }
 
-    /* horizontale Linie zwischen oberer und unterer Tab-Reihe */
-#section-{{ section.id }} .tab-btn:nth-child(-n+2) {
-  border-bottom: 1px solid #b8e1f5;
-}
+    #section-{{ section.id }} .accordion-btn {
+      display: flex;
+      width: 100%;
+      min-height: 62px;
+      padding: 15px 4px 15px 0;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border: 0;
+      border-bottom: 1px solid rgba(0,0,0,.12);
+      border-radius: 0;
+      background: transparent;
+      color: #111;
+      font: inherit;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.25;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: none;
+      appearance: none;
+      -webkit-appearance: none;
+    }
 
-    #section-{{ section.id }} .tab-btn::after {
-      left: 24%;
-      right: 24%;
+    #section-{{ section.id }} .accordion-btn:hover,
+    #section-{{ section.id }} .accordion-btn.is-active {
+      background: transparent;
+      color: #111;
+    }
+
+    #section-{{ section.id }} .accordion-btn:focus-visible {
+      outline: 2px solid rgba(0,140,203,.5);
+      outline-offset: 3px;
+    }
+
+    #section-{{ section.id }} .accordion-icon {
+      position: relative;
+      flex: 0 0 28px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #e5e7e9;
+    }
+
+    #section-{{ section.id }} .accordion-icon::before,
+    #section-{{ section.id }} .accordion-icon::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 9px;
+      height: 1.5px;
+      background: #111;
+      transform: translate(-50%, -50%);
+      transition: transform .2s ease;
+    }
+
+    #section-{{ section.id }} .accordion-icon::after {
+      transform: translate(-50%, -50%) rotate(90deg);
+    }
+
+    #section-{{ section.id }} .accordion-btn.is-active .accordion-icon::after {
+      transform: translate(-50%, -50%) rotate(0deg);
+    }
+
+    #section-{{ section.id }} .tab-panel {
+      display: none;
+      padding: 0;
+    }
+
+    #section-{{ section.id }} .tab-panel.is-active {
+      display: block;
+    }
+
+    #section-{{ section.id }} .tab-panel[hidden] {
+      display: none !important;
     }
 
     #section-{{ section.id }} .panel-card {
-      padding: 1.1rem;
-      border-radius: 12px;
+      padding: 1.1rem 0 1.4rem;
+      border: 0;
+      border-bottom: 1px solid rgba(0,0,0,.12);
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    #section-{{ section.id }} .accordion-btn + .tab-panel .panel-card {
+      margin: 0;
+    }
+
+    #section-{{ section.id }} .tab2-grid {
+      gap: 1rem;
     }
   }
 
@@ -447,23 +650,12 @@
       const root = document.getElementById('section-{{ section.id }}');
       if (!root) return;
 
-      const tabs   = root.querySelectorAll('.tab-btn');
-      const panels = root.querySelectorAll('.tab-panel');
+      const tabs       = Array.from(root.querySelectorAll('.tab-btn'));
+      const accordions = Array.from(root.querySelectorAll('.accordion-btn'));
+      const panels     = Array.from(root.querySelectorAll('.tab-panel'));
+      const mobileMq   = window.matchMedia('(max-width: 767px)');
 
-      function activate(index) {
-        tabs.forEach((t, i) => {
-          const active = i === index;
-          t.classList.toggle('is-active', active);
-          t.setAttribute('aria-selected', active ? 'true' : 'false');
-        });
-
-        panels.forEach((p, i) => {
-          const active = i === index;
-          p.classList.toggle('is-active', active);
-          if (active) { p.removeAttribute('hidden'); }
-          else { p.setAttribute('hidden', ''); }
-        });
-
+      function runPanelHooks(index) {
         // Tab 3 (Index 2): Loox neu layouten, weil Panel zuvor hidden war
         if (index === 2) {
           const kick = () => {
@@ -481,6 +673,72 @@
           recEl && loadComplementary(recEl);
         }
       }
+
+      function activate(index, options = {}) {
+        const isMobile = mobileMq.matches;
+        const allowCollapse = options.allowCollapse === true;
+        const currentlyOpen = panels[index] && panels[index].classList.contains('is-active');
+
+        if (isMobile && allowCollapse && currentlyOpen) {
+          panels[index].classList.remove('is-active');
+          panels[index].setAttribute('hidden', '');
+
+          if (accordions[index]) {
+            accordions[index].classList.remove('is-active');
+            accordions[index].setAttribute('aria-expanded', 'false');
+          }
+          return;
+        }
+
+        tabs.forEach((tab, i) => {
+          const active = i === index;
+          tab.classList.toggle('is-active', active);
+          tab.setAttribute('aria-selected', active ? 'true' : 'false');
+          tab.setAttribute('tabindex', active ? '0' : '-1');
+        });
+
+        accordions.forEach((button, i) => {
+          const active = i === index;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-expanded', active ? 'true' : 'false');
+        });
+
+        panels.forEach((panel, i) => {
+          const active = i === index;
+          panel.classList.toggle('is-active', active);
+          if (active) panel.removeAttribute('hidden');
+          else panel.setAttribute('hidden', '');
+        });
+
+        runPanelHooks(index);
+      }
+
+function setResponsiveState() {
+  if (mobileMq.matches) {
+    /*
+     * Mobil:
+     * Beim Wechsel in die mobile Ansicht werden zunächst
+     * alle Bereiche geschlossen und anschließend der erste geöffnet.
+     */
+    accordions.forEach((button) => {
+      button.classList.remove('is-active');
+      button.setAttribute('aria-expanded', 'false');
+    });
+
+    panels.forEach((panel) => {
+      panel.classList.remove('is-active');
+      panel.setAttribute('hidden', '');
+    });
+
+    toggleMobileAccordion(0, true);
+  } else {
+    /*
+     * Desktop:
+     * Klassisches Tab-Verhalten.
+     */
+    activate(0);
+  }
+}
 
       function loadComplementary(el) {
         if (!el || !el.getAttribute('data-url') || el.dataset.loaded) return;
@@ -575,10 +833,27 @@
           });
       }
 
-      tabs.forEach((tab, i) => { tab.addEventListener('click', () => activate(i)); });
+      tabs.forEach((tab, i) => {
+        tab.addEventListener('click', () => activate(i));
+      });
 
-      const initialIndex = Array.from(panels).findIndex(p => p.classList.contains('is-active'));
-      activate(initialIndex >= 0 ? initialIndex : 0);
+      accordions.forEach((button, i) => {
+  button.addEventListener('click', () => {
+    if (mobileMq.matches) {
+      toggleMobileAccordion(i);
+    } else {
+      activate(i);
+    }
+  });
+});
+
+      setResponsiveState();
+
+      if (typeof mobileMq.addEventListener === 'function') {
+        mobileMq.addEventListener('change', setResponsiveState);
+      } else if (typeof mobileMq.addListener === 'function') {
+        mobileMq.addListener(setResponsiveState);
+      }
 
       const recEl = root.querySelector('product-recommendations[data-url]');
       recEl && loadComplementary(recEl);
@@ -587,7 +862,10 @@
         activate(2);
 
         const anchor = root.querySelector('#loox-faq');
-        const target = anchor || root.querySelector('#looxReviews') || root.querySelector('#panel-{{ section.id }}-3');
+        const mobileButton = accordions[2];
+        const target = mobileMq.matches
+          ? (mobileButton || anchor || root.querySelector('#panel-{{ section.id }}-3'))
+          : (anchor || root.querySelector('#looxReviews') || root.querySelector('#panel-{{ section.id }}-3'));
         if (!target) return;
 
         const doScroll = () => {
@@ -612,6 +890,30 @@ document.addEventListener(
   true
 );
 
+function toggleMobileAccordion(index, forceOpen = false) {
+  const panel = panels[index];
+  const button = accordions[index];
+
+  if (!panel || !button) return;
+
+  const isOpen = panel.classList.contains('is-active');
+  const shouldOpen = forceOpen || !isOpen;
+
+  panel.classList.toggle('is-active', shouldOpen);
+  button.classList.toggle('is-active', shouldOpen);
+
+  button.setAttribute(
+    'aria-expanded',
+    shouldOpen ? 'true' : 'false'
+  );
+
+  if (shouldOpen) {
+    panel.removeAttribute('hidden');
+    runPanelHooks(index);
+  } else {
+    panel.setAttribute('hidden', '');
+  }
+}
 
     })();
   </script>
@@ -623,7 +925,8 @@ document.addEventListener(
       { "type": "text", "id": "heading", "label": "Überschrift", "default": "Mehr Informationen" },
       { "type": "range", "id": "max_width", "min": 720, "max": 1400, "step": 10, "unit": "px", "label": "Max. Breite", "default": 1100 },
       { "type": "range", "id": "card_min_h", "min": 0, "max": 800, "step": 10, "unit": "px", "label": "Min. Kartenhöhe (Desktop)", "default": 0 },
-      { "type": "range", "id": "comp_limit", "min": 2, "max": 12, "step": 1, "label": "Zubehör: Anzahl Produkte", "default": 8 }
+      { "type": "range", "id": "comp_limit", "min": 2, "max": 12, "step": 1, "label": "Zubehör: Anzahl Produkte", "default": 8 },
+      { "type": "checkbox", "id": "show_qa_tab", "label": "Q&A-Tab anzeigen", "default": true }
     ],
     "blocks": [
       {

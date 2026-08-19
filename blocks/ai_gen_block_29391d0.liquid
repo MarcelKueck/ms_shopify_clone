@@ -1,0 +1,618 @@
+{% doc %}
+  @prompt
+    kannst du das image with tex overlay 1 zu 1 kopieren und die einstellungsmöglichkeit für mobil, also breite und overlay capacity hinzufügen sowie hover effekte für den button, ich kann kein bild mehr für mobil einstellen, bitte noch hinzufügen, weitere hover effekte für den button einbauen
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-image-text-overlay-{{ ai_gen_id }} {
+    position: relative;
+    width: 100%;
+    display: block;
+  }
+
+  .ai-image-text-overlay-wrapper-{{ ai_gen_id }} {
+    position: relative;
+    width: {{ block.settings.desktop_width_percent }}%;
+    max-width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: {{ block.settings.border_radius }}px;
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-image-text-overlay-wrapper-{{ ai_gen_id }} {
+      width: {{ block.settings.mobile_width_percent }}%;
+    }
+  }
+
+  .ai-image-text-overlay-image-{{ ai_gen_id }} {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .ai-image-text-overlay-image-desktop-{{ ai_gen_id }} {
+    display: block;
+  }
+
+  .ai-image-text-overlay-image-mobile-{{ ai_gen_id }} {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-image-text-overlay-image-desktop-{{ ai_gen_id }} {
+      display: {% if block.settings.mobile_image %}none{% else %}block{% endif %};
+    }
+
+    .ai-image-text-overlay-image-mobile-{{ ai_gen_id }} {
+      display: {% if block.settings.mobile_image %}block{% else %}none{% endif %};
+    }
+  }
+
+  .ai-image-text-overlay-placeholder-{{ ai_gen_id }} {
+    width: 100%;
+    min-height: 400px;
+    background-color: #f4f4f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .ai-image-text-overlay-placeholder-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+    max-width: 500px;
+    max-height: 500px;
+  }
+
+  .ai-image-text-overlay-empty-state-{{ ai_gen_id }} {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    font-size: 14px;
+    color: #666;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .ai-image-text-overlay-content-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: {{ block.settings.vertical_alignment }};
+    align-items: {{ block.settings.horizontal_alignment }};
+    padding: 40px;
+    text-align: {{ block.settings.text_alignment }};
+    background-color: rgba(0, 0, 0, {{ block.settings.overlay_opacity }});
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-image-text-overlay-content-{{ ai_gen_id }} {
+      background-color: rgba(0, 0, 0, {{ block.settings.mobile_overlay_opacity }});
+      padding: 20px;
+    }
+  }
+
+  .ai-image-text-overlay-heading-{{ ai_gen_id }} {
+    color: {{ block.settings.heading_color }};
+    font-size: {{ block.settings.heading_size }}px;
+    margin: 0 0 16px;
+    max-width: {{ block.settings.content_max_width }}px;
+  }
+
+  .ai-image-text-overlay-text-{{ ai_gen_id }} {
+    color: {{ block.settings.text_color }};
+    font-size: {{ block.settings.text_size }}px;
+    margin: 0 0 24px;
+    max-width: {{ block.settings.content_max_width }}px;
+  }
+
+  .ai-image-text-overlay-button-{{ ai_gen_id }} {
+    display: inline-block;
+    padding: 14px 32px;
+    background-color: {{ block.settings.button_background_color }};
+    color: {{ block.settings.button_text_color }};
+    text-decoration: none;
+    border-radius: {{ block.settings.button_border_radius }}px;
+    font-size: {{ block.settings.button_text_size }}px;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-image-text-overlay-button-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.button_hover_background_color }};
+    color: {{ block.settings.button_hover_text_color }};
+    transform: {{ block.settings.button_hover_effect }};
+    {% if block.settings.button_hover_effect == 'shadow' %}
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    {% endif %}
+    {% if block.settings.button_hover_effect == 'glow' %}
+      box-shadow: 0 0 20px {{ block.settings.button_background_color }};
+    {% endif %}
+    {% if block.settings.button_hover_effect == 'border-grow' %}
+      border: 2px solid {{ block.settings.button_hover_text_color }};
+      padding: 12px 30px;
+    {% endif %}
+  }
+
+  {% if block.settings.button_hover_effect == 'slide-right' or block.settings.button_hover_effect == 'slide-left' or block.settings.button_hover_effect == 'slide-up' or block.settings.button_hover_effect == 'slide-down' %}
+    .ai-image-text-overlay-button-{{ ai_gen_id }}::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      {% if block.settings.button_hover_effect == 'slide-right' %}
+        left: -100%;
+      {% elsif block.settings.button_hover_effect == 'slide-left' %}
+        right: -100%;
+      {% elsif block.settings.button_hover_effect == 'slide-up' %}
+        bottom: -100%;
+        top: auto;
+      {% elsif block.settings.button_hover_effect == 'slide-down' %}
+        top: -100%;
+      {% endif %}
+      width: 100%;
+      height: 100%;
+      background-color: {{ block.settings.button_hover_background_color }};
+      transition: all 0.3s ease;
+      z-index: -1;
+    }
+
+    .ai-image-text-overlay-button-{{ ai_gen_id }}:hover::before {
+      {% if block.settings.button_hover_effect == 'slide-right' %}
+        left: 0;
+      {% elsif block.settings.button_hover_effect == 'slide-left' %}
+        right: 0;
+      {% elsif block.settings.button_hover_effect == 'slide-up' %}
+        bottom: 0;
+      {% elsif block.settings.button_hover_effect == 'slide-down' %}
+        top: 0;
+      {% endif %}
+    }
+
+    .ai-image-text-overlay-button-{{ ai_gen_id }}:hover {
+      background-color: transparent;
+    }
+  {% endif %}
+
+  {% if block.settings.button_hover_effect == 'rotate' %}
+    .ai-image-text-overlay-button-{{ ai_gen_id }}:hover {
+      transform: rotate(2deg);
+    }
+  {% endif %}
+
+  {% if block.settings.button_hover_effect == 'shake' %}
+    .ai-image-text-overlay-button-{{ ai_gen_id }}:hover {
+      animation: ai-button-shake-{{ ai_gen_id }} 0.5s ease;
+    }
+
+    @keyframes ai-button-shake-{{ ai_gen_id }} {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+      20%, 40%, 60%, 80% { transform: translateX(4px); }
+    }
+  {% endif %}
+
+  {% if block.settings.button_hover_effect == 'pulse' %}
+    .ai-image-text-overlay-button-{{ ai_gen_id }}:hover {
+      animation: ai-button-pulse-{{ ai_gen_id }} 0.6s ease;
+    }
+
+    @keyframes ai-button-pulse-{{ ai_gen_id }} {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+  {% endif %}
+{% endstyle %}
+
+<image-text-overlay-{{ ai_gen_id }}
+  class="ai-image-text-overlay-{{ ai_gen_id }}"
+  {{ block.shopify_attributes }}
+>
+  <div class="ai-image-text-overlay-wrapper-{{ ai_gen_id }}">
+    {% if block.settings.image or block.settings.mobile_image %}
+      {% if block.settings.image %}
+        <img
+          src="{{ block.settings.image | image_url: width: 2000 }}"
+          alt="{{ block.settings.image.alt | escape }}"
+          loading="lazy"
+          width="{{ block.settings.image.width }}"
+          height="{{ block.settings.image.height }}"
+          class="ai-image-text-overlay-image-{{ ai_gen_id }} ai-image-text-overlay-image-desktop-{{ ai_gen_id }}"
+        >
+      {% endif %}
+
+      {% if block.settings.mobile_image %}
+        <img
+          src="{{ block.settings.mobile_image | image_url: width: 1000 }}"
+          alt="{{ block.settings.mobile_image.alt | escape }}"
+          loading="lazy"
+          width="{{ block.settings.mobile_image.width }}"
+          height="{{ block.settings.mobile_image.height }}"
+          class="ai-image-text-overlay-image-{{ ai_gen_id }} ai-image-text-overlay-image-mobile-{{ ai_gen_id }}"
+        >
+      {% endif %}
+    {% else %}
+      <div class="ai-image-text-overlay-placeholder-{{ ai_gen_id }}">
+        {{ 'hero-apparel-1' | placeholder_svg_tag }}
+        <div class="ai-image-text-overlay-empty-state-{{ ai_gen_id }}">
+          Next, add an image
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="ai-image-text-overlay-content-{{ ai_gen_id }}">
+      {% if block.settings.heading != blank %}
+        <h2 class="ai-image-text-overlay-heading-{{ ai_gen_id }}">
+          {{ block.settings.heading }}
+        </h2>
+      {% endif %}
+
+      {% if block.settings.text != blank %}
+        <div class="ai-image-text-overlay-text-{{ ai_gen_id }}">
+          {{ block.settings.text }}
+        </div>
+      {% endif %}
+
+      {% if block.settings.button_text != blank and block.settings.button_link != blank %}
+        <a
+          href="{{ block.settings.button_link }}"
+          class="ai-image-text-overlay-button-{{ ai_gen_id }}"
+        >
+          {{ block.settings.button_text }}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</image-text-overlay-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class ImageTextOverlay{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        this.style.display = 'block';
+      }
+    }
+
+    customElements.define('image-text-overlay-{{ ai_gen_id }}', ImageTextOverlay{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Image with text overlay",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Image"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Desktop image"
+    },
+    {
+      "type": "image_picker",
+      "id": "mobile_image",
+      "label": "Mobile image"
+    },
+    {
+      "type": "range",
+      "id": "desktop_width_percent",
+      "label": "Desktop width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "mobile_width_percent",
+      "label": "Mobile width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 64,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "header",
+      "content": "Overlay"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Desktop overlay opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.3
+    },
+    {
+      "type": "range",
+      "id": "mobile_overlay_opacity",
+      "label": "Mobile overlay opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.5
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "richtext",
+      "id": "heading",
+      "label": "Heading",
+      "default": "<p>Image with text overlay</p>"
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>Add your description here</p>"
+    },
+    {
+      "type": "range",
+      "id": "content_max_width",
+      "label": "Content max width",
+      "min": 300,
+      "max": 1000,
+      "step": 50,
+      "unit": "px",
+      "default": 600
+    },
+    {
+      "type": "select",
+      "id": "vertical_alignment",
+      "label": "Vertical alignment",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Top"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "flex-end",
+          "label": "Bottom"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "horizontal_alignment",
+      "label": "Horizontal alignment",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "flex-end",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Text alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Heading size",
+      "min": 20,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "text_size",
+      "label": "Text size",
+      "min": 12,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Button text",
+      "default": "Shop now"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "range",
+      "id": "button_text_size",
+      "label": "Button text size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Button border radius",
+      "min": 0,
+      "max": 64,
+      "step": 2,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "Button background color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "button_hover_background_color",
+      "label": "Hover background color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "button_hover_text_color",
+      "label": "Hover text color",
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "button_hover_effect",
+      "label": "Hover effect",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "scale(1.05)",
+          "label": "Scale up"
+        },
+        {
+          "value": "translateY(-2px)",
+          "label": "Lift up"
+        },
+        {
+          "value": "scale(0.95)",
+          "label": "Scale down"
+        },
+        {
+          "value": "shadow",
+          "label": "Shadow"
+        },
+        {
+          "value": "glow",
+          "label": "Glow"
+        },
+        {
+          "value": "slide-right",
+          "label": "Slide right"
+        },
+        {
+          "value": "slide-left",
+          "label": "Slide left"
+        },
+        {
+          "value": "slide-up",
+          "label": "Slide up"
+        },
+        {
+          "value": "slide-down",
+          "label": "Slide down"
+        },
+        {
+          "value": "rotate",
+          "label": "Rotate"
+        },
+        {
+          "value": "shake",
+          "label": "Shake"
+        },
+        {
+          "value": "pulse",
+          "label": "Pulse"
+        },
+        {
+          "value": "border-grow",
+          "label": "Border grow"
+        }
+      ],
+      "default": "scale(1.05)"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Image with text overlay"
+    }
+  ]
+}
+{% endschema %}

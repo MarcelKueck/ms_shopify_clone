@@ -74,8 +74,9 @@
                 {% render 'icon-chevron' %}
               </div>
             </summary>
+
             <div>
-              <div class="prose pt-4  max-w-none max-md:text-sm">
+              <div class="prose pt-4 max-w-none max-md:text-sm">
                 {% if block.settings.content_from_page != blank %}
                   {{ block.settings.content_from_page.content }}
                 {% else %}
@@ -97,6 +98,7 @@
 {% schema %}
 {
   "name": "t:sections.collapsible-content.name",
+  "max_blocks": 10,
   "blocks": [
     {
       "type": "block",
@@ -350,17 +352,19 @@
     {
       "name": "t:sections.collapsible-content.presets__0.name",
       "blocks": [
-        {
-          "type": "block"
-        },
-        {
-          "type": "block"
-        },
-        {
-          "type": "block"
-        }
+        { "type": "block" },
+        { "type": "block" },
+        { "type": "block" },
+        { "type": "block" },
+        { "type": "block" },
+        { "type": "block" },
+        { "type": "block" },
+        { "type": "block" },
+        { "type": "block" },
+        { "type": "block" }
       ]
     }
   ]
 }
 {% endschema %}
+

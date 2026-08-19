@@ -1,0 +1,714 @@
+{% doc %}
+  @prompt
+    bitte kopiere den Image with text overlay 1 zu 1 füge nur die funktion hinzu den imae with text overlay zu positionieren, also links, zentriert oder rechts, das bild muss auch zu positionieren sein. der button soll über einen effekt verfügen wie bei premium image with text, das image with text overlay muss im abschnitt zu positionieren sein, mehr button styling optionen einbauen
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-image-text-overlay-container-{{ ai_gen_id }} {
+    width: 100%;
+    display: flex;
+    {% if block.settings.block_alignment == 'left' %}
+      justify-content: flex-start;
+    {% elsif block.settings.block_alignment == 'center' %}
+      justify-content: center;
+    {% elsif block.settings.block_alignment == 'right' %}
+      justify-content: flex-end;
+    {% endif %}
+  }
+
+  .ai-image-text-overlay-{{ ai_gen_id }} {
+    position: relative;
+    width: {{ block.settings.desktop_width_percent }}%;
+    max-width: 100%;
+    display: block;
+  }
+
+  .ai-image-text-overlay-wrapper-{{ ai_gen_id }} {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: {{ settings.block_corner_radius }}px;
+  }
+
+  .ai-image-text-overlay-image-{{ ai_gen_id }} {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: {{ block.settings.image_position }};
+  }
+
+  .ai-image-text-overlay-placeholder-{{ ai_gen_id }} {
+    background-color: #f4f4f4;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .ai-image-text-overlay-placeholder-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+    max-width: 500px;
+    max-height: 500px;
+  }
+
+  .ai-image-text-overlay-content-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: {{ block.settings.vertical_alignment }};
+    padding: 40px;
+    z-index: 2;
+  }
+
+  .ai-image-text-overlay-content-inner-{{ ai_gen_id }} {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    {% if block.settings.horizontal_alignment == 'left' %}
+      align-items: flex-start;
+      text-align: left;
+    {% elsif block.settings.horizontal_alignment == 'center' %}
+      align-items: center;
+      text-align: center;
+    {% elsif block.settings.horizontal_alignment == 'right' %}
+      align-items: flex-end;
+      text-align: right;
+    {% endif %}
+    max-width: {{ block.settings.content_max_width }}px;
+    {% if block.settings.horizontal_alignment == 'left' %}
+      margin-right: auto;
+    {% elsif block.settings.horizontal_alignment == 'center' %}
+      margin-left: auto;
+      margin-right: auto;
+    {% elsif block.settings.horizontal_alignment == 'right' %}
+      margin-left: auto;
+    {% endif %}
+  }
+
+  .ai-image-text-overlay-heading-{{ ai_gen_id }} {
+    color: {{ block.settings.text_color }};
+    font-size: {{ block.settings.heading_size }}px;
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  .ai-image-text-overlay-text-{{ ai_gen_id }} {
+    color: {{ block.settings.text_color }};
+    font-size: {{ block.settings.text_size }}px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .ai-image-text-overlay-button-{{ ai_gen_id }} {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: {{ block.settings.button_padding_vertical }}px {{ block.settings.button_padding_horizontal }}px;
+    background-color: {{ block.settings.button_background }};
+    color: {{ block.settings.button_text_color }};
+    text-decoration: none;
+    border-radius: {{ block.settings.button_border_radius }}px;
+    font-size: {{ block.settings.button_text_size }}px;
+    font-weight: {{ block.settings.button_font_weight }};
+    text-transform: {{ block.settings.button_text_transform }};
+    letter-spacing: {{ block.settings.button_letter_spacing }}px;
+    transition: all 0.3s ease;
+    border: {{ block.settings.button_border_width }}px solid {{ block.settings.button_border_color }};
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: {{ block.settings.button_shadow_x }}px {{ block.settings.button_shadow_y }}px {{ block.settings.button_shadow_blur }}px {{ block.settings.button_shadow_color }};
+  }
+
+  .ai-image-text-overlay-button-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.button_background_hover }};
+    color: {{ block.settings.button_text_color_hover }};
+    border-color: {{ block.settings.button_border_color_hover }};
+    transform: translateY({{ block.settings.button_hover_lift }}px);
+    box-shadow: {{ block.settings.button_shadow_x }}px calc({{ block.settings.button_shadow_y }}px + {{ block.settings.button_hover_lift }}px) {{ block.settings.button_shadow_blur }}px {{ block.settings.button_shadow_color }};
+  }
+
+  .ai-image-text-overlay-button-arrow-{{ ai_gen_id }} {
+    display: inline-flex;
+    transition: transform 0.3s ease;
+    width: {{ block.settings.button_icon_size }}px;
+    height: {{ block.settings.button_icon_size }}px;
+  }
+
+  .ai-image-text-overlay-button-arrow-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .ai-image-text-overlay-button-{{ ai_gen_id }}:hover .ai-image-text-overlay-button-arrow-{{ ai_gen_id }} {
+    transform: translateX({{ block.settings.button_icon_hover_shift }}px);
+  }
+
+  .ai-image-text-overlay-overlay-{{ ai_gen_id }} {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: {{ block.settings.overlay_color }};
+    opacity: {{ block.settings.overlay_opacity }};
+    z-index: 1;
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-image-text-overlay-content-{{ ai_gen_id }} {
+      padding: 24px;
+    }
+
+    .ai-image-text-overlay-heading-{{ ai_gen_id }} {
+      font-size: calc({{ block.settings.heading_size }}px * 0.7);
+    }
+
+    .ai-image-text-overlay-text-{{ ai_gen_id }} {
+      font-size: calc({{ block.settings.text_size }}px * 0.9);
+    }
+
+    .ai-image-text-overlay-button-{{ ai_gen_id }} {
+      font-size: calc({{ block.settings.button_text_size }}px * 0.9);
+      padding: calc({{ block.settings.button_padding_vertical }}px * 0.8) calc({{ block.settings.button_padding_horizontal }}px * 0.8);
+    }
+  }
+{% endstyle %}
+
+<div class="ai-image-text-overlay-container-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  <div class="ai-image-text-overlay-{{ ai_gen_id }}">
+    <div class="ai-image-text-overlay-wrapper-{{ ai_gen_id }}">
+      {% if block.settings.image %}
+        <img
+          src="{{ block.settings.image | image_url: width: 2000 }}"
+          alt="{{ block.settings.image.alt | escape }}"
+          loading="lazy"
+          width="{{ block.settings.image.width }}"
+          height="{{ block.settings.image.height }}"
+          class="ai-image-text-overlay-image-{{ ai_gen_id }}"
+        >
+      {% else %}
+        <div class="ai-image-text-overlay-placeholder-{{ ai_gen_id }}">
+          {{ 'hero-apparel-1' | placeholder_svg_tag }}
+        </div>
+      {% endif %}
+
+      {% if block.settings.overlay_opacity > 0 %}
+        <div class="ai-image-text-overlay-overlay-{{ ai_gen_id }}"></div>
+      {% endif %}
+
+      <div class="ai-image-text-overlay-content-{{ ai_gen_id }}">
+        <div class="ai-image-text-overlay-content-inner-{{ ai_gen_id }}">
+          {% if block.settings.heading != blank %}
+            <h2 class="ai-image-text-overlay-heading-{{ ai_gen_id }}">
+              {{ block.settings.heading }}
+            </h2>
+          {% endif %}
+
+          {% if block.settings.text != blank %}
+            <div class="ai-image-text-overlay-text-{{ ai_gen_id }}">
+              {{ block.settings.text }}
+            </div>
+          {% endif %}
+
+          {% if block.settings.button_label != blank and block.settings.button_link != blank %}
+            <a
+              href="{{ block.settings.button_link }}"
+              class="ai-image-text-overlay-button-{{ ai_gen_id }}"
+            >
+              <span>{{ block.settings.button_label }}</span>
+              {% if block.settings.button_show_icon %}
+                <span class="ai-image-text-overlay-button-arrow-{{ ai_gen_id }}">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              {% endif %}
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Image with text overlay",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Bild"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Bild"
+    },
+    {
+      "type": "select",
+      "id": "image_position",
+      "label": "Bild-Position",
+      "options": [
+        {
+          "value": "left top",
+          "label": "Links oben"
+        },
+        {
+          "value": "center top",
+          "label": "Mitte oben"
+        },
+        {
+          "value": "right top",
+          "label": "Rechts oben"
+        },
+        {
+          "value": "left center",
+          "label": "Links mitte"
+        },
+        {
+          "value": "center center",
+          "label": "Zentriert"
+        },
+        {
+          "value": "right center",
+          "label": "Rechts mitte"
+        },
+        {
+          "value": "left bottom",
+          "label": "Links unten"
+        },
+        {
+          "value": "center bottom",
+          "label": "Mitte unten"
+        },
+        {
+          "value": "right bottom",
+          "label": "Rechts unten"
+        }
+      ],
+      "default": "center center"
+    },
+    {
+      "type": "range",
+      "id": "desktop_width_percent",
+      "label": "Desktop-Breite",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "select",
+      "id": "block_alignment",
+      "label": "Block-Ausrichtung im Abschnitt",
+      "options": [
+        {
+          "value": "left",
+          "label": "Links"
+        },
+        {
+          "value": "center",
+          "label": "Zentriert"
+        },
+        {
+          "value": "right",
+          "label": "Rechts"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Overlay"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Overlay-Farbe",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Overlay-Deckkraft",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.3
+    },
+    {
+      "type": "header",
+      "content": "Inhalt"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "Überschrift",
+      "default": "Bild mit Text-Overlay"
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>Fügen Sie hier Ihren Text hinzu</p>"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Überschriftgröße",
+      "min": 20,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "text_size",
+      "label": "Textgröße",
+      "min": 12,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Textfarbe",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "range",
+      "id": "content_max_width",
+      "label": "Maximale Inhaltsbreite",
+      "min": 300,
+      "max": 1000,
+      "step": 50,
+      "unit": "px",
+      "default": 600
+    },
+    {
+      "type": "header",
+      "content": "Text-Positionierung"
+    },
+    {
+      "type": "select",
+      "id": "horizontal_alignment",
+      "label": "Horizontale Ausrichtung",
+      "options": [
+        {
+          "value": "left",
+          "label": "Links"
+        },
+        {
+          "value": "center",
+          "label": "Zentriert"
+        },
+        {
+          "value": "right",
+          "label": "Rechts"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "vertical_alignment",
+      "label": "Vertikale Ausrichtung",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Oben"
+        },
+        {
+          "value": "center",
+          "label": "Mitte"
+        },
+        {
+          "value": "flex-end",
+          "label": "Unten"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button-Text",
+      "default": "Jetzt einkaufen"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button-Link"
+    },
+    {
+      "type": "header",
+      "content": "Button Farben"
+    },
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "Hintergrund",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Textfarbe",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "button_background_hover",
+      "label": "Hintergrund (Hover)",
+      "default": "#333333"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color_hover",
+      "label": "Textfarbe (Hover)",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "header",
+      "content": "Button Rahmen"
+    },
+    {
+      "type": "range",
+      "id": "button_border_width",
+      "label": "Rahmenbreite",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "color",
+      "id": "button_border_color",
+      "label": "Rahmenfarbe",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_border_color_hover",
+      "label": "Rahmenfarbe (Hover)",
+      "default": "#333333"
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Eckenradius",
+      "min": 0,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "header",
+      "content": "Button Größe & Abstand"
+    },
+    {
+      "type": "range",
+      "id": "button_text_size",
+      "label": "Textgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "button_padding_vertical",
+      "label": "Innenabstand vertikal",
+      "min": 4,
+      "max": 30,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "button_padding_horizontal",
+      "label": "Innenabstand horizontal",
+      "min": 8,
+      "max": 60,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "header",
+      "content": "Button Typografie"
+    },
+    {
+      "type": "select",
+      "id": "button_font_weight",
+      "label": "Schriftstärke",
+      "options": [
+        {
+          "value": "300",
+          "label": "Leicht"
+        },
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Halbfett"
+        },
+        {
+          "value": "700",
+          "label": "Fett"
+        }
+      ],
+      "default": "400"
+    },
+    {
+      "type": "select",
+      "id": "button_text_transform",
+      "label": "Textumwandlung",
+      "options": [
+        {
+          "value": "none",
+          "label": "Keine"
+        },
+        {
+          "value": "uppercase",
+          "label": "Großbuchstaben"
+        },
+        {
+          "value": "lowercase",
+          "label": "Kleinbuchstaben"
+        },
+        {
+          "value": "capitalize",
+          "label": "Erster Buchstabe groß"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "range",
+      "id": "button_letter_spacing",
+      "label": "Buchstabenabstand",
+      "min": 0,
+      "max": 3,
+      "step": 0.5,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Button Icon"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_show_icon",
+      "label": "Icon anzeigen",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "button_icon_size",
+      "label": "Icon-Größe",
+      "min": 12,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "button_icon_hover_shift",
+      "label": "Icon-Verschiebung (Hover)",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "header",
+      "content": "Button Effekte"
+    },
+    {
+      "type": "range",
+      "id": "button_hover_lift",
+      "label": "Hover-Anhebung",
+      "min": -5,
+      "max": 0,
+      "step": 1,
+      "unit": "px",
+      "default": -2
+    },
+    {
+      "type": "range",
+      "id": "button_shadow_x",
+      "label": "Schatten X-Versatz",
+      "min": -10,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "button_shadow_y",
+      "label": "Schatten Y-Versatz",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "button_shadow_blur",
+      "label": "Schatten Unschärfe",
+      "min": 0,
+      "max": 30,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "color",
+      "id": "button_shadow_color",
+      "label": "Schattenfarbe",
+      "default": "rgba(0, 0, 0, 0.2)"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Image with text overlay"
+    }
+  ]
+}
+{% endschema %}

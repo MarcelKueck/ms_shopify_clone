@@ -1,0 +1,643 @@
+{% doc %}
+  @prompt
+    kannst du mir bitte das Accordion plus modul kopieren und noch einbauen, dass man bis zu 10 akkordien befüllen kann sowie die verstellbarkeit des moduls auch mobil regeln kann, der hintergrund des gesamten abschnittes muss noch anpassbar sein, kannst du mir diesen abschnitt direkt al FAQ-Schema für Google und SEO deklarieren
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-accordion-container-{{ ai_gen_id }} {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    background-color: {{ block.settings.section_background_color }};
+    padding: {{ block.settings.section_padding_top }}px 0 {{ block.settings.section_padding_bottom }}px 0;
+  }
+
+  .ai-accordion-wrapper-{{ ai_gen_id }} {
+    width: {{ block.settings.desktop_width_percent }}%;
+    margin: 0 auto;
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-accordion-wrapper-{{ ai_gen_id }} {
+      width: {{ block.settings.mobile_width_percent }}%;
+    }
+  }
+
+  .ai-accordion-item-{{ ai_gen_id }} {
+    border: 1px solid {{ block.settings.border_color }};
+    border-radius: {{ block.settings.border_radius }}px;
+    margin-bottom: {{ block.settings.spacing_between_items }}px;
+    overflow: hidden;
+    background-color: {{ block.settings.background_color }};
+  }
+
+  .ai-accordion-header-{{ ai_gen_id }} {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: {{ block.settings.padding }}px;
+    background-color: {{ block.settings.header_background_color }};
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.3s ease;
+  }
+
+  .ai-accordion-header-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.header_hover_color }};
+  }
+
+  .ai-accordion-title-{{ ai_gen_id }} {
+    font-size: {{ block.settings.title_font_size }}px;
+    font-weight: 600;
+    color: {{ block.settings.title_color }};
+    margin: 0;
+    flex-grow: 1;
+  }
+
+  .ai-accordion-icon-{{ ai_gen_id }} {
+    width: {{ block.settings.icon_size }}px;
+    height: {{ block.settings.icon_size }}px;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+    color: {{ block.settings.icon_color }};
+  }
+
+  .ai-accordion-header-{{ ai_gen_id }}[aria-expanded="true"] .ai-accordion-icon-{{ ai_gen_id }} {
+    transform: rotate(180deg);
+  }
+
+  .ai-accordion-content-{{ ai_gen_id }} {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .ai-accordion-content-{{ ai_gen_id }}.active {
+    max-height: 2000px;
+  }
+
+  .ai-accordion-content-inner-{{ ai_gen_id }} {
+    padding: {{ block.settings.padding }}px;
+    color: {{ block.settings.content_color }};
+    font-size: {{ block.settings.content_font_size }}px;
+    line-height: 1.6;
+  }
+
+  /* Listen im FAQ-Richtext sichtbar machen */
+.ai-accordion-content-inner-{{ ai_gen_id }} ul {
+  list-style-type: disc;
+  list-style-position: outside;
+  padding-left: 1.5em;
+  margin: 0.75em 0;
+}
+
+.ai-accordion-content-inner-{{ ai_gen_id }} ol {
+  list-style-type: decimal;
+  list-style-position: outside;
+  padding-left: 1.5em;
+  margin: 0.75em 0;
+}
+
+.ai-accordion-content-inner-{{ ai_gen_id }} li {
+  display: list-item;
+  margin-bottom: 0.35em;
+}
+
+.ai-accordion-content-inner-{{ ai_gen_id }} ul ul {
+  list-style-type: circle;
+}
+
+.ai-accordion-content-inner-{{ ai_gen_id }} ul ul ul {
+  list-style-type: square;
+}
+
+  .ai-accordion-empty-state-{{ ai_gen_id }} {
+    padding: 40px 20px;
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+  }
+{% endstyle %}
+
+<accordion-block-{{ ai_gen_id }} class="ai-accordion-container-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  <div class="ai-accordion-wrapper-{{ ai_gen_id }}">
+    {% assign has_content = false %}
+    {% assign faq_items = '' %}
+    
+    {% for i in (1..10) %}
+      {% liquid
+        assign title_key = 'accordion_' | append: i | append: '_title'
+        assign content_key = 'accordion_' | append: i | append: '_content'
+        assign enabled_key = 'accordion_' | append: i | append: '_enabled'
+        
+        assign title = block.settings[title_key]
+        assign content = block.settings[content_key]
+        assign enabled = block.settings[enabled_key]
+      %}
+      
+      {% if enabled and title != blank %}
+        {% assign has_content = true %}
+        
+        {% capture faq_item %}
+          {% unless forloop.first %},{% endunless %}
+          {
+            "@type": "Question",
+            "name": {{ title | json }},
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": {{ content | strip_html | json }}
+            }
+          }
+        {% endcapture %}
+        {% assign faq_items = faq_items | append: faq_item %}
+        
+        <div class="ai-accordion-item-{{ ai_gen_id }}">
+          <button
+            class="ai-accordion-header-{{ ai_gen_id }}"
+            aria-expanded="false"
+            aria-controls="ai-accordion-content-{{ ai_gen_id }}-{{ i }}"
+          >
+            <h3 class="ai-accordion-title-{{ ai_gen_id }}">{{ title }}</h3>
+            <svg
+              class="ai-accordion-icon-{{ ai_gen_id }}"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div
+            id="ai-accordion-content-{{ ai_gen_id }}-{{ i }}"
+            class="ai-accordion-content-{{ ai_gen_id }}"
+            role="region"
+          >
+            <div class="ai-accordion-content-inner-{{ ai_gen_id }}">
+              {% if content != blank %}
+                {{ content }}
+              {% else %}
+                <p>Fügen Sie hier Inhalt für Akkordeon {{ i }} hinzu.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    {% unless has_content %}
+      <div class="ai-accordion-empty-state-{{ ai_gen_id }}">
+        Aktivieren Sie mindestens ein Akkordeon-Element und fügen Sie einen Titel hinzu.
+      </div>
+    {% endunless %}
+  </div>
+</accordion-block-{{ ai_gen_id }}>
+
+{% if has_content and block.settings.enable_faq_schema %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [{{ faq_items }}]
+  }
+  </script>
+{% endif %}
+
+<script>
+  (function() {
+    class AccordionBlock{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        this.headers = this.querySelectorAll('.ai-accordion-header-{{ ai_gen_id }}');
+        this.setupEventListeners();
+      }
+
+      setupEventListeners() {
+        this.headers.forEach((header) => {
+          header.addEventListener('click', () => {
+            const content = header.nextElementSibling;
+            const isExpanded = header.getAttribute('aria-expanded') === 'true';
+
+            if (isExpanded) {
+              header.setAttribute('aria-expanded', 'false');
+              content.classList.remove('active');
+            } else {
+              header.setAttribute('aria-expanded', 'true');
+              content.classList.add('active');
+            }
+          });
+        });
+      }
+    }
+
+    customElements.define('accordion-block-{{ ai_gen_id }}', AccordionBlock{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "FAQ Accordion",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "SEO"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_faq_schema",
+      "label": "FAQ Schema aktivieren",
+      "info": "Fügt strukturierte Daten (JSON-LD) für Google hinzu",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Section"
+    },
+    {
+      "type": "color",
+      "id": "section_background_color",
+      "label": "Section background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top",
+      "label": "Section padding top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "section_padding_bottom",
+      "label": "Section padding bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "desktop_width_percent",
+      "label": "Desktop width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "mobile_width_percent",
+      "label": "Mobile width",
+      "min": 80,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "spacing_between_items",
+      "label": "Spacing between items",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "padding",
+      "label": "Padding",
+      "min": 8,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Style"
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border",
+      "default": "#e5e5e5"
+    },
+    {
+      "type": "color",
+      "id": "header_background_color",
+      "label": "Header background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "header_hover_color",
+      "label": "Header hover",
+      "default": "#f9f9f9"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "range",
+      "id": "title_font_size",
+      "label": "Title size",
+      "min": 12,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Title color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "content_font_size",
+      "label": "Content size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "color",
+      "id": "content_color",
+      "label": "Content color",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Icon"
+    },
+    {
+      "type": "range",
+      "id": "icon_size",
+      "label": "Icon size",
+      "min": 16,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon color",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 1"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_1_enabled",
+      "label": "Aktivieren",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "accordion_1_title",
+      "label": "Titel",
+      "default": "Akkordeon 1"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_1_content",
+      "label": "Inhalt",
+      "default": "<p>Fügen Sie hier den Inhalt für Akkordeon 1 hinzu.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 2"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_2_enabled",
+      "label": "Aktivieren",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "accordion_2_title",
+      "label": "Titel",
+      "default": "Akkordeon 2"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_2_content",
+      "label": "Inhalt",
+      "default": "<p>Fügen Sie hier den Inhalt für Akkordeon 2 hinzu.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 3"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_3_enabled",
+      "label": "Aktivieren",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "accordion_3_title",
+      "label": "Titel",
+      "default": "Akkordeon 3"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_3_content",
+      "label": "Inhalt",
+      "default": "<p>Fügen Sie hier den Inhalt für Akkordeon 3 hinzu.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 4"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_4_enabled",
+      "label": "Aktivieren",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_4_title",
+      "label": "Titel"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_4_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 5"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_5_enabled",
+      "label": "Aktivieren",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_5_title",
+      "label": "Titel"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_5_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 6"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_6_enabled",
+      "label": "Aktivieren",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_6_title",
+      "label": "Titel"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_6_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 7"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_7_enabled",
+      "label": "Aktivieren",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_7_title",
+      "label": "Titel"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_7_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 8"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_8_enabled",
+      "label": "Aktivieren",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_8_title",
+      "label": "Titel"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_8_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 9"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_9_enabled",
+      "label": "Aktivieren",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_9_title",
+      "label": "Titel"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_9_content",
+      "label": "Inhalt"
+    },
+    {
+      "type": "header",
+      "content": "Akkordeon 10"
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_10_enabled",
+      "label": "Aktivieren",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "accordion_10_title",
+      "label": "Titel"
+    },
+    {
+      "type": "richtext",
+      "id": "accordion_10_content",
+      "label": "Inhalt"
+    }
+  ],
+  "presets": [
+    {
+      "name": "FAQ Accordion"
+    }
+  ]
+}
+{% endschema %}
