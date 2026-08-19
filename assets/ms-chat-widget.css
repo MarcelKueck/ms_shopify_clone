@@ -73,7 +73,8 @@
   backdrop-filter: blur(14px) saturate(160%);
   color: rgb(var(--msc-fg));
   box-shadow: 0 8px 28px rgb(0 0 0 / 25%);
-  transition: transform 150ms ease, box-shadow 150ms ease;
+  transition: transform 150ms ease, box-shadow 150ms ease,
+    opacity 180ms ease, visibility 180ms ease;
   padding: 0;
 }
 .ms-chat-launcher:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgb(0 0 0 / 28%); }
@@ -254,6 +255,28 @@
 /* When the panel is open the JS adds this class. Fully removed from layout and
    interaction so it can never overlap the panel (desktop or mobile full-screen). */
 .ms-chat-launcher--hidden { display: none !important; visibility: hidden; pointer-events: none; }
+
+/* While a theme drawer/modal is open (cart drawer, mobile menu, search, …) the
+   theme locks page scroll via body.no-scroll — the same hook it uses for its
+   own sticky add-to-cart bar. The launcher floats at the widget's near-max
+   z-index, so without this it sits ON TOP of every drawer; on the mobile cart
+   drawer it lands exactly on the "Zur Kasse" button. Fade it (and the nudge)
+   out while any drawer is open; the transition above brings it back the
+   moment the drawer closes. visibility keeps it out of the a11y/tab order. */
+body.no-scroll .ms-chat-launcher {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.85);
+}
+body.no-scroll .ms-chat-nudge {
+  /* The entry animation's `both` fill pins opacity:1 past a plain override,
+     so it must be switched off for the hide to win. */
+  animation: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 
 /* One-time launcher attention motion (engagement layer): a single gentle
    bounce shortly after load, added by the JS once per session, removed on
