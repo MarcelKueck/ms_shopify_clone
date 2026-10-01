@@ -1,0 +1,1367 @@
+{% doc %}
+  @prompt
+    jetzt benötigen wir ein modernes, stylisches modul um verschieden varianten darzustellen - dazu brauchen wir ein modul welches bild zu text im wechsel von links nach rechts darstellt. die bilder sollen wieder im 3d effekt mit schatten dargestellt werden und der text klassisch. alle module sollen in der größe, abstand, farbe, hintergrund einsellbar sein. am besten auch direkt mit button um auf die verschiedenen varianten verlinken zu können. der button soll im hoover einzustellen sein - transition sowie glänzend. die bilder sollen zoom in haben beim hoover, füge bitte noch eine überschrift für dieses modul ein und die möglichkeit text und bild zu positionieren , wir benötigen noch eine option die breite des Varianten Showcases einstellen zu können, also z.B. 1400 px der gesamtbreite, kannst du  unter der überschrift noch einbauen, dass man einen stripe setzen kann in unterschiedlciher länge, dicke und stärke. super wäre auch, wenn man dir descripions noch stylen könnte mit bold, aufzählungen und verlinkungen , man sieht die bullet points bzw. nummerierung nicht kannst du die bei verwendung bitte sichtbar machen, es müssen mind. 10 varianten auswählbar sein
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-variant-showcase-container-{{ ai_gen_id }} {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .ai-variant-showcase-{{ ai_gen_id }} {
+    display: block;
+    width: 100%;
+    max-width: {{ block.settings.max_width }}px;
+    background-color: {{ block.settings.background_color }};
+    padding: {{ block.settings.section_padding }}px;
+    border-radius: {{ block.settings.border_radius }}px;
+  }
+
+  .ai-variant-header-{{ ai_gen_id }} {
+    text-align: {{ block.settings.heading_alignment }};
+    margin-bottom: {{ block.settings.heading_margin }}px;
+  }
+
+  .ai-variant-main-heading-{{ ai_gen_id }} {
+    font-size: {{ block.settings.heading_size }}px;
+    color: {{ block.settings.heading_color }};
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .ai-variant-stripe-{{ ai_gen_id }} {
+    width: {{ block.settings.stripe_width }}%;
+    height: {{ block.settings.stripe_height }}px;
+    background-color: {{ block.settings.stripe_color }};
+    margin: {{ block.settings.stripe_margin_top }}px auto {{ block.settings.stripe_margin_bottom }}px;
+    border-radius: {{ block.settings.stripe_border_radius }}px;
+  }
+
+  {% if block.settings.heading_alignment == 'left' %}
+    .ai-variant-stripe-{{ ai_gen_id }} {
+      margin-left: 0;
+    }
+  {% elsif block.settings.heading_alignment == 'right' %}
+    .ai-variant-stripe-{{ ai_gen_id }} {
+      margin-right: 0;
+    }
+  {% endif %}
+
+  .ai-variant-item-{{ ai_gen_id }} {
+    display: flex;
+    align-items: {{ block.settings.content_vertical_alignment }};
+    gap: {{ block.settings.content_gap }}px;
+    margin-bottom: {{ block.settings.item_spacing }}px;
+  }
+
+  .ai-variant-item-{{ ai_gen_id }}:last-child {
+    margin-bottom: 0;
+  }
+
+  .ai-variant-item-{{ ai_gen_id }}.ai-variant-layout-left-{{ ai_gen_id }} {
+    flex-direction: row;
+  }
+
+  .ai-variant-item-{{ ai_gen_id }}.ai-variant-layout-right-{{ ai_gen_id }} {
+    flex-direction: row-reverse;
+  }
+
+  .ai-variant-image-wrapper-{{ ai_gen_id }} {
+    flex: 0 0 {{ block.settings.image_width_percent }}%;
+    position: relative;
+    overflow: hidden;
+    border-radius: {{ block.settings.image_border_radius }}px;
+    transform: perspective(1000px) rotateY({{ block.settings.image_3d_rotation }}deg);
+    box-shadow: {{ block.settings.image_shadow_x }}px {{ block.settings.image_shadow_y }}px {{ block.settings.image_shadow_blur }}px {{ block.settings.image_shadow_color }};
+    transition: transform 0.3s ease;
+  }
+
+  .ai-variant-item-{{ ai_gen_id }}.ai-variant-layout-right-{{ ai_gen_id }} .ai-variant-image-wrapper-{{ ai_gen_id }} {
+    transform: perspective(1000px) rotateY(-{{ block.settings.image_3d_rotation }}deg);
+  }
+
+  .ai-variant-image-wrapper-{{ ai_gen_id }}:hover {
+    transform: perspective(1000px) rotateY(0deg);
+  }
+
+  .ai-variant-image-{{ ai_gen_id }} {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform {{ block.settings.image_zoom_duration }}s ease;
+  }
+
+  .ai-variant-image-wrapper-{{ ai_gen_id }}:hover .ai-variant-image-{{ ai_gen_id }} {
+    transform: scale({{ block.settings.image_zoom_scale }});
+  }
+
+  .ai-variant-image-placeholder-{{ ai_gen_id }} {
+    background-color: #f4f4f4;
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-variant-image-placeholder-{{ ai_gen_id }} svg {
+    width: 60%;
+    height: 60%;
+  }
+
+  .ai-variant-content-{{ ai_gen_id }} {
+    flex: 1;
+    text-align: {{ block.settings.text_alignment }};
+  }
+
+  .ai-variant-title-{{ ai_gen_id }} {
+    font-size: {{ block.settings.title_size }}px;
+    color: {{ block.settings.title_color }};
+    margin: 0 0 {{ block.settings.title_margin }}px;
+    font-weight: 700;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} {
+    font-size: {{ block.settings.text_size }}px;
+    color: {{ block.settings.text_color }};
+    line-height: 1.6;
+    margin: 0 0 {{ block.settings.text_margin }}px;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} p {
+    margin: 0 0 12px;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} p:last-child {
+    margin-bottom: 0;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} strong {
+    font-weight: 700;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} ul,
+  .ai-variant-text-{{ ai_gen_id }} ol {
+    margin: 0 0 12px;
+    padding-left: 20px;
+    list-style-position: outside;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} ul {
+    list-style-type: disc;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} ol {
+    list-style-type: decimal;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} li {
+    margin-bottom: 6px;
+    display: list-item;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} a {
+    color: {{ block.settings.text_link_color }};
+    text-decoration: underline;
+    transition: color 0.2s ease;
+  }
+
+  .ai-variant-text-{{ ai_gen_id }} a:hover {
+    color: {{ block.settings.text_link_hover_color }};
+  }
+
+  .ai-variant-button-{{ ai_gen_id }} {
+    display: inline-block;
+    padding: {{ block.settings.button_padding_vertical }}px {{ block.settings.button_padding_horizontal }}px;
+    background-color: {{ block.settings.button_bg_color }};
+    color: {{ block.settings.button_text_color }};
+    text-decoration: none;
+    border-radius: {{ block.settings.button_border_radius }}px;
+    font-size: {{ block.settings.button_font_size }}px;
+    font-weight: 600;
+    transition: all {{ block.settings.button_transition_duration }}s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-variant-button-{{ ai_gen_id }}::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent 30%,
+      rgba(255, 255, 255, {{ block.settings.button_shine_intensity }}) 50%,
+      transparent 70%
+    );
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    transition: transform {{ block.settings.button_transition_duration }}s ease;
+  }
+
+  .ai-variant-button-{{ ai_gen_id }}:hover::before {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+
+  .ai-variant-button-{{ ai_gen_id }}:hover {
+    background-color: {{ block.settings.button_hover_bg_color }};
+    color: {{ block.settings.button_hover_text_color }};
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-variant-item-{{ ai_gen_id }},
+    .ai-variant-item-{{ ai_gen_id }}.ai-variant-layout-left-{{ ai_gen_id }},
+    .ai-variant-item-{{ ai_gen_id }}.ai-variant-layout-right-{{ ai_gen_id }} {
+      flex-direction: column;
+    }
+
+    .ai-variant-image-wrapper-{{ ai_gen_id }} {
+      flex: 0 0 100%;
+      width: 100%;
+    }
+
+    .ai-variant-content-{{ ai_gen_id }} {
+      text-align: center;
+    }
+  }
+{% endstyle %}
+
+<div class="ai-variant-showcase-container-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  <variant-showcase-{{ ai_gen_id }} class="ai-variant-showcase-{{ ai_gen_id }}">
+    {% if block.settings.main_heading != blank %}
+      <div class="ai-variant-header-{{ ai_gen_id }}">
+        <h2 class="ai-variant-main-heading-{{ ai_gen_id }}">{{ block.settings.main_heading }}</h2>
+        {% if block.settings.stripe_enabled %}
+          <div class="ai-variant-stripe-{{ ai_gen_id }}"></div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% for i in (1..10) %}
+      {% liquid
+        assign variant_enabled_key = 'variant_' | append: i | append: '_enabled'
+        assign variant_image_key = 'variant_' | append: i | append: '_image'
+        assign variant_title_key = 'variant_' | append: i | append: '_title'
+        assign variant_text_key = 'variant_' | append: i | append: '_text'
+        assign variant_button_text_key = 'variant_' | append: i | append: '_button_text'
+        assign variant_button_link_key = 'variant_' | append: i | append: '_button_link'
+        assign variant_layout_key = 'variant_' | append: i | append: '_layout'
+
+        assign variant_enabled = block.settings[variant_enabled_key]
+        assign variant_image = block.settings[variant_image_key]
+        assign variant_title = block.settings[variant_title_key]
+        assign variant_text = block.settings[variant_text_key]
+        assign variant_button_text = block.settings[variant_button_text_key]
+        assign variant_button_link = block.settings[variant_button_link_key]
+        assign variant_layout = block.settings[variant_layout_key]
+      %}
+
+      {% if variant_enabled %}
+        <div class="ai-variant-item-{{ ai_gen_id }} ai-variant-layout-{{ variant_layout }}-{{ ai_gen_id }}">
+          <div class="ai-variant-image-wrapper-{{ ai_gen_id }}">
+            {% if variant_image %}
+              <img
+                src="{{ variant_image | image_url: width: 1000 }}"
+                alt="{{ variant_image.alt | escape }}"
+                loading="lazy"
+                width="{{ variant_image.width }}"
+                height="{{ variant_image.height }}"
+                class="ai-variant-image-{{ ai_gen_id }}"
+              >
+            {% else %}
+              <div class="ai-variant-image-placeholder-{{ ai_gen_id }}">
+                {{ 'product-1' | placeholder_svg_tag }}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="ai-variant-content-{{ ai_gen_id }}">
+            {% if variant_title != blank %}
+              <h3 class="ai-variant-title-{{ ai_gen_id }}">{{ variant_title }}</h3>
+            {% endif %}
+
+            {% if variant_text != blank %}
+              <div class="ai-variant-text-{{ ai_gen_id }}">{{ variant_text }}</div>
+            {% endif %}
+
+            {% if variant_button_text != blank %}
+              <a
+                href="{{ variant_button_link }}"
+                class="ai-variant-button-{{ ai_gen_id }}"
+              >
+                {{ variant_button_text }}
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </variant-showcase-{{ ai_gen_id }}>
+</div>
+
+<script>
+  (function() {
+    class VariantShowcase{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        this.initializeAnimations();
+      }
+
+      initializeAnimations() {
+        const images = this.querySelectorAll('.ai-variant-image-wrapper-{{ ai_gen_id }}');
+        
+        const observerOptions = {
+          threshold: 0.2,
+          rootMargin: '0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.style.opacity = '1';
+              entry.target.style.transform = 'perspective(1000px) rotateY(0deg)';
+            }
+          });
+        }, observerOptions);
+
+        images.forEach((image) => {
+          image.style.opacity = '0';
+          image.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+          observer.observe(image);
+        });
+      }
+    }
+
+    customElements.define('variant-showcase-{{ ai_gen_id }}', VariantShowcase{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Varianten-Showcase",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Hauptüberschrift"
+    },
+    {
+      "type": "text",
+      "id": "main_heading",
+      "label": "Überschrift",
+      "default": "Unsere Varianten"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Überschrift Größe",
+      "min": 20,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Überschrift Farbe",
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "heading_alignment",
+      "label": "Ausrichtung",
+      "options": [
+        {
+          "value": "left",
+          "label": "Links"
+        },
+        {
+          "value": "center",
+          "label": "Zentriert"
+        },
+        {
+          "value": "right",
+          "label": "Rechts"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "heading_margin",
+      "label": "Abstand nach unten",
+      "min": 20,
+      "max": 80,
+      "step": 5,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Dekorativer Stripe"
+    },
+    {
+      "type": "checkbox",
+      "id": "stripe_enabled",
+      "label": "Stripe aktivieren",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "stripe_width",
+      "label": "Breite",
+      "min": 5,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "stripe_height",
+      "label": "Höhe",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "color",
+      "id": "stripe_color",
+      "label": "Farbe",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "stripe_margin_top",
+      "label": "Abstand oben",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "stripe_margin_bottom",
+      "label": "Abstand unten",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "stripe_border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 2
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Maximale Breite",
+      "min": 1000,
+      "max": 1800,
+      "step": 100,
+      "unit": "px",
+      "default": 1400
+    },
+    {
+      "type": "range",
+      "id": "section_padding",
+      "label": "Padding",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "item_spacing",
+      "label": "Spacing between variants",
+      "min": 20,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "content_gap",
+      "label": "Gap between image and text",
+      "min": 20,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "select",
+      "id": "content_vertical_alignment",
+      "label": "Vertical alignment",
+      "options": [
+        {
+          "value": "flex-start",
+          "label": "Top"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "flex-end",
+          "label": "Bottom"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Image"
+    },
+    {
+      "type": "range",
+      "id": "image_width_percent",
+      "label": "Image width",
+      "min": 30,
+      "max": 60,
+      "step": 5,
+      "unit": "%",
+      "default": 45
+    },
+    {
+      "type": "range",
+      "id": "image_border_radius",
+      "label": "Image border radius",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "image_3d_rotation",
+      "label": "3D rotation angle",
+      "min": -10,
+      "max": 10,
+      "step": 1,
+      "unit": "deg",
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "image_shadow_x",
+      "label": "Shadow horizontal offset",
+      "min": -20,
+      "max": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "image_shadow_y",
+      "label": "Shadow vertical offset",
+      "min": -20,
+      "max": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "image_shadow_blur",
+      "label": "Shadow blur",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "color",
+      "id": "image_shadow_color",
+      "label": "Shadow color",
+      "default": "rgba(0, 0, 0, 0.2)"
+    },
+    {
+      "type": "range",
+      "id": "image_zoom_scale",
+      "label": "Hover zoom scale",
+      "min": 1,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 1.1
+    },
+    {
+      "type": "range",
+      "id": "image_zoom_duration",
+      "label": "Zoom duration",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "unit": "s",
+      "default": 0.5
+    },
+    {
+      "type": "header",
+      "content": "Text"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Text alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "range",
+      "id": "title_size",
+      "label": "Title size",
+      "min": 16,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Title color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "title_margin",
+      "label": "Title margin bottom",
+      "min": 0,
+      "max": 30,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "text_size",
+      "label": "Text size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#333333"
+    },
+    {
+      "type": "range",
+      "id": "text_margin",
+      "label": "Text margin bottom",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "color",
+      "id": "text_link_color",
+      "label": "Link color",
+      "default": "#0066cc"
+    },
+    {
+      "type": "color",
+      "id": "text_link_hover_color",
+      "label": "Link hover color",
+      "default": "#004499"
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "range",
+      "id": "button_padding_vertical",
+      "label": "Vertical padding",
+      "min": 8,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "button_padding_horizontal",
+      "label": "Horizontal padding",
+      "min": 16,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "button_font_size",
+      "label": "Font size",
+      "min": 12,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "color",
+      "id": "button_bg_color",
+      "label": "Background color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "button_hover_bg_color",
+      "label": "Hover background color",
+      "default": "#333333"
+    },
+    {
+      "type": "color",
+      "id": "button_hover_text_color",
+      "label": "Hover text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "button_transition_duration",
+      "label": "Transition duration",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "unit": "s",
+      "default": 0.3
+    },
+    {
+      "type": "range",
+      "id": "button_shine_intensity",
+      "label": "Shine intensity",
+      "min": 0,
+      "max": 0.5,
+      "step": 0.1,
+      "default": 0.3
+    },
+    {
+      "type": "header",
+      "content": "Variante 1"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_1_enabled",
+      "label": "Enable variant 1",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "variant_1_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_1_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_1_title",
+      "label": "Title",
+      "default": "Variante 1"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_1_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 1</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_1_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_1_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 2"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_2_enabled",
+      "label": "Enable variant 2",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_2_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_2_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_2_title",
+      "label": "Title",
+      "default": "Variante 2"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_2_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 2</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_2_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_2_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 3"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_3_enabled",
+      "label": "Enable variant 3",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_3_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_3_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_3_title",
+      "label": "Title",
+      "default": "Variante 3"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_3_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 3</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_3_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_3_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 4"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_4_enabled",
+      "label": "Enable variant 4",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_4_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_4_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_4_title",
+      "label": "Title",
+      "default": "Variante 4"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_4_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 4</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_4_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_4_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 5"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_5_enabled",
+      "label": "Enable variant 5",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_5_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_5_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_5_title",
+      "label": "Title",
+      "default": "Variante 5"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_5_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 5</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_5_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_5_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 6"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_6_enabled",
+      "label": "Enable variant 6",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_6_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_6_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_6_title",
+      "label": "Title",
+      "default": "Variante 6"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_6_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 6</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_6_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_6_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 7"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_7_enabled",
+      "label": "Enable variant 7",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_7_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_7_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_7_title",
+      "label": "Title",
+      "default": "Variante 7"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_7_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 7</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_7_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_7_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 8"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_8_enabled",
+      "label": "Enable variant 8",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_8_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_8_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_8_title",
+      "label": "Title",
+      "default": "Variante 8"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_8_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 8</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_8_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_8_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 9"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_9_enabled",
+      "label": "Enable variant 9",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_9_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_9_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_9_title",
+      "label": "Title",
+      "default": "Variante 9"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_9_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 9</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_9_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_9_button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Variante 10"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_10_enabled",
+      "label": "Enable variant 10",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "variant_10_layout",
+      "label": "Image position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_10_image",
+      "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "variant_10_title",
+      "label": "Title",
+      "default": "Variante 10"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_10_text",
+      "label": "Description",
+      "default": "<p>Beschreibung für <strong>Variante 10</strong></p>"
+    },
+    {
+      "type": "text",
+      "id": "variant_10_button_text",
+      "label": "Button text",
+      "default": "Mehr erfahren"
+    },
+    {
+      "type": "url",
+      "id": "variant_10_button_link",
+      "label": "Button link"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Varianten-Showcase"
+    }
+  ]
+}
+{% endschema %}

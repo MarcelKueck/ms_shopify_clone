@@ -161,12 +161,32 @@
     </h2>
 
     <div class="mt-2">
-      {% if card_product %}
-        {% render 'price', product: card_product %}
+  {% if card_product %}
+
+    {% if pda_price %}
+
+      {%- assign pda_money_price = card_product.price | money -%}
+
+      {% if card_product.price_varies %}
+        <div class="pda-product-price">
+          {{ 'products.product.price.from_price_html' | t: price: pda_money_price }}
+        </div>
       {% else %}
-        {{ 5000 | money }}
+        <div class="pda-product-price">
+          {{ pda_money_price }}
+        </div>
       {% endif %}
-    </div>
+
+    {% else %}
+
+      {% render 'price', product: card_product %}
+
+    {% endif %}
+
+  {% else %}
+    {{ 5000 | money }}
+  {% endif %}
+</div>
 
     {% if settings.product_card_color_display != 'disabled' and swatches != false %}
       <div class="mt-4 empty:hidden">

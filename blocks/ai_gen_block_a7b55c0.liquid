@@ -1,0 +1,1581 @@
+{% doc %}
+  @prompt
+    Erstelle eine neue Shopify-Section „Kaufberatung & Variantenfinder“ für Collection-Seiten, nicht als simples Rich-Text-Modul, sondern als modernes, hochwertiges Card-/Editorial-Layout.
+    Die Section enthält 3 getrennte Bereiche: Kaufberatung, Varianten/Arten und Welche Variante passt zu wem?, jeweils mit frei pflegbarer H2-Überschrift und optionalem Introtext.
+    Erstelle dafür drei Blocktypen: Kaufkriterium, Variante und Zielgruppe/Empfehlung. Jeder Block benötigt eine frei pflegbare H3, Richtext-Inhalt, optionales Icon oder Bild, optionales Badge sowie Linktext + interne/externe URL.
+    Kaufkriterien sollen als elegante Karten in 2–3 Spalten dargestellt werden; Varianten als größere Vergleichs-/Feature-Cards; Zielgruppen als besonders klare Entscheidungs-Cards nach dem Prinzip „Wenn dir X wichtig ist → eignet sich Y“.
+    Alle Inhalte, Reihenfolgen und Blöcke müssen im Theme Editor flexibel ergänzt, gelöscht und verschoben werden können. Keine Inhalte oder Produktdaten fest im Code hinterlegen.
+    Ergänze Design-Einstellungen für Hintergrundfarbe, Textfarbe, Akzentfarbe, Kartenfarbe, Rahmen, Border-Radius, Schatten, Kartenabstand, Section-Abstände und maximale Inhaltsbreite.
+    Optional sollen einzelne Karten visuell hervorgehoben werden können, z. B. durch Akzent-Rahmen, Badge, größere Darstellung oder Highlight-Hintergrund.
+    Desktop: modernes Grid mit viel Weißraum; Tablet und Mobile vollständig responsive, auf Mobile 1 Spalte. Design minimalistisch, hochwertig und passend zu einem modernen Fitness-Onlineshop.
+    SEO: semantisch korrekt nur H2 für die drei Hauptbereiche und H3 für die einzelnen Blöcke verwenden; Links als echte <a>-Links mit frei definierbarem Anchor-Text ausgeben.
+    Performance & Accessibility beachten: sauberes Liquid/CSS, keine unnötigen Libraries, Bilder lazy-loaden, Icons/Bilder mit Alt-Text, gute Kontraste und keine für Google unzugänglichen Inhalte., die größe der überschrift, text etc. muss einstellbar sein. Die breite der moduel muss einstellbar sein. die cards sollen mit gradients zu desingnen sein und sollen mit schimmernden effekten zu besetzen sein., bau die cards besonderer sie sollen sich von dem text abheben, mit schatten. der badge soll auch besonders sein. evtl. auch dauerhafter 3d effekt der cards mit hoover
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-buying-guide-{{ ai_gen_id }} {
+    display: block;
+    background-color: {{ block.settings.section_background_color }};
+    padding: {{ block.settings.section_padding_top }}px {{ block.settings.section_padding_horizontal }}px {{ block.settings.section_padding_bottom }}px;
+    width: 100%;
+  }
+
+  .ai-buying-guide-container-{{ ai_gen_id }} {
+    max-width: {{ block.settings.max_content_width }}px;
+    margin: 0 auto;
+    color: {{ block.settings.text_color }};
+  }
+
+  .ai-buying-guide-area-{{ ai_gen_id }} {
+    margin-bottom: {{ block.settings.area_spacing }}px;
+  }
+
+  .ai-buying-guide-area-{{ ai_gen_id }}:last-child {
+    margin-bottom: 0;
+  }
+
+  .ai-buying-guide-area-heading-{{ ai_gen_id }} {
+    font-size: {{ block.settings.heading_size }}px;
+    margin: 0 0 12px;
+    color: {{ block.settings.heading_color }};
+    font-weight: 600;
+  }
+
+  .ai-buying-guide-area-intro-{{ ai_gen_id }} {
+    font-size: {{ block.settings.intro_text_size }}px;
+    line-height: 1.6;
+    margin-bottom: {{ block.settings.intro_spacing }}px;
+    color: {{ block.settings.text_color }};
+  }
+
+  .ai-buying-guide-grid-{{ ai_gen_id }} {
+    display: grid;
+    gap: {{ block.settings.card_gap }}px;
+  }
+
+  .ai-buying-guide-grid-criteria-{{ ai_gen_id }} {
+    grid-template-columns: repeat({{ block.settings.criteria_columns_desktop }}, 1fr);
+  }
+
+  .ai-buying-guide-grid-variants-{{ ai_gen_id }} {
+    grid-template-columns: repeat({{ block.settings.variants_columns_desktop }}, 1fr);
+  }
+
+  .ai-buying-guide-grid-targets-{{ ai_gen_id }} {
+    grid-template-columns: repeat({{ block.settings.targets_columns_desktop }}, 1fr);
+  }
+
+  .ai-buying-guide-card-{{ ai_gen_id }} {
+    background: {% if block.settings.enable_gradient %}linear-gradient({{ block.settings.gradient_direction }}deg, {{ block.settings.gradient_color_1 }}, {{ block.settings.gradient_color_2 }}){% else %}{{ block.settings.card_background_color }}{% endif %};
+    border-radius: {{ block.settings.card_border_radius }}px;
+    padding: {{ block.settings.card_padding }}px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    {% if block.settings.card_border_width > 0 %}
+      border: {{ block.settings.card_border_width }}px solid {{ block.settings.card_border_color }};
+    {% endif %}
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06),
+      0 10px 20px -5px rgba(0, 0, 0, 0.05);
+    transform: translateY(0) perspective(1000px) rotateX(0deg);
+  }
+
+  {% if block.settings.enable_shimmer %}
+    .ai-buying-guide-card-{{ ai_gen_id }}::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+        {{ block.settings.shimmer_angle }}deg,
+        transparent 0%,
+        transparent 40%,
+        rgba(255, 255, 255, {{ block.settings.shimmer_opacity }}) 50%,
+        transparent 60%,
+        transparent 100%
+      );
+      animation: shimmer-{{ ai_gen_id }} {{ block.settings.shimmer_duration }}s infinite;
+      pointer-events: none;
+    }
+
+    @keyframes shimmer-{{ ai_gen_id }} {
+      0% {
+        transform: translate(-100%, -100%);
+      }
+      100% {
+        transform: translate(100%, 100%);
+      }
+    }
+  {% endif %}
+
+  .ai-buying-guide-card-{{ ai_gen_id }}::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%, rgba(0,0,0,0.05) 100%);
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  .ai-buying-guide-card-{{ ai_gen_id }}:hover {
+    transform: translateY(-8px) perspective(1000px) rotateX(2deg);
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.15),
+      0 10px 10px -5px rgba(0, 0, 0, 0.08),
+      0 25px 50px -12px rgba(0, 0, 0, 0.12);
+  }
+
+  .ai-buying-guide-card-highlighted-{{ ai_gen_id }} {
+    border: {{ block.settings.highlight_border_width }}px solid {{ block.settings.accent_color }};
+    background: {% if block.settings.enable_gradient %}linear-gradient({{ block.settings.gradient_direction }}deg, {{ block.settings.highlight_gradient_color_1 }}, {{ block.settings.highlight_gradient_color_2 }}){% else %}{{ block.settings.highlight_background_color }}{% endif %};
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 140, 203, 0.15),
+      0 2px 4px -1px rgba(0, 140, 203, 0.1),
+      0 10px 20px -5px rgba(0, 140, 203, 0.2),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
+  }
+
+  .ai-buying-guide-card-highlighted-{{ ai_gen_id }}:hover {
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 140, 203, 0.25),
+      0 10px 10px -5px rgba(0, 140, 203, 0.15),
+      0 25px 50px -12px rgba(0, 140, 203, 0.3),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+  }
+
+  .ai-buying-guide-card-header-{{ ai_gen_id }} {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .ai-buying-guide-card-icon-{{ ai_gen_id }} {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%);
+    border-radius: 16px;
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      inset 0 2px 4px 0 rgba(255, 255, 255, 0.6);
+    padding: 8px;
+  }
+
+  .ai-buying-guide-card-icon-{{ ai_gen_id }} img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .ai-buying-guide-card-icon-{{ ai_gen_id }} svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .ai-buying-guide-card-title-wrapper-{{ ai_gen_id }} {
+    flex-grow: 1;
+  }
+
+  .ai-buying-guide-card-badge-{{ ai_gen_id }} {
+    display: inline-block;
+    background: linear-gradient(135deg, {{ block.settings.accent_color }} 0%, color-mix(in srgb, {{ block.settings.accent_color }} 80%, #000) 100%);
+    color: #ffffff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: {{ block.settings.badge_text_size }}px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.2),
+      0 2px 4px -1px rgba(0, 0, 0, 0.1),
+      inset 0 -2px 4px 0 rgba(0, 0, 0, 0.2),
+      inset 0 2px 4px 0 rgba(255, 255, 255, 0.3);
+    position: relative;
+  }
+
+  .ai-buying-guide-card-badge-{{ ai_gen_id }}::before {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 10%;
+    right: 10%;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.4), transparent);
+    border-radius: 20px 20px 0 0;
+    pointer-events: none;
+  }
+
+  .ai-buying-guide-card-title-{{ ai_gen_id }} {
+    font-size: {{ block.settings.card_title_size }}px;
+    margin: 0 0 12px;
+    color: {{ block.settings.heading_color }};
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .ai-buying-guide-card-content-{{ ai_gen_id }} {
+    font-size: {{ block.settings.card_text_size }}px;
+    line-height: 1.7;
+    color: {{ block.settings.text_color }};
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .ai-buying-guide-card-content-{{ ai_gen_id }} p {
+    margin: 0 0 12px;
+  }
+
+  .ai-buying-guide-card-content-{{ ai_gen_id }} p:last-child {
+    margin-bottom: 0;
+  }
+
+  .ai-buying-guide-card-content-{{ ai_gen_id }} ul,
+  .ai-buying-guide-card-content-{{ ai_gen_id }} ol {
+    margin: 0 0 12px;
+    padding-left: 20px;
+  }
+
+  .ai-buying-guide-card-content-{{ ai_gen_id }} li {
+    margin-bottom: 6px;
+  }
+
+  .ai-buying-guide-card-link-{{ ai_gen_id }} {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: {{ block.settings.accent_color }};
+    text-decoration: none;
+    font-weight: 700;
+    font-size: {{ block.settings.link_text_size }}px;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 1;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(0, 140, 203, 0.08) 0%, rgba(0, 140, 203, 0.12) 100%);
+    margin: -8px -16px -8px 0;
+  }
+
+  .ai-buying-guide-card-link-{{ ai_gen_id }}:hover {
+    background: linear-gradient(135deg, rgba(0, 140, 203, 0.15) 0%, rgba(0, 140, 203, 0.2) 100%);
+    transform: translateX(4px);
+  }
+
+  .ai-buying-guide-card-link-icon-{{ ai_gen_id }} {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+  }
+
+  .ai-buying-guide-card-link-{{ ai_gen_id }}:hover .ai-buying-guide-card-link-icon-{{ ai_gen_id }} {
+    transform: translateX(3px);
+  }
+
+  .ai-buying-guide-variant-card-{{ ai_gen_id }} {
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ai-buying-guide-variant-card-content-{{ ai_gen_id }} {
+    flex-grow: 1;
+  }
+
+  .ai-buying-guide-target-card-{{ ai_gen_id }} {
+    display: flex;
+    flex-direction: column;
+    min-height: 240px;
+  }
+
+  .ai-buying-guide-target-card-content-{{ ai_gen_id }} {
+    flex-grow: 1;
+  }
+
+  @media screen and (max-width: 989px) {
+    .ai-buying-guide-grid-criteria-{{ ai_gen_id }} {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .ai-buying-guide-grid-variants-{{ ai_gen_id }} {
+      grid-template-columns: 1fr;
+    }
+
+    .ai-buying-guide-grid-targets-{{ ai_gen_id }} {
+      grid-template-columns: 1fr;
+    }
+
+    .ai-buying-guide-area-heading-{{ ai_gen_id }} {
+      font-size: {{ block.settings.heading_size | times: 0.85 }}px;
+    }
+
+    .ai-buying-guide-card-title-{{ ai_gen_id }} {
+      font-size: {{ block.settings.card_title_size | times: 0.9 }}px;
+    }
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-buying-guide-{{ ai_gen_id }} {
+      padding: {{ block.settings.section_padding_top | times: 0.7 }}px {{ block.settings.section_padding_horizontal | times: 0.7 }}px {{ block.settings.section_padding_bottom | times: 0.7 }}px;
+    }
+
+    .ai-buying-guide-grid-criteria-{{ ai_gen_id }},
+    .ai-buying-guide-grid-variants-{{ ai_gen_id }},
+    .ai-buying-guide-grid-targets-{{ ai_gen_id }} {
+      grid-template-columns: 1fr;
+    }
+
+    .ai-buying-guide-area-heading-{{ ai_gen_id }} {
+      font-size: {{ block.settings.heading_size | times: 0.75 }}px;
+    }
+
+    .ai-buying-guide-card-{{ ai_gen_id }} {
+      padding: {{ block.settings.card_padding | times: 0.8 }}px;
+    }
+
+    .ai-buying-guide-card-title-{{ ai_gen_id }} {
+      font-size: {{ block.settings.card_title_size | times: 0.85 }}px;
+    }
+
+    .ai-buying-guide-card-{{ ai_gen_id }}:hover {
+      transform: translateY(-4px) perspective(1000px) rotateX(1deg);
+    }
+  }
+{% endstyle %}
+
+<buying-guide-section-{{ ai_gen_id }} class="ai-buying-guide-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  <div class="ai-buying-guide-container-{{ ai_gen_id }}">
+    {% if block.settings.show_criteria_section %}
+      <div class="ai-buying-guide-area-{{ ai_gen_id }}">
+        {% if block.settings.criteria_heading != blank %}
+          <h2 class="ai-buying-guide-area-heading-{{ ai_gen_id }}">{{ block.settings.criteria_heading }}</h2>
+        {% endif %}
+        {% if block.settings.criteria_intro != blank %}
+          <div class="ai-buying-guide-area-intro-{{ ai_gen_id }}">{{ block.settings.criteria_intro }}</div>
+        {% endif %}
+        <div class="ai-buying-guide-grid-{{ ai_gen_id }} ai-buying-guide-grid-criteria-{{ ai_gen_id }}">
+          {% for i in (1..6) %}
+            {% liquid
+              assign title_key = 'criterion_' | append: i | append: '_title'
+              assign content_key = 'criterion_' | append: i | append: '_content'
+              assign icon_key = 'criterion_' | append: i | append: '_icon'
+              assign badge_key = 'criterion_' | append: i | append: '_badge'
+              assign link_text_key = 'criterion_' | append: i | append: '_link_text'
+              assign link_url_key = 'criterion_' | append: i | append: '_link_url'
+              assign highlight_key = 'criterion_' | append: i | append: '_highlight'
+              
+              assign title = block.settings[title_key]
+              assign content = block.settings[content_key]
+              assign icon = block.settings[icon_key]
+              assign badge = block.settings[badge_key]
+              assign link_text = block.settings[link_text_key]
+              assign link_url = block.settings[link_url_key]
+              assign highlight = block.settings[highlight_key]
+            %}
+            
+            {% if title != blank or content != blank %}
+              <div class="ai-buying-guide-card-{{ ai_gen_id }} {% if highlight %}ai-buying-guide-card-highlighted-{{ ai_gen_id }}{% endif %}">
+                <div class="ai-buying-guide-card-header-{{ ai_gen_id }}">
+                  {% if icon != blank %}
+                    <div class="ai-buying-guide-card-icon-{{ ai_gen_id }}">
+                      <img
+                        src="{{ icon | image_url: width: 112 }}"
+                        alt="{{ icon.alt | escape }}"
+                        loading="lazy"
+                        width="56"
+                        height="56"
+                      >
+                    </div>
+                  {% endif %}
+                  <div class="ai-buying-guide-card-title-wrapper-{{ ai_gen_id }}">
+                    {% if badge != blank %}
+                      <span class="ai-buying-guide-card-badge-{{ ai_gen_id }}">{{ badge }}</span>
+                    {% endif %}
+                    {% if title != blank %}
+                      <h3 class="ai-buying-guide-card-title-{{ ai_gen_id }}">{{ title }}</h3>
+                    {% endif %}
+                  </div>
+                </div>
+                {% if content != blank %}
+                  <div class="ai-buying-guide-card-content-{{ ai_gen_id }}">{{ content }}</div>
+                {% endif %}
+                {% if link_url != blank and link_text != blank %}
+                  <a href="{{ link_url }}" class="ai-buying-guide-card-link-{{ ai_gen_id }}">
+                    {{ link_text }}
+                    <span class="ai-buying-guide-card-link-icon-{{ ai_gen_id }}">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                      </svg>
+                    </span>
+                  </a>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if block.settings.show_variants_section %}
+      <div class="ai-buying-guide-area-{{ ai_gen_id }}">
+        {% if block.settings.variants_heading != blank %}
+          <h2 class="ai-buying-guide-area-heading-{{ ai_gen_id }}">{{ block.settings.variants_heading }}</h2>
+        {% endif %}
+        {% if block.settings.variants_intro != blank %}
+          <div class="ai-buying-guide-area-intro-{{ ai_gen_id }}">{{ block.settings.variants_intro }}</div>
+        {% endif %}
+        <div class="ai-buying-guide-grid-{{ ai_gen_id }} ai-buying-guide-grid-variants-{{ ai_gen_id }}">
+          {% for i in (1..4) %}
+            {% liquid
+              assign title_key = 'variant_' | append: i | append: '_title'
+              assign content_key = 'variant_' | append: i | append: '_content'
+              assign icon_key = 'variant_' | append: i | append: '_icon'
+              assign badge_key = 'variant_' | append: i | append: '_badge'
+              assign link_text_key = 'variant_' | append: i | append: '_link_text'
+              assign link_url_key = 'variant_' | append: i | append: '_link_url'
+              assign highlight_key = 'variant_' | append: i | append: '_highlight'
+              
+              assign title = block.settings[title_key]
+              assign content = block.settings[content_key]
+              assign icon = block.settings[icon_key]
+              assign badge = block.settings[badge_key]
+              assign link_text = block.settings[link_text_key]
+              assign link_url = block.settings[link_url_key]
+              assign highlight = block.settings[highlight_key]
+            %}
+            
+            {% if title != blank or content != blank %}
+              <div class="ai-buying-guide-card-{{ ai_gen_id }} ai-buying-guide-variant-card-{{ ai_gen_id }} {% if highlight %}ai-buying-guide-card-highlighted-{{ ai_gen_id }}{% endif %}">
+                <div class="ai-buying-guide-card-header-{{ ai_gen_id }}">
+                  {% if icon != blank %}
+                    <div class="ai-buying-guide-card-icon-{{ ai_gen_id }}">
+                      <img
+                        src="{{ icon | image_url: width: 112 }}"
+                        alt="{{ icon.alt | escape }}"
+                        loading="lazy"
+                        width="56"
+                        height="56"
+                      >
+                    </div>
+                  {% endif %}
+                  <div class="ai-buying-guide-card-title-wrapper-{{ ai_gen_id }}">
+                    {% if badge != blank %}
+                      <span class="ai-buying-guide-card-badge-{{ ai_gen_id }}">{{ badge }}</span>
+                    {% endif %}
+                    {% if title != blank %}
+                      <h3 class="ai-buying-guide-card-title-{{ ai_gen_id }}">{{ title }}</h3>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="ai-buying-guide-variant-card-content-{{ ai_gen_id }}">
+                  {% if content != blank %}
+                    <div class="ai-buying-guide-card-content-{{ ai_gen_id }}">{{ content }}</div>
+                  {% endif %}
+                </div>
+                {% if link_url != blank and link_text != blank %}
+                  <a href="{{ link_url }}" class="ai-buying-guide-card-link-{{ ai_gen_id }}">
+                    {{ link_text }}
+                    <span class="ai-buying-guide-card-link-icon-{{ ai_gen_id }}">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                      </svg>
+                    </span>
+                  </a>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if block.settings.show_targets_section %}
+      <div class="ai-buying-guide-area-{{ ai_gen_id }}">
+        {% if block.settings.targets_heading != blank %}
+          <h2 class="ai-buying-guide-area-heading-{{ ai_gen_id }}">{{ block.settings.targets_heading }}</h2>
+        {% endif %}
+        {% if block.settings.targets_intro != blank %}
+          <div class="ai-buying-guide-area-intro-{{ ai_gen_id }}">{{ block.settings.targets_intro }}</div>
+        {% endif %}
+        <div class="ai-buying-guide-grid-{{ ai_gen_id }} ai-buying-guide-grid-targets-{{ ai_gen_id }}">
+          {% for i in (1..4) %}
+            {% liquid
+              assign title_key = 'target_' | append: i | append: '_title'
+              assign content_key = 'target_' | append: i | append: '_content'
+              assign icon_key = 'target_' | append: i | append: '_icon'
+              assign badge_key = 'target_' | append: i | append: '_badge'
+              assign link_text_key = 'target_' | append: i | append: '_link_text'
+              assign link_url_key = 'target_' | append: i | append: '_link_url'
+              assign highlight_key = 'target_' | append: i | append: '_highlight'
+              
+              assign title = block.settings[title_key]
+              assign content = block.settings[content_key]
+              assign icon = block.settings[icon_key]
+              assign badge = block.settings[badge_key]
+              assign link_text = block.settings[link_text_key]
+              assign link_url = block.settings[link_url_key]
+              assign highlight = block.settings[highlight_key]
+            %}
+            
+            {% if title != blank or content != blank %}
+              <div class="ai-buying-guide-card-{{ ai_gen_id }} ai-buying-guide-target-card-{{ ai_gen_id }} {% if highlight %}ai-buying-guide-card-highlighted-{{ ai_gen_id }}{% endif %}">
+                <div class="ai-buying-guide-card-header-{{ ai_gen_id }}">
+                  {% if icon != blank %}
+                    <div class="ai-buying-guide-card-icon-{{ ai_gen_id }}">
+                      <img
+                        src="{{ icon | image_url: width: 112 }}"
+                        alt="{{ icon.alt | escape }}"
+                        loading="lazy"
+                        width="56"
+                        height="56"
+                      >
+                    </div>
+                  {% endif %}
+                  <div class="ai-buying-guide-card-title-wrapper-{{ ai_gen_id }}">
+                    {% if badge != blank %}
+                      <span class="ai-buying-guide-card-badge-{{ ai_gen_id }}">{{ badge }}</span>
+                    {% endif %}
+                    {% if title != blank %}
+                      <h3 class="ai-buying-guide-card-title-{{ ai_gen_id }}">{{ title }}</h3>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="ai-buying-guide-target-card-content-{{ ai_gen_id }}">
+                  {% if content != blank %}
+                    <div class="ai-buying-guide-card-content-{{ ai_gen_id }}">{{ content }}</div>
+                  {% endif %}
+                </div>
+                {% if link_url != blank and link_text != blank %}
+                  <a href="{{ link_url }}" class="ai-buying-guide-card-link-{{ ai_gen_id }}">
+                    {{ link_text }}
+                    <span class="ai-buying-guide-card-link-icon-{{ ai_gen_id }}">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                      </svg>
+                    </span>
+                  </a>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</buying-guide-section-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class BuyingGuideSection{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+      }
+    }
+
+    customElements.define('buying-guide-section-{{ ai_gen_id }}', BuyingGuideSection{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Kaufberatung & Finder",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Kaufberatung section"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_criteria_section",
+      "label": "Show section",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "criteria_heading",
+      "label": "Heading",
+      "default": "Kaufberatung"
+    },
+    {
+      "type": "richtext",
+      "id": "criteria_intro",
+      "label": "Intro text"
+    },
+    {
+      "type": "header",
+      "content": "Criterion 1"
+    },
+    {
+      "type": "text",
+      "id": "criterion_1_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "criterion_1_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "criterion_1_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "criterion_1_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "criterion_1_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "criterion_1_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "criterion_1_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Criterion 2"
+    },
+    {
+      "type": "text",
+      "id": "criterion_2_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "criterion_2_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "criterion_2_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "criterion_2_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "criterion_2_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "criterion_2_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "criterion_2_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Criterion 3"
+    },
+    {
+      "type": "text",
+      "id": "criterion_3_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "criterion_3_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "criterion_3_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "criterion_3_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "criterion_3_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "criterion_3_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "criterion_3_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Criterion 4"
+    },
+    {
+      "type": "text",
+      "id": "criterion_4_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "criterion_4_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "criterion_4_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "criterion_4_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "criterion_4_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "criterion_4_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "criterion_4_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Criterion 5"
+    },
+    {
+      "type": "text",
+      "id": "criterion_5_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "criterion_5_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "criterion_5_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "criterion_5_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "criterion_5_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "criterion_5_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "criterion_5_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Criterion 6"
+    },
+    {
+      "type": "text",
+      "id": "criterion_6_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "criterion_6_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "criterion_6_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "criterion_6_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "criterion_6_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "criterion_6_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "criterion_6_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Varianten section"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_variants_section",
+      "label": "Show section",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "variants_heading",
+      "label": "Heading",
+      "default": "Varianten & Arten"
+    },
+    {
+      "type": "richtext",
+      "id": "variants_intro",
+      "label": "Intro text"
+    },
+    {
+      "type": "header",
+      "content": "Variant 1"
+    },
+    {
+      "type": "text",
+      "id": "variant_1_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_1_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_1_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "variant_1_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "variant_1_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "variant_1_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_1_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Variant 2"
+    },
+    {
+      "type": "text",
+      "id": "variant_2_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_2_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_2_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "variant_2_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "variant_2_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "variant_2_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_2_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Variant 3"
+    },
+    {
+      "type": "text",
+      "id": "variant_3_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_3_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_3_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "variant_3_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "variant_3_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "variant_3_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_3_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Variant 4"
+    },
+    {
+      "type": "text",
+      "id": "variant_4_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "variant_4_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "variant_4_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "variant_4_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "variant_4_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "variant_4_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "variant_4_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Zielgruppe section"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_targets_section",
+      "label": "Show section",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "targets_heading",
+      "label": "Heading",
+      "default": "Welche Variante passt zu wem?"
+    },
+    {
+      "type": "richtext",
+      "id": "targets_intro",
+      "label": "Intro text"
+    },
+    {
+      "type": "header",
+      "content": "Target 1"
+    },
+    {
+      "type": "text",
+      "id": "target_1_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "target_1_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "target_1_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "target_1_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "target_1_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "target_1_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "target_1_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Target 2"
+    },
+    {
+      "type": "text",
+      "id": "target_2_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "target_2_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "target_2_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "target_2_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "target_2_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "target_2_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "target_2_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Target 3"
+    },
+    {
+      "type": "text",
+      "id": "target_3_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "target_3_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "target_3_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "target_3_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "target_3_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "target_3_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "target_3_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Target 4"
+    },
+    {
+      "type": "text",
+      "id": "target_4_title",
+      "label": "Title"
+    },
+    {
+      "type": "richtext",
+      "id": "target_4_content",
+      "label": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "target_4_icon",
+      "label": "Icon or image"
+    },
+    {
+      "type": "text",
+      "id": "target_4_badge",
+      "label": "Badge text"
+    },
+    {
+      "type": "text",
+      "id": "target_4_link_text",
+      "label": "Link text"
+    },
+    {
+      "type": "url",
+      "id": "target_4_link_url",
+      "label": "Link URL"
+    },
+    {
+      "type": "checkbox",
+      "id": "target_4_highlight",
+      "label": "Highlight card",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Section heading size",
+      "min": 18,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "intro_text_size",
+      "label": "Intro text size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "card_title_size",
+      "label": "Card title size",
+      "min": 14,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "card_text_size",
+      "label": "Card text size",
+      "min": 12,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "badge_text_size",
+      "label": "Badge text size",
+      "min": 10,
+      "max": 16,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "link_text_size",
+      "label": "Link text size",
+      "min": 12,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "section_background_color",
+      "label": "Section background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "card_background_color",
+      "label": "Card background",
+      "default": "#f9f9f9"
+    },
+    {
+      "type": "color",
+      "id": "highlight_background_color",
+      "label": "Highlight card background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Headings",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent",
+      "default": "#008ccb"
+    },
+    {
+      "type": "header",
+      "content": "Gradient settings"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_gradient",
+      "label": "Enable gradient",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "gradient_color_1",
+      "label": "Gradient color 1",
+      "default": "#f9f9f9"
+    },
+    {
+      "type": "color",
+      "id": "gradient_color_2",
+      "label": "Gradient color 2",
+      "default": "#e5e5e5"
+    },
+    {
+      "type": "range",
+      "id": "gradient_direction",
+      "label": "Gradient direction",
+      "min": 0,
+      "max": 360,
+      "step": 15,
+      "unit": "deg",
+      "default": 135
+    },
+    {
+      "type": "color",
+      "id": "highlight_gradient_color_1",
+      "label": "Highlight gradient color 1",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "highlight_gradient_color_2",
+      "label": "Highlight gradient color 2",
+      "default": "#f0f0f0"
+    },
+    {
+      "type": "header",
+      "content": "Shimmer effect"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_shimmer",
+      "label": "Enable shimmer effect",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "shimmer_duration",
+      "label": "Shimmer duration",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "unit": "s",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "shimmer_opacity",
+      "label": "Shimmer opacity",
+      "min": 0,
+      "max": 0.5,
+      "step": 0.1,
+      "default": 0.2
+    },
+    {
+      "type": "range",
+      "id": "shimmer_angle",
+      "label": "Shimmer angle",
+      "min": 0,
+      "max": 360,
+      "step": 15,
+      "unit": "deg",
+      "default": 45
+    },
+    {
+      "type": "header",
+      "content": "Card style"
+    },
+    {
+      "type": "range",
+      "id": "card_border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 32,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "card_border_width",
+      "label": "Border width",
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "color",
+      "id": "card_border_color",
+      "label": "Border color",
+      "default": "#e5e5e5"
+    },
+    {
+      "type": "range",
+      "id": "highlight_border_width",
+      "label": "Highlight border width",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "unit": "px",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "card_padding",
+      "label": "Card padding",
+      "min": 16,
+      "max": 48,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "card_gap",
+      "label": "Card gap",
+      "min": 12,
+      "max": 48,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top",
+      "label": "Section padding top",
+      "min": 0,
+      "max": 120,
+      "step": 8,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "section_padding_bottom",
+      "label": "Section padding bottom",
+      "min": 0,
+      "max": 120,
+      "step": 8,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "section_padding_horizontal",
+      "label": "Section padding horizontal",
+      "min": 16,
+      "max": 80,
+      "step": 8,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "area_spacing",
+      "label": "Area spacing",
+      "min": 32,
+      "max": 96,
+      "step": 8,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "intro_spacing",
+      "label": "Intro spacing",
+      "min": 16,
+      "max": 48,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "max_content_width",
+      "label": "Max content width",
+      "min": 1000,
+      "max": 1800,
+      "step": 100,
+      "unit": "px",
+      "default": 1400
+    },
+    {
+      "type": "range",
+      "id": "criteria_columns_desktop",
+      "label": "Criteria columns desktop",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "variants_columns_desktop",
+      "label": "Variants columns desktop",
+      "min": 1,
+      "max": 3,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "targets_columns_desktop",
+      "label": "Targets columns desktop",
+      "min": 1,
+      "max": 3,
+      "step": 1,
+      "default": 2
+    }
+  ],
+  "presets": [
+    {
+      "name": "Kaufberatung & Finder"
+    }
+  ]
+}
+{% endschema %}

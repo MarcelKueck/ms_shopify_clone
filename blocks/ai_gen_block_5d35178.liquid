@@ -1,0 +1,1624 @@
+{% doc %}
+  @prompt
+    wir benötigen ein modul in welchem wir auf dem desktop eine vergleichstabelle erstellen können mit belieg vielen zeilen und spalten. Mobil müssen eine Zeile mit Überschriften zu einer Vergleichs Card - die man dann mobil durchsliden kann. Die Elemente sollen sehr stilvoll sein und modern. es sollen alle Elemente in Farbe, Effekten, Abstand und mehr zu stylen sein. Das Gesamtmodul soll wieder auf die gesamte breite sein. Die Tabelle und das Cards sollen individuell in der breite zu justieren sein. , bitte noch einbauen, dass man eine H3 überschrift über dem element hat, die section breite soll in px einzustellen sein, mobil muss sowohl die spaltenüberschrift sowie die zeileantwort angezeigt werden. sonst macht das card keinen sinn , in den mobilen cards müssen die zellen mit label und column zusammen ausgegeben werden  , du musst im mobilen card unter das label direkt die antwort aus dem column plaztieren, sonst machen die cards keinen sinn. , mobil werden die columns nicht ausgegeben, finde eine passende lösung
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+  .ai-comparison-table-{{ ai_gen_id }} {
+    width: 100%;
+    display: block;
+    background-color: {{ block.settings.section_background_color }};
+    padding: {{ block.settings.section_padding }}px 0;
+  }
+
+  .ai-comparison-table-container-{{ ai_gen_id }} {
+    max-width: {{ block.settings.desktop_width_px }}px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  .ai-comparison-table-heading-{{ ai_gen_id }} {
+    font-size: {{ block.settings.heading_font_size }}px;
+    font-weight: {{ block.settings.heading_font_weight }};
+    color: {{ block.settings.heading_color }};
+    text-align: {{ block.settings.heading_alignment }};
+    margin: 0 0 {{ block.settings.heading_spacing }}px 0;
+  }
+
+  .ai-comparison-table-wrapper-{{ ai_gen_id }} {
+    overflow-x: auto;
+    border-radius: {{ block.settings.border_radius }}px;
+    background-color: {{ block.settings.table_background_color }};
+    box-shadow: {{ block.settings.shadow_horizontal }}px {{ block.settings.shadow_vertical }}px {{ block.settings.shadow_blur }}px rgba(0, 0, 0, {{ block.settings.shadow_opacity }});
+  }
+
+  .ai-comparison-table-desktop-{{ ai_gen_id }} {
+    width: {{ block.settings.table_width_percent }}%;
+    margin: 0 auto;
+    border-collapse: collapse;
+    display: table;
+  }
+
+  .ai-comparison-table-desktop-{{ ai_gen_id }} thead {
+    background-color: {{ block.settings.header_background_color }};
+  }
+
+  .ai-comparison-table-desktop-{{ ai_gen_id }} th {
+    padding: {{ block.settings.cell_padding }}px;
+    text-align: {{ block.settings.text_alignment }};
+    font-size: {{ block.settings.header_font_size }}px;
+    font-weight: {{ block.settings.header_font_weight }};
+    color: {{ block.settings.header_text_color }};
+    border-bottom: {{ block.settings.border_width }}px solid {{ block.settings.border_color }};
+  }
+
+  .ai-comparison-table-desktop-{{ ai_gen_id }} td {
+    padding: {{ block.settings.cell_padding }}px;
+    text-align: {{ block.settings.text_alignment }};
+    font-size: {{ block.settings.cell_font_size }}px;
+    color: {{ block.settings.cell_text_color }};
+    border-bottom: {{ block.settings.border_width }}px solid {{ block.settings.border_color }};
+    vertical-align: middle;
+  }
+
+  .ai-comparison-table-desktop-{{ ai_gen_id }} tbody tr:hover {
+    background-color: {{ block.settings.row_hover_color }};
+    transition: background-color {{ block.settings.hover_transition_duration }}s ease;
+  }
+
+  .ai-comparison-table-desktop-{{ ai_gen_id }} tbody tr:nth-child(even) {
+    background-color: {{ block.settings.row_alternate_color }};
+  }
+
+  .ai-comparison-table-mobile-{{ ai_gen_id }} {
+    display: none;
+  }
+
+  .ai-comparison-cards-{{ ai_gen_id }} {
+    display: flex;
+    overflow-x: auto;
+    gap: {{ block.settings.card_gap }}px;
+    scroll-snap-type: x mandatory;
+    padding: {{ block.settings.card_padding }}px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ai-comparison-card-{{ ai_gen_id }} {
+    flex: 0 0 {{ block.settings.card_width_percent }}%;
+    scroll-snap-align: start;
+    background-color: {{ block.settings.card_background_color }};
+    border-radius: {{ block.settings.card_border_radius }}px;
+    padding: {{ block.settings.card_padding }}px;
+    box-shadow: {{ block.settings.card_shadow_horizontal }}px {{ block.settings.card_shadow_vertical }}px {{ block.settings.card_shadow_blur }}px rgba(0, 0, 0, {{ block.settings.card_shadow_opacity }});
+    border: {{ block.settings.card_border_width }}px solid {{ block.settings.card_border_color }};
+  }
+
+  .ai-comparison-card-header-{{ ai_gen_id }} {
+    font-size: {{ block.settings.card_header_font_size }}px;
+    font-weight: {{ block.settings.card_header_font_weight }};
+    color: {{ block.settings.card_header_color }};
+    margin-bottom: {{ block.settings.card_header_spacing }}px;
+    padding-bottom: {{ block.settings.card_header_spacing }}px;
+    border-bottom: {{ block.settings.border_width }}px solid {{ block.settings.border_color }};
+    text-align: center;
+  }
+
+  .ai-comparison-card-row-{{ ai_gen_id }} {
+    padding: {{ block.settings.card_row_padding }}px 0;
+    border-bottom: {{ block.settings.card_row_border_width }}px solid {{ block.settings.card_row_border_color }};
+  }
+
+  .ai-comparison-card-row-{{ ai_gen_id }}:last-child {
+    border-bottom: none;
+  }
+
+  .ai-comparison-card-label-{{ ai_gen_id }} {
+    font-size: {{ block.settings.card_label_font_size }}px;
+    font-weight: {{ block.settings.card_label_font_weight }};
+    color: {{ block.settings.card_label_color }};
+    margin-bottom: {{ block.settings.card_label_spacing }}px;
+  }
+
+  .ai-comparison-card-value-{{ ai_gen_id }} {
+    font-size: {{ block.settings.card_value_font_size }}px;
+    font-weight: {{ block.settings.card_value_font_weight }};
+    color: {{ block.settings.card_value_color }};
+  }
+
+  @media screen and (max-width: 749px) {
+    .ai-comparison-table-desktop-{{ ai_gen_id }} {
+      display: none;
+    }
+
+    .ai-comparison-table-mobile-{{ ai_gen_id }} {
+      display: block;
+    }
+  }
+{% endstyle %}
+
+<comparison-table-{{ ai_gen_id }} class="ai-comparison-table-{{ ai_gen_id }}" {{ block.shopify_attributes }}>
+  <div class="ai-comparison-table-container-{{ ai_gen_id }}">
+    {% if block.settings.heading != blank %}
+      <h3 class="ai-comparison-table-heading-{{ ai_gen_id }}">{{ block.settings.heading }}</h3>
+    {% endif %}
+
+    <div class="ai-comparison-table-wrapper-{{ ai_gen_id }}">
+      <table class="ai-comparison-table-desktop-{{ ai_gen_id }}">
+        <thead>
+          <tr>
+            {% if block.settings.header_col_1 != blank %}
+              <th>{{ block.settings.header_col_1 }}</th>
+            {% endif %}
+            {% if block.settings.header_col_2 != blank %}
+              <th>{{ block.settings.header_col_2 }}</th>
+            {% endif %}
+            {% if block.settings.header_col_3 != blank %}
+              <th>{{ block.settings.header_col_3 }}</th>
+            {% endif %}
+            {% if block.settings.header_col_4 != blank %}
+              <th>{{ block.settings.header_col_4 }}</th>
+            {% endif %}
+            {% if block.settings.header_col_5 != blank %}
+              <th>{{ block.settings.header_col_5 }}</th>
+            {% endif %}
+            {% if block.settings.header_col_6 != blank %}
+              <th>{{ block.settings.header_col_6 }}</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for i in (1..20) %}
+            {% liquid
+              assign row_label_key = 'row_' | append: i | append: '_label'
+              assign row_col_1_key = 'row_' | append: i | append: '_col_1'
+              assign row_col_2_key = 'row_' | append: i | append: '_col_2'
+              assign row_col_3_key = 'row_' | append: i | append: '_col_3'
+              assign row_col_4_key = 'row_' | append: i | append: '_col_4'
+              assign row_col_5_key = 'row_' | append: i | append: '_col_5'
+
+              assign row_label = block.settings[row_label_key]
+              assign row_col_1 = block.settings[row_col_1_key]
+              assign row_col_2 = block.settings[row_col_2_key]
+              assign row_col_3 = block.settings[row_col_3_key]
+              assign row_col_4 = block.settings[row_col_4_key]
+              assign row_col_5 = block.settings[row_col_5_key]
+            %}
+
+            {% if row_label != blank %}
+              <tr>
+                <td>{{ row_label }}</td>
+                {% if block.settings.header_col_2 != blank %}
+                  <td>{{ row_col_1 }}</td>
+                {% endif %}
+                {% if block.settings.header_col_3 != blank %}
+                  <td>{{ row_col_2 }}</td>
+                {% endif %}
+                {% if block.settings.header_col_4 != blank %}
+                  <td>{{ row_col_3 }}</td>
+                {% endif %}
+                {% if block.settings.header_col_5 != blank %}
+                  <td>{{ row_col_4 }}</td>
+                {% endif %}
+                {% if block.settings.header_col_6 != blank %}
+                  <td>{{ row_col_5 }}</td>
+                {% endif %}
+              </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ai-comparison-table-mobile-{{ ai_gen_id }}">
+      <div class="ai-comparison-cards-{{ ai_gen_id }}">
+        {% if block.settings.header_col_2 != blank %}
+          <div class="ai-comparison-card-{{ ai_gen_id }}">
+            <div class="ai-comparison-card-header-{{ ai_gen_id }}">
+              {{ block.settings.header_col_2 }}
+            </div>
+            {% for row_index in (1..20) %}
+              {% liquid
+                assign row_label_key = 'row_' | append: row_index | append: '_label'
+                assign row_value_key = 'row_' | append: row_index | append: '_col_1'
+                assign row_label = block.settings[row_label_key]
+                assign row_value = block.settings[row_value_key]
+              %}
+              {% if row_label != blank %}
+                <div class="ai-comparison-card-row-{{ ai_gen_id }}">
+                  <div class="ai-comparison-card-label-{{ ai_gen_id }}">
+                    {{ row_label }}
+                  </div>
+                  <div class="ai-comparison-card-value-{{ ai_gen_id }}">
+                    {{ row_value }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if block.settings.header_col_3 != blank %}
+          <div class="ai-comparison-card-{{ ai_gen_id }}">
+            <div class="ai-comparison-card-header-{{ ai_gen_id }}">
+              {{ block.settings.header_col_3 }}
+            </div>
+            {% for row_index in (1..20) %}
+              {% liquid
+                assign row_label_key = 'row_' | append: row_index | append: '_label'
+                assign row_value_key = 'row_' | append: row_index | append: '_col_2'
+                assign row_label = block.settings[row_label_key]
+                assign row_value = block.settings[row_value_key]
+              %}
+              {% if row_label != blank %}
+                <div class="ai-comparison-card-row-{{ ai_gen_id }}">
+                  <div class="ai-comparison-card-label-{{ ai_gen_id }}">
+                    {{ row_label }}
+                  </div>
+                  <div class="ai-comparison-card-value-{{ ai_gen_id }}">
+                    {{ row_value }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if block.settings.header_col_4 != blank %}
+          <div class="ai-comparison-card-{{ ai_gen_id }}">
+            <div class="ai-comparison-card-header-{{ ai_gen_id }}">
+              {{ block.settings.header_col_4 }}
+            </div>
+            {% for row_index in (1..20) %}
+              {% liquid
+                assign row_label_key = 'row_' | append: row_index | append: '_label'
+                assign row_value_key = 'row_' | append: row_index | append: '_col_3'
+                assign row_label = block.settings[row_label_key]
+                assign row_value = block.settings[row_value_key]
+              %}
+              {% if row_label != blank %}
+                <div class="ai-comparison-card-row-{{ ai_gen_id }}">
+                  <div class="ai-comparison-card-label-{{ ai_gen_id }}">
+                    {{ row_label }}
+                  </div>
+                  <div class="ai-comparison-card-value-{{ ai_gen_id }}">
+                    {{ row_value }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if block.settings.header_col_5 != blank %}
+          <div class="ai-comparison-card-{{ ai_gen_id }}">
+            <div class="ai-comparison-card-header-{{ ai_gen_id }}">
+              {{ block.settings.header_col_5 }}
+            </div>
+            {% for row_index in (1..20) %}
+              {% liquid
+                assign row_label_key = 'row_' | append: row_index | append: '_label'
+                assign row_value_key = 'row_' | append: row_index | append: '_col_4'
+                assign row_label = block.settings[row_label_key]
+                assign row_value = block.settings[row_value_key]
+              %}
+              {% if row_label != blank %}
+                <div class="ai-comparison-card-row-{{ ai_gen_id }}">
+                  <div class="ai-comparison-card-label-{{ ai_gen_id }}">
+                    {{ row_label }}
+                  </div>
+                  <div class="ai-comparison-card-value-{{ ai_gen_id }}">
+                    {{ row_value }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if block.settings.header_col_6 != blank %}
+          <div class="ai-comparison-card-{{ ai_gen_id }}">
+            <div class="ai-comparison-card-header-{{ ai_gen_id }}">
+              {{ block.settings.header_col_6 }}
+            </div>
+            {% for row_index in (1..20) %}
+              {% liquid
+                assign row_label_key = 'row_' | append: row_index | append: '_label'
+                assign row_value_key = 'row_' | append: row_index | append: '_col_5'
+                assign row_label = block.settings[row_label_key]
+                assign row_value = block.settings[row_value_key]
+              %}
+              {% if row_label != blank %}
+                <div class="ai-comparison-card-row-{{ ai_gen_id }}">
+                  <div class="ai-comparison-card-label-{{ ai_gen_id }}">
+                    {{ row_label }}
+                  </div>
+                  <div class="ai-comparison-card-value-{{ ai_gen_id }}">
+                    {{ row_value }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</comparison-table-{{ ai_gen_id }}>
+
+<script>
+  (function() {
+    class ComparisonTable{{ ai_gen_id }} extends HTMLElement {
+      constructor() {
+        super();
+      }
+
+      connectedCallback() {
+        this.style.display = 'block';
+      }
+    }
+
+    customElements.define('comparison-table-{{ ai_gen_id }}', ComparisonTable{{ ai_gen_id }});
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Comparison table",
+  "tag": null,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Heading"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading"
+    },
+    {
+      "type": "range",
+      "id": "heading_font_size",
+      "label": "Heading font size",
+      "min": 16,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "range",
+      "id": "heading_font_weight",
+      "label": "Heading font weight",
+      "min": 400,
+      "max": 900,
+      "step": 100,
+      "default": 700
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading color",
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "heading_alignment",
+      "label": "Heading alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "range",
+      "id": "heading_spacing",
+      "label": "Heading spacing",
+      "min": 10,
+      "max": 60,
+      "step": 5,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "desktop_width_px",
+      "label": "Section width",
+      "min": 600,
+      "max": 1800,
+      "step": 50,
+      "unit": "px",
+      "default": 1400
+    },
+    {
+      "type": "range",
+      "id": "table_width_percent",
+      "label": "Table width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "section_padding",
+      "label": "Section padding",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Desktop table style"
+    },
+    {
+      "type": "color",
+      "id": "section_background_color",
+      "label": "Section background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "table_background_color",
+      "label": "Table background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "shadow_horizontal",
+      "label": "Shadow horizontal",
+      "min": -20,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "shadow_vertical",
+      "label": "Shadow vertical",
+      "min": -20,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "shadow_blur",
+      "label": "Shadow blur",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "shadow_opacity",
+      "label": "Shadow opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.1
+    },
+    {
+      "type": "header",
+      "content": "Header style"
+    },
+    {
+      "type": "color",
+      "id": "header_background_color",
+      "label": "Background",
+      "default": "#f9f9f9"
+    },
+    {
+      "type": "color",
+      "id": "header_text_color",
+      "label": "Text color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "header_font_size",
+      "label": "Font size",
+      "min": 12,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "header_font_weight",
+      "label": "Font weight",
+      "min": 400,
+      "max": 900,
+      "step": 100,
+      "default": 700
+    },
+    {
+      "type": "header",
+      "content": "Cell style"
+    },
+    {
+      "type": "color",
+      "id": "cell_text_color",
+      "label": "Text color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "cell_font_size",
+      "label": "Font size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "cell_padding",
+      "label": "Cell padding",
+      "min": 8,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Text alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "header",
+      "content": "Row style"
+    },
+    {
+      "type": "color",
+      "id": "row_alternate_color",
+      "label": "Alternate row color",
+      "default": "#f9f9f9"
+    },
+    {
+      "type": "color",
+      "id": "row_hover_color",
+      "label": "Hover color",
+      "default": "#f0f0f0"
+    },
+    {
+      "type": "range",
+      "id": "hover_transition_duration",
+      "label": "Hover transition",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "unit": "s",
+      "default": 0.3
+    },
+    {
+      "type": "header",
+      "content": "Borders"
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "label": "Border width",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 1
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border color",
+      "default": "#e0e0e0"
+    },
+    {
+      "type": "header",
+      "content": "Mobile card style"
+    },
+    {
+      "type": "range",
+      "id": "card_width_percent",
+      "label": "Card width",
+      "min": 70,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 85
+    },
+    {
+      "type": "color",
+      "id": "card_background_color",
+      "label": "Card background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "card_border_radius",
+      "label": "Card border radius",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "card_padding",
+      "label": "Card padding",
+      "min": 10,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "card_gap",
+      "label": "Card gap",
+      "min": 8,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "card_border_width",
+      "label": "Card border width",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 1
+    },
+    {
+      "type": "color",
+      "id": "card_border_color",
+      "label": "Card border color",
+      "default": "#e0e0e0"
+    },
+    {
+      "type": "range",
+      "id": "card_shadow_horizontal",
+      "label": "Card shadow horizontal",
+      "min": -20,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "card_shadow_vertical",
+      "label": "Card shadow vertical",
+      "min": -20,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "card_shadow_blur",
+      "label": "Card shadow blur",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "card_shadow_opacity",
+      "label": "Card shadow opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.1
+    },
+    {
+      "type": "header",
+      "content": "Mobile card header"
+    },
+    {
+      "type": "color",
+      "id": "card_header_color",
+      "label": "Header color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "card_header_font_size",
+      "label": "Header font size",
+      "min": 14,
+      "max": 28,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "card_header_font_weight",
+      "label": "Header font weight",
+      "min": 400,
+      "max": 900,
+      "step": 100,
+      "default": 700
+    },
+    {
+      "type": "range",
+      "id": "card_header_spacing",
+      "label": "Header spacing",
+      "min": 8,
+      "max": 30,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Mobile card rows"
+    },
+    {
+      "type": "range",
+      "id": "card_row_padding",
+      "label": "Row padding",
+      "min": 6,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "card_row_border_width",
+      "label": "Row border width",
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "unit": "px",
+      "default": 1
+    },
+    {
+      "type": "color",
+      "id": "card_row_border_color",
+      "label": "Row border color",
+      "default": "#f0f0f0"
+    },
+    {
+      "type": "color",
+      "id": "card_label_color",
+      "label": "Label color",
+      "default": "#666666"
+    },
+    {
+      "type": "range",
+      "id": "card_label_font_size",
+      "label": "Label font size",
+      "min": 11,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "card_label_font_weight",
+      "label": "Label font weight",
+      "min": 400,
+      "max": 900,
+      "step": 100,
+      "default": 600
+    },
+    {
+      "type": "range",
+      "id": "card_label_spacing",
+      "label": "Label spacing",
+      "min": 4,
+      "max": 16,
+      "step": 2,
+      "unit": "px",
+      "default": 6
+    },
+    {
+      "type": "color",
+      "id": "card_value_color",
+      "label": "Value color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "card_value_font_size",
+      "label": "Value font size",
+      "min": 11,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "card_value_font_weight",
+      "label": "Value font weight",
+      "min": 400,
+      "max": 900,
+      "step": 100,
+      "default": 400
+    },
+    {
+      "type": "header",
+      "content": "Table headers"
+    },
+    {
+      "type": "text",
+      "id": "header_col_1",
+      "label": "Column 1 header",
+      "default": "Feature"
+    },
+    {
+      "type": "text",
+      "id": "header_col_2",
+      "label": "Column 2 header",
+      "default": "Option A"
+    },
+    {
+      "type": "text",
+      "id": "header_col_3",
+      "label": "Column 3 header",
+      "default": "Option B"
+    },
+    {
+      "type": "text",
+      "id": "header_col_4",
+      "label": "Column 4 header"
+    },
+    {
+      "type": "text",
+      "id": "header_col_5",
+      "label": "Column 5 header"
+    },
+    {
+      "type": "text",
+      "id": "header_col_6",
+      "label": "Column 6 header"
+    },
+    {
+      "type": "header",
+      "content": "Row 1"
+    },
+    {
+      "type": "text",
+      "id": "row_1_label",
+      "label": "Label",
+      "default": "Weight"
+    },
+    {
+      "type": "text",
+      "id": "row_1_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_1_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_1_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_1_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_1_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 2"
+    },
+    {
+      "type": "text",
+      "id": "row_2_label",
+      "label": "Label",
+      "default": "Dimensions"
+    },
+    {
+      "type": "text",
+      "id": "row_2_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_2_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_2_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_2_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_2_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 3"
+    },
+    {
+      "type": "text",
+      "id": "row_3_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_3_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_3_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_3_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_3_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_3_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 4"
+    },
+    {
+      "type": "text",
+      "id": "row_4_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_4_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_4_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_4_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_4_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_4_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 5"
+    },
+    {
+      "type": "text",
+      "id": "row_5_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_5_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_5_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_5_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_5_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_5_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 6"
+    },
+    {
+      "type": "text",
+      "id": "row_6_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_6_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_6_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_6_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_6_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_6_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 7"
+    },
+    {
+      "type": "text",
+      "id": "row_7_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_7_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_7_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_7_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_7_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_7_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 8"
+    },
+    {
+      "type": "text",
+      "id": "row_8_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_8_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_8_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_8_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_8_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_8_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 9"
+    },
+    {
+      "type": "text",
+      "id": "row_9_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_9_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_9_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_9_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_9_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_9_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 10"
+    },
+    {
+      "type": "text",
+      "id": "row_10_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_10_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_10_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_10_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_10_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_10_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 11"
+    },
+    {
+      "type": "text",
+      "id": "row_11_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_11_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_11_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_11_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_11_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_11_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 12"
+    },
+    {
+      "type": "text",
+      "id": "row_12_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_12_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_12_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_12_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_12_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_12_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 13"
+    },
+    {
+      "type": "text",
+      "id": "row_13_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_13_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_13_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_13_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_13_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_13_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 14"
+    },
+    {
+      "type": "text",
+      "id": "row_14_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_14_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_14_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_14_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_14_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_14_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 15"
+    },
+    {
+      "type": "text",
+      "id": "row_15_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_15_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_15_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_15_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_15_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_15_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 16"
+    },
+    {
+      "type": "text",
+      "id": "row_16_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_16_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_16_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_16_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_16_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_16_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 17"
+    },
+    {
+      "type": "text",
+      "id": "row_17_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_17_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_17_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_17_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_17_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_17_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 18"
+    },
+    {
+      "type": "text",
+      "id": "row_18_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_18_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_18_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_18_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_18_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_18_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 19"
+    },
+    {
+      "type": "text",
+      "id": "row_19_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_19_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_19_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_19_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_19_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_19_col_5",
+      "label": "Column 6"
+    },
+    {
+      "type": "header",
+      "content": "Row 20"
+    },
+    {
+      "type": "text",
+      "id": "row_20_label",
+      "label": "Label"
+    },
+    {
+      "type": "text",
+      "id": "row_20_col_1",
+      "label": "Column 2"
+    },
+    {
+      "type": "text",
+      "id": "row_20_col_2",
+      "label": "Column 3"
+    },
+    {
+      "type": "text",
+      "id": "row_20_col_3",
+      "label": "Column 4"
+    },
+    {
+      "type": "text",
+      "id": "row_20_col_4",
+      "label": "Column 5"
+    },
+    {
+      "type": "text",
+      "id": "row_20_col_5",
+      "label": "Column 6"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Comparison table"
+    }
+  ]
+}
+{% endschema %}
