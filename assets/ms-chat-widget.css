@@ -646,15 +646,12 @@ html.ms-chat-page-anim {
 .ms-chat-account-btn svg { width: 16px; height: 16px; flex: 0 0 auto; }
 .ms-chat-account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Welcome-state signed-in greeting (above the starters). */
-.ms-chat-welcome-greeting {
-  margin-top: 14px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: rgb(var(--msc-heading));
-}
-/* Sign-in benefits card slot beneath the starters (no spacing when empty, so
-   the welcome layout is unchanged for signed-in / pre-settle states). */
+/* The message list only takes focus programmatically (after a popup closes
+   while the composer is disabled mid-stream) — no ring for that. */
+.ms-chat-messages[tabindex="-1"]:focus { outline: none; }
+
+/* Sign-in benefits card slot beneath the welcome orb (no spacing when empty,
+   so signed-in / pre-settle visitors see the bare orb). */
 .ms-chat-welcome-auth { margin-top: 16px; text-align: left; }
 .ms-chat-welcome-auth:empty { margin-top: 0; }
 

@@ -1343,12 +1343,19 @@
 
   // Mirror the theme's header-badge update: reveal + set the count, or hide when
   // empty. textContent (never innerHTML) — the badge only ever holds a number.
+  // The redesigned header renders TWO badges (topbar = desktop, mobile icons =
+  // mobile) and only ONE carries #CartBubble (the one the theme JS needs; see
+  // sections/header.liquid). Update every [data-fh-cart-bubble] too, so the
+  // badge the shopper can actually see is never stale after a focus refresh.
+  // readBubbleCount() can keep reading #CartBubble — that badge always renders.
   function setCartBubble(count) {
     try {
-      var b = document.getElementById('CartBubble');
-      if (!b) return;
-      if (count > 0) { b.classList.remove('hidden'); b.textContent = String(count); }
-      else { b.classList.add('hidden'); b.textContent = ''; }
+      var list = document.querySelectorAll('#CartBubble, [data-fh-cart-bubble]');
+      for (var i = 0; i < list.length; i++) {
+        var b = list[i];
+        if (count > 0) { b.classList.remove('hidden'); b.textContent = String(count); }
+        else { b.classList.add('hidden'); b.textContent = ''; }
+      }
     } catch (e) {}
   }
 
@@ -2180,7 +2187,7 @@
   // ---------------------------------------------------------------------------
   var root, launcher, panel, backdrop, modeBtn, shareBtn, downloadBtn, messagesEl, textarea, sendBtn, micBtn, vmBtn, speakingBtn, noticeEl, welcomeEl;
   // Customer Account tier-3 chrome (built in buildShell / buildWelcome).
-  var signInBtn, accountBtn, accountNameEl, historyEl, historyListEl, historyTitleEl, welcomeGreetingEl, welcomeAuthEl;
+  var signInBtn, accountBtn, accountNameEl, historyEl, historyListEl, historyTitleEl, welcomeAuthEl;
   // Desktop layout mode, persisted across page loads. 'sidebar' = docked
   // right-edge sidebar (page makes room, site stays interactive); 'modal' =
   // centered near-fullscreen modal over the blurred backdrop. Mobile ignores
@@ -2490,15 +2497,12 @@
   // ("Wie kann ich dir helfen?"). The starter prompt chips were removed
   // (they saw no use and pushed the sign-in surface below the fold on
   // mobile); beneath the orb sits ONLY the auth slot — the sign-in card for
-  // settled-anonymous visitors, the marketing opt-in for eligible signed-in
-  // customers — so it is visible without scrolling.
+  // settled-anonymous visitors, so it is visible without scrolling. Signed-in
+  // customers see the orb alone (owner request: a clean welcome); their
+  // marketing opt-in is asked once, by the first-message popup.
   function buildWelcome() {
     var w = el('div', { class: 'ms-chat-welcome' });
     w.appendChild(logoEl('ms-chat-welcome-logo'));
-    // Signed-in greeting by name (filled/toggled by updateWelcomeAuth); hidden
-    // for anonymous so the welcome stays byte-identical when no one signs in.
-    welcomeGreetingEl = el('div', { class: 'ms-chat-welcome-greeting', style: 'display:none' });
-    w.appendChild(welcomeGreetingEl);
     // Sign-in benefits card slot (filled by updateWelcomeAuth when the auth
     // state settles as not-signed-in; empty otherwise).
     welcomeAuthEl = el('div', { class: 'ms-chat-welcome-auth' });
@@ -3414,7 +3418,7 @@
     // frequency/eligibility rules live in loginGateEligible() /
     // consentGateEligible(); the short delay lets the sent message visibly
     // land first so the dialog reads as an interlude, not a wall.
-    setTimeout(function () { maybeShowConsentGate(0); }, 700);
+    setTimeout(function () { maybeShowConsentGate(0, userMsg); }, 700);
   }
 
   // Fresh-open contextual greeting (API_CONTRACT.md §2): POST the context
@@ -4451,7 +4455,8 @@
   function presentSignInOptIn() {
     try {
       if (!optInActionable()) return;
-      // Welcome on screen -> updateWelcomeAuth already renders the opt-in there.
+      // Welcome on screen -> stay clean (orb only); the first-message popup
+      // asks once the customer actually starts chatting.
       if (welcomeEl && welcomeEl.parentNode === messagesEl) return;
       if (lastOptInRow && lastOptInRow.parentNode === messagesEl) {
         lastOptInRow.scrollIntoView({ block: 'nearest' });
@@ -4591,6 +4596,13 @@
   // Marketing opt-in gate — signed-in customers only.
   function consentGateEligible() {
     if (!gateBaseEligible() || !auth.signedIn) return false;
+    // The inline opt-in card (presentSignInOptIn) is still on screen and
+    // unanswered -> it already IS the ask; never stack the same marketing
+    // question a second time. (Answering or dismissing it marks the opt-in
+    // done, and a card without served copy removes itself, so checking for
+    // the card inside the row keeps the gate quiet only while it's pending.)
+    if (lastOptInRow && lastOptInRow.parentNode === messagesEl &&
+        lastOptInRow.querySelector('.ms-chat-optin-card')) return false;
     var d = loadMktDecision();
     if (d && d.state === 'accepted') return false;
     if (d && d.state === 'declined' && (Date.now() - d.at) < MKT_DECLINE_SNOOZE_MS) return false;
@@ -4616,11 +4628,16 @@
   // of the panel opening, but a deep link / product-CTA send can beat it.
   // Rather than silently skipping to the next turn, poll briefly (≤5s) for
   // the tier to settle, then decide.
-  function maybeShowConsentGate(tries) {
+  function maybeShowConsentGate(tries, userMsg) {
     if (!state.open) return;
+    // The send that scheduled us failed and was rolled back (network/5xx/429):
+    // there is no conversation to "keep", and the error notice must not be
+    // covered — keep the one popup of this session for a successful turn.
+    if (userMsg && messages.indexOf(userMsg) === -1) return;
+    if (state.rateLocked) return;
     tries = tries || 0;
     if (!auth.settled && tries < 10) {
-      setTimeout(function () { maybeShowConsentGate(tries + 1); }, 500);
+      setTimeout(function () { maybeShowConsentGate(tries + 1, userMsg); }, 500);
       return;
     }
     if (loginGateEligible()) { presentLoginGate(); return; }
@@ -4651,19 +4668,36 @@
       if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
       if (gateEl === wrap) gateEl = null;
       scrollToBottom(); // reveal the streamed answer behind the gate
-      try { textarea.focus(); } catch (e) {}
+      // The popup usually closes while the reply is still streaming, when the
+      // composer is disabled (updateInputState) and focus() on it is a no-op —
+      // focus would fall to <body> and keyboard users would lose their place.
+      // Park focus on the message list instead (programmatic-only tabindex).
+      try {
+        if (textarea.disabled) {
+          if (!messagesEl.hasAttribute('tabindex')) messagesEl.setAttribute('tabindex', '-1');
+          messagesEl.focus({ preventScroll: true });
+        } else {
+          textarea.focus();
+        }
+      } catch (e) {}
     }
     function defer() { onDefer(); close(); }
     backdrop.addEventListener('click', defer);
     wrap.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape') { ev.stopPropagation(); defer(); return; }
-      // Minimal focus trap: keep Tab cycling inside the dialog.
+      // Minimal focus trap: keep Tab cycling inside the dialog. Disabled
+      // controls (login popup "waiting" state, consent gate setBusy) are
+      // skipped — focus() on them is a no-op and would let Tab escape. Focus
+      // on the card itself (where show() puts it) or anywhere outside the
+      // card counts as an edge, so Shift+Tab right after opening can't fall
+      // through to the panel controls behind the aria-modal backdrop.
       if (ev.key === 'Tab') {
-        var f = card.querySelectorAll('button, input, a[href]');
-        if (!f.length) return;
-        var first = f[0], last = f[f.length - 1];
-        if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
-        else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+        var f = Array.prototype.filter.call(card.querySelectorAll('button, input, a[href]'),
+          function (n) { return !n.disabled; });
+        if (!f.length) { ev.preventDefault(); return; }
+        var first = f[0], last = f[f.length - 1], a = document.activeElement;
+        if (ev.shiftKey && (a === first || a === card || !card.contains(a))) { ev.preventDefault(); last.focus(); }
+        else if (!ev.shiftKey && (a === last || !card.contains(a))) { ev.preventDefault(); first.focus(); }
       }
     });
 
@@ -4682,22 +4716,23 @@
     };
   }
 
-  // Anonymous sign-in motivation popup. KPIs reuse the gate's event names,
-  // split by `surface: 'login'` (the marketing gate sends 'signin'):
-  //   consent_gate_shown     — popup rendered
-  //   consent_gate_accepted  — "Anmelden" tapped (initiateLogin then also
-  //                            sends account_signin_started {source:'login_gate'})
-  //   consent_gate_declined  — "Später" (24h snooze)
-  //   consent_gate_dismissed — backdrop / Esc (this session only)
-  // Nothing personal is sent — event names + the surface only.
+  // Anonymous sign-in motivation popup. It has its OWN KPI names — the
+  // consent_gate_* events are the documented MARKETING-consent metrics
+  // (surface 'signin' | 'chat'); a sign-in click must never be counted as a
+  // consent acceptance by an aggregate that doesn't filter on surface:
+  //   login_gate_shown           — popup rendered
+  //   login_gate_signin_clicked  — "Anmelden" tapped (initiateLogin then also
+  //                                sends account_signin_started {source:'login_gate'})
+  //   login_gate_declined        — "Später" (24h snooze)
+  //   login_gate_dismissed       — backdrop / Esc (this session only)
+  // Nothing personal is sent — event names only.
   function presentLoginGate() {
-    var surface = 'login';
     ssSet(GATE_SS_KEY, '1');
-    track('consent_gate_shown', { surface: surface });
+    track('login_gate_shown', {});
 
     var waitTimer = null;
     var dlg = openGateDialog(GATE_COPY.loginAria,
-      function () { track('consent_gate_dismissed', { surface: surface }); },
+      function () { track('login_gate_dismissed', {}); },
       function () { if (waitTimer) { clearInterval(waitTimer); waitTimer = null; } });
     var card = dlg.card;
 
@@ -4721,7 +4756,7 @@
 
     later.addEventListener('click', function () {
       lsSet(LOGIN_GATE_SNOOZE_KEY, String(Date.now()));
-      track('consent_gate_declined', { surface: surface });
+      track('login_gate_declined', {});
       dlg.close();
     });
 
@@ -4736,7 +4771,7 @@
     var WAIT_STEP_MS = 200;
     var WAIT_MAX_MS = 20000;
     signIn.addEventListener('click', function () {
-      track('consent_gate_accepted', { surface: surface });
+      track('login_gate_signin_clicked', {});
       if (!state.streaming) { initiateLogin('login_gate'); return; }
       signIn.disabled = true;
       signIn.textContent = GATE_COPY.loginWaiting;
@@ -4906,26 +4941,15 @@
     if (!auth.signedIn) closeHistory();
   }
 
-  // Welcome-state additions: a "Hallo {Name}" greeting when signed in, and the
-  // sign-in benefits card when settled-but-anonymous. Both live in containers
-  // built into the welcome element; emptied/filled here.
+  // Welcome-state addition: the sign-in benefits card when settled-but-
+  // anonymous. Signed-in customers get the bare orb (owner request: a clean
+  // welcome) — no greeting and no opt-in card here; the first-message popup is
+  // their single marketing ask. Lives in a container built into the welcome
+  // element; emptied/filled here.
   function updateWelcomeAuth() {
-    if (welcomeGreetingEl) {
-      if (auth.signedIn) {
-        welcomeGreetingEl.textContent = auth.name ? (L('Hallo ', 'Hi ') + auth.name + '!') : L('Schön, dass du wieder da bist!', 'Good to see you again!');
-        welcomeGreetingEl.style.display = '';
-      } else {
-        welcomeGreetingEl.textContent = '';
-        welcomeGreetingEl.style.display = 'none';
-      }
-    }
     if (welcomeAuthEl) {
       welcomeAuthEl.replaceChildren();
-      // Anonymous (settled): the sign-in benefits card. Signed in: the at-sign-in
-      // marketing opt-in (CONSENT_FLOW.md §2), unless already submitted/dismissed
-      // this session.
       if (auth.settled && !auth.signedIn) welcomeAuthEl.appendChild(buildSignInCard());
-      else if (optInActionable()) welcomeAuthEl.appendChild(buildMarketingOptInCard());
     }
   }
 

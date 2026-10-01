@@ -12,7 +12,45 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-08-12, latest) — order attribution: widget stamps the live cart with the session's opaque marker
+## ⭐ Session update (2026-10-01, latest) — clean welcome, sign-in popup, no Beta badge, Q&A zebra rows, cart drawer fix
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (PR #67 + #62 restored, sign-in popup, no Beta badge, signed-in welcome = orb only) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.css` | **MODIFIED** (Beta rule removed, popup styles, sidebar drops below the cart drawer) | ✅ Yes — replace the whole file |
+| `snippets/product-qa.liquid` | **MODIFIED** (CSS only: equal question/answer size, white/grey rows) | ✅ Yes — replace the whole file |
+| `sections/header.liquid` | **MODIFIED** (`id="CartBubble"` back on the mobile-icons badge + badge sync script) | ✅ Yes — or hand-edit the two spots |
+| `snippets/product-detail-accordions.liquid` | **MODIFIED** (quick-add refreshes the drawer in place) | ✅ Yes — or hand-edit `refreshCartModal()` |
+
+### Changes
+
+- **Restored lost work:** the Aug 12 live sync (`f7dc50a`) had replaced the
+  widget JS with a pre-PR #67 copy, so live paired PR #67's CSS with old JS:
+  the three starter prompts were back and no popup followed the first
+  message. PR #67 (orb + sign-in card welcome, first-message gate) and PR #62
+  (`?mo=open` campaign deep link) are re-applied on top of all later work.
+- **Welcome screen:** anonymous = orb + sign-in card; signed-in = orb only (no
+  greeting, no opt-in card — the first-message popup is the single ask).
+- **Sign-in popup (anonymous):** once per browser session, ~0.7s after the
+  first successful message; "Anmelden" waits for the reply to finish, then
+  redirects (conversation kept); "Später" snoozes 24h; Esc/backdrop defers for
+  the session. Never after a failed send, never in voice mode. Signed-in
+  customers keep the marketing consent gate (served copy, unchanged).
+- **New KPI events:** `login_gate_shown`, `login_gate_signin_clicked`,
+  `login_gate_declined`, `login_gate_dismissed`; `account_signin_started` now
+  carries `{ source: 'login_gate' }` from the popup. The anonymous email
+  variant of the gate (`surface=chat`, `/api/chat-marketing-opt-in`) is gone.
+- **Beta badge** removed from the launcher (element, aria-label, CSS).
+- **Cart drawer did not open after add-to-cart:** not caused by the widget.
+  The live header redesign (synced 2026-07-25) dropped `id="CartBubble"`;
+  the theme's `qe()` in `main.mjs` then threw on every add before opening the
+  drawer. The id is back on the always-rendered mobile-icons badge, and a
+  small observer mirrors it onto the desktop topbar badge. While the drawer
+  is open, the docked chat sidebar drops below it (it used to hide the drawer).
+
+---
+
+## ⭐ Session update (2026-08-12) — order attribution: widget stamps the live cart with the session's opaque marker
 
 Frontend half of the backend's order-attribution pipeline (backend repo:
 `docs/ORDER_ATTRIBUTION.md` + `docs/API_CONTRACT.md` §10). The widget stamps

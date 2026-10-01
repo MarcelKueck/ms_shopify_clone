@@ -1143,6 +1143,24 @@ document.addEventListener('DOMContentLoaded', function () {
   // submit/click listeners below do not catch them.
   document.addEventListener('product:added-to-cart', updateHeaderCartBubble);
 
+  // The theme JS (main.mjs qe()) writes the count ONLY into #CartBubble — also
+  // when a quantity is changed or an item removed inside the cart drawer, which
+  // fires none of the events above. Mirror #CartBubble onto every other header
+  // badge (desktop topbar copy) so the visible count never goes stale. Only
+  // #CartBubble is observed, so writing to the other badges cannot loop.
+  var themeCartBubble = document.getElementById('CartBubble');
+  if (themeCartBubble && window.MutationObserver) {
+    new MutationObserver(function () {
+      var count = (themeCartBubble.textContent || '').trim();
+      var isHidden = themeCartBubble.classList.contains('hidden');
+      document.querySelectorAll('[data-fh-cart-bubble]').forEach(function (bubble) {
+        if (bubble === themeCartBubble) return;
+        if (bubble.textContent.trim() !== count) bubble.textContent = count;
+        bubble.classList.toggle('hidden', isHidden);
+      });
+    }).observe(themeCartBubble, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  }
+
   document.addEventListener('submit', function(event) {
     if (event.target && event.target.matches('form[action*="/cart/add"]')) {
       setTimeout(updateHeaderCartBubble, 600);
