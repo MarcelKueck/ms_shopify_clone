@@ -231,26 +231,6 @@
 }
 .ms-chat-avatar .ms-chat-blob,
 .ms-chat-avatar .ms-chat-blob path { animation-play-state: paused; }
-/* Small "Beta" badge pinned to the launcher's top edge (feature 10). Lives
-   inside the launcher button so it hides/shows with it automatically and never
-   blocks the click. Sits within the launcher's fixed offsets, so it can't
-   collide with mobile safe-areas. */
-.ms-chat-beta {
-  position: absolute;
-  top: -7px;
-  right: -4px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: rgb(var(--msc-accent));
-  color: rgb(var(--msc-accent-fg));
-  border: 1px solid rgb(var(--msc-bg));
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1.5;
-  pointer-events: none;
-}
 
 /* When the panel is open the JS adds this class. Fully removed from layout and
    interaction so it can never overlap the panel (desktop or mobile full-screen). */

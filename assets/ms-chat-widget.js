@@ -2243,11 +2243,9 @@
   function buildShell() {
     root = el('div', { class: 'ms-chat-root' });
 
-    launcher = el('button', { class: 'ms-chat-launcher', type: 'button', 'aria-label': L('Chat öffnen (Beta)', 'Open chat (Beta)') });
+    // The launcher is just the brand orb — no badge/pill on top of it.
+    launcher = el('button', { class: 'ms-chat-launcher', type: 'button', 'aria-label': L('Chat öffnen', 'Open chat') });
     launcher.appendChild(logoEl('ms-chat-launcher-logo'));
-    // Feature 10: subtle "Beta" badge on the launcher (decorative; the
-    // aria-label above carries it for screen readers).
-    launcher.appendChild(el('span', { class: 'ms-chat-beta', text: 'Beta', 'aria-hidden': 'true' }));
     launcher.addEventListener('click', togglePanel);
 
     backdrop = el('div', { class: 'ms-chat-backdrop', 'aria-hidden': 'true' });
