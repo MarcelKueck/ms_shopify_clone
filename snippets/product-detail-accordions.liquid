@@ -99,9 +99,10 @@
               {%- unless recommendation.tags contains 'globo-product-options' -%}
                 <div class="pda-recommendation-card{% unless recommendation.available %} pda-recommendation-card--sold-out{% endunless %}">
                   {% render 'product-card',
-                    card_product: recommendation,
-                    sizes: '(max-width: 749px) 50vw, 180px'
-                  %}
+  card_product: recommendation,
+  sizes: '(max-width: 749px) 50vw, 180px',
+  pda_price: true
+%}
                 </div>
 
                 {%- assign pda_rendered_products = pda_rendered_products | plus: 1 -%}

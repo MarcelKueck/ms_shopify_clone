@@ -1,0 +1,2399 @@
+{% doc %}
+  Premium Collection Grid
+  Collection-spezifische Filtersteuerung.
+  Search & Discovery stellt die Shopify Filter-Engine bereit.
+  Auswahl, Reihenfolge und Darstellung erfolgen hier im Block.
+{% enddoc %}
+
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+
+{% style %}
+
+/* ============================================================
+   SECTION
+============================================================ */
+
+.ai-{{ ai_gen_id }} {
+  display: block;
+  width: {{ block.settings.desktop_width }}%;
+  padding: {{ block.settings.section_padding }}px;
+  background: {{ block.settings.section_background }};
+  color: {{ block.settings.text_color }};
+  font-family: {{ block.settings.body_font.family }};
+}
+
+.ai-{{ ai_gen_id }}__layout {
+  display: grid;
+  grid-template-columns: {{ block.settings.filter_width }}px 1fr;
+  gap: {{ block.settings.layout_gap }}px;
+}
+
+
+/* ============================================================
+   FILTER SIDEBAR
+============================================================ */
+
+.ai-{{ ai_gen_id }}__sidebar {
+  padding: {{ block.settings.filter_padding }}px;
+  background: {{ block.settings.filter_background }};
+  border-radius: {{ block.settings.card_radius }}px;
+  align-self: start;
+}
+
+.ai-{{ ai_gen_id }}__sidebar-title {
+  margin: 0 0 15px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ai-{{ ai_gen_id }}__filter {
+  padding: 12px 0;
+  border-top: 1px solid #ddd;
+}
+
+.ai-{{ ai_gen_id }}__filter summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.ai-{{ ai_gen_id }}__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: {{ block.settings.filter_text_size }}px;
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__option input {
+  margin: 0;
+}
+
+.ai-{{ ai_gen_id }}__reset {
+  display: inline-block;
+  margin-top: 16px;
+  color: inherit;
+  font-size: {{ block.settings.filter_text_size }}px;
+  text-decoration: underline;
+}
+
+
+/* ============================================================
+   FILTER SWATCHES
+============================================================ */
+
+.ai-{{ ai_gen_id }}__filter-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 5px;
+}
+
+.ai-{{ ai_gen_id }}__filter-swatch-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__filter-swatch-wrap input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ai-{{ ai_gen_id }}__filter-swatch {
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.22);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: transform .15s ease;
+}
+
+.ai-{{ ai_gen_id }}__filter-swatch-wrap:hover
+.ai-{{ ai_gen_id }}__filter-swatch {
+  transform: scale(1.08);
+}
+
+.ai-{{ ai_gen_id }}__filter-swatch-wrap.is-active
+.ai-{{ ai_gen_id }}__filter-swatch {
+  outline: 2px solid {{ block.settings.text_color }};
+  outline-offset: 2px;
+}
+
+.ai-{{ ai_gen_id }}__filter-swatch-count {
+  display: none;
+}
+
+
+/* ============================================================
+   TOGGLE FILTER
+============================================================ */
+
+.ai-{{ ai_gen_id }}__toggle-option {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: {{ block.settings.filter_text_size }}px;
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__toggle-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Toggle – kompakte Größe */
+.ai-{{ ai_gen_id }}__toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 16px;
+  flex: 0 0 28px;
+  border-radius: 999px;
+  background: #d8dde3;
+  transition: background .2s ease;
+}
+
+/* weißer Schalter */
+.ai-{{ ai_gen_id }}__toggle-switch:after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.18);
+  transition: transform .2s ease;
+}
+
+/* aktiv */
+.ai-{{ ai_gen_id }}__toggle-option input:checked + .ai-{{ ai_gen_id }}__toggle-switch {
+  background: {{ block.settings.quick_background }};
+}
+
+/* Schalter nach rechts */
+.ai-{{ ai_gen_id }}__toggle-option input:checked + .ai-{{ ai_gen_id }}__toggle-switch:after {
+  transform: translateX(12px);
+}
+
+/* ============================================================
+   NUMERIC LIST SLIDER
+============================================================ */
+
+.ai-{{ ai_gen_id }}__numeric-slider {
+  padding-top: 6px;
+}
+
+.ai-{{ ai_gen_id }}__numeric-slider-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+  font-size: {{ block.settings.filter_text_size }}px;
+}
+
+.ai-{{ ai_gen_id }}__numeric-slider-head strong {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ai-{{ ai_gen_id }}__numeric-range {
+  width: 100%;
+  height: 20px;
+  margin: 6px 0 9px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__numeric-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 5px;
+  border: 0;
+  border-radius: 20px;
+  background: #d8dce1;
+}
+
+.ai-{{ ai_gen_id }}__numeric-range::-webkit-slider-thumb {
+  width: 19px;
+  height: 19px;
+  margin-top: -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: {{ block.settings.quick_background }};
+  box-shadow: 0 0 0 1px rgba(0,0,0,.16);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__numeric-range::-moz-range-track {
+  width: 100%;
+  height: 5px;
+  border: 0;
+  border-radius: 20px;
+  background: #d8dce1;
+}
+
+.ai-{{ ai_gen_id }}__numeric-range::-moz-range-thumb {
+  width: 19px;
+  height: 19px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: {{ block.settings.quick_background }};
+  box-shadow: 0 0 0 1px rgba(0,0,0,.16);
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__numeric-slider-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  opacity: .65;
+}
+
+.ai-{{ ai_gen_id }}__numeric-slider-inputs {
+  display: none;
+}
+
+/* ============================================================
+   PRICE SLIDER
+============================================================ */
+
+.ai-{{ ai_gen_id }}__price-slider {
+  padding-top: 6px;
+}
+
+.ai-{{ ai_gen_id }}__price-slider-values {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+  font-size: {{ block.settings.filter_text_size }}px;
+}
+
+.ai-{{ ai_gen_id }}__price-slider-values strong {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ai-{{ ai_gen_id }}__price-range {
+  width: 100%;
+  height: 20px;
+  margin: 6px 0 9px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__price-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 5px;
+  border: 0;
+  border-radius: 20px;
+  background: #d8dce1;
+}
+
+.ai-{{ ai_gen_id }}__price-range::-webkit-slider-thumb {
+  width: 19px;
+  height: 19px;
+  margin-top: -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: {{ block.settings.quick_background }};
+  box-shadow: 0 0 0 1px rgba(0,0,0,.16);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__price-range::-moz-range-track {
+  width: 100%;
+  height: 5px;
+  border: 0;
+  border-radius: 20px;
+  background: #d8dce1;
+}
+
+.ai-{{ ai_gen_id }}__price-range::-moz-range-thumb {
+  width: 19px;
+  height: 19px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: {{ block.settings.quick_background }};
+  box-shadow: 0 0 0 1px rgba(0,0,0,.16);
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__price-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  opacity: .65;
+}
+
+
+/* ============================================================
+   PRODUCT GRID
+============================================================ */
+
+.ai-{{ ai_gen_id }}__grid {
+  display: grid;
+  grid-template-columns: repeat({{ block.settings.columns }}, minmax(0, 1fr));
+  gap: {{ block.settings.grid_gap }}px;
+  align-items: stretch;
+}
+
+.ai-{{ ai_gen_id }}__card {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: {{ block.settings.card_background }};
+  border-radius: {{ block.settings.card_radius }}px;
+  box-shadow: 0 8px 20px #0002;
+  transition: transform .2s, box-shadow .2s;
+}
+
+.ai-{{ ai_gen_id }}__card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 30px #0003;
+}
+
+.ai-{{ ai_gen_id }}__media {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  aspect-ratio: 1;
+  background: #f5f5f5;
+}
+
+.ai-{{ ai_gen_id }}__media img,
+.ai-{{ ai_gen_id }}__media svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ai-{{ ai_gen_id }}__badges {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  left: auto;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.ai-{{ ai_gen_id }}__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 5px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.ai-{{ ai_gen_id }}__badge--sale {
+  background: #008CCB;
+  color: #ffffff;
+}
+
+.ai-{{ ai_gen_id }}__badge--soldout {
+  background: #eeeeee;
+  color: #000000;
+}
+
+.ai-{{ ai_gen_id }}__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  padding: {{ block.settings.card_padding }}px;
+}
+
+.ai-{{ ai_gen_id }}__title {
+  margin: 0 0 {{ block.settings.title_price_gap }}px;
+  font-size: {{ block.settings.title_size }}px;
+  font-weight: {{ block.settings.title_weight }};
+}
+
+.ai-{{ ai_gen_id }}__title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ai-{{ ai_gen_id }}__price {
+  margin-bottom: {{ block.settings.price_rating_gap }}px;
+  font-size: {{ block.settings.price_size }}px;
+  font-weight: {{ block.settings.price_weight }};
+}
+
+.ai-{{ ai_gen_id }}__price s {
+  margin-left: 5px;
+  opacity: .55;
+}
+
+.ai-{{ ai_gen_id }}__rating {
+  margin-bottom: {{ block.settings.rating_gap }}px;
+  color: {{ block.settings.rating_color }};
+  font-size: {{ block.settings.rating_size }}px;
+}
+
+
+/* ============================================================
+   PRODUCT SWATCHES
+============================================================ */
+
+.ai-{{ ai_gen_id }}__product-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 20px;
+  margin: 2px 0 12px;
+}
+
+.ai-{{ ai_gen_id }}__product-swatch {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.22);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform .15s ease, outline .15s ease;
+}
+
+.ai-{{ ai_gen_id }}__product-swatch:hover {
+  transform: scale(1.12);
+  outline: 1px solid rgba(0,0,0,.35);
+  outline-offset: 2px;
+}
+
+
+/* ============================================================
+   BUTTONS
+============================================================ */
+
+.ai-{{ ai_gen_id }}__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.ai-{{ ai_gen_id }}__view,
+.ai-{{ ai_gen_id }}__quick {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  border-radius: {{ block.settings.button_radius }}px;
+  box-shadow: none;
+  font-family: {{ block.settings.button_font.family }};
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__view {
+  flex: 1;
+  padding: {{ block.settings.button_padding }}px;
+  background: {{ block.settings.button_background }};
+  color: {{ block.settings.button_text }};
+  text-align: center;
+  text-decoration: none;
+}
+
+.ai-{{ ai_gen_id }}__quick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  background: {{ block.settings.quick_background }};
+  color: #fff;
+}
+
+.ai-{{ ai_gen_id }}__quick svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ai-{{ ai_gen_id }}__view:before,
+.ai-{{ ai_gen_id }}__quick:before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -120%;
+  width: 70%;
+  background: linear-gradient(110deg,transparent,#fff8,transparent);
+  transform: skewX(-20deg);
+  transition: left .5s;
+}
+
+.ai-{{ ai_gen_id }}__view:hover:before,
+.ai-{{ ai_gen_id }}__quick:hover:before {
+  left: 140%;
+}
+
+.ai-{{ ai_gen_id }}__quick:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+
+/* ============================================================
+   PAGINATION
+============================================================ */
+
+.ai-{{ ai_gen_id }}__pagination {
+  margin-top: 30px;
+}
+
+
+
+/* ============================================================
+   MOBILE FILTER TOGGLE
+============================================================ */
+
+.ai-{{ ai_gen_id }}__mobile-filter-toggle {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  margin: 0 0 12px;
+  border: 1px solid rgba(0,0,0,.14);
+  border-radius: {{ block.settings.card_radius }}px;
+  background: {{ block.settings.filter_background }};
+  color: {{ block.settings.text_color }};
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__mobile-filter-toggle-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+.ai-{{ ai_gen_id }}__mobile-filter-toggle-icon:before,
+.ai-{{ ai_gen_id }}__mobile-filter-toggle-icon:after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 2px;
+  background: currentColor;
+  transform: translate(-50%,-50%);
+  transition: transform .2s ease;
+}
+
+.ai-{{ ai_gen_id }}__mobile-filter-toggle-icon:after {
+  transform: translate(-50%,-50%) rotate(90deg);
+}
+
+.ai-{{ ai_gen_id }}__mobile-filter-toggle[aria-expanded="true"]
+.ai-{{ ai_gen_id }}__mobile-filter-toggle-icon:after {
+  transform: translate(-50%,-50%) rotate(0deg);
+}
+
+/* ============================================================
+   MOBILE
+============================================================ */
+
+@media(max-width: 749px) {
+
+  .ai-{{ ai_gen_id }} {
+    width: 100%;
+  }
+
+  .ai-{{ ai_gen_id }}__layout {
+    display: block;
+  }
+
+  .ai-{{ ai_gen_id }}__mobile-filter-toggle {
+    display: flex;
+  }
+
+  .ai-{{ ai_gen_id }}__sidebar {
+    display: none;
+    margin-bottom: 20px;
+  }
+
+  .ai-{{ ai_gen_id }}__sidebar.is-open {
+    display: block;
+  }
+
+  .ai-{{ ai_gen_id }}__grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+
+}
+
+{% endstyle %}
+
+
+<collection-grid-{{ ai_gen_id }}
+  class="ai-{{ ai_gen_id }}"
+  {{ block.shopify_attributes }}
+>
+
+<form method="get" action="{{ collection.url }}">
+
+<div class="ai-{{ ai_gen_id }}__layout">
+
+
+<!-- ============================================================
+     FILTER SIDEBAR
+============================================================ -->
+
+<button
+  type="button"
+  class="ai-{{ ai_gen_id }}__mobile-filter-toggle"
+  aria-expanded="false"
+  aria-controls="ai-{{ ai_gen_id }}-filters"
+  data-mobile-filter-toggle
+>
+  <span>Filter anzeigen</span>
+  <span class="ai-{{ ai_gen_id }}__mobile-filter-toggle-icon" aria-hidden="true"></span>
+</button>
+
+<aside
+  class="ai-{{ ai_gen_id }}__sidebar"
+  id="ai-{{ ai_gen_id }}-filters"
+  data-mobile-filter-panel
+>
+
+<h2 class="ai-{{ ai_gen_id }}__sidebar-title">
+  Filter
+</h2>
+
+{% for position in (1..10) %}
+
+  {% case position %}
+
+    {% when 1 %}
+      {% assign configured_key = block.settings.filter_1_key %}
+      {% assign configured_display = block.settings.filter_1_display %}
+
+    {% when 2 %}
+      {% assign configured_key = block.settings.filter_2_key %}
+      {% assign configured_display = block.settings.filter_2_display %}
+
+    {% when 3 %}
+      {% assign configured_key = block.settings.filter_3_key %}
+      {% assign configured_display = block.settings.filter_3_display %}
+
+    {% when 4 %}
+      {% assign configured_key = block.settings.filter_4_key %}
+      {% assign configured_display = block.settings.filter_4_display %}
+
+    {% when 5 %}
+      {% assign configured_key = block.settings.filter_5_key %}
+      {% assign configured_display = block.settings.filter_5_display %}
+
+    {% when 6 %}
+      {% assign configured_key = block.settings.filter_6_key %}
+      {% assign configured_display = block.settings.filter_6_display %}
+
+    {% when 7 %}
+      {% assign configured_key = block.settings.filter_7_key %}
+      {% assign configured_display = block.settings.filter_7_display %}
+
+    {% when 8 %}
+      {% assign configured_key = block.settings.filter_8_key %}
+      {% assign configured_display = block.settings.filter_8_display %}
+
+    {% when 9 %}
+      {% assign configured_key = block.settings.filter_9_key %}
+      {% assign configured_display = block.settings.filter_9_display %}
+
+    {% when 10 %}
+      {% assign configured_key = block.settings.filter_10_key %}
+      {% assign configured_display = block.settings.filter_10_display %}
+
+  {% endcase %}
+
+
+  {% if configured_key != blank %}
+
+    {% for filter in collection.filters %}
+
+      {% if filter.param_name == configured_key %}
+
+
+        {% if filter.type == 'list' and filter.values.size > 0 %}
+
+          <details class="ai-{{ ai_gen_id }}__filter" open>
+
+            <summary>
+              {{ filter.label }}
+            </summary>
+
+
+            {% if configured_display == 'numeric_min_slider' %}
+
+              {% assign numeric_active_index = 0 %}
+              {% assign numeric_has_active = false %}
+
+              {% for value in filter.values %}
+                {% if value.active and numeric_has_active == false %}
+                  {% assign numeric_active_index = forloop.index0 %}
+                  {% assign numeric_has_active = true %}
+                {% endif %}
+              {% endfor %}
+
+              <div
+                class="ai-{{ ai_gen_id }}__numeric-slider"
+                data-numeric-slider
+              >
+
+                <div class="ai-{{ ai_gen_id }}__numeric-slider-head">
+                  <span>Mindestens</span>
+                  <strong data-numeric-output></strong>
+                </div>
+
+                <input
+                  class="ai-{{ ai_gen_id }}__numeric-range"
+                  type="range"
+                  min="0"
+                  max="{{ filter.values.size | minus: 1 }}"
+                  step="1"
+                  value="{{ numeric_active_index }}"
+                  data-numeric-range
+                >
+
+                <div class="ai-{{ ai_gen_id }}__numeric-slider-scale">
+                  <span>{{ filter.values.first.label }}</span>
+                  <span>{{ filter.values.last.label }}</span>
+                </div>
+
+                <div class="ai-{{ ai_gen_id }}__numeric-slider-inputs">
+                  {% for value in filter.values %}
+                    <input
+                      type="checkbox"
+                      name="{{ value.param_name }}"
+                      value="{{ value.value | escape }}"
+                      data-numeric-value
+                      data-label="{{ value.label | escape }}"
+                      data-index="{{ forloop.index0 }}"
+                      {% if value.active %}checked{% endif %}
+                    >
+                  {% endfor %}
+                </div>
+
+              </div>
+
+            {% elsif configured_display == 'swatch' %}
+
+              <div class="ai-{{ ai_gen_id }}__filter-swatches">
+
+                {% for value in filter.values %}
+
+                  {% if value.count > 0 or value.active %}
+
+                    {% assign swatch_name = value.label | downcase | strip %}
+
+                    <label
+                      class="ai-{{ ai_gen_id }}__filter-swatch-wrap {% if value.active %}is-active{% endif %}"
+                      title="{{ value.label | escape }}"
+                    >
+
+                      <input
+                        type="checkbox"
+                        name="{{ value.param_name }}"
+                        value="{{ value.value | escape }}"
+                        {% if value.active %}checked{% endif %}
+                        onchange="this.form.submit()"
+                      >
+
+                      <span
+                        class="ai-{{ ai_gen_id }}__filter-swatch"
+
+                        {% if value.swatch.image %}
+
+                          style="background-image:url('{{ value.swatch.image | image_url: width: 80 }}');"
+
+                        {% elsif value.swatch.color %}
+
+                          style="background-color:{{ value.swatch.color }};"
+
+                        {% else %}
+
+                          {% case swatch_name %}
+
+                            {% when 'weiß (kl01)' %}style="background:#EEEEEE;"
+                            {% when 'perle (kl34)' %}style="background:#D6D7D1;"
+                            {% when 'sand (kl36)' %}style="background:#D9D1BA;"
+                            {% when 'apricot (kl11)' %}style="background:#F4B575;"
+                            {% when 'safran (kl06)' %}style="background:#F8AD4C;"
+                            {% when 'rost (kl30)' %}style="background:#C05742;"
+                            {% when 'kirsche (kl35)' %}style="background:#B63A42;"
+                            {% when 'cyclam (kl04)' %}style="background:#944671;"
+                            {% when 'orchidee (kl03)' %}style="background:#5E4668;"
+                            {% when 'sky (kl33)' %}style="background:#607A93;"
+                            {% when 'atoll (kl27)' %}style="background:#24558D;"
+                            {% when 'royal (kl13)' %}style="background:#324260;"
+                            {% when 'aqua (kl32)' %}style="background:#6EC5B6;"
+                            {% when 'basalt' %}style="background:#817260;"
+                            {% when 'aubergine' %}style="background:#565057;"
+                            {% when 'misty mountain' %}style="background:#485F77;"
+                            {% when 'smaragd (kl07)' %}style="background:#008B63;"
+                            {% when 'limone (kl28)' %}style="background:#A3BE63;"
+                            {% when 'apfel (kl08)' %}style="background:#79C14F;"
+                            {% when 'chrom (kl05)' %}style="background:#807F7F;"
+                            {% when 'anthrazit (kl29)' %}style="background:#4D565A;"
+                            {% when 'schwarz (kl02)' %}style="background:#3E4043;"
+
+                            {% when 'birke (tor01)' %}style="background:#A29C8F;"
+                            {% when 'mocca (tor02)' %}style="background:#5A4831;"
+                            {% when 'olive (tor03)' %}style="background:#7D8645;"
+                            {% when 'limone (tor04)' %}style="background:#9CAE19;"
+                            {% when 'corn (tor05)' %}style="background:#DDB01E;"
+                            {% when 'orange (tor06)' %}style="background:#DA9621;"
+                            {% when 'stone blue (tor07)' %}style="background:#7A8793;"
+                            {% when 'slate grey (tor08)' %}style="background:#696D6C;"
+                            {% when 'anthrazit (tor09)' %}style="background:#4B5051;"
+                            {% when 'schwarz (tor10)' %}style="background:#2C2E2D;"
+                            {% when 'kirsche (tor11)' %}style="background:#9D2527;"
+                            {% when 'feuer (tor12)' %}style="background:#D81C09;"
+                            {% when 'atoll (tor13)' %}style="background:#364687;"
+
+                            {% when 'white (pan001)' %}style="background:#E5E9EC;"
+                            {% when 'hellbeige (pan002)' %}style="background:#D1D3CF;"
+                            {% when 'kiesel (pan003)' %}style="background:#B2AA98;"
+                            {% when 'birke (pan004)' %}style="background:#AAA69C;"
+                            {% when 'smoke (pan005)' %}style="background:#736354;"
+                            {% when 'schoko (pan006)' %}style="background:#483A38;"
+                            {% when 'limone (pan007)' %}style="background:#A0B44B;"
+                            {% when 'gletscher (pan008)' %}style="background:#A0BDD3;"
+                            {% when 'royal (pan009)' %}style="background:#323959;"
+                            {% when 'mais (pan010)' %}style="background:#DBB21B;"
+                            {% when 'platin (pan011)' %}style="background:#787F88;"
+                            {% when 'schwarz (pan012)' %}style="background:#1F2124;"
+                            {% when 'anthrazit (pan013)' %}style="background:#4A5055;"
+                            {% when 'kaktus (pan014)' %}style="background:#6F8D45;"
+                            {% when 'sky (pan015)' %}style="background:#2976A4;"
+                            {% when 'smaragd (pan016)' %}style="background:#0E80AE;"
+                            {% when 'feuer (pan017)' %}style="background:#CF372A;"
+                            {% when 'kirsche (pan018)' %}style="background:#98363B;"
+
+                            {% when 'blau-lila' %}style="background:#425392;"
+                            {% when 'schwarz' %}style="background:#000000;"
+                            {% when 'lava' %}style="background:#A49B9B;"
+                            {% when 'blau' %}style="background:#062996;"
+                            {% when 'lila' %}style="background:#6A3AAA;"
+                            {% when 'pearl' %}style="background:#F3EEE5;"
+                            {% when 'sea-grass' %}style="background:#566A6C;"
+                            {% when 'anthrazit' %}style="background:#3D3D3D;"
+                            {% when 'grau' %}style="background:#B1B1B1;"
+                            {% when 'violett' %}style="background:#715898;"
+                            {% when 'grün' %}style="background:#27A661;"
+                            {% when 'türkis' %}style="background:#60BED8;"
+                            {% when 'orange' %}style="background:#E75F07;"
+                            {% when 'gelb' %}style="background:#F3E34E;"
+                            {% when 'rosa' %}style="background:#DC9B97;"
+                            {% when 'dweiss' %}style="background:#FFFFFF;"
+                            {% when 'rot' %}style="background:#EC5761;"
+
+                            {% when 'schwarz-blau' %}
+                              style="background:linear-gradient(135deg,#7DD7EE 0 50%,#272727 50% 100%);"
+
+                            {% when 'schwarz-rot' %}
+                              style="background:linear-gradient(135deg,#D3232D 0 50%,#272727 50% 100%);"
+
+                            {% when 'schwarz-grau' %}
+                              style="background:linear-gradient(135deg,#ABABAB 0 50%,#272727 50% 100%);"
+
+                            {% when 'schwarz - grau' %}
+                              style="background:linear-gradient(135deg,#ABABAB 0 50%,#272727 50% 100%);"
+
+                            {% when 'blau - rot' %}
+                              style="background:linear-gradient(135deg,#D4200A 0 50%,#1D56C1 50% 100%);"
+
+                            {% when 'grün - gelb' %}
+                              style="background:linear-gradient(135deg,#EFF3A7 0 50%,#87B187 50% 100%);"
+
+                            {% when 'grün - rot' %}
+                              style="background:linear-gradient(135deg,#C8C999 0 50%,#D13653 50% 100%);"
+
+                            {% when 'silber' %}style="background:#B3B9B9;"
+                            {% when 'moos' %}style="background:#A1AE98;"
+                            {% when 'terra' %}style="background:#C5A391;"
+                            {% when 'himmelblau' %}style="background:#73A6BB;"
+                            {% when 'sand' %}style="background:#DFC5B2;"
+                            {% when 'schiefer' %}style="background:#4C4C4A;"
+                            {% when 'kiwi' %}style="background:#84A258;"
+                            {% when 'olive' %}style="background:#5A6148;"
+                            {% when 'platin' %}style="background:#929592;"
+                            {% when 'wasserblau' %}style="background:#067984;"
+                            {% when 'hellblau' %}style="background:#20AEDC;"
+                            {% when 'weiß' %}style="background:#EFEFEF;"
+
+                            {% when 'schwarzes granulat' %}
+                              style="background-image:url('{{ 'schwarzgranulat.png' | asset_url }}');"
+
+                            {% when 'schwarz mit grauen granulaten' %}
+                              style="background-image:url('{{ 'schwarzgraugranulat.png' | asset_url }}');"
+
+                            {% else %}
+                              style="background:#DADADA;"
+
+                          {% endcase %}
+
+                        {% endif %}
+                      ></span>
+
+                    </label>
+
+                  {% endif %}
+
+                {% endfor %}
+
+              </div>
+
+
+            {% elsif configured_display == 'radio' %}
+
+              {% for value in filter.values %}
+
+                {% if value.count > 0 or value.active %}
+
+                  <label class="ai-{{ ai_gen_id }}__option">
+
+                    <input
+                      type="radio"
+                      name="{{ value.param_name }}"
+                      value="{{ value.value | escape }}"
+                      {% if value.active %}checked{% endif %}
+                      onchange="this.form.submit()"
+                    >
+
+                    <span>
+                      {{ value.label }} ({{ value.count }})
+                    </span>
+
+                  </label>
+
+                {% endif %}
+
+              {% endfor %}
+
+
+            {% else %}
+
+              {% for value in filter.values %}
+
+                {% if value.count > 0 or value.active %}
+
+                  <label class="ai-{{ ai_gen_id }}__option">
+
+                    <input
+                      type="checkbox"
+                      name="{{ value.param_name }}"
+                      value="{{ value.value | escape }}"
+                      {% if value.active %}checked{% endif %}
+                      onchange="this.form.submit()"
+                    >
+
+                    <span>
+                      {{ value.label }} ({{ value.count }})
+                    </span>
+
+                  </label>
+
+                {% endif %}
+
+              {% endfor %}
+
+            {% endif %}
+
+          </details>
+
+
+        {% elsif filter.type == 'price_range' %}
+
+          {% assign actual_price_max = filter.range_max
+            | money_without_currency
+            | replace: '.', ''
+            | replace: ',', '.'
+          %}
+
+          {% assign slider_price_max = actual_price_max | ceil %}
+
+
+          {% if filter.max_value.value %}
+
+            {% assign price_current = filter.max_value.value
+              | money_without_currency
+              | replace: '.', ''
+              | replace: ',', '.'
+            %}
+
+            {% assign price_current = price_current | ceil %}
+
+          {% else %}
+
+            {% assign price_current = slider_price_max %}
+
+          {% endif %}
+
+
+          <details class="ai-{{ ai_gen_id }}__filter" open>
+
+            <summary>
+              {{ filter.label }}
+            </summary>
+
+            <div class="ai-{{ ai_gen_id }}__price-slider">
+
+              <div class="ai-{{ ai_gen_id }}__price-slider-values">
+
+                <span>
+                  0 €
+                </span>
+
+                <strong>
+                  Bis
+                  <span data-price-output>
+                    {{ price_current }}
+                  </span>
+                  €
+                </strong>
+
+              </div>
+
+              <input
+                class="ai-{{ ai_gen_id }}__price-range"
+                type="range"
+                name="{{ filter.max_value.param_name }}"
+                min="0"
+                max="{{ slider_price_max }}"
+                step="1"
+                value="{{ price_current }}"
+                oninput="
+                  this.closest('.ai-{{ ai_gen_id }}__price-slider')
+                  .querySelector('[data-price-output]')
+                  .textContent = Math.round(this.value).toLocaleString('de-DE');
+                "
+                onchange="this.form.submit()"
+              >
+
+              <div class="ai-{{ ai_gen_id }}__price-scale">
+
+                <span>
+                  0 €
+                </span>
+
+                <span>
+                  {{ slider_price_max }} €
+                </span>
+
+              </div>
+
+            </div>
+
+          </details>
+
+
+        {% elsif filter.type == 'boolean' %}
+
+          <details class="ai-{{ ai_gen_id }}__filter" open>
+
+            <summary>
+              {{ filter.label }}
+            </summary>
+
+            {% if filter.true_value %}
+
+              {% if configured_display == 'toggle' %}
+
+                <label class="ai-{{ ai_gen_id }}__toggle-option">
+
+                  <span style="position:relative;display:inline-flex;">
+                    <input
+                      type="checkbox"
+                      name="{{ filter.true_value.param_name }}"
+                      value="{{ filter.true_value.value }}"
+                      {% if filter.true_value.active %}checked{% endif %}
+                      onchange="this.form.submit()"
+                    >
+                    <span class="ai-{{ ai_gen_id }}__toggle-switch"></span>
+                  </span>
+
+                </label>
+
+              {% else %}
+
+                <label class="ai-{{ ai_gen_id }}__option">
+
+                  <input
+                    type="checkbox"
+                    name="{{ filter.true_value.param_name }}"
+                    value="{{ filter.true_value.value }}"
+                    {% if filter.true_value.active %}checked{% endif %}
+                    onchange="this.form.submit()"
+                  >
+
+                  <span>
+                    {{ filter.true_value.label }}
+                  </span>
+
+                </label>
+
+              {% endif %}
+
+            {% endif %}
+
+          </details>
+
+        {% endif %}
+
+      {% endif %}
+
+    {% endfor %}
+
+  {% endif %}
+
+{% endfor %}
+
+
+<a
+  class="ai-{{ ai_gen_id }}__reset"
+  href="{{ collection.url }}"
+>
+  Filter zurücksetzen
+</a>
+
+</aside>
+
+
+<!-- ============================================================
+     PRODUCTS
+============================================================ -->
+
+<main>
+
+{% paginate collection.products by block.settings.products_per_page %}
+
+<div class="ai-{{ ai_gen_id }}__grid">
+
+{% for product in collection.products %}
+
+<article class="ai-{{ ai_gen_id }}__card">
+
+
+<a
+  class="ai-{{ ai_gen_id }}__media"
+  href="{{ product.url }}"
+>
+
+{% assign max_saving = 0 %}
+
+{% for variant in product.variants %}
+  {% if variant.compare_at_price != blank and variant.compare_at_price > variant.price %}
+    {% assign variant_saving = variant.compare_at_price | minus: variant.price %}
+    {% if variant_saving > max_saving %}
+      {% assign max_saving = variant_saving %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+
+<div class="ai-{{ ai_gen_id }}__badges">
+  {% unless product.available %}
+    <span class="ai-{{ ai_gen_id }}__badge ai-{{ ai_gen_id }}__badge--soldout">Ausverkauft</span>
+  {% endunless %}
+
+  {% if max_saving > 0 %}
+    <span class="ai-{{ ai_gen_id }}__badge ai-{{ ai_gen_id }}__badge--sale">
+      {{ max_saving | money }} sparen
+    </span>
+  {% endif %}
+</div>
+
+{% if product.featured_image %}
+
+<img
+  src="{{ product.featured_image | image_url: width: 800 }}"
+  alt="{{ product.featured_image.alt | default: product.title | escape }}"
+  loading="lazy"
+>
+
+{% else %}
+
+{{ 'product-apparel-1' | placeholder_svg_tag }}
+
+{% endif %}
+
+</a>
+
+
+<div class="ai-{{ ai_gen_id }}__content">
+
+
+<h2 class="ai-{{ ai_gen_id }}__title">
+
+<a href="{{ product.url }}">
+  {{ product.title }}
+</a>
+
+</h2>
+
+
+<div class="ai-{{ ai_gen_id }}__price">
+
+{{ product.price | money }}
+
+{% if product.compare_at_price > product.price %}
+
+<s>
+  {{ product.compare_at_price | money }}
+</s>
+
+{% endif %}
+
+</div>
+
+
+{% assign rating = product.metafields.loox.avg_rating.value
+  | default: product.metafields.loox.rating.value
+%}
+
+{% assign reviews = product.metafields.loox.num_reviews.value
+  | default: product.metafields.loox.review_count.value
+%}
+
+
+<div class="ai-{{ ai_gen_id }}__rating">
+
+{% if rating != blank %}
+
+★★★★★
+
+{% if reviews != blank %}
+  ({{ reviews }})
+{% endif %}
+
+{% else %}
+
+☆☆☆☆☆
+
+{% endif %}
+
+</div>
+
+
+<!-- ============================================================
+     PRODUCT SWATCHES
+============================================================ -->
+
+{% assign color_option = blank %}
+
+{% for option in product.options_with_values %}
+
+  {% assign option_name_downcase = option.name | downcase | strip %}
+
+  {% if option_name_downcase == 'farbe'
+    or option_name_downcase == 'color'
+    or option_name_downcase == 'colour'
+  %}
+
+    {% assign color_option = option %}
+    {% break %}
+
+  {% endif %}
+
+{% endfor %}
+
+
+{% if color_option != blank %}
+
+<div class="ai-{{ ai_gen_id }}__product-swatches">
+
+{% assign color_index = color_option.position | minus: 1 %}
+
+{% for option_value in color_option.values %}
+
+  {% assign swatch_name = option_value.name | downcase | strip %}
+  {% assign swatch_variant = blank %}
+
+  {% for variant in product.variants %}
+
+    {% if variant.options[color_index] == option_value.name %}
+
+      {% assign swatch_variant = variant %}
+      {% break %}
+
+    {% endif %}
+
+  {% endfor %}
+
+
+  {% if swatch_variant != blank %}
+
+    <a
+      class="ai-{{ ai_gen_id }}__product-swatch"
+      href="{{ product.url | split: '?' | first }}?variant={{ swatch_variant.id }}"
+      title="{{ option_value.name | escape }}"
+      aria-label="{{ option_value.name | escape }}"
+
+  {% else %}
+
+    <span
+      class="ai-{{ ai_gen_id }}__product-swatch"
+      title="{{ option_value.name | escape }}"
+
+  {% endif %}
+
+
+    {% if option_value.swatch.image %}
+
+      style="background-image:url('{{ option_value.swatch.image | image_url: width: 60 }}');"
+
+    {% elsif option_value.swatch.color %}
+
+      style="background-color:{{ option_value.swatch.color }};"
+
+    {% else %}
+
+      {% case swatch_name %}
+
+        {% when 'weiß (kl01)' %}style="background:#EEEEEE;"
+        {% when 'perle (kl34)' %}style="background:#D6D7D1;"
+        {% when 'sand (kl36)' %}style="background:#D9D1BA;"
+        {% when 'apricot (kl11)' %}style="background:#F4B575;"
+        {% when 'safran (kl06)' %}style="background:#F8AD4C;"
+        {% when 'rost (kl30)' %}style="background:#C05742;"
+        {% when 'kirsche (kl35)' %}style="background:#B63A42;"
+        {% when 'cyclam (kl04)' %}style="background:#944671;"
+        {% when 'orchidee (kl03)' %}style="background:#5E4668;"
+        {% when 'sky (kl33)' %}style="background:#607A93;"
+        {% when 'atoll (kl27)' %}style="background:#24558D;"
+        {% when 'royal (kl13)' %}style="background:#324260;"
+        {% when 'aqua (kl32)' %}style="background:#6EC5B6;"
+        {% when 'basalt' %}style="background:#817260;"
+        {% when 'aubergine' %}style="background:#565057;"
+        {% when 'misty mountain' %}style="background:#485F77;"
+        {% when 'smaragd (kl07)' %}style="background:#008B63;"
+        {% when 'limone (kl28)' %}style="background:#A3BE63;"
+        {% when 'apfel (kl08)' %}style="background:#79C14F;"
+        {% when 'chrom (kl05)' %}style="background:#807F7F;"
+        {% when 'anthrazit (kl29)' %}style="background:#4D565A;"
+        {% when 'schwarz (kl02)' %}style="background:#3E4043;"
+
+        {% when 'birke (tor01)' %}style="background:#A29C8F;"
+        {% when 'mocca (tor02)' %}style="background:#5A4831;"
+        {% when 'olive (tor03)' %}style="background:#7D8645;"
+        {% when 'limone (tor04)' %}style="background:#9CAE19;"
+        {% when 'corn (tor05)' %}style="background:#DDB01E;"
+        {% when 'orange (tor06)' %}style="background:#DA9621;"
+        {% when 'stone blue (tor07)' %}style="background:#7A8793;"
+        {% when 'slate grey (tor08)' %}style="background:#696D6C;"
+        {% when 'anthrazit (tor09)' %}style="background:#4B5051;"
+        {% when 'schwarz (tor10)' %}style="background:#2C2E2D;"
+        {% when 'kirsche (tor11)' %}style="background:#9D2527;"
+        {% when 'feuer (tor12)' %}style="background:#D81C09;"
+        {% when 'atoll (tor13)' %}style="background:#364687;"
+
+        {% when 'white (pan001)' %}style="background:#E5E9EC;"
+        {% when 'hellbeige (pan002)' %}style="background:#D1D3CF;"
+        {% when 'kiesel (pan003)' %}style="background:#B2AA98;"
+        {% when 'birke (pan004)' %}style="background:#AAA69C;"
+        {% when 'smoke (pan005)' %}style="background:#736354;"
+        {% when 'schoko (pan006)' %}style="background:#483A38;"
+        {% when 'limone (pan007)' %}style="background:#A0B44B;"
+        {% when 'gletscher (pan008)' %}style="background:#A0BDD3;"
+        {% when 'royal (pan009)' %}style="background:#323959;"
+        {% when 'mais (pan010)' %}style="background:#DBB21B;"
+        {% when 'platin (pan011)' %}style="background:#787F88;"
+        {% when 'schwarz (pan012)' %}style="background:#1F2124;"
+        {% when 'anthrazit (pan013)' %}style="background:#4A5055;"
+        {% when 'kaktus (pan014)' %}style="background:#6F8D45;"
+        {% when 'sky (pan015)' %}style="background:#2976A4;"
+        {% when 'smaragd (pan016)' %}style="background:#0E80AE;"
+        {% when 'feuer (pan017)' %}style="background:#CF372A;"
+        {% when 'kirsche (pan018)' %}style="background:#98363B;"
+
+        {% when 'blau-lila' %}style="background:#425392;"
+        {% when 'schwarz' %}style="background:#000000;"
+        {% when 'lava' %}style="background:#A49B9B;"
+        {% when 'blau' %}style="background:#062996;"
+        {% when 'lila' %}style="background:#6A3AAA;"
+        {% when 'pearl' %}style="background:#F3EEE5;"
+        {% when 'sea-grass' %}style="background:#566A6C;"
+        {% when 'anthrazit' %}style="background:#3D3D3D;"
+        {% when 'grau' %}style="background:#B1B1B1;"
+        {% when 'violett' %}style="background:#715898;"
+        {% when 'grün' %}style="background:#27A661;"
+        {% when 'türkis' %}style="background:#60BED8;"
+        {% when 'orange' %}style="background:#E75F07;"
+        {% when 'gelb' %}style="background:#F3E34E;"
+        {% when 'rosa' %}style="background:#DC9B97;"
+        {% when 'dweiss' %}style="background:#FFFFFF;"
+        {% when 'rot' %}style="background:#EC5761;"
+
+        {% when 'schwarz-blau' %}
+          style="background:linear-gradient(135deg,#7DD7EE 0 50%,#272727 50% 100%);"
+
+        {% when 'schwarz-rot' %}
+          style="background:linear-gradient(135deg,#D3232D 0 50%,#272727 50% 100%);"
+
+        {% when 'schwarz-grau' %}
+          style="background:linear-gradient(135deg,#ABABAB 0 50%,#272727 50% 100%);"
+
+        {% when 'schwarz - grau' %}
+          style="background:linear-gradient(135deg,#ABABAB 0 50%,#272727 50% 100%);"
+
+        {% when 'blau - rot' %}
+          style="background:linear-gradient(135deg,#D4200A 0 50%,#1D56C1 50% 100%);"
+
+        {% when 'grün - gelb' %}
+          style="background:linear-gradient(135deg,#EFF3A7 0 50%,#87B187 50% 100%);"
+
+        {% when 'grün - rot' %}
+          style="background:linear-gradient(135deg,#C8C999 0 50%,#D13653 50% 100%);"
+
+        {% when 'silber' %}style="background:#B3B9B9;"
+        {% when 'moos' %}style="background:#A1AE98;"
+        {% when 'terra' %}style="background:#C5A391;"
+        {% when 'himmelblau' %}style="background:#73A6BB;"
+        {% when 'sand' %}style="background:#DFC5B2;"
+        {% when 'schiefer' %}style="background:#4C4C4A;"
+        {% when 'kiwi' %}style="background:#84A258;"
+        {% when 'olive' %}style="background:#5A6148;"
+        {% when 'platin' %}style="background:#929592;"
+        {% when 'wasserblau' %}style="background:#067984;"
+        {% when 'hellblau' %}style="background:#20AEDC;"
+        {% when 'weiß' %}style="background:#EFEFEF;"
+
+        {% when 'schwarzes granulat' %}
+          style="background-image:url('{{ 'schwarzgranulat.png' | asset_url }}');"
+
+        {% when 'schwarz mit grauen granulaten' %}
+          style="background-image:url('{{ 'schwarzgraugranulat.png' | asset_url }}');"
+
+        {% else %}
+          style="background:#DADADA;"
+
+      {% endcase %}
+
+    {% endif %}
+  >
+
+  {% if swatch_variant != blank %}
+    </a>
+  {% else %}
+    </span>
+  {% endif %}
+
+{% endfor %}
+
+</div>
+
+{% endif %}
+
+
+<!-- ============================================================
+     BUTTONS
+============================================================ -->
+
+<div class="ai-{{ ai_gen_id }}__actions">
+
+<a
+  class="ai-{{ ai_gen_id }}__view"
+  href="{{ product.url }}"
+>
+  Ansehen
+</a>
+
+
+<button
+  class="ai-{{ ai_gen_id }}__quick"
+  type="button"
+  data-id="{{ product.selected_or_first_available_variant.id }}"
+  aria-label="In den Warenkorb"
+>
+
+<svg
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+>
+
+<path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/>
+
+<circle cx="10" cy="20" r="1"/>
+<circle cx="18" cy="20" r="1"/>
+
+</svg>
+
+</button>
+
+</div>
+
+</div>
+
+</article>
+
+{% endfor %}
+
+</div>
+
+
+<div class="ai-{{ ai_gen_id }}__pagination">
+  {{ paginate | default_pagination }}
+</div>
+
+{% endpaginate %}
+
+</main>
+
+</div>
+
+</form>
+
+</collection-grid-{{ ai_gen_id }}>
+
+
+<script>
+(function(){
+
+  class C{{ ai_gen_id }} extends HTMLElement {
+
+    connectedCallback(){
+
+      /* ============================================================
+         MOBILE FILTER TOGGLE
+      ============================================================ */
+
+      const mobileFilterToggle = this.querySelector('[data-mobile-filter-toggle]');
+      const mobileFilterPanel = this.querySelector('[data-mobile-filter-panel]');
+
+      if (mobileFilterToggle && mobileFilterPanel) {
+
+        mobileFilterToggle.addEventListener('click', () => {
+
+          const isOpen = mobileFilterPanel.classList.toggle('is-open');
+
+          mobileFilterToggle.setAttribute(
+            'aria-expanded',
+            isOpen ? 'true' : 'false'
+          );
+
+          const label = mobileFilterToggle.querySelector('span:first-child');
+
+          if (label) {
+            label.textContent = isOpen ? 'Filter ausblenden' : 'Filter anzeigen';
+          }
+
+        });
+
+      }
+
+      /* ============================================================
+         NUMERIC FILTER SLIDER
+      ============================================================ */
+
+      this.querySelectorAll('[data-numeric-slider]').forEach(slider => {
+
+        const range = slider.querySelector('[data-numeric-range]');
+        const output = slider.querySelector('[data-numeric-output]');
+        const inputs = Array.from(slider.querySelectorAll('[data-numeric-value]'));
+
+        if (!range || !output || !inputs.length) return;
+
+        const syncOutput = () => {
+          const index = Number(range.value);
+          const current = inputs[index];
+          output.textContent = current ? current.dataset.label : '';
+        };
+
+        syncOutput();
+
+        range.addEventListener('input', syncOutput);
+
+        range.addEventListener('change', () => {
+
+          const selectedIndex = Number(range.value);
+
+          inputs.forEach(input => {
+            const index = Number(input.dataset.index);
+            input.checked = index >= selectedIndex;
+          });
+
+          range.form.submit();
+
+        });
+
+      });
+
+
+      /* ============================================================
+         QUICK ADD TO CART
+      ============================================================ */
+
+      this.querySelectorAll('[data-id]').forEach(button => {
+
+        button.addEventListener('click', async (event) => {
+
+          event.preventDefault();
+          event.stopPropagation();
+
+          const variantId = Number(button.dataset.id);
+
+          if (!variantId || button.disabled) return;
+
+          const root =
+            window.Shopify &&
+            window.Shopify.routes &&
+            window.Shopify.routes.root
+              ? window.Shopify.routes.root
+              : '/';
+
+          const addUrl = root + 'cart/add.js';
+          const cartUrl = root + 'cart.js';
+
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+
+          try {
+
+            /* Produkt wirklich in Shopify-Warenkorb legen */
+
+            const addResponse = await fetch(addUrl, {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({
+                items: [
+                  {
+                    id: variantId,
+                    quantity: 1
+                  }
+                ]
+              })
+            });
+
+            const addData = await addResponse.json().catch(() => ({}));
+
+            if (!addResponse.ok) {
+              throw new Error(
+                addData.description ||
+                addData.message ||
+                'Produkt konnte nicht in den Warenkorb gelegt werden.'
+              );
+            }
+
+
+            /* Aktuellen Warenkorb erneut von Shopify laden */
+
+            const cartResponse = await fetch(cartUrl, {
+              method: 'GET',
+              credentials: 'same-origin',
+              headers: {
+                'Accept': 'application/json'
+              },
+              cache: 'no-store'
+            });
+
+            if (!cartResponse.ok) {
+              throw new Error('Warenkorb konnte nicht aktualisiert werden.');
+            }
+
+            const cart = await cartResponse.json();
+
+
+            /* Theme-Events auslösen */
+
+            const detail = {
+              cart: cart,
+              product: addData,
+              variantId: variantId,
+              source: 'premium-collection-grid'
+            };
+
+            document.dispatchEvent(
+              new CustomEvent('cart:refresh', {
+                bubbles: true,
+                detail: detail
+              })
+            );
+
+            document.dispatchEvent(
+              new CustomEvent('cart:change', {
+                bubbles: true,
+                detail: detail
+              })
+            );
+
+            document.dispatchEvent(
+              new CustomEvent('ajaxProduct:added', {
+                bubbles: true,
+                detail: {
+                  product: addData,
+                  addToCartBtn: button,
+                  cart: cart
+                }
+              })
+            );
+
+
+            /* Häufige Cart-Counter direkt aktualisieren */
+
+            document
+              .querySelectorAll(
+                '[data-cart-count], [data-header-cart-count]'
+              )
+              .forEach(counter => {
+                counter.textContent = cart.item_count;
+                counter.removeAttribute('hidden');
+              });
+
+
+            /* Essence / Sidebar-Warenkorb öffnen */
+
+            setTimeout(() => {
+
+              const cartHandle =
+                document.querySelector(
+                  '[data-js-sidebar-handle][aria-controls="site-cart-sidebar"]'
+                ) ||
+                document.querySelector('.button--cart-handle');
+
+              if (
+                cartHandle &&
+                cartHandle.getAttribute('aria-expanded') !== 'true'
+              ) {
+                cartHandle.click();
+              }
+
+            }, 200);
+
+
+          } catch(error) {
+
+            console.error(
+              '[Premium Collection Grid] Add to cart error:',
+              error
+            );
+
+            alert(
+              error && error.message
+                ? error.message
+                : 'Das Produkt konnte nicht in den Warenkorb gelegt werden.'
+            );
+
+          } finally {
+
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+
+          }
+
+        });
+
+      });
+
+    }
+
+  }
+
+
+  const elementName = 'collection-grid-{{ ai_gen_id }}';
+
+  if (!customElements.get(elementName)) {
+    customElements.define(
+      elementName,
+      C{{ ai_gen_id }}
+    );
+  }
+
+})();
+</script>
+
+
+{% schema %}
+{
+  "name": "Premium collection grid",
+
+  "settings": [
+
+    {
+      "type": "range",
+      "id": "desktop_width",
+      "label": "Desktop width",
+      "min": 50,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+
+    {
+      "type": "range",
+      "id": "filter_width",
+      "label": "Filterbreite",
+      "min": 180,
+      "max": 360,
+      "step": 20,
+      "unit": "px",
+      "default": 240
+    },
+
+    {
+      "type": "range",
+      "id": "section_padding",
+      "label": "Abschnittsabstand",
+      "min": 0,
+      "max": 80,
+      "step": 8,
+      "unit": "px",
+      "default": 24
+    },
+
+    {
+      "type": "range",
+      "id": "filter_padding",
+      "label": "Filterabstand",
+      "min": 12,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+
+    {
+      "type": "range",
+      "id": "layout_gap",
+      "label": "Layoutabstand",
+      "min": 16,
+      "max": 64,
+      "step": 8,
+      "unit": "px",
+      "default": 32
+    },
+
+    {
+      "type": "range",
+      "id": "grid_gap",
+      "label": "Gridabstand",
+      "min": 8,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+
+    {
+      "type": "select",
+      "id": "columns",
+      "label": "Spalten",
+      "options": [
+        {"value": "2", "label": "2"},
+        {"value": "3", "label": "3"},
+        {"value": "4", "label": "4"},
+        {"value": "5", "label": "5"}
+      ],
+      "default": "4"
+    },
+
+    {
+      "type": "range",
+      "id": "products_per_page",
+      "label": "Produkte pro Seite",
+      "min": 8,
+      "max": 48,
+      "step": 4,
+      "default": 24
+    },
+
+    {
+      "type": "range",
+      "id": "card_padding",
+      "label": "Kartenabstand",
+      "min": 8,
+      "max": 32,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+
+    {
+      "type": "range",
+      "id": "card_radius",
+      "label": "Kartenradius",
+      "min": 0,
+      "max": 32,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+
+    {
+      "type": "range",
+      "id": "title_price_gap",
+      "label": "Abstand Titel Preis",
+      "min": 0,
+      "max": 24,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+
+    {
+      "type": "range",
+      "id": "price_rating_gap",
+      "label": "Abstand Preis Bewertung",
+      "min": 0,
+      "max": 24,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+
+    {
+      "type": "range",
+      "id": "rating_gap",
+      "label": "Abstand Bewertung Buttons",
+      "min": 0,
+      "max": 24,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+
+    {
+      "type": "range",
+      "id": "title_size",
+      "label": "Titelgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+
+    {
+      "type": "select",
+      "id": "title_weight",
+      "label": "Titelschriftstärke",
+      "options": [
+        {"value": "400", "label": "Normal"},
+        {"value": "600", "label": "Halbfett"},
+        {"value": "700", "label": "Fett"}
+      ],
+      "default": "600"
+    },
+
+    {
+      "type": "range",
+      "id": "price_size",
+      "label": "Preisgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+
+    {
+      "type": "select",
+      "id": "price_weight",
+      "label": "Preis-Schriftstärke",
+      "options": [
+        {"value": "400", "label": "Normal"},
+        {"value": "600", "label": "Halbfett"},
+        {"value": "700", "label": "Fett"}
+      ],
+      "default": "700"
+    },
+
+    {
+      "type": "range",
+      "id": "rating_size",
+      "label": "Bewertungsgröße",
+      "min": 10,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+
+    {
+      "type": "range",
+      "id": "filter_text_size",
+      "label": "Filtertextgröße",
+      "min": 11,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+
+    {
+      "type": "range",
+      "id": "button_padding",
+      "label": "Button Innenabstand",
+      "min": 6,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 9
+    },
+
+    {
+      "type": "range",
+      "id": "button_radius",
+      "label": "Button Radius",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Textschrift",
+      "default": "montserrat_n4"
+    },
+
+    {
+      "type": "font_picker",
+      "id": "button_font",
+      "label": "Button-Schrift",
+      "default": "montserrat_n4"
+    },
+
+    {
+      "type": "color",
+      "id": "section_background",
+      "label": "Abschnittshintergrund",
+      "default": "#FFFFFF"
+    },
+
+    {
+      "type": "color",
+      "id": "filter_background",
+      "label": "Filterhintergrund",
+      "default": "#FFFFFF"
+    },
+
+    {
+      "type": "color",
+      "id": "card_background",
+      "label": "Kartenhintergrund",
+      "default": "#FFFFFF"
+    },
+
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Textfarbe",
+      "default": "#0A0B0C"
+    },
+
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "Buttonfarbe",
+      "default": "#0A0B0C"
+    },
+
+    {
+      "type": "color",
+      "id": "button_text",
+      "label": "Buttontextfarbe",
+      "default": "#FFFFFF"
+    },
+
+    {
+      "type": "color",
+      "id": "quick_background",
+      "label": "Quick-Add-Farbe",
+      "default": "#008CCB"
+    },
+
+    {
+      "type": "color",
+      "id": "rating_color",
+      "label": "Bewertungsfarbe",
+      "default": "#9A0000"
+    },
+
+    {
+      "type": "header",
+      "content": "Collection Filter"
+    },
+
+    {
+      "type": "paragraph",
+      "content": "Die Reihenfolge Filter 1–10 bestimmt die Reihenfolge im Shop. Leere Felder werden nicht angezeigt."
+    },
+
+    {
+      "type": "text",
+      "id": "filter_1_key",
+      "label": "Filter 1",
+      "default": "filter.p.m.custom.einsatzbereich"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_1_display",
+      "label": "Filter 1 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_2_key",
+      "label": "Filter 2"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_2_display",
+      "label": "Filter 2 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_3_key",
+      "label": "Filter 3"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_3_display",
+      "label": "Filter 3 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_4_key",
+      "label": "Filter 4"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_4_display",
+      "label": "Filter 4 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_5_key",
+      "label": "Filter 5"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_5_display",
+      "label": "Filter 5 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_6_key",
+      "label": "Filter 6"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_6_display",
+      "label": "Filter 6 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_7_key",
+      "label": "Filter 7"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_7_display",
+      "label": "Filter 7 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_8_key",
+      "label": "Filter 8"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_8_display",
+      "label": "Filter 8 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_9_key",
+      "label": "Filter 9"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_9_display",
+      "label": "Filter 9 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    },
+
+    {
+      "type": "text",
+      "id": "filter_10_key",
+      "label": "Filter 10"
+    },
+
+    {
+      "type": "select",
+      "id": "filter_10_display",
+      "label": "Filter 10 Darstellung",
+      "options": [
+        {"value": "checkbox", "label": "Checkboxen"},
+        {"value": "radio", "label": "Einzelauswahl"},
+        {"value": "slider", "label": "Schieberegler / Bereich"},
+        {"value": "numeric_min_slider", "label": "Zahlen-Slider (mindestens)"},
+        {"value": "swatch", "label": "Farb-Swatches"},
+        {"value": "toggle", "label": "Toggle (Ja / Nein)"}
+      ],
+      "default": "checkbox"
+    }
+
+  ],
+
+  "presets": [
+    {
+      "name": "Premium collection grid"
+    }
+  ],
+
+  "tag": null,
+  "class": "premium-collection-grid"
+}
+{% endschema %}
