@@ -88,20 +88,29 @@
   </div>
 
   <style>
+    /* Q&A-Liste im Stil der Details-Tabelle (tabs-cards, Tab 2):
+       Zeilen abwechselnd weiß / #eee (erste Zeile weiß), keine Trennlinien —
+       der Zebra-Hintergrund ersetzt sie. Der Hintergrund liegt auf dem ganzen
+       <details>, d. h. eine geöffnete Antwort teilt die Farbe ihrer Frage. */
     .product-qa .product-qa__item {
-      border-bottom: 1px solid rgba(0,0,0,.08);
+      margin: 0;
+      background-color: #fff;
     }
 
-    .product-qa .product-qa__item:last-child {
-      border-bottom: 0;
+    .product-qa .product-qa__item:nth-child(even) {
+      background-color: #eee;
     }
 
+    /* Frage: gleiche Schriftgröße wie die Antwort (beide erben die
+       Body-Größe des Panels = Textgröße der Details-Tabelle), nur fett.
+       Horizontales Padding, damit Text und +/− nicht am Zeilenrand kleben;
+       rechts zusätzlich Platz für das +/−-Symbol. */
     .product-qa .product-qa__question {
       cursor: pointer;
       list-style: none;
       position: relative;
-      padding: .9rem 2rem .9rem 0;
-      font-size: 1rem;
+      padding: .9rem 2.25rem .9rem .75rem;
+      font-size: inherit;
       font-weight: 600;
       line-height: 1.4;
     }
@@ -110,14 +119,16 @@
       display: none;
     }
 
+    /* +/− bleibt vertikal mittig zur Frage (absolut zur <summary>). */
     .product-qa .product-qa__question::after {
       content: "+";
       position: absolute;
-      right: .25rem;
+      right: .75rem;
       top: 50%;
       transform: translateY(-50%);
       font-size: 1.2rem;
       font-weight: 500;
+      line-height: 1;
       color: #008ccb;
     }
 
@@ -127,17 +138,26 @@
 
     .product-qa .product-qa__question:focus-visible {
       outline: none;
-      box-shadow: inset 0 0 0 2px rgba(0,140,203,.18);
+      box-shadow: inset 0 0 0 2px rgba(0,140,203,.35);
       border-radius: 6px;
     }
 
+    /* Antwort bündig mit der Frage (gleiches linkes Padding). */
     .product-qa .product-qa__answer {
-      padding: 0 0 1rem;
+      padding: 0 .75rem 1rem;
     }
 
+    /* Antwort-Absatz: gleiche Größe wie die Frage (font-size: inherit).
+       !important nur bei margin/line-height: tabs-cards setzt für jedes
+       "#section-<id> .panel-card p" margin 0 0 1rem + line-height 1.55 —
+       diese ID-Regel (1,1,1) schlägt jede reine Klassen-Regel hier im Snippet,
+       und die Section-ID ist im per render isolierten Snippet nicht verfügbar.
+       Ohne !important stünde unter der Meta-Zeile doppelter Leerraum in der
+       eingefärbten Zeile. */
     .product-qa .product-qa__answer p {
-      margin: 0 0 .5rem;
-      line-height: 1.55;
+      font-size: inherit;
+      margin: 0 0 .5rem !important;
+      line-height: 1.55 !important;
     }
 
     /* Produktlinks aus a_html/a_en_html — die Anker kommen ohne eigenes
@@ -153,10 +173,12 @@
       color: #0077ac;
     }
 
-    .product-qa .product-qa__meta {
+    /* Meta-Zeile bleibt bewusst kleiner + grau. Selektor (0,3,0) muss die
+       Absatz-Regel oben (0,2,1) schlagen, da beide !important tragen. */
+    .product-qa .product-qa__answer .product-qa__meta {
       font-size: .8rem;
       color: #777;
-      margin: 0;
+      margin: 0 !important;
     }
   </style>
 

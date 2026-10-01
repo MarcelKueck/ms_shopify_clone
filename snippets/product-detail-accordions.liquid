@@ -587,6 +587,23 @@ return (
     }
 
     function refreshCartModal() {
+      /*
+       * Bevorzugt die theme-eigene In-Place-Aktualisierung: <cart-modal>
+       * tauscht dabei nur seinen Inhalt aus und behaelt den Oeffnungszustand.
+       * Ein replaceWith() der ganzen Section wuerfe den Drawer, den das Theme
+       * nach dem Quick-Add gerade geoeffnet hat, aus dem DOM (Drawer
+       * verschwindet, body bleibt per .no-scroll gesperrt). Der Section-Tausch
+       * unten bleibt nur als Fallback, falls <cart-modal> nicht definiert ist.
+       */
+      var liveCartModal = document.querySelector('cart-modal');
+
+      if (
+        liveCartModal &&
+        typeof liveCartModal.reloadContent === 'function'
+      ) {
+        return liveCartModal.reloadContent();
+      }
+
       var sectionId = getCartModalSectionId();
 
       if (!sectionId) {

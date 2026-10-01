@@ -859,45 +859,6 @@
     return signInConsentInflight;
   }
 
-  // Anonymous in-chat marketing opt-in copy — the consent-gate surface for
-  // visitors who are NOT signed in (no transactional label; the email is typed
-  // in the gate itself). Fetched from GET /api/consent-copy?surface=chat and
-  // held in its own short-lived cache. Served-only like every other consent
-  // surface: until the backend ships this surface (see
-  // docs/backend-handoff/CONSENT_GATE_THEME_NOTES.md) the fetch fails and the
-  // anonymous gate simply never renders — fail-closed, no fallback copy.
-  var chatConsentCache = null;    // { copy, at }
-  var chatConsentInflight = null; // de-duped GET while a fetch is pending
-
-  function validChatConsentCopy(c) {
-    return !!(c && typeof c === 'object' &&
-      typeof c.marketingLabel === 'string' && c.marketingLabel &&
-      typeof c.consentTextShown === 'string' && c.consentTextShown);
-  }
-
-  function fetchChatConsentCopy() {
-    if (chatConsentCache && (Date.now() - chatConsentCache.at) < CONSENT_COPY_TTL_MS) {
-      return Promise.resolve(chatConsentCache.copy);
-    }
-    if (chatConsentInflight) return chatConsentInflight;
-    chatConsentInflight = fetch(API_BASE + '/api/consent-copy?surface=chat&locale=' + LOCALE, { method: 'GET', headers: { 'x-ms-session': sid } })
-      .then(function (res) {
-        if (!res.ok) throw new Error('consent-copy chat ' + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        chatConsentInflight = null;
-        if (!validChatConsentCopy(data)) throw new Error('consent-copy chat: invalid payload');
-        chatConsentCache = { copy: data, at: Date.now() };
-        return data;
-      })
-      .catch(function (err) {
-        chatConsentInflight = null;
-        throw err;
-      });
-    return chatConsentInflight;
-  }
-
   // ---------------------------------------------------------------------------
   // Customer Account sign-in (tier 3) + signed-in conversation history.
   //
@@ -1129,9 +1090,12 @@
   // NOT use prompt=none here — this is a deliberate user click. The silent
   // prompt=none optimisation is intentionally skipped in favour of the
   // documented one-click affordance (see backend-handoff note).
-  function initiateLogin() {
+  // `source` (optional) tags WHERE the click came from in the KPI so the
+  // post-first-message login popup can be measured against the welcome card /
+  // header button; existing callers pass nothing and send `{}` exactly as before.
+  function initiateLogin(source) {
     try {
-      track('account_signin_started', {});
+      track('account_signin_started', source ? { source: source } : {});
       ssSet('ms-chat-auth-return', '1'); // re-open the panel when we come back
       var url = new URL(API_BASE + '/api/auth/shopify/login');
       url.searchParams.set('session', sid);
@@ -3443,12 +3407,14 @@
 
     startStream({ userMsg: userMsg, userRow: userRow, restoreText: text, context: context || null });
 
-    // Marketing consent gate: presented after the user's first message of the
+    // First-message gate: presented after the user's first message of the
     // session, while the reply streams in behind it (the reply is never
-    // conditional on the choice). All frequency/eligibility rules live in
+    // conditional on the choice). Anonymous visitors get the sign-in
+    // motivation popup, signed-in customers the marketing opt-in. All
+    // frequency/eligibility rules live in loginGateEligible() /
     // consentGateEligible(); the short delay lets the sent message visibly
     // land first so the dialog reads as an interlude, not a wall.
-    setTimeout(maybeShowConsentGate, 700);
+    setTimeout(function () { maybeShowConsentGate(0); }, 700);
   }
 
   // Fresh-open contextual greeting (API_CONTRACT.md §2): POST the context
@@ -4502,31 +4468,38 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Marketing consent gate — the primary opt-in surface.
+  // First-message gate — ONE popup per browser session, right after the user
+  // sends their first message (the reply streams in behind it, so the visitor
+  // has already invested in the conversation — the value moment). The reply
+  // is NEVER conditional on the choice: every button, the backdrop and Esc
+  // all land in the same answered chat. Which popup appears depends on the
+  // resolved auth tier:
+  //   * ANONYMOUS (auth settled, not signed in) -> the sign-in motivation
+  //     popup (presentLoginGate). Pure UI chrome — the same benefit copy as the
+  //     welcome sign-in card (ACCOUNT_COPY), no consent text, no backend copy
+  //     needed, so it always renders. "Anmelden" runs the normal top-level
+  //     sign-in redirect; the conversation survives it (see presentLoginGate).
+  //   * SIGNED IN + optInActionable -> the marketing consent gate
+  //     (presentConsentGate): served surface=signin copy rendered verbatim
+  //     (never hard-coded, lawyerApproved-gated — same rules as every consent
+  //     surface), POST /api/account/marketing-opt-in (account email, no email
+  //     field).
   //
-  // An Accept/Decline dialog presented ONCE per browser session, right after
-  // the user sends their first message (the reply streams in behind it, so the
-  // visitor has already invested in the conversation — the value moment). The
-  // reply is NEVER conditional on the choice: Accept and Decline both land in
-  // the same answered chat, and backdrop/Esc simply defers the question.
+  // Marketing-gate consent mechanic: a CLEAR AFFIRMATIVE ACT. The served
+  // marketingLabel + consentFooter are fully visible above the buttons and
+  // only an explicit "Accept" tap sends marketingConsent:true (button-consent,
+  // like a cookie dialog — never pre-decided, never auto-submitted).
   //
-  // Two variants, both rendering SERVED consent copy verbatim (never
-  // hard-coded, lawyerApproved-gated — same rules as every consent surface):
-  //   * signed-in + optInActionable  -> surface=signin copy,
-  //     POST /api/account/marketing-opt-in (no email field; account email).
-  //   * anonymous / email-only       -> surface=chat copy + a typed email,
-  //     POST /api/chat-marketing-opt-in. Fail-closed until the backend ships
-  //     that surface (docs/backend-handoff/CONSENT_GATE_THEME_NOTES.md).
-  //
-  // The consent mechanic is a CLEAR AFFIRMATIVE ACT: the served marketingLabel
-  // + consentFooter are fully visible above the buttons and only an explicit
-  // "Accept" tap sends marketingConsent:true (button-consent, like a cookie
-  // dialog — never pre-decided, never auto-submitted). Anti-nag rules, chosen
-  // deliberately (GDPR "freely given" + the no-dark-patterns golden rule):
-  //   * shown at most once per browser session,
-  //   * an ACCEPT is remembered forever (device + backend record),
-  //   * a DECLINE snoozes the gate for 24h (next session after that may ask
-  //     again — persistent, but never a same-visit or per-message nag),
+  // Anti-nag rules, chosen deliberately (GDPR "freely given" + the
+  // no-dark-patterns golden rule), shared by both popups:
+  //   * at most ONE popup per browser session (GATE_SS_KEY is shared, so a
+  //     visitor never sees the login popup and the opt-in in the same visit),
+  //   * never in voice mode, only while the panel is open, never stacked,
+  //   * marketing: an ACCEPT is remembered forever (device + backend record),
+  //     a DECLINE snoozes the gate for 24h,
+  //   * login: "Später" snoozes the login popup for 24h under its OWN key — it
+  //     says nothing about marketing, so it never touches the marketing
+  //     decision memory,
   //   * backdrop/Esc = "later": no snooze, next session asks again.
   // ---------------------------------------------------------------------------
   var GATE_COPY = {
@@ -4537,8 +4510,6 @@
       'Persönliche Empfehlungen, passend zu deiner Beratung',
       'Exklusive Angebote & Rabattaktionen zuerst erfahren'
     ],
-    emailLabel: 'Deine E-Mail-Adresse',
-    emailPlaceholder: 'deine@email.de',
     accept: 'Ja, Angebote aktivieren',
     decline: 'Nein, danke',
     sending: 'Wird gesendet…',
@@ -4546,10 +4517,18 @@
     successPending: 'Bitte bestätige deine Anmeldung über den Link in der E-Mail — erst danach bekommst du unsere Angebote.',
     successConfirmed: 'Du bist bereits angemeldet — viel Freude mit unseren Angeboten!',
     continueBtn: 'Weiter zur Antwort',
-    errEmail: 'Bitte gib eine gültige E-Mail-Adresse ein.',
     errRate: 'Zu viele Anfragen — bitte kurz warten.',
     errUpstream: 'Gerade nicht möglich — bitte versuch es später erneut.',
-    errGeneric: 'Das hat leider nicht geklappt. Bitte versuch es erneut.'
+    errGeneric: 'Das hat leider nicht geklappt. Bitte versuch es erneut.',
+    // Login popup chrome (anonymous). Headline, intro and bullets are reused
+    // from ACCOUNT_COPY so the popup and the welcome card always say the same
+    // thing — no new promises live here.
+    loginAria: 'Anmelden',
+    loginLater: 'Später',
+    // Factual reassurance: the chat is kept in this browser under the same
+    // session id and the redirect returns to this page (initiateLogin).
+    loginKeep: 'Dein bisheriger Chat bleibt nach der Anmeldung erhalten.',
+    loginWaiting: 'Antwort wird noch geladen…'
   };
   if (LOCALE === 'en') Object.assign(GATE_COPY, {
     aria: 'Activate offers',
@@ -4557,8 +4536,6 @@
       'Personal recommendations matching your consultation',
       'Exclusive offers & discount promotions — hear about them first'
     ],
-    emailLabel: 'Your email address',
-    emailPlaceholder: 'you@example.com',
     accept: 'Yes, activate offers',
     decline: 'No, thanks',
     sending: 'Sending…',
@@ -4566,10 +4543,13 @@
     successPending: 'Please confirm via the link in the email — only then will you receive our offers.',
     successConfirmed: 'You\'re already subscribed — enjoy our offers!',
     continueBtn: 'Back to the answer',
-    errEmail: 'Please enter a valid email address.',
     errRate: 'Too many requests — please wait a moment.',
     errUpstream: 'Not possible right now — please try again later.',
-    errGeneric: 'That didn\'t work. Please try again.'
+    errGeneric: 'That didn\'t work. Please try again.',
+    loginAria: 'Sign in',
+    loginLater: 'Not now',
+    loginKeep: 'Your chat so far is kept after you sign in.',
+    loginWaiting: 'Finishing the answer…'
   });
 
   // Device-local marketing-decision memory. This is UX memory ONLY (when to
@@ -4578,7 +4558,11 @@
   // declined -> quiet for MKT_DECLINE_SNOOZE_MS.
   var MKT_DECISION_KEY = 'ms-chat-mkt-decision';
   var MKT_DECLINE_SNOOZE_MS = 24 * 60 * 60 * 1000;
-  var GATE_SS_KEY = 'ms-chat-gate-shown'; // presented once per browser session
+  var GATE_SS_KEY = 'ms-chat-gate-shown'; // ONE first-message popup per browser session
+  // Login popup "Später" snooze (device-local timestamp). Its own key on
+  // purpose: declining to sign in is not a marketing decision.
+  var LOGIN_GATE_SNOOZE_KEY = 'ms-chat-login-gate-snooze';
+  var LOGIN_GATE_SNOOZE_MS = 24 * 60 * 60 * 1000;
 
   function loadMktDecision() {
     try {
@@ -4594,53 +4578,82 @@
 
   var gateEl = null; // the open gate overlay (at most one)
 
-  function consentGateEligible() {
+  // Rules shared by both popups: one per session, never stacked, never in the
+  // hands-free voice loop, and only once the auth tier is known (an unsettled
+  // tier just waits for the next turn — the session key is set only on show).
+  function gateBaseEligible() {
     if (gateEl || ssGet(GATE_SS_KEY)) return false;
     if (voiceMode) return false;      // never interrupt the hands-free loop
     if (!auth.settled) return false;  // unknown tier -> wait for the next turn
+    return true;
+  }
+
+  // Marketing opt-in gate — signed-in customers only.
+  function consentGateEligible() {
+    if (!gateBaseEligible() || !auth.signedIn) return false;
     var d = loadMktDecision();
     if (d && d.state === 'accepted') return false;
     if (d && d.state === 'declined' && (Date.now() - d.at) < MKT_DECLINE_SNOOZE_MS) return false;
-    // Signed-in: the backend knows the real decision state — trust it (also
-    // covers "dismissed the welcome opt-in card this session").
-    if (auth.signedIn) return optInActionable();
-    return true; // anonymous/email-only: device memory is all we have
+    // The backend knows the real decision state — trust it (also covers
+    // "dismissed the welcome opt-in card this session").
+    return optInActionable();
+  }
+
+  // Sign-in motivation popup — anonymous visitors only.
+  function loginGateEligible() {
+    if (!gateBaseEligible() || auth.signedIn) return false;
+    var snoozedAt = parseInt(lsGet(LOGIN_GATE_SNOOZE_KEY), 10);
+    if (isFinite(snoozedAt) && (Date.now() - snoozedAt) < LOGIN_GATE_SNOOZE_MS) return false;
+    return true;
   }
 
   // Called (debounced by the session guard) right after a user message is
-  // sent. Copy is fetched BEFORE anything is shown: no served copy or
-  // lawyerApproved !== true -> no gate at all (fail-closed, silent).
-  function maybeShowConsentGate() {
+  // sent. Anonymous -> the login popup, synchronously (no copy to fetch).
+  // Signed in -> the marketing copy is fetched BEFORE anything is shown: no
+  // served copy or lawyerApproved !== true -> no gate at all (fail-closed,
+  // silent).
+  // `tries` (internal): the auth tier usually settles within a few hundred ms
+  // of the panel opening, but a deep link / product-CTA send can beat it.
+  // Rather than silently skipping to the next turn, poll briefly (≤5s) for
+  // the tier to settle, then decide.
+  function maybeShowConsentGate(tries) {
+    if (!state.open) return;
+    tries = tries || 0;
+    if (!auth.settled && tries < 10) {
+      setTimeout(function () { maybeShowConsentGate(tries + 1); }, 500);
+      return;
+    }
+    if (loginGateEligible()) { presentLoginGate(); return; }
     if (!consentGateEligible()) return;
-    var surface = auth.signedIn ? 'signin' : 'chat';
-    var load = auth.signedIn ? fetchSignInConsentCopy() : fetchChatConsentCopy();
-    load.then(function (c) {
+    fetchSignInConsentCopy().then(function (c) {
       if (!c || c.lawyerApproved !== true) return;
       // Re-check after the async fetch (a second send, sign-out, voice mode…).
       if (!consentGateEligible() || !state.open) return;
-      presentConsentGate(c, surface);
-    }).catch(function () {}); // surface not served yet -> render nothing
+      presentConsentGate(c);
+    }).catch(function () {}); // surface not served -> render nothing
   }
 
-  function presentConsentGate(c, surface) {
-    ssSet(GATE_SS_KEY, '1');
-    track('consent_gate_shown', { surface: surface });
-
-    var wrap = el('div', { class: 'ms-chat-gate', role: 'dialog', 'aria-modal': 'true', 'aria-label': GATE_COPY.aria });
+  // Shared dialog shell for both popups: overlay over the chat panel (the
+  // reply keeps streaming behind the dimmed backdrop), minimal focus trap, and
+  // backdrop/Esc = "later" (`onDefer` records the KPI; no snooze is stored —
+  // the session guard alone keeps this visit quiet). Closing always reveals
+  // the streamed answer and hands focus back to the composer. `onClose`
+  // (optional) runs on every close, e.g. to cancel pending work.
+  function openGateDialog(ariaLabel, onDefer, onClose) {
+    var wrap = el('div', { class: 'ms-chat-gate', role: 'dialog', 'aria-modal': 'true', 'aria-label': ariaLabel });
     var backdrop = el('div', { class: 'ms-chat-gate-backdrop' });
     var card = el('div', { class: 'ms-chat-gate-card', tabindex: '-1' });
     wrap.appendChild(backdrop);
     wrap.appendChild(card);
 
     function close() {
+      if (onClose) { try { onClose(); } catch (e) {} }
       if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-      gateEl = null;
+      if (gateEl === wrap) gateEl = null;
       scrollToBottom(); // reveal the streamed answer behind the gate
       try { textarea.focus(); } catch (e) {}
     }
-    // "Later" (backdrop / Esc): softer than a decline — no snooze recorded,
-    // the session guard alone keeps this visit quiet.
-    function defer() { track('consent_gate_dismissed', { surface: surface }); close(); }
+    function defer() { onDefer(); close(); }
     backdrop.addEventListener('click', defer);
     wrap.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape') { ev.stopPropagation(); defer(); return; }
@@ -4657,6 +4670,100 @@
     // The brand orb keeps the dialog friendly — this is Mo asking, not a
     // legal wall.
     card.appendChild(logoEl('ms-chat-gate-logo'));
+
+    return {
+      card: card,
+      close: close,
+      show: function () {
+        gateEl = wrap;
+        panel.appendChild(wrap);
+        try { card.focus(); } catch (e) {}
+      }
+    };
+  }
+
+  // Anonymous sign-in motivation popup. KPIs reuse the gate's event names,
+  // split by `surface: 'login'` (the marketing gate sends 'signin'):
+  //   consent_gate_shown     — popup rendered
+  //   consent_gate_accepted  — "Anmelden" tapped (initiateLogin then also
+  //                            sends account_signin_started {source:'login_gate'})
+  //   consent_gate_declined  — "Später" (24h snooze)
+  //   consent_gate_dismissed — backdrop / Esc (this session only)
+  // Nothing personal is sent — event names + the surface only.
+  function presentLoginGate() {
+    var surface = 'login';
+    ssSet(GATE_SS_KEY, '1');
+    track('consent_gate_shown', { surface: surface });
+
+    var waitTimer = null;
+    var dlg = openGateDialog(GATE_COPY.loginAria,
+      function () { track('consent_gate_dismissed', { surface: surface }); },
+      function () { if (waitTimer) { clearInterval(waitTimer); waitTimer = null; } });
+    var card = dlg.card;
+
+    card.appendChild(el('div', { class: 'ms-chat-gate-headline', text: ACCOUNT_COPY.signInTitle }));
+    card.appendChild(el('div', { class: 'ms-chat-gate-intro', text: ACCOUNT_COPY.signInIntro }));
+    var ul = el('ul', { class: 'ms-chat-gate-benefits' });
+    ACCOUNT_COPY.benefits.forEach(function (b) {
+      var li = el('li');
+      li.appendChild(icon('check'));
+      li.appendChild(el('span', { text: b }));
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+
+    var signIn = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary ms-chat-gate-accept' }, [ACCOUNT_COPY.signInHeader]);
+    // "Später" is a REAL, equally reachable choice (same size, right below).
+    var later = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--secondary ms-chat-gate-decline' }, [GATE_COPY.loginLater]);
+    card.appendChild(signIn);
+    card.appendChild(later);
+    card.appendChild(el('div', { class: 'ms-chat-signin-hint ms-chat-gate-hint', text: GATE_COPY.loginKeep }));
+
+    later.addEventListener('click', function () {
+      lsSet(LOGIN_GATE_SNOOZE_KEY, String(Date.now()));
+      track('consent_gate_declined', { surface: surface });
+      dlg.close();
+    });
+
+    // The popup appears ~0.7s after the first send, so the reply is usually
+    // still streaming. The assistant message is only written to the local
+    // history when its stream finishes (finalizeStream -> saveHistory), so
+    // redirecting mid-stream would come back to the question WITHOUT its
+    // answer. Wait for the stream to settle (capped, so a hung stream can't
+    // trap the visitor), then run the same redirect as the welcome card and
+    // header button: same sid + history in localStorage, return_url = this
+    // page, panel re-opened on return.
+    var WAIT_STEP_MS = 200;
+    var WAIT_MAX_MS = 20000;
+    signIn.addEventListener('click', function () {
+      track('consent_gate_accepted', { surface: surface });
+      if (!state.streaming) { initiateLogin('login_gate'); return; }
+      signIn.disabled = true;
+      signIn.textContent = GATE_COPY.loginWaiting;
+      var waited = 0;
+      waitTimer = setInterval(function () {
+        waited += WAIT_STEP_MS;
+        if (state.streaming && waited < WAIT_MAX_MS) return;
+        clearInterval(waitTimer);
+        waitTimer = null;
+        initiateLogin('login_gate');
+      }, WAIT_STEP_MS);
+    });
+
+    dlg.show();
+  }
+
+  // Signed-in marketing opt-in gate (surface=signin).
+  function presentConsentGate(c) {
+    var surface = 'signin';
+    ssSet(GATE_SS_KEY, '1');
+    track('consent_gate_shown', { surface: surface });
+
+    var dlg = openGateDialog(GATE_COPY.aria, function () {
+      track('consent_gate_dismissed', { surface: surface });
+    });
+    var card = dlg.card;
+    var close = dlg.close;
 
     // Served benefit headline (framing, NOT part of consentTextShown).
     if (typeof c.headline === 'string' && c.headline) {
@@ -4677,24 +4784,6 @@
     var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
     function showError(m) { errEl.textContent = m; errEl.style.display = 'block'; }
     function clearError() { errEl.textContent = ''; errEl.style.display = 'none'; }
-
-    // Anonymous variant: the typed email lives IN the gate (one step, no
-    // follow-up form).
-    var emailInput = null;
-    if (surface === 'chat') {
-      var emailId = 'msc-gate-' + Math.random().toString(36).slice(2, 8);
-      emailInput = el('input', { type: 'email', name: 'email', autocomplete: 'email', placeholder: GATE_COPY.emailPlaceholder, id: emailId, class: 'ms-chat-gate-email' });
-      var fld = el('div', { class: 'ms-chat-field' });
-      var lbl = el('label', { text: GATE_COPY.emailLabel });
-      lbl.setAttribute('for', emailId);
-      fld.appendChild(lbl);
-      fld.appendChild(emailInput);
-      card.appendChild(fld);
-      // Enter in the email field = the accept tap (no <form> wraps the gate).
-      emailInput.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); accept.click(); }
-      });
-    }
 
     // The SERVED consent statement — fully visible above the buttons; tapping
     // "Accept" IS the affirmative act for exactly this text. Echoed back as
@@ -4763,15 +4852,6 @@
 
     accept.addEventListener('click', function () {
       clearError();
-      var email = null;
-      if (emailInput) {
-        email = emailInput.value.trim();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-          showError(GATE_COPY.errEmail);
-          try { emailInput.focus(); } catch (e) {}
-          return;
-        }
-      }
       setBusy(true);
       var payload = {
         marketingConsent: true, // the user's explicit Accept tap on the shown text
@@ -4780,22 +4860,13 @@
         consentTextShown: c.consentTextShown,
         locale: LOCALE
       };
-      var url;
-      if (surface === 'signin') {
-        url = API_BASE + '/api/account/marketing-opt-in';
-      } else {
-        url = API_BASE + '/api/chat-marketing-opt-in';
-        payload.sessionId = sid;
-        payload.email = email;
-        payload.trigger = 'chat_gate'; // funnel split vs the capture form
-      }
-      fetch(url, {
+      fetch(API_BASE + '/api/account/marketing-opt-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
         body: JSON.stringify(payload)
       }).then(function (res) {
-        if (surface === 'signin' && res.status === 401) { accountUnauthorized(); close(); return; }
-        if (surface === 'signin' && res.status === 422) {
+        if (res.status === 401) { accountUnauthorized(); close(); return; }
+        if (res.status === 422) {
           // No verified account email -> fall back to the typed-email capture
           // form (the existing, unchanged path).
           close();
@@ -4806,7 +4877,6 @@
           return res.json().catch(function () { return null; }).then(function (data) {
             var m = data && data.marketing;
             var confirmed = !!(m && (m.alreadyConfirmed === true || m.status === 'confirmed'));
-            if (email) capturedEmail = email; // returning-customer memory (in-memory gate)
             recordMktDecision('accepted');
             markOptInDone();
             track('consent_gate_accepted', { surface: surface });
@@ -4817,9 +4887,7 @@
       }).catch(function () { handleFailure(null, null); });
     });
 
-    gateEl = wrap;
-    panel.appendChild(wrap);
-    try { card.focus(); } catch (e) {}
+    dlg.show();
   }
 
   // Reflect the resolved auth state across the chrome. Called on every auth

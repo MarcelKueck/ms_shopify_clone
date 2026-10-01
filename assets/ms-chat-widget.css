@@ -396,6 +396,18 @@ body.no-scroll .ms-chat-nudge {
   .ms-chat-panel--sidebar.ms-chat-panel--open {
     animation: ms-chat-sidebar-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
   }
+  /* The storefront stays interactive next to the docked sidebar, so a shopper
+     can click "In den Warenkorb" while the chat is open. The theme's cart
+     drawer is right-anchored too and the theme stacks its modals at z-index
+     1900 (overlay) / 2000 (panel) — the sidebar's near-max z-index would bury
+     the auto-opened drawer completely underneath it (only the dimmed page is
+     visible). While the theme holds its scroll lock (body.no-scroll — the
+     same hook that hides the launcher above), drop the sidebar below the
+     theme's overlay so the drawer slides in on top; the chat is back on top
+     the moment the drawer closes. */
+  body.no-scroll .ms-chat-panel--sidebar {
+    z-index: 1800;
+  }
   /* MODE 2 — FULL = centered modal: near-fullscreen with a generous margin so
      the blurred + dimmed storefront shows at the edges (the backdrop is
      click-to-close; the site is not otherwise interactive behind it). */
@@ -811,6 +823,16 @@ html.ms-chat-page-anim {
   color: rgb(var(--msc-fg) / 80%);
 }
 .ms-chat-gate-accept { margin-top: 2px; }
+/* Sign-in motivation popup (anonymous variant of the first-message gate):
+   the intro line under the headline and the small "your chat is kept"
+   reassurance under the buttons. Everything else reuses the gate styles. */
+.ms-chat-gate-intro {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: rgb(var(--msc-fg) / 88%);
+  text-align: center;
+}
+.ms-chat-gate-hint { margin-top: 0; }
 
 /* History drawer — slides over the panel from the right edge; signed-in only. */
 .ms-chat-history {

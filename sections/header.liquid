@@ -988,7 +988,18 @@ is_active: link.current or link.child_active
           <span class="sr-only">{{ 'sections.header.cart' | t }}</span>
           <div class="relative">
             {% render 'icon-cart' %}
-            <div class="cart-badge {% if cart == empty %}hidden{% endif %}" data-fh-cart-bubble>
+            {% comment %}
+              id="CartBubble" is REQUIRED by the theme JS (assets/main.mjs, qe()):
+              after every add-to-cart it runs
+              document.getElementById("CartBubble").classList... — if no element
+              has this id the call throws, the product form swallows the error
+              and the cart drawer never slides open (quick-add buttons do not
+              even refresh it). This mobile-icons badge always renders (the
+              topbar copy above depends on topbar_enable), so the id lives here.
+              Keep it on exactly ONE badge; updateHeaderCartBubble() below still
+              syncs every [data-fh-cart-bubble].
+            {% endcomment %}
+            <div class="cart-badge {% if cart == empty %}hidden{% endif %}" id="CartBubble" data-fh-cart-bubble>
   {{ cart.item_count }}
 </div>
           </div>
@@ -1126,6 +1137,11 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('cart:updated', updateHeaderCartBubble);
   document.addEventListener('cart:refresh', updateHeaderCartBubble);
   document.addEventListener('cart:change', updateHeaderCartBubble);
+  // The theme's own event after product-form / quick-add / sticky add-to-cart:
+  // the theme JS only writes the count into #CartBubble, this keeps the other
+  // (topbar) badge in sync too — quick-add buttons are type="button", so the
+  // submit/click listeners below do not catch them.
+  document.addEventListener('product:added-to-cart', updateHeaderCartBubble);
 
   document.addEventListener('submit', function(event) {
     if (event.target && event.target.matches('form[action*="/cart/add"]')) {
