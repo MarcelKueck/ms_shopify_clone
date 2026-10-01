@@ -39,6 +39,10 @@
                 </button>
               </div>
 
+              <div class="xbfsbu-cart-shipping">
+    <div class="xbfsbu-block" data-id="26e688654070455e9564dd33e20790d4"></div>
+  </div>
+
               {% render 'free-shipping-indicator', class: 'mt-4' %}
             </div>
 
@@ -55,7 +59,66 @@
 
             {% render 'cart-modal-product-recommendations' %}
           </div>
+{% assign egl_locale = request.locale.iso_code | default: 'de' | downcase %}
+{% assign egl_country = localization.country.iso_code | default: 'DE' | downcase %}
 
+<div
+  id="consentico-cart-modal"
+  class="px-[--cart-modal-px] pt-4 pb-4"
+>
+  <div class="egl-cn">
+
+    <details class="egl-cn__panel">
+
+      <summary class="egl-cn__summary">
+        Ihre gesetzliche Gewährleistung
+      </summary>
+
+      <div class="egl-cn__body">
+
+        <img
+          class="egl-cn__img"
+          src="https://eu-guarantee.consentico.com/api/notice.svg?locale={{ egl_locale }}&market={{ egl_country }}&country={{ egl_country }}&defaultCountry={{ egl_country }}"
+          width="595"
+          height="842"
+          loading="eager"
+          alt="Hinweis zur gesetzlichen Gewährleistung in der EU"
+        >
+
+        <div
+          class="egl-cn__a11y"
+          data-egl-notice-text
+          data-src="https://eu-guarantee.consentico.com/api/notice.txt?locale={{ egl_locale }}&market={{ egl_country }}&country={{ egl_country }}&defaultCountry={{ egl_country }}"
+          lang="{{ egl_locale }}"
+        ></div>
+
+        <a
+          class="egl-cn__link"
+          href="https://eu-guarantee.consentico.com/api/notice/link?locale={{ egl_locale }}&market={{ egl_country }}&country={{ egl_country }}&defaultCountry={{ egl_country }}"
+          target="_blank"
+          rel="noopener"
+        >
+          Mehr über Ihre gesetzliche Gewährleistung erfahren
+        </a>
+
+      </div>
+
+    </details>
+
+    <p class="egl-cn__attr">
+      Bereitgestellt von
+      <a
+        class="egl-cn__attr-link"
+        href="https://apps.shopify.com/eu-guarantee-warranty-label?utm_source=storefront&utm_medium=attribution&utm_campaign=powered_by"
+        target="_blank"
+        rel="noopener"
+      >
+        Consent<span class="egl-cn__ico">ico</span>
+      </a>
+    </p>
+
+  </div>
+</div>
           <div class="mt-0 px-[--cart-modal-px] pt-6 sm:pt-8 pb-6 sm:pb-10 border-t">
             <div class="h6 leading-none flex items-center justify-between gap-4">
               <div>

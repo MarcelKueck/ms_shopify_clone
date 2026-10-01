@@ -23,7 +23,6 @@
 
   {% else %}
     <h1 class="h2 mb-12 md:mb-16 {{ section.settings.text_alignment }}">{{ 'sections.cart.title' | t }}</h1>
-
     <cart-form class="cart-form">
       <form action="{{ routes.cart_url }}" method="post" id="Cart" data-id="{{ section.id }}" data-form-button-loading>
         <div class="main-cart-grid js-contents">

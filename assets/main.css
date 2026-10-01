@@ -10762,7 +10762,7 @@ div.custom-placement h2 strong {
   font-size: 0.85em;
 }
 div.custom-placement p a {
-  color: #008ccb !important;
+  color: #2B00FF !important;
 }
 .image-container img {
   flex: 1 1 calc(50% - 10px);
@@ -12069,5 +12069,16 @@ margin-top:-11px;
   .pda-recommendation-card quick-add-button > button svg {
     width: 14px !important;
     height: 14px !important;
+.section-body a,
+.section-body a:link,
+.section-body a:visited,
+.section-body a[style] {
+  color: #2B00FF !important;
+}
+.section-body a:hover {
+  color: #1A00CC !important;
+}
+}
   }
 }
+
