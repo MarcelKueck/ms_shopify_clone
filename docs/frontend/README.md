@@ -4,6 +4,8 @@
 > **Source of truth:** the theme repo `ms_shopify_clone`, branch `main` at `8d0a0c4`. That is PR #73 "customer platform" (`a0df103`, merged) plus these docs plus five widget/theme fixes (`8d0a0c4`). Every chapter was written by reading that working tree. Endpoint behaviour is defined by the backend's own `docs/API_CONTRACT.md` and `docs/frontend-handoff/*.md`, and these docs point to those sections instead of repeating them.
 > **As of:** 2026-10-04. **Live runs PR #73** (uploaded by the owner on 2026-10-04; a real live check by the backend is still pending). **The five `8d0a0c4` fixes are not uploaded yet** (see [Current status](#4-current-status-2026-10-04)).
 
+> **Status update (2026-10-04, later the same day): everything on `main` is now live.** The owner also uploaded the five `8d0a0c4` fixes (`assets/ms-chat-widget.js` — including a follow-up that also stops queued voice audio on new chat / open conversation, commit `3e87341` —, `snippets/ms-chat-widget.liquid`, and the three product templates). Wherever a chapter says "`8d0a0c4` not uploaded yet" or "live until the upload", read it as **live since 2026-10-04**. Live = `main` at `3e87341`.
+
 This folder describes the motionsports.de storefront (a Shopify theme) and the Mo chat widget inside it: how they work today, what leaves the browser, which KPI events exist, and where the gaps are. Use it to (a) predict exactly what the widget will do with a backend change, (b) plan features and KPI work, and (c) write frontend tasks that the frontend agent can implement without guessing.
 
 ---
