@@ -15,6 +15,28 @@
 >
   <head>
     <meta charset="utf-8">
+    {%- if settings.ai_advisor_enabled -%}
+    <script>
+      // Mo chat: move the one-time sign-in code (?ms_auth / ?ms_code) and the
+      // campaign token (?mo_c) off the address bar BEFORE content_for_header
+      // (Shopify analytics, Customer Events web pixels) records the page URL.
+      // The deferred widget reads them from this one-shot sessionStorage stash
+      // (ms-chat-widget.js earlyParam) and validates them there. If the stash
+      // can't be written the URL is left alone, so the widget's own read still
+      // works.
+      (function () {
+        try {
+          var u = new URL(window.location.href), p = u.searchParams, kept = { at: Date.now() }, any = false;
+          ['ms_auth', 'ms_code', 'mo_c'].forEach(function (k) {
+            if (p.has(k)) { kept[k] = p.get(k); p.delete(k); any = true; }
+          });
+          if (!any) return;
+          window.sessionStorage.setItem('ms-chat-early-params', JSON.stringify(kept));
+          window.history.replaceState(window.history.state, '', u.pathname + u.search + u.hash);
+        } catch (e) {}
+      })();
+    </script>
+    {%- endif -%}
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
     <meta name="theme-color" content="">

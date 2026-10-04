@@ -128,6 +128,33 @@
     declined: 'No problem! You can find the option any time above under "Share by email".'
   });
 
+  // The marketing line of an opt-in answer — shared by the capture form
+  // (POST /api/capture-email), the consent popup and the inline opt-in card
+  // (POST /api/account/marketing-opt-in). Since 2026-10 the backend knows the
+  // ONE consent shared with the shop, so an address that already holds it
+  // answers { status:"confirmed", alreadyConfirmed:true, doiEmailSent:false }
+  // and NO e-mail goes out (API_CONTRACT.md §7.1, CONSENT_FLOW.md §3.2/§4).
+  // "Check your inbox" is therefore promised ONLY for a pending DOI whose mail
+  // was actually sent; everything else (already subscribed, or a pending
+  // record whose DOI mail could not be sent) must not send the customer
+  // looking for an e-mail that never comes. UI chrome, not consent text.
+  //   'already' — subscribed already (Mo DOI or the shop): nothing to do
+  //   'pending' — DOI mail sent: confirm via the link
+  //   'other'   — anything else: a neutral thank-you, no inbox promise
+  function marketingOutcome(m) {
+    if (!m || typeof m !== 'object') return 'other';
+    if (m.alreadyConfirmed === true || (m.status === 'confirmed' && m.doiEmailSent !== true)) return 'already';
+    if (m.status === 'pending' && m.doiEmailSent === true) return 'pending';
+    return 'other';
+  }
+  var MKT_RESULT_COPY = {
+    alreadyTitle: L('Alles erledigt', 'All set'),
+    already: L('Du bist bereits für unsere Angebote angemeldet — es ist nichts weiter zu tun.',
+      'You\'re already subscribed — nothing else to do.'),
+    otherTitle: L('Danke!', 'Thank you!'),
+    other: L('Wir haben deine Anmeldung erhalten.', 'We\'ve received your sign-up.')
+  };
+
   // ---------------------------------------------------------------------------
   // Feedback — a small, unobtrusive way to leave a free-text comment about the
   // advisor (entry point is a quiet link beneath the composer). Available to
@@ -202,6 +229,7 @@
   var memSession = {};
   function ssGet(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return k in memSession ? memSession[k] : null; } }
   function ssSet(k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) { memSession[k] = v; } }
+  function ssDel(k) { try { window.sessionStorage.removeItem(k); } catch (e) {} delete memSession[k]; }
 
   function uuid() {
     try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
@@ -233,7 +261,17 @@
     } catch (e) {}
     return [];
   }
+  // Another tab may have rotated the device's session (sign-out / erase /
+  // new chat) while this one still holds the old sid in memory. Persisting
+  // under that orphaned id would leave a transcript (possibly order status)
+  // on the device that nothing ever reads or deletes again — so this tab
+  // writes per-sid data only while its sid is still the device's.
+  function sidIsCurrent() {
+    var cur = lsGet(SID_KEY);
+    return !cur || cur === sid;
+  }
   function saveHistory() {
+    if (!sidIsCurrent()) return;
     try { lsSet(historyKey(), JSON.stringify(messages.slice(-40))); } catch (e) {}
   }
   function rotateSession() {
@@ -403,11 +441,28 @@
   // Tool names.
   // ---------------------------------------------------------------------------
   var VISIBLE_TOOLS = ['show_product', 'compare_products', 'add_to_cart', 'suggest_showroom', 'show_contact_form', 'offer_email_summary'];
-  var SILENT_TOOLS = ['update_customer_profile', 'search_products'];
+  // Background tools: kept in the local history (the backend replays them) but
+  // NEVER rendered — no card, no placeholder, no error. get_order_status
+  // (CHAT_ORDER_STATUS.md) carries the signed-in customer's order data in its
+  // output; Mo answers in its text, so the widget only consumes it silently.
+  // Any tool name NOT listed here or in VISIBLE_TOOLS resolves to null and is
+  // dropped entirely (API_CONTRACT.md §2 "Tools the widget MUST NOT render").
+  var SILENT_TOOLS = ['update_customer_profile', 'search_products', 'get_order_status'];
   var ALL_TOOLS = VISIBLE_TOOLS.concat(SILENT_TOOLS);
 
+  // Exact match only: a prefix match would let a future, unknown tool such as
+  // `show_product_xyz` render as a show_product card instead of nothing.
   function isToolPart(type, name) {
-    return type === 'tool-' + name || type.indexOf('tool-' + name) === 0;
+    return type === 'tool-' + name;
+  }
+  // True when a canonical part produces something visible (non-empty text or a
+  // VISIBLE tool). Silent and unknown tools are invisible: they must not create
+  // an (empty) assistant row or end the generating indicator.
+  function isRenderablePart(part) {
+    if (!part || typeof part.type !== 'string') return false;
+    if (part.type === 'text') return !!(part.text || part.delta);
+    var name = resolveToolName(part.type);
+    return !!name && SILENT_TOOLS.indexOf(name) === -1;
   }
   function resolveToolName(type) {
     if (typeof type !== 'string' || type.indexOf('tool-') !== 0) return null;
@@ -910,9 +965,15 @@
     exportBusy: 'Wird vorbereitet…',
     exportError: 'Download fehlgeschlagen — bitte später erneut versuchen.',
     erase: 'Alle meine Daten löschen',
-    eraseConfirm: 'Alle deine Beratungen, dein Profil und gespeicherten Daten werden unwiderruflich gelöscht. Wirklich fortfahren?',
-    eraseYes: 'Endgültig löschen',
+    // The erase confirmation itself (heading, body, button, done/failed text)
+    // is backend-served (GET /api/consent-copy?surface=erase) and never lives
+    // here — its body depends on whether the shop account is erased too.
+    // These are only the chrome around it.
+    eraseCopyError: 'Die Löschung kann gerade nicht vorbereitet werden.',
+    retry: 'Erneut versuchen',
+    eraseBusy: 'Wird gelöscht…',
     eraseError: 'Löschen gerade nicht möglich — bitte später erneut versuchen.',
+    eraseDoneOk: 'Schließen',
     openError: 'Diese Beratung konnte nicht geöffnet werden.'
   };
   if (LOCALE === 'en') Object.assign(ACCOUNT_COPY, {
@@ -944,9 +1005,11 @@
     exportBusy: 'Preparing…',
     exportError: 'Download failed — please try again later.',
     erase: 'Delete all my data',
-    eraseConfirm: 'All your consultations, your profile and stored data will be permanently deleted. Really continue?',
-    eraseYes: 'Delete permanently',
+    eraseCopyError: 'The deletion can\'t be prepared right now.',
+    retry: 'Try again',
+    eraseBusy: 'Deleting…',
     eraseError: 'Deletion isn\'t possible right now — please try again later.',
+    eraseDoneOk: 'Close',
     openError: 'This consultation could not be opened.'
   });
 
@@ -972,6 +1035,7 @@
   var activeConversationKey = loadConvKey();
   function loadConvKey() { return lsGet(convKeyStorageKey()) || null; }
   function saveConvKey() {
+    if (!sidIsCurrent()) return;
     try { if (activeConversationKey) lsSet(convKeyStorageKey(), activeConversationKey); else lsDel(convKeyStorageKey()); } catch (e) {}
   }
   function clearConvKey() { activeConversationKey = null; try { lsDel(convKeyStorageKey()); } catch (e) {} }
@@ -1002,7 +1066,13 @@
     return lsGet(SIGNED_IN_KEY) === '1' || storefrontCustomerHint();
   }
 
-  function applyAuth(data) {
+  // `transient` (probeAuth only): the backend could not answer (network,
+  // 429, 5xx). The UI still fails closed, but the device-side records of the
+  // sign-in — the re-probe hint and the per-sid sign-in origin — are kept: a
+  // blip must not turn into a lasting sign-out (no re-probe on the next open)
+  // or hide "Mit Kundenkonto anmelden" from a whoami-recognised visitor once
+  // the next probe succeeds (updateShopSignInBtn reads the origin record).
+  function applyAuth(data, transient) {
     auth.settled = true;
     if (data && data.signedIn) {
       auth.signedIn = true;
@@ -1019,7 +1089,10 @@
       auth.tier = null;
       auth.marketing = null;
       auth.optInActionable = false;
-      lsDel(SIGNED_IN_KEY);
+      if (!transient) {
+        lsDel(SIGNED_IN_KEY);
+        lsDel(authViaKey()); // the origin of a sign-in that no longer exists
+      }
     }
     reflectAuthState();
     flushAutoHistory(); // an async probe that resolves while the panel is open
@@ -1032,53 +1105,189 @@
     if (authProbed && !force) return Promise.resolve(auth);
     authProbed = true;
     var url = API_BASE + '/api/auth/me?session=' + encodeURIComponent(sid);
+    var transient = false;
+    var reqSid = sid;
+    var wasSignedIn = auth.signedIn || lsGet(SIGNED_IN_KEY) === '1';
     return fetch(url, { method: 'GET', headers: accountHeaders() })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) { applyAuth(data); return auth; })
-      .catch(function () { applyAuth(null); return auth; });
+      .then(function (r) {
+        if (r.ok) return r.json();
+        if (r.status === 429 || r.status >= 500) transient = true;
+        return null; // 401/403 etc.: a definite "not signed in"
+      })
+      .then(function (data) {
+        if (sid !== reqSid) return auth; // the session changed meanwhile
+        applyAuth(data, transient);
+        if (!transient && !(data && data.signedIn) && wasSignedIn) endedSignInCleanup();
+        return auth;
+      })
+      .catch(function () { applyAuth(null, true); return auth; });
   }
 
-  // Shop-native already-signed-in detection (CUSTOMER_ACCOUNT.md §3). Reaches
+  // The server says a session this device had signed in no longer resolves —
+  // logged out (here, on another device or in the shop), expired or erased.
+  // Its stored history can hold the customer's order status
+  // (CHAT_ORDER_STATUS.md), so it goes exactly like on a local sign-out; the
+  // next person on a shared browser must not see it. Only a DEFINITIVE answer
+  // gets here (/api/auth/me signedIn:false or 401/403, an /api/account/* 401),
+  // never a network error or 5xx, and never for a visitor that was anonymous.
+  function endedSignInCleanup() {
+    ssSet(WHOAMI_SS_KEY, '1'); // the shop must not silently re-link the fresh sid
+    closeHistory();
+    dropSessionHistory();
+  }
+
+  // Where this session's signed-in state came from, kept per sid on the
+  // device: 'chat' = completed the chat's own "Anmelden" (ms_code redeemed),
+  // 'shop' = recognised only through the shop's login (/apps/chat/whoami
+  // linkCode redeemed). The backend gives order status (get_order_status) only
+  // to the 'chat' kind (CHAT_ORDER_STATUS.md), so a 'shop' visitor keeps an
+  // "Anmelden" action in the account menu. A 'chat' record is never
+  // downgraded by a later shop recognition (the backend keeps it the same way).
+  function authViaKey() { return 'ms-chat-auth-via:' + sid; }
+  function authVia() { return lsGet(authViaKey()); }
+  function setAuthVia(kind) {
+    if (kind === 'shop' && authVia() === 'chat') return;
+    lsSet(authViaKey(), kind);
+  }
+
+  // Complete a sign-in with its one-time code (CUSTOMER_ACCOUNT.md §2a). Since
+  // 2026-10-03 a Shopify sign-in no longer links the chat session by itself —
+  // the session id travels in a URL anyone can prepare, so a stranger could
+  // otherwise plant their own id in a logged-in shopper's login link. The code
+  // (`?ms_code=` on the return, or `linkCode` from whoami) is redeemed with
+  // THIS browser's own x-ms-session — the same sid the login/whoami used — and
+  // only then does /api/auth/me report signed in. Shared by both paths.
+  // `kind` ('chat' | 'shop') records the sign-in origin locally on success.
+  // Resolves 'ok' | 'refused' (400 etc.: expired, used, another session's
+  // code — never retry, never with another sid) | 'unavailable' (503, other
+  // 5xx/429, network: the backend could not decide). Never rejects.
+  function redeemLinkCode(code, kind) {
+    if (typeof code !== 'string' || !code) return Promise.resolve('refused');
+    try {
+      var h = accountHeaders();
+      h['Content-Type'] = 'application/json';
+      return fetch(API_BASE + '/api/auth/link', { method: 'POST', headers: h, body: JSON.stringify({ code: code }) })
+        .then(function (r) {
+          if (r.status === 200) {
+            // 200 means the link was written; the body is only a confirmation
+            // (/api/auth/me stays the authority on the identity).
+            return r.json().catch(function () { return null; }).then(function (d) {
+              if (d && d.signedIn === false) return 'refused';
+              if (kind) setAuthVia(kind);
+              return 'ok';
+            });
+          }
+          if (r.status === 503 || r.status === 429 || r.status >= 500) return 'unavailable';
+          return 'refused';
+        })
+        .catch(function () { return 'unavailable'; });
+    } catch (e) { return Promise.resolve('unavailable'); }
+  }
+
+  // 503 on the return: the code is still unused, so keep it for ONE retry on
+  // the next page load of this tab (sessionStorage — never localStorage, it is
+  // a short-lived credential), only while it is younger than the code's 10 min
+  // lifetime and the session id is unchanged. Deleted on read, so it can never
+  // loop.
+  var LINK_RETRY_KEY = 'ms-chat-link-retry';
+  var LOGIN_SID_SS_KEY = 'ms-chat-login-sid';
+  var LINK_RETRY_MAX_MS = 10 * 60 * 1000;
+  // In-flight sign-in completion (code redeem + /api/auth/me). A panel open
+  // during it waits instead of racing a second detection.
+  var authLinkInflight = null;
+  function retryPendingLink() {
+    var raw = ssGet(LINK_RETRY_KEY);
+    if (raw == null) return;
+    ssDel(LINK_RETRY_KEY);
+    var p = null;
+    try { p = JSON.parse(raw); } catch (e) { return; }
+    if (!p || typeof p.code !== 'string' || p.sid !== sid) return;
+    var age = Date.now() - Number(p.at);
+    if (!(age >= 0 && age < LINK_RETRY_MAX_MS)) return;
+    // Silent: no notice and no second account_signin_return (the return was
+    // already counted as link_failed; the backend records the link itself).
+    // On anything but 'ok' the normal lazy detection runs on the next open.
+    authLinkInflight = redeemLinkCode(p.code, p.kind === 'shop' ? 'shop' : 'chat').then(function (res) {
+      if (res === 'ok') return probeAuth(true);
+    }).then(function () { authLinkInflight = null; }, function () { authLinkInflight = null; });
+  }
+
+  // Shop-native already-signed-in detection (CUSTOMER_ACCOUNT.md §3a). Reaches
   // GET /api/auth/storefront through the Shopify App Proxy at the SAME-ORIGIN
   // path `/apps/chat/whoami` — the one channel where Shopify itself vouches the
   // logged-in customer to our cross-origin backend (it adds a signed
   // `logged_in_customer_id`). This recognises a customer who signed in via the
-  // shop's OWN account icon — which /api/auth/me alone can never see — so the
-  // widget never shows a stale "Anmelden" to an already-signed-in visitor. The
-  // path is same-origin (no API_BASE, no x-ms-chat-key; Shopify's HMAC is the
-  // guard); it carries cookies so Shopify can attach the live session. Resolves
-  // to `true` once it has applied a signed-in identity. Degrades silently: if
-  // the proxy isn't configured yet (a storefront 404 / non-JSON page) or the
-  // session is logged out, it resolves `false` and the caller falls back to the
-  // chatbot-OAuth re-hydration path — so this is purely additive.
-  var storefrontDetectDone = false;
-  function detectViaStorefront(force) {
-    if (storefrontDetectDone && !force) return Promise.resolve(auth.signedIn);
-    storefrontDetectDone = true;
-    var base = String(CFG.whoamiPath || '/apps/chat/whoami');
-    var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + 'session=' + encodeURIComponent(sid);
-    return fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
-      .then(function (r) {
-        if (!r.ok) return null; // not configured / storefront 404 -> no detection
-        var ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
-        if (ct.indexOf('application/json') < 0) return null; // a storefront HTML page, not the proxy
-        return r.json();
-      })
-      .then(function (data) {
-        if (data && data.signedIn) { applyAuth(data); return true; }
-        return false;
-      })
-      .catch(function () { return false; });
+  // shop's OWN account icon — which /api/auth/me alone can never see. The path
+  // is same-origin (no API_BASE, no x-ms-chat-key; Shopify's HMAC is the
+  // guard); credentials:'include' so the shop's session cookie rides along.
+  // ONCE per browser session (sessionStorage flag, set before the call so a
+  // failure is never retried): a later open, visibilitychange or a sign-out in
+  // this tab never re-asks the shop. The answer is used only to redeem its
+  // `linkCode` — never displayed directly, logged or sent anywhere else; the
+  // identity then comes from /api/auth/me like any sign-in. Resolves `true`
+  // once the session is linked and probed signed-in. Everything else — a
+  // storefront 404 page (proxy not set up yet), non-JSON, network error,
+  // signedIn:false, linkCode null, link 400/503 — resolves `false` silently
+  // and the caller falls back to the chatbot-OAuth re-hydration path.
+  var WHOAMI_SS_KEY = 'ms-chat-whoami-done';
+  // The one whoami -> link -> /api/auth/me chain while it runs. A second
+  // detection meanwhile (visibilitychange, another open) must wait for it: it
+  // would skip whoami (flag already set) and settle the visitor as anonymous
+  // — login popup eligible — until the redeem lands.
+  var whoamiInflight = null;
+  function detectViaStorefront() {
+    if (ssGet(WHOAMI_SS_KEY) === '1') return Promise.resolve(false);
+    ssSet(WHOAMI_SS_KEY, '1');
+    try {
+      var base = String(CFG.whoamiPath || '/apps/chat/whoami');
+      var askSid = sid; // the linkCode is minted for THIS session
+      var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + 'session=' + encodeURIComponent(askSid);
+      var chain = fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' })
+        .then(function (r) {
+          if (!r.ok) return null; // not configured / storefront 404 -> no detection
+          var ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+          if (ct.indexOf('application/json') < 0) return null; // a storefront HTML page, not the proxy
+          return r.json().catch(function () { return null; });
+        })
+        .then(function (data) {
+          // Deliberately stricter than CUSTOMER_ACCOUNT.md §3a's "linkCode
+          // null => display only, stay unlinked": an unlinked session would
+          // show a name while every /api/account/* call 401s (history, export,
+          // erase), §6.1 forbids the consent popup before the link, and the
+          // whoami answer is never displayed directly (see above). So a null
+          // linkCode (or a refused redeem) is the same silent fallback as
+          // signedIn:false — the visitor keeps the normal "Anmelden".
+          if (!data || data.signedIn !== true || typeof data.linkCode !== 'string' || !data.linkCode) return false;
+          if (sid !== askSid) return false; // session rotated meanwhile: never redeem with another id
+          var linkCode = data.linkCode;
+          return redeemLinkCode(linkCode, 'shop').then(function (res) {
+            if (res === 'unavailable') {
+              // Same rule as the sign-in return (task 1): a 503 keeps the
+              // unused code for ONE retry on the next page load.
+              ssSet(LINK_RETRY_KEY, JSON.stringify({ code: linkCode, sid: askSid, at: Date.now(), kind: 'shop' }));
+            }
+            if (res !== 'ok') return false;
+            return probeAuth(true).then(function () { return auth.signedIn; });
+          });
+        })
+        .catch(function () { return false; });
+      whoamiInflight = chain;
+      chain.then(function () { whoamiInflight = null; });
+      return chain;
+    } catch (e) { return Promise.resolve(false); }
   }
 
   // Resolve signed-in state on open / on becoming visible (task §1). The App
-  // Proxy detection runs first (catches the shop's OWN login); only if that
-  // comes back not-signed-in do we re-hydrate a chatbot-OAuth session via
-  // /api/auth/me — and then only when a local hint says it's worth a call, so a
-  // pure-anonymous visitor stays quiet. Either way a not-signed-in result
-  // settles the anonymous UX unchanged (renders the sign-in affordance).
+  // Proxy detection runs first (catches the shop's OWN login; a no-op after
+  // its one call per browser session); only if that comes back not-signed-in
+  // do we re-hydrate a chatbot-OAuth session via /api/auth/me — and then only
+  // when a local hint says it's worth a call, so a pure-anonymous visitor
+  // stays quiet. Either way a not-signed-in result settles the anonymous UX
+  // unchanged (renders the sign-in affordance).
   function detectSignedIn(force) {
-    return detectViaStorefront(force).then(function (signedIn) {
+    // The first detection's own continuation below decides; never race it.
+    if (whoamiInflight) return whoamiInflight.then(function () {});
+    return detectViaStorefront().then(function (signedIn) {
       if (signedIn) return;
       if (shouldProbeAuth()) return probeAuth(force).then(function () {});
       applyAuth(null);
@@ -1093,10 +1302,22 @@
   // `source` (optional) tags WHERE the click came from in the KPI so the
   // post-first-message login popup can be measured against the welcome card /
   // header button; existing callers pass nothing and send `{}` exactly as before.
+  // 'login_gate' is the ONLY source value the KPI contract defines
+  // (API_CONTRACT.md §5: "source only when it came from the popup") — every
+  // other button (welcome card, header, account menu, link-failed notice)
+  // passes nothing.
+  // track() dispatches its fetch (keepalive:true) synchronously, BEFORE the
+  // navigation below, so the event survives the page unload; the sid in the
+  // KPI, the login URL and the later x-ms-session of /api/auth/link is the
+  // same localStorage id (the admin funnel joins on it).
   function initiateLogin(source) {
     try {
       track('account_signin_started', source ? { source: source } : {});
       ssSet('ms-chat-auth-return', '1'); // re-open the panel when we come back
+      // Pin the sid this login uses: the return must redeem its code with
+      // exactly this x-ms-session (§2a). If another tab rotated the device's
+      // session meanwhile, the code is NOT redeemed with the other id.
+      ssSet(LOGIN_SID_SS_KEY, sid);
       var url = new URL(API_BASE + '/api/auth/shopify/login');
       url.searchParams.set('session', sid);
       url.searchParams.set('return_url', window.location.href);
@@ -1106,60 +1327,252 @@
     }
   }
 
-  // Read + strip the ?ms_auth= return marker (CUSTOMER_ACCOUNT.md §2).
-  function handleAuthReturn() {
-    var marker = null;
+  // The chat sign-in could not be completed (code refused / missing, or the
+  // backend unavailable): stay anonymous and say so, with "Anmelden" one tap
+  // away again (it starts a NEW login with the same sid — the failed code is
+  // never retried with another session id).
+  function showLinkFailedNotice(unavailable) {
+    try {
+      if (unavailable) {
+        showNotice('info', L('Die Anmeldung ist gerade nicht möglich — wir versuchen es beim nächsten Seitenaufruf noch einmal.',
+          'Signing in isn\'t possible right now — we\'ll try again when you load the next page.'));
+      } else {
+        showNotice('info', L('Die Anmeldung ist abgelaufen — bitte melde dich erneut an.', 'Your sign-in has expired — please sign in again.'),
+          ACCOUNT_COPY.signInHeader, function () { clearNotice(); initiateLogin(); });
+      }
+    } catch (e) {}
+  }
+
+  // Read + strip the ?ms_auth= return marker and its one-time ?ms_code=
+  // (CUSTOMER_ACCOUNT.md §2/§2a). Both are stripped IMMEDIATELY on read, so a
+  // reload or a copied URL never re-sends the code. With no marker, a code
+  // kept from a 503 on the previous load gets its single retry.
+  // The read + strip runs at the very top of init() (readAuthReturn), BEFORE
+  // the shell, trail, nudges and attribution: the one-time code should leave
+  // the address bar as early as this deferred script can manage, so page-view
+  // collectors and Referer headers firing later never carry it. The values
+  // are kept in memory only and consumed once by handleAuthReturn.
+  // Earlier still: the theme's inline <head> script (layout/theme.liquid,
+  // BEFORE content_for_header) moves ms_auth / ms_code / mo_c off the address
+  // bar into a one-shot sessionStorage stash, so Shopify's analytics and the
+  // Customer Events web pixels never record the code (or the campaign token)
+  // in a page URL — this deferred script runs too late for that. The stash
+  // is read once and deleted on read, and honoured only while younger than
+  // the code's 10 min lifetime (a stash left on a page where this script
+  // never ran must not act on a later page). The URL read stays the fallback
+  // for a theme without the head script.
+  var EARLY_PARAMS_KEY = 'ms-chat-early-params';
+  var earlyParams = null;
+  function earlyParam(name) {
+    if (!earlyParams) {
+      earlyParams = {};
+      var raw = ssGet(EARLY_PARAMS_KEY);
+      if (raw != null) {
+        ssDel(EARLY_PARAMS_KEY);
+        try {
+          var p = JSON.parse(raw);
+          var age = p ? Date.now() - Number(p.at) : -1;
+          if (p && typeof p === 'object' && age >= 0 && age < LINK_RETRY_MAX_MS) earlyParams = p;
+        } catch (e) {}
+      }
+    }
+    var v = earlyParams[name];
+    return typeof v === 'string' ? v : null;
+  }
+  var authReturnParams = null;
+  function readAuthReturn() {
+    if (authReturnParams) return authReturnParams;
+    var marker = earlyParam('ms_auth'), code = earlyParam('ms_code');
     try {
       var u = new URL(window.location.href);
-      marker = u.searchParams.get('ms_auth');
-      if (marker != null) {
+      if (marker == null && code == null) {
+        marker = u.searchParams.get('ms_auth');
+        code = u.searchParams.get('ms_code');
+      }
+      if (u.searchParams.has('ms_auth') || u.searchParams.has('ms_code')) {
         u.searchParams.delete('ms_auth');
+        u.searchParams.delete('ms_code');
         window.history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
       }
     } catch (e) {}
-    if (!marker) return;
+    authReturnParams = { marker: marker, code: code };
+    return authReturnParams;
+  }
+  function handleAuthReturn() {
+    var ret = readAuthReturn();
+    var marker = ret.marker, code = ret.code;
+    ret.marker = null; ret.code = null; // consumed once
+    if (!marker) { retryPendingLink(); return; }
+    ssDel(LINK_RETRY_KEY); // a fresh return supersedes any older kept code
     var wantsOpen = ssGet('ms-chat-auth-return') === '1';
-    try { window.sessionStorage.removeItem('ms-chat-auth-return'); } catch (e) {}
+    ssDel('ms-chat-auth-return');
     authOpenHandled = true; // we own the auth state for this load
     if (marker === 'ok') {
-      track('account_signin_return', { result: 'ok' });
-      probeAuth(true).then(function () {
-        if (wantsOpen || auth.signedIn) openPanel();
-        // The sign-in moment: offer the marketing opt-in. The welcome state
-        // renders it in its own auth slot; present it inline only when a
-        // conversation is already on screen (mid-conversation sign-in).
-        if (auth.signedIn) presentSignInOptIn();
-      });
+      // Redeem BEFORE /api/auth/me. account_signin_return is sent only once
+      // this step decided, so "ok" means the chat really is signed in.
+      var linkSid = sid;
+      var loginSid = ssGet(LOGIN_SID_SS_KEY);
+      ssDel(LOGIN_SID_SS_KEY);
+      // Never redeem with a session other than the one the login used (§2a:
+      // "never retry with another session id") — a mismatch is link_failed.
+      var redeem = (loginSid && loginSid !== sid) ? Promise.resolve('refused') : redeemLinkCode(code, 'chat');
+      authLinkInflight = redeem.then(function (res) {
+        if (res !== 'ok') {
+          // ms_auth=ok without ms_code counts as refused (link_failed).
+          if (res === 'unavailable' && code) {
+            ssSet(LINK_RETRY_KEY, JSON.stringify({ code: code, sid: linkSid, at: Date.now() }));
+          }
+          track('account_signin_return', { result: 'link_failed' });
+          // A failed redeem only means THIS code did not link the session; it
+          // must not undo a sign-in the sid already had — a visitor recognised
+          // through whoami ('shop') uses "Mit Kundenkonto anmelden" for the
+          // chat sign-in, and that earlier link is still valid. So when there
+          // is a hint of one, ask /api/auth/me (an anonymous visitor still
+          // resolves to signedIn:false); otherwise settle anonymous directly.
+          var settle = shouldProbeAuth() ? probeAuth(true) : Promise.resolve(applyAuth(null));
+          return settle.then(function () {
+            if (wantsOpen) openPanel();
+            showLinkFailedNotice(res === 'unavailable');
+          });
+        }
+        track('account_signin_return', { result: 'ok' });
+        return probeAuth(true).then(function () {
+          if (wantsOpen || auth.signedIn) openPanel();
+          // The sign-in moment: offer the marketing opt-in. The welcome state
+          // renders it in its own auth slot; present it inline only when a
+          // conversation is already on screen (mid-conversation sign-in).
+          if (auth.signedIn) presentSignInOptIn();
+        });
+      }).then(function () { authLinkInflight = null; }, function () { authLinkInflight = null; });
     } else if (marker === 'login_required') {
       // prompt=none path only: not logged in -> show the one-click affordance.
+      track('account_signin_return', { result: 'login_required' });
       applyAuth(null);
       if (wantsOpen) openPanel();
     } else if (marker === 'logged_out') {
-      applyAuth(null);
+      // Back from the backend logout (§5): not a sign-in return (no KPI).
+      // Signed out everywhere, and the stored history of that session goes
+      // too (it can hold order status — CHAT_ORDER_STATUS.md). Like signOut():
+      // whoami is not asked again in this browser session — after a degraded
+      // logout (§5: the shop's own session may still be alive) its first call
+      // would hand out a linkCode and silently re-link the fresh sid.
+      // The marker itself proves nothing (anyone can link to ?ms_auth=
+      // logged_out), so the wipe is decided by the server: probeAuth drops
+      // the history only when /api/auth/me confirms that a session this
+      // device had signed in has really ended (endedSignInCleanup). A
+      // crafted link to a signed-in customer changes nothing.
+      ssSet(WHOAMI_SS_KEY, '1');
+      if (shouldProbeAuth()) probeAuth(true); else applyAuth(null);
     } else { // 'error' or anything unexpected -> stay anonymous.
+      track('account_signin_return', { result: 'error' });
       applyAuth(null);
       if (wantsOpen) openPanel();
     }
   }
 
-  // Local sign-out: hides the signed-in tier on THIS device. A full Shopify
-  // logout requires Shopify's end_session_endpoint, which the widget does not
-  // have from the documented contract — see the backend-handoff note. The
-  // server session is left to expire / be ended via the account page.
+  // Wipe this device's chat of the current session and continue on a FRESH
+  // session id — used on sign-out. The local history can hold the customer's
+  // order status (get_order_status output and Mo's text), so the next person
+  // on a shared browser must see nothing; a new sid also severs the old
+  // session's server-side sign-in link for this device (CUSTOMER_ACCOUNT.md
+  // §1: the sid IS the link). Clears the thread key + active conversation of
+  // the old sid first (their storage keys are per sid), then re-renders the
+  // empty welcome state. A reply still streaming is cancelled and any reply
+  // being read aloud is stopped first, so nothing of the old session is drawn
+  // or spoken afterwards; the in-memory traces (the captured email, the
+  // loaded conversation list and its greeting) go with it — capturedEmail is
+  // scoped to the chat session (API_CONTRACT.md §2) and would otherwise ride
+  // on the next person's /api/chat and /api/feedback calls.
+  // `adoptSid` (onSidChangedElsewhere only): another tab already rotated the
+  // device's session — continue on ITS id instead of minting yet another.
+  function dropSessionHistory(adoptSid) {
+    if (abortActiveStream) { abortActiveStream(); abortActiveStream = null; }
+    endSpeaking();
+    removeTyping();
+    capturedEmail = null;
+    // An unsent draft (or text restored after a failed send) can hold an
+    // order number or address — it belongs to the old session too.
+    if (textarea) { textarea.value = ''; autoGrow(); }
+    historyServerList = [];
+    historyOptimistic = [];
+    historyLoaded = false;
+    if (historyListEl) historyListEl.replaceChildren();
+    if (historyTitleEl) historyTitleEl.textContent = ACCOUNT_COPY.historyTitle;
+    clearConvKey();
+    activeConversationId = null;
+    if (adoptSid) {
+      lsDel(historyKey()); // the old sid's (the rotating tab removed it too)
+      sid = adoptSid;
+      messages = loadHistory(); // whatever the other tab already stored there
+      // In-memory attribution only: the shared cache belongs to the tab that
+      // rotated (moAttrLoad ignores another sid's token anyway).
+      moAttr = null; moAttrFailed = false; moAttrConsulted = false;
+    } else {
+      rotateSession(); // drops history, mints a new sid, resets attribution
+    }
+    activeConversationKey = null;
+    if (rateTimer) { clearTimeout(rateTimer); rateTimer = null; }
+    state.rateLocked = false;
+    state.streaming = false;
+    clearNotice();
+    updateInputState();
+    renderAllMessages(); // empty -> welcome
+  }
+
+  // Local sign-out (the history drawer's "Abmelden"): ends the signed-in tier
+  // on THIS device and removes the session's stored chat history by moving to
+  // a fresh session id (dropSessionHistory). The KPI is sent first, under the
+  // session that signs out. The shop's own login is not touched; whoami is not
+  // asked again in this browser session, so the shop can't silently re-sign
+  // the visitor in right after they chose to sign out. The flag is set HERE
+  // too: after the chat's own sign-in return whoami never ran, so without it
+  // the next open would make its first call and re-link the fresh sid.
   function signOut() {
     track('account_signout', {});
-    applyAuth(null);
+    ssSet(WHOAMI_SS_KEY, '1');
     closeHistory();
+    applyAuth(null);
+    dropSessionHistory();
+  }
+
+  // Sign-out, erase or "new chat" in ANOTHER tab rotated the device's session
+  // id (localStorage is shared, this tab's in-memory sid is not). Without this
+  // the other tab would keep the previous customer's name, drawer and
+  // transcript (possibly order status) on screen — and, because sign-out is
+  // local only and the old sid still resolves on the server, keep chatting as
+  // them. sidIsCurrent() only stops it from WRITING. So follow the rotation:
+  // stop the reply and speech, close any dialog/drawer, drop to anonymous and
+  // continue on the new id with an empty view, leaving that id's storage to
+  // the tab that owns it. A tab that was signed in also stops asking whoami
+  // this browser session, like signOut() (the shop must not re-link it).
+  function onSidChangedElsewhere(e) {
+    try {
+      if (!e || e.key !== SID_KEY || !e.newValue || e.newValue === sid) return;
+      if (auth.signedIn) ssSet(WHOAMI_SS_KEY, '1');
+      if (gateCloseFn) gateCloseFn();
+      closeHistory();
+      applyAuth(null);
+      dropSessionHistory(e.newValue);
+    } catch (er) {}
   }
 
   // Auth resolution on panel open (task §1). We detect promptly so a customer
   // who is already signed in — via the shop's own login OR the chatbot — sees
   // their identity, never a stale "Anmelden". Once known signed-in there's
-  // nothing to redo; otherwise we (re-)detect on each open so a sign-in that
-  // happened on the storefront since the last open is reflected.
+  // nothing to redo; otherwise a later open re-hydrates via /api/auth/me (the
+  // whoami call itself happens only once per browser session). An open during
+  // a sign-in completion (code redeem) waits for it instead of racing it.
   var authOpenHandled = false;
   function resolveAuthOnOpen() {
     if (auth.signedIn) return;          // already known signed-in
+    if (authLinkInflight) {
+      authLinkInflight.then(function () {
+        if (auth.settled) return;     // the completion already decided
+        authOpenHandled = true;
+        detectSignedIn();
+      });
+      return;
+    }
     if (authOpenHandled) { detectSignedIn(true); return; } // re-check on a later open
     authOpenHandled = true;
     detectSignedIn();
@@ -2109,14 +2522,22 @@
           // A marketing tick here is the same decision the consent gate asks
           // for — remember it (device-local UX memory) so the gate stays quiet.
           if (marketing) recordMktDecision('accepted');
-          // Branch the success copy on the DOI state (API_CONTRACT.md §7.1):
-          // only a pending marketing opt-in needs the "confirm the link" line.
+          // Branch the success copy on the DOI state (API_CONTRACT.md §7.1).
+          // The transactional summary is sent either way, so its confirmation
+          // always stays; only the marketing line varies, and only when the
+          // box was ticked (an unticked submit on a confirmed address also
+          // reads alreadyConfirmed — not news the customer asked for):
+          // pending + DOI mail sent -> "confirm the link"; already subscribed
+          // (Mo or shop, no DOI mail) -> "nothing else to do"; else nothing.
           return res.json().catch(function () { return null; }).then(function (data) {
-            var pending = !!(data && data.marketing && data.marketing.status === 'pending');
+            var outcome = marketing ? marketingOutcome(data && data.marketing) : 'other';
+            var line = CONSENT_COPY.success;
+            if (outcome === 'pending') line += ' ' + CONSENT_COPY.successPending;
+            else if (outcome === 'already') line += ' ' + MKT_RESULT_COPY.already;
             var ok = el('div', { class: 'ms-chat-form-success' });
             ok.appendChild(icon('check'));
             ok.appendChild(el('h3', { text: CONSENT_COPY.successTitle }));
-            ok.appendChild(el('p', { text: pending ? (CONSENT_COPY.success + ' ' + CONSENT_COPY.successPending) : CONSENT_COPY.success }));
+            ok.appendChild(el('p', { text: line }));
             body.replaceChildren(head, ok);
             scrollToBottom();
           });
@@ -2383,7 +2804,9 @@
       // Became visible again (task §1): if the chat is open and we're not signed
       // in, re-run detection so a sign-in done on the storefront in another tab
       // is picked up promptly and the "Anmelden" affordance never goes stale.
-      if (state.open && !auth.signedIn) detectSignedIn(true);
+      // /api/auth/me only — whoami is never re-asked (once per browser
+      // session) — and never while a sign-in code is being redeemed.
+      if (state.open && !auth.signedIn && !authLinkInflight) detectSignedIn(true);
     });
     // Complementary cart-refresh triggers: window focus catches returning from
     // another window/app even when the Visibility API didn't flip; pageshow
@@ -3297,8 +3720,14 @@
   }
 
   function renderRestoredAssistant(msg) {
-    var ctx = newAssistantCtx();
     var parts = msg.parts || [];
+    // A stored turn made only of background/unknown tool parts (e.g. a lone
+    // get_order_status call) has nothing to show — don't leave an empty
+    // avatar row behind.
+    var visible = false;
+    for (var j = 0; j < parts.length; j++) { if (isRenderablePart(parts[j])) { visible = true; break; } }
+    if (!visible) return;
+    var ctx = newAssistantCtx();
     for (var i = 0; i < parts.length; i++) renderPartIntoCtx(ctx, parts[i]);
   }
 
@@ -3434,6 +3863,12 @@
     startStream({ userMsg: null, userRow: null, restoreText: '', context: context });
   }
 
+  // Cancels the /api/chat turn currently in flight (set by startStream). Used
+  // by dropSessionHistory: after a sign-out / erase the late reply — it can be
+  // the previous customer's order status — must never be drawn, spoken or
+  // saved, and must not flip state.streaming under the next person's turn.
+  var abortActiveStream = null;
+
   function startStream(opts) {
     var userMsg = opts.userMsg;
     var userRow = opts.userRow;
@@ -3449,6 +3884,25 @@
     var toolNames = {};      // toolCallId -> toolName (from tool-input-start / -available)
     var finished = false;
     var streamErrored = false;
+    // The session this turn belongs to. A sign-out / erase mid-stream rotates
+    // the session and wipes the stored history — the late reply (it may carry
+    // order data) must not be written into the NEXT person's fresh session.
+    var streamSid = sid;
+    // Session-bound cancel: once set, every later callback of THIS turn (fetch
+    // resolution, pump, events, finalize, error paths) returns without
+    // touching the DOM, history, voice or state.streaming.
+    var cancelled = false;
+    var streamReader = null;
+    var aborter = null;
+    try { if (typeof AbortController === 'function') aborter = new AbortController(); } catch (e) {}
+    function cancelStream() {
+      if (cancelled) return;
+      cancelled = true;
+      finished = true; // finalizeStream is a no-op from here on
+      try { if (aborter) aborter.abort(); } catch (e) {}
+      try { if (streamReader) streamReader.cancel(); } catch (e) {}
+    }
+    abortActiveStream = cancelStream;
 
     // Creating the real assistant row is the pending->streaming transition:
     // drop the generating placeholder FIRST so its avatar never coexists with
@@ -3486,7 +3940,7 @@
       if (ctx && ctx.row && !gotContent && ctx.content && !ctx.content.childNodes.length && ctx.row.parentNode) {
         ctx.row.parentNode.removeChild(ctx.row);
       }
-      if (asstParts.length) {
+      if (asstParts.length && sid === streamSid) {
         messages.push({ id: 'a-' + uuid(), role: 'assistant', parts: asstParts });
         saveHistory();
       }
@@ -3507,7 +3961,12 @@
     // (renderPartIntoCtx / accumulatePart understand {type:'text',text} and
     // {type:'tool-<name>', toolCallId, input} — unchanged from before.)
     function feedCanonical(part) {
+      if (cancelled) return;
       accumulatePart(asstParts, part);
+      // Silent / unknown tools: history only. Creating the assistant row here
+      // would end the generating indicator and leave an empty avatar row while
+      // the background tool (search_products, get_order_status …) runs.
+      if (!isRenderablePart(part)) return;
       var c = ensureCtx().content;
       var before = c.childNodes.length;
       renderPartIntoCtx(ctx, part);
@@ -3530,26 +3989,40 @@
     // page's chat session (see the capturedEmail privacy gate). A new or
     // unverifiable email is ignored gracefully server-side.
     if (capturedEmail) chatBody.customer = { email: capturedEmail };
+    // Campaign attribution (captureCampaignToken): the landing link's token
+    // rides along on this tab session's first chat request — the context
+    // greeting included — and is deleted only once the request was accepted,
+    // so a failed first send retries it on the next turn. Re-validated on
+    // read: sessionStorage is writable by anything on the page.
+    var campaignToken = ssGet(CAMPAIGN_TOKEN_KEY);
+    if (campaignToken && !CAMPAIGN_TOKEN_RE.test(campaignToken)) { ssDel(CAMPAIGN_TOKEN_KEY); campaignToken = null; }
+    if (campaignToken) chatBody.campaignToken = campaignToken;
 
-    fetch(API_BASE + '/api/chat', {
+    var chatInit = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
       body: JSON.stringify(chatBody)
-    }).then(function (res) {
+    };
+    if (aborter) chatInit.signal = aborter.signal;
+    fetch(API_BASE + '/api/chat', chatInit).then(function (res) {
+      if (res.ok && campaignToken) ssDel(CAMPAIGN_TOKEN_KEY);
+      if (cancelled) { try { if (res.body) res.body.cancel(); } catch (e) {} return; }
       if (!res.ok) {
         return res.json().catch(function () { return null; }).then(function (data) {
+          if (cancelled) return;
           handleChatHttpError(res, data, rollback);
           state.streaming = false;
           updateInputState();
         });
       }
       // Stream the AI SDK v5 UI-message stream (SSE) body.
-      var reader = res.body.getReader();
+      var reader = streamReader = res.body.getReader();
       var decoder = new TextDecoder();
       var buffer = '';
 
       function pump() {
         return reader.read().then(function (r) {
+          if (cancelled) return;
           if (r.done) {
             if (buffer.trim()) processLine(buffer);
             finalizeStream();
@@ -3581,6 +4054,7 @@
       // Translate an AI SDK v5 UI-message-stream event into the widget's
       // canonical part shape, then render/persist it.
       function handleEvent(ev) {
+        if (cancelled) return;
         var type = ev.type;
         if (typeof type !== 'string') return;
 
@@ -3662,13 +4136,17 @@
           default:
             // Custom data parts (data-*) and reasoning-* are not rendered here.
             if (type.indexOf('data-') === 0 || type.indexOf('reasoning') === 0) return;
-            try { console.debug('[ms-chat] unhandled stream event type:', type, ev); } catch (e) {}
+            // Type only — never the event body: an unknown tool-* event can
+            // carry tool input/output (e.g. order data), which must not reach
+            // the console (CHAT_ORDER_STATUS.md "never log").
+            try { console.debug('[ms-chat] unhandled stream event type:', type); } catch (e) {}
             return;
         }
       }
 
       return pump();
     }).catch(function (err) {
+      if (cancelled) return; // our own abort (sign-out / erase) — not an error
       try { console.error('[ms-chat] chat request failed', err); } catch (e) {}
       removeTyping();
       if (gotContent) {
@@ -4191,14 +4669,17 @@
     clearNotice();
     track('summary_download_started', {});
     var key = activeConversationKey;
+    var reqSid = sid;
     fetch(API_BASE + '/api/account/summary?conversationKey=' + encodeURIComponent(key), {
       method: 'GET', headers: accountHeaders()
     }).then(function (res) {
+      if (accountReplyStale(reqSid)) throw 0; // signed out meanwhile: never save it
       if (res.status === 401) { accountUnauthorized(); throw 0; }   // session gone
       if (res.status === 404) throw 404;                            // not this customer's / unknown
       if (!res.ok) throw new Error('summary ' + res.status);
       return res.blob();
     }).then(function (blob) {
+      if (accountReplyStale(reqSid)) return;
       // The endpoint returns a PDF (10E-1); save it with a .pdf name so the OS
       // opens it correctly. The Blob already carries application/pdf from the
       // response, so no explicit re-typing is needed.
@@ -4263,14 +4744,15 @@
     loading: 'Einwilligungstext wird geladen…',
     submit: 'Ja, Angebote aktivieren',
     sending: 'Wird gesendet…',
-    dismiss: 'Nicht jetzt',
+    // An explicit "no" — remembered on this device like the popup's
+    // decline (MKT_DECLINE_SNOOZE_MS), so it says so instead of "not now".
+    decline: 'Nein, danke',
     errRate: 'Zu viele Anfragen — bitte kurz warten.',
     errUpstream: 'Anmeldung gerade nicht möglich — bitte später erneut versuchen.',
     errGeneric: 'Anmeldung fehlgeschlagen. Bitte versuch es erneut.',
     successTitle: 'Fast geschafft!',
     // DOI: ticking only sends a confirmation mail — not subscribed until clicked.
     successPending: 'Bitte bestätige die Anmeldung über den Link in der E-Mail an deine hinterlegte Adresse.',
-    successConfirmed: 'Du bist bereits angemeldet — viel Freude mit unseren Angeboten!',
     // 422 no_verified_email -> fall back to the typed-email capture form.
     noEmail: 'Für dein Konto ist keine bestätigte E-Mail-Adresse hinterlegt.',
     noEmailBtn: 'E-Mail-Adresse eingeben'
@@ -4279,29 +4761,42 @@
     loading: 'Loading consent text…',
     submit: 'Yes, activate offers',
     sending: 'Sending…',
-    dismiss: 'Not now',
+    decline: 'No, thanks',
     errRate: 'Too many requests — please wait a moment.',
     errUpstream: 'Sign-up isn\'t possible right now — please try again later.',
     errGeneric: 'Sign-up failed. Please try again.',
     successTitle: 'Almost there!',
     successPending: 'Please confirm your subscription via the link in the email sent to your registered address.',
-    successConfirmed: 'You\'re already subscribed — enjoy our offers!',
     noEmail: 'There\'s no confirmed email address on file for your account.',
     noEmailBtn: 'Enter email address'
   });
 
-  // Session-scoped guard: once the customer submits or dismisses the opt-in we
-  // stop re-presenting it for the rest of this browser session (it is an
-  // optional benefit surface, not a nag). Never persisted across sessions.
+  // Session-scoped guard: once the customer answers the opt-in (popup or
+  // inline card) or dismisses the popup (Esc/backdrop) we stop re-presenting
+  // it for the rest of this browser session (it is an optional benefit
+  // surface, not a nag). Never persisted across sessions — the longer
+  // device memory of an explicit decline is MKT_DECISION_KEY.
   var OPTIN_DONE_KEY = 'ms-chat-optin-done';
   var signInOptInDone = (ssGet(OPTIN_DONE_KEY) === '1');
+  // The signed-in consent ask was SHOWN this browser session — by the inline
+  // card or the popup, which are one surface ('signin'). Shared by both so
+  // consent_gate_shown {surface:'signin'} counts once per session
+  // (API_CONTRACT.md §5), and so the popup never asks again after an inline
+  // card that went unanswered (e.g. left on screen, then the page reloaded —
+  // the card is not persisted, and asking twice in a visit would be a nag).
+  var OPTIN_SHOWN_KPI_KEY = 'ms-chat-optin-ask-shown';
   function markOptInDone() { signInOptInDone = true; ssSet(OPTIN_DONE_KEY, '1'); }
   // Show the at-sign-in opt-in ONLY when the backend says there's no marketing
   // decision on record yet (auth.optInActionable, CUSTOMER_ACCOUNT.md §6.1) —
   // so a customer who already opted in / out (or whose prior consent carried
-  // forward) is never re-asked. `signInOptInDone` is the additional local
-  // session guard for "dismissed/submitted this session".
-  function optInActionable() { return auth.signedIn && auth.optInActionable && !signInOptInDone; }
+  // forward) is never re-asked. On top of the backend flag, two LOCAL guards
+  // shared by the popup and the inline card: `signInOptInDone` (answered or
+  // dismissed this browser session) and the device's decision memory
+  // (mktDecisionQuiet: accepted, or declined within the last 30 days — the
+  // backend records no "Nein", so optInActionable stays true after one).
+  function optInActionable() {
+    return auth.signedIn && auth.optInActionable === true && !signInOptInDone && !mktDecisionQuiet();
+  }
 
   // The opt-in card (CONSENT_FLOW.md §2, mechanic updated to match the consent
   // gate): the SAME double-opt-in as the capture form, minus the "type your
@@ -4311,7 +4806,10 @@
   // explicit tap on the accept button directly beneath the shown text
   // (button-consent — never pre-decided, never auto-submitted); it runs the
   // existing DOI path (POST /api/account/marketing-opt-in) echoing
-  // consentTextShown verbatim. Dismissing records nothing and blocks nothing.
+  // consentTextShown verbatim. The equally prominent "Nein, danke" POSTs
+  // nothing (it is remembered on the device only) and blocks nothing. KPI:
+  // consent_gate_shown / _accepted / _declined with { surface: 'signin' },
+  // the same funnel as the popup (the card has no dismiss path).
   function buildMarketingOptInCard() {
     var card = el('div', { class: 'ms-chat-card ms-chat-optin-card' });
     var body = el('div', { class: 'ms-chat-card-body' });
@@ -4323,7 +4821,16 @@
     function showError(m) { errEl.textContent = m; errEl.style.display = 'block'; }
     function clearError() { errEl.textContent = ''; errEl.style.display = 'none'; }
 
-    function dismiss() { markOptInDone(); card.remove(); }
+    // The card's explicit decline: quiet for this session AND, like the
+    // popup's "Nein, danke", for MKT_DECLINE_SNOOZE_MS on this device.
+    // The card is the same signed-in consent ask as the popup, so it feeds the
+    // same consent_gate_* funnel (API_CONTRACT.md §5, CONSENT_FLOW.md §3).
+    function decline() {
+      recordMktDecision('declined');
+      markOptInDone();
+      track('consent_gate_declined', { surface: 'signin' });
+      card.remove();
+    }
 
     function renderForm(c) {
       copy = c;
@@ -4349,6 +4856,12 @@
 
       var submit = el('button', { type: 'submit', class: 'ms-chat-btn ms-chat-btn--primary' }, [OPTIN_COPY.submit]);
       form.appendChild(submit);
+      // The decline is a REAL, equally reachable choice (CONSENT_FLOW.md §1:
+      // no visual burying) — a full button right below accept, exactly like
+      // the popup's ms-chat-gate-decline, never a muted link under the legal row.
+      var skip = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--secondary ms-chat-optin-decline' }, [OPTIN_COPY.decline]);
+      skip.addEventListener('click', decline);
+      form.appendChild(skip);
 
       // Imprint / privacy links nearby (compliance) — targets backend-served.
       var legal = el('div', { class: 'ms-chat-legal-links' });
@@ -4358,11 +4871,15 @@
       if (privHref) legal.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: L('Datenschutz', 'Privacy') }));
       form.appendChild(legal);
 
-      var skip = el('button', { type: 'button', class: 'ms-chat-optin-dismiss', text: OPTIN_COPY.dismiss });
-      skip.addEventListener('click', dismiss);
-      form.appendChild(skip);
-
       body.appendChild(form);
+      // Counted only once the served copy is really on screen (a card that
+      // removes itself for missing / unapproved copy was never "shown"), and
+      // once per browser session for this surface (API_CONTRACT.md §5) — a
+      // reload re-rendering an unanswered card is not a second impression.
+      if (ssGet(OPTIN_SHOWN_KPI_KEY) !== '1') {
+        ssSet(OPTIN_SHOWN_KPI_KEY, '1');
+        track('consent_gate_shown', { surface: 'signin' });
+      }
 
       form.addEventListener('submit', function (ev) {
         ev.preventDefault();
@@ -4388,15 +4905,20 @@
           if (res.status === 401) { accountUnauthorized(); card.remove(); return; }
           if (res.ok) {
             return res.json().catch(function () { return null; }).then(function (data) {
-              var m = data && data.marketing;
-              var confirmed = !!(m && (m.alreadyConfirmed === true || m.status === 'confirmed'));
+              // "Check your inbox" only when a DOI mail really went out
+              // (marketingOutcome); already subscribed -> nothing to do.
+              var outcome = marketingOutcome(data && data.marketing);
               var ok = el('div', { class: 'ms-chat-form-success' });
               ok.appendChild(icon('check'));
-              ok.appendChild(el('h3', { text: OPTIN_COPY.successTitle }));
-              ok.appendChild(el('p', { text: confirmed ? OPTIN_COPY.successConfirmed : OPTIN_COPY.successPending }));
+              ok.appendChild(el('h3', { text: outcome === 'pending' ? OPTIN_COPY.successTitle
+                : (outcome === 'already' ? MKT_RESULT_COPY.alreadyTitle : MKT_RESULT_COPY.otherTitle) }));
+              ok.appendChild(el('p', { text: outcome === 'pending' ? OPTIN_COPY.successPending
+                : (outcome === 'already' ? MKT_RESULT_COPY.already : MKT_RESULT_COPY.other) }));
               body.replaceChildren(ok);
               markOptInDone();
               recordMktDecision('accepted'); // quiets the consent gate on this device
+              // Same place the popup counts it: the accept tap's POST succeeded.
+              track('consent_gate_accepted', { surface: 'signin' });
               scrollToBottom();
             });
           }
@@ -4500,12 +5022,16 @@
   //   * at most ONE popup per browser session (GATE_SS_KEY is shared, so a
   //     visitor never sees the login popup and the opt-in in the same visit),
   //   * never in voice mode, only while the panel is open, never stacked,
-  //   * marketing: an ACCEPT is remembered forever (device + backend record),
-  //     a DECLINE snoozes the gate for 24h,
+  //   * marketing: shown ONLY when /api/auth/me says signedIn +
+  //     marketing.optInActionable === true (a shop subscriber reads
+  //     confirmed / false and is never asked); an ACCEPT is remembered forever
+  //     (device + backend record), an explicit DECLINE ("Nein, danke" here or
+  //     on the inline card) quiets both surfaces for 30 days on this device,
   //   * login: "Später" snoozes the login popup for 24h under its OWN key — it
   //     says nothing about marketing, so it never touches the marketing
   //     decision memory,
-  //   * backdrop/Esc = "later": no snooze, next session asks again.
+  //   * backdrop/Esc = "later": quiet for this browser session only (popup
+  //     and inline card alike), the next session may ask again.
   // ---------------------------------------------------------------------------
   var GATE_COPY = {
     aria: 'Angebote aktivieren',
@@ -4520,7 +5046,6 @@
     sending: 'Wird gesendet…',
     successTitle: 'Fast geschafft!',
     successPending: 'Bitte bestätige deine Anmeldung über den Link in der E-Mail — erst danach bekommst du unsere Angebote.',
-    successConfirmed: 'Du bist bereits angemeldet — viel Freude mit unseren Angeboten!',
     continueBtn: 'Weiter zur Antwort',
     errRate: 'Zu viele Anfragen — bitte kurz warten.',
     errUpstream: 'Gerade nicht möglich — bitte versuch es später erneut.',
@@ -4546,7 +5071,6 @@
     sending: 'Sending…',
     successTitle: 'Almost there!',
     successPending: 'Please confirm via the link in the email — only then will you receive our offers.',
-    successConfirmed: 'You\'re already subscribed — enjoy our offers!',
     continueBtn: 'Back to the answer',
     errRate: 'Too many requests — please wait a moment.',
     errUpstream: 'Not possible right now — please try again later.',
@@ -4560,9 +5084,12 @@
   // Device-local marketing-decision memory. This is UX memory ONLY (when to
   // stop asking) — never proof of consent; the backend's DOI record stays the
   // single legal source of truth. Accepted -> never ask again on this device;
-  // declined -> quiet for MKT_DECLINE_SNOOZE_MS.
+  // declined -> quiet for MKT_DECLINE_SNOOZE_MS. 30 days because the backend
+  // records no "Nein" (CUSTOMER_ACCOUNT.md §6.1: optInActionable stays true
+  // after a decline), so without it a customer would be asked at every
+  // sign-in; a month keeps the ask rare without making a "no" permanent.
   var MKT_DECISION_KEY = 'ms-chat-mkt-decision';
-  var MKT_DECLINE_SNOOZE_MS = 24 * 60 * 60 * 1000;
+  var MKT_DECLINE_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
   var GATE_SS_KEY = 'ms-chat-gate-shown'; // ONE first-message popup per browser session
   // Login popup "Später" snooze (device-local timestamp). Its own key on
   // purpose: declining to sign in is not a marketing decision.
@@ -4580,8 +5107,22 @@
   function recordMktDecision(state) {
     try { lsSet(MKT_DECISION_KEY, JSON.stringify({ state: state, at: Date.now() })); } catch (e) {}
   }
+  // True while this device remembers a DECLINE within MKT_DECLINE_SNOOZE_MS
+  // (the backend does not record a "Nein", CUSTOMER_ACCOUNT.md §6.1). An
+  // accept is NOT remembered here: after it the backend answers
+  // optInActionable:false, and when a DOI link expires unconfirmed it
+  // deliberately turns true again so the ask may be offered once more — a
+  // device "accepted" flag would override that. Read by optInActionable(), so
+  // the popup and the inline card follow the same memory.
+  function mktDecisionQuiet() {
+    var d = loadMktDecision();
+    if (!d) return false;
+    var age = Date.now() - Number(d.at);
+    return d.state === 'declined' && age >= 0 && age < MKT_DECLINE_SNOOZE_MS;
+  }
 
   var gateEl = null; // the open gate overlay (at most one)
+  var gateCloseFn = null; // its close(), for a session reset from another tab
 
   // Rules shared by both popups: one per session, never stacked, never in the
   // hands-free voice loop, and only once the auth tier is known (an unsettled
@@ -4603,11 +5144,12 @@
     // the card inside the row keeps the gate quiet only while it's pending.)
     if (lastOptInRow && lastOptInRow.parentNode === messagesEl &&
         lastOptInRow.querySelector('.ms-chat-optin-card')) return false;
-    var d = loadMktDecision();
-    if (d && d.state === 'accepted') return false;
-    if (d && d.state === 'declined' && (Date.now() - d.at) < MKT_DECLINE_SNOOZE_MS) return false;
-    // The backend knows the real decision state — trust it (also covers
-    // "dismissed the welcome opt-in card this session").
+    // The inline card already asked this session (answered or not) -> the
+    // popup stays quiet; the next session may ask again.
+    if (ssGet(OPTIN_SHOWN_KPI_KEY) === '1') return false;
+    // The backend knows the real decision state — trust it; optInActionable()
+    // adds the local memory (answered/dismissed this session, declined on
+    // this device within 30 days, accepted).
     return optInActionable();
   }
 
@@ -4666,7 +5208,7 @@
     function close() {
       if (onClose) { try { onClose(); } catch (e) {} }
       if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-      if (gateEl === wrap) gateEl = null;
+      if (gateEl === wrap) { gateEl = null; gateCloseFn = null; }
       scrollToBottom(); // reveal the streamed answer behind the gate
       // The popup usually closes while the reply is still streaming, when the
       // composer is disabled (updateInputState) and focus() on it is a no-op —
@@ -4710,6 +5252,7 @@
       close: close,
       show: function () {
         gateEl = wrap;
+        gateCloseFn = close;
         panel.appendChild(wrap);
         try { card.focus(); } catch (e) {}
       }
@@ -4792,9 +5335,15 @@
   function presentConsentGate(c) {
     var surface = 'signin';
     ssSet(GATE_SS_KEY, '1');
-    track('consent_gate_shown', { surface: surface });
+    if (ssGet(OPTIN_SHOWN_KPI_KEY) !== '1') { // shared with the inline card
+      ssSet(OPTIN_SHOWN_KPI_KEY, '1');
+      track('consent_gate_shown', { surface: surface });
+    }
 
     var dlg = openGateDialog(GATE_COPY.aria, function () {
+      // Esc/backdrop: no decision, so nothing on the device — but quiet for
+      // this browser session, the inline card included.
+      markOptInDone();
       track('consent_gate_dismissed', { surface: surface });
     });
     var card = dlg.card;
@@ -4850,11 +5399,15 @@
       close();
     });
 
-    function showSuccess(confirmed) {
+    // `outcome` from marketingOutcome(): the inbox line only for a DOI mail
+    // that really went out; an already-subscribed answer says so instead.
+    function showSuccess(outcome) {
       var ok = el('div', { class: 'ms-chat-form-success' });
       ok.appendChild(icon('check'));
-      ok.appendChild(el('h3', { text: GATE_COPY.successTitle }));
-      ok.appendChild(el('p', { text: confirmed ? GATE_COPY.successConfirmed : GATE_COPY.successPending }));
+      ok.appendChild(el('h3', { text: outcome === 'pending' ? GATE_COPY.successTitle
+        : (outcome === 'already' ? MKT_RESULT_COPY.alreadyTitle : MKT_RESULT_COPY.otherTitle) }));
+      ok.appendChild(el('p', { text: outcome === 'pending' ? GATE_COPY.successPending
+        : (outcome === 'already' ? MKT_RESULT_COPY.already : MKT_RESULT_COPY.other) }));
       var cont = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary' }, [GATE_COPY.continueBtn]);
       cont.addEventListener('click', close);
       card.replaceChildren(ok, cont);
@@ -4910,12 +5463,10 @@
         }
         if (res.ok) {
           return res.json().catch(function () { return null; }).then(function (data) {
-            var m = data && data.marketing;
-            var confirmed = !!(m && (m.alreadyConfirmed === true || m.status === 'confirmed'));
             recordMktDecision('accepted');
             markOptInDone();
             track('consent_gate_accepted', { surface: surface });
-            showSuccess(confirmed);
+            showSuccess(marketingOutcome(data && data.marketing));
           });
         }
         return res.json().catch(function () { return null; }).then(function (data) { handleFailure(res, data); });
@@ -4938,6 +5489,7 @@
     }
     updateShareBtn();          // hides the email-capture entry point when signed in
     updateWelcomeAuth();       // greeting / sign-in card inside the welcome state
+    updateShopSignInBtn();     // "Mit Kundenkonto anmelden" for shop-only sign-ins
     if (!auth.signedIn) closeHistory();
   }
 
@@ -4954,6 +5506,10 @@
   }
 
   // --- Conversation-history drawer (signed-in only) ---------------------------
+  var shopSignInBtn = null;
+  function updateShopSignInBtn() {
+    if (shopSignInBtn) shopSignInBtn.style.display = (auth.signedIn && authVia() === 'shop') ? '' : 'none';
+  }
   function buildHistoryDrawer() {
     historyEl = el('div', { class: 'ms-chat-history', 'aria-hidden': 'true', role: 'dialog', 'aria-label': ACCOUNT_COPY.historyAria });
 
@@ -4981,6 +5537,14 @@
     historyEl.appendChild(historyListEl);
 
     var foot = el('div', { class: 'ms-chat-history-foot' });
+    // Recognised only through the shop's login (whoami): keep the chat's own
+    // "Anmelden" reachable — the order status (get_order_status) needs that
+    // sign-in once (CHAT_ORDER_STATUS.md). Hidden after a real chat sign-in;
+    // updateShopSignInBtn() decides.
+    shopSignInBtn = el('button', { class: 'ms-chat-history-link', type: 'button', text: L('Mit Kundenkonto anmelden', 'Sign in with your account') });
+    shopSignInBtn.addEventListener('click', function () { initiateLogin(); });
+    foot.appendChild(shopSignInBtn);
+    updateShopSignInBtn();
     var outBtn = el('button', { class: 'ms-chat-history-link', type: 'button', text: ACCOUNT_COPY.logout });
     outBtn.addEventListener('click', signOut);
     foot.appendChild(outBtn);
@@ -5031,11 +5595,22 @@
     maybeAutoOpenHistory();
   }
 
+  // A /api/account/* answer that lands after the session changed under it
+  // (sign-out / erase in this tab or another — every one of them rotates the
+  // sid — or a failed probe) belongs to the PREVIOUS customer. Sign-out is
+  // local only, so the old sid still resolves on the server and such a late
+  // 200 would otherwise draw (and store under the fresh sid) that customer's
+  // transcript or conversation titles for the next person. Callers capture
+  // `sid` before the fetch and drop the answer entirely when this is true.
+  function accountReplyStale(reqSid) { return sid !== reqSid || !auth.signedIn; }
+
   // 401 on any /api/account/* call means the session no longer resolves
   // (logged out / expired / erased) — fail closed and drop back to anonymous.
   function accountUnauthorized() {
+    var wasSignedIn = auth.signedIn || lsGet(SIGNED_IN_KEY) === '1';
     applyAuth(null);
     closeHistory();
+    if (wasSignedIn) endedSignInCleanup();
   }
 
   // The history list is rendered from a small local model so a freshly started
@@ -5091,19 +5666,22 @@
     // nothing to show gets the skeleton (never a long blank — task §3).
     if (historyLoaded || historyOptimistic.length) renderHistoryList();
     else renderHistorySkeleton();
+    var reqSid = sid;
     fetch(API_BASE + '/api/account/conversations', { method: 'GET', headers: accountHeaders() })
       .then(function (r) {
+        if (accountReplyStale(reqSid)) throw 0;
         if (r.status === 401) { accountUnauthorized(); throw 0; }
         return r.ok ? r.json() : null;
       })
       .then(function (data) {
+        if (accountReplyStale(reqSid)) return;
         historyServerList = (data && data.conversations) || [];
         historyLoaded = true;
         reconcileOptimistic();
         renderHistoryList();
       })
       .catch(function (e) {
-        if (e === 0) return;
+        if (e === 0 || accountReplyStale(reqSid)) return;
         // Keep anything we can still show; only a truly empty list surfaces the error.
         if (mergedConversations().length) renderHistoryList();
         else historyListEl.replaceChildren(el('div', { class: 'ms-chat-history-empty', text: ACCOUNT_COPY.loadError }));
@@ -5200,11 +5778,13 @@
       var next = input.value.trim();
       if (!next) { try { input.focus(); } catch (er) {} return; }
       save.disabled = true;
+      var reqSid = sid;
       fetch(API_BASE + '/api/account/conversations/' + encodeURIComponent(c.conversationId), {
         method: 'PATCH',
         headers: Object.assign({ 'Content-Type': 'application/json' }, accountHeaders()),
         body: JSON.stringify({ title: next })
       }).then(function (r) {
+        if (accountReplyStale(reqSid)) throw 0;
         if (r.status === 401) { accountUnauthorized(); throw 0; }
         return r.ok ? r.json() : null;
       }).then(function (data) {
@@ -5231,8 +5811,10 @@
     no.addEventListener('click', done);
     yes.addEventListener('click', function () {
       yes.disabled = true;
+      var reqSid = sid;
       fetch(API_BASE + '/api/account/conversations/' + encodeURIComponent(c.conversationId), { method: 'DELETE', headers: accountHeaders() })
         .then(function (r) {
+          if (accountReplyStale(reqSid)) throw 0;
           if (r.status === 401) { accountUnauthorized(); throw 0; }
           return r.ok ? r.json() : null;
         })
@@ -5270,12 +5852,15 @@
     return out;
   }
   function openConversation(id) {
+    var reqSid = sid;
     fetch(API_BASE + '/api/account/conversations/' + encodeURIComponent(id), { method: 'GET', headers: accountHeaders() })
       .then(function (r) {
+        if (accountReplyStale(reqSid)) throw 0;
         if (r.status === 401) { accountUnauthorized(); throw 0; }
         return r.ok ? r.json() : null;
       })
       .then(function (data) {
+        if (accountReplyStale(reqSid)) throw 0;
         var conv = data && data.conversation;
         if (!conv) throw new Error('no conversation');
         track('conversation_opened', {});
@@ -5318,13 +5903,18 @@
       btn.textContent = ACCOUNT_COPY.exportBusy;
       msg.style.display = 'none';
       track('account_export_started', {});
+      var reqSid = sid;
       fetch(API_BASE + '/api/account/export', { method: 'GET', headers: accountHeaders() })
         .then(function (res) {
+          // Signed out meanwhile: the previous customer's data must not land
+          // in this (possibly shared) browser's downloads.
+          if (accountReplyStale(reqSid)) throw 0;
           if (res.status === 401) { accountUnauthorized(); throw 0; } // session gone → anonymous
           if (!res.ok) throw new Error('export ' + res.status);       // 503 etc. → friendly error
           return res.blob();
         })
         .then(function (blob) {
+          if (accountReplyStale(reqSid)) return;
           // 200 application/json (Content-Disposition attachment). Save the
           // returned bytes under the contract filename; the Blob already carries
           // its type from the response, so no explicit re-typing is needed.
@@ -5350,48 +5940,228 @@
     wrap.appendChild(msg);
   }
 
+  // "Meine Daten löschen" copy — GET /api/consent-copy?surface=erase
+  // (CUSTOMER_ACCOUNT.md §7.5, API_CONTRACT.md §7.4). confirmBody is served per
+  // backend config: it names the shop customer account only when the erasure
+  // really reaches Shopify (SHOPIFY_ERASURE_SYNC). So the widget never
+  // hard-codes it and has NO fallback text — without served copy there is no
+  // confirmation and therefore no erase. Fetched fresh on every open (no
+  // cache): a rare action, and the backend switch may change in between.
+  // Same headers as every account call; ?locale= like the other consent-copy
+  // GETs (en on /en).
+  function validEraseCopy(c) {
+    return !!(c && typeof c === 'object' &&
+      typeof c.confirmHeading === 'string' && c.confirmHeading &&
+      typeof c.confirmBody === 'string' && c.confirmBody &&
+      typeof c.confirmButton === 'string' && c.confirmButton);
+  }
+  function fetchEraseCopy() {
+    return fetch(API_BASE + '/api/consent-copy?surface=erase&locale=' + LOCALE, { method: 'GET', headers: accountHeaders() })
+      .then(function (res) {
+        if (!res.ok) throw new Error('consent-copy erase ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (!validEraseCopy(data)) throw new Error('consent-copy erase: invalid payload');
+        return data;
+      });
+  }
+
   // Delete ALL my data (POST /api/account/erase, §7.5) — distinct, heavier than
-  // a per-chat delete. Two-step inline confirm in the drawer footer.
+  // a per-chat delete. The quiet footer link opens an inline confirmation in
+  // the drawer footer, built ONLY from the served copy: confirmHeading +
+  // confirmBody, the destructive confirmButton and a cancel. Keyboard: focus
+  // moves to the heading on open, Esc or "Abbrechen" closes it and returns
+  // focus to the link. No widget KPI: `account_erased` is SERVER-ONLY
+  // (API_CONTRACT.md §5, emitted by the erase endpoint itself).
+  var erasingData = false;
+  var eraseSeq = 0; // ids for aria-labelledby / aria-describedby
   function buildEraseControl(wrap) {
     wrap.replaceChildren();
     var btn = el('button', { class: 'ms-chat-history-link ms-chat-history-link--quiet', type: 'button', text: ACCOUNT_COPY.erase });
-    btn.addEventListener('click', function () {
-      var box = el('div', { class: 'ms-chat-erase-confirm' });
-      box.appendChild(el('div', { class: 'ms-chat-erase-text', text: ACCOUNT_COPY.eraseConfirm }));
-      var row = el('div', { class: 'ms-chat-erase-actions' });
-      var yes = el('button', { type: 'button', class: 'ms-chat-conv-mini ms-chat-conv-mini--danger', text: ACCOUNT_COPY.eraseYes });
+    btn.addEventListener('click', function () { openEraseConfirm(wrap); });
+    wrap.appendChild(btn);
+    return btn;
+  }
+
+  function openEraseConfirm(wrap) {
+    var n = ++eraseSeq;
+    var box = el('div', { class: 'ms-chat-erase-confirm', role: 'group' });
+    var msg = el('div', { class: 'ms-chat-erase-msg', role: 'alert', style: 'display:none' });
+    var busy = false;
+
+    function cancel() {
+      if (busy) return;
+      var b = buildEraseControl(wrap);
+      try { b.focus(); } catch (e) {}
+    }
+    box.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') { ev.stopPropagation(); cancel(); }
+    });
+    function cancelBtn() {
       var no = el('button', { type: 'button', class: 'ms-chat-conv-mini', text: ACCOUNT_COPY.cancel });
+      no.addEventListener('click', cancel);
+      return no;
+    }
+
+    // 1) Loading the served copy.
+    function renderLoading() {
+      var t = el('div', { class: 'ms-chat-erase-text', tabindex: '-1', text: ACCOUNT_COPY.loading });
+      var row = el('div', { class: 'ms-chat-erase-actions' });
+      row.appendChild(cancelBtn());
+      box.replaceChildren(t, row);
+      try { t.focus(); } catch (e) {}
+      fetchEraseCopy().then(renderConfirm, renderCopyError);
+    }
+
+    // 1b) No served copy: a short chrome message + retry — never a fallback
+    // confirmation text, and no way to erase without the served one.
+    function renderCopyError() {
+      if (!box.parentNode) return; // cancelled meanwhile
+      var t = el('div', { class: 'ms-chat-erase-msg', role: 'alert', tabindex: '-1', text: ACCOUNT_COPY.eraseCopyError });
+      var row = el('div', { class: 'ms-chat-erase-actions' });
+      var again = el('button', { type: 'button', class: 'ms-chat-conv-mini', text: ACCOUNT_COPY.retry });
+      again.addEventListener('click', renderLoading);
+      row.appendChild(again);
+      row.appendChild(cancelBtn());
+      box.replaceChildren(t, row);
+      try { again.focus(); } catch (e) {}
+    }
+
+    // 2) The confirmation, verbatim from the served copy.
+    function renderConfirm(copy) {
+      if (!box.parentNode) return; // cancelled meanwhile
+      var hid = 'ms-chat-erase-h' + n, bid = 'ms-chat-erase-b' + n;
+      var heading = el('div', { class: 'ms-chat-erase-heading', id: hid, tabindex: '-1', text: copy.confirmHeading });
+      var bodyEl = el('div', { class: 'ms-chat-erase-text', id: bid, text: copy.confirmBody });
+      box.setAttribute('aria-labelledby', hid);
+      box.setAttribute('aria-describedby', bid);
+      var row = el('div', { class: 'ms-chat-erase-actions' });
+      var yes = el('button', { type: 'button', class: 'ms-chat-conv-mini ms-chat-conv-mini--danger ms-chat-erase-yes', text: copy.confirmButton });
+      var no = cancelBtn();
       row.appendChild(yes);
       row.appendChild(no);
-      box.appendChild(row);
-      var msg = el('div', { class: 'ms-chat-erase-msg', style: 'display:none' });
-      box.appendChild(msg);
-      wrap.replaceChildren(box);
-      no.addEventListener('click', function () { buildEraseControl(wrap); });
+      msg.style.display = 'none';
+      box.replaceChildren(heading, bodyEl, row, msg);
+      try { heading.focus(); } catch (e) {}
+
+      function setBusy(b) {
+        busy = b;
+        yes.disabled = b; no.disabled = b;
+        yes.textContent = b ? ACCOUNT_COPY.eraseBusy : copy.confirmButton;
+      }
       yes.addEventListener('click', function () {
-        yes.disabled = true; no.disabled = true;
+        if (erasingData) return;
+        erasingData = true;
+        setBusy(true);
+        msg.style.display = 'none';
         fetch(API_BASE + '/api/account/erase', { method: 'POST', headers: accountHeaders() })
           .then(function (r) {
-            if (r.status === 401) { return { erased: true }; } // already gone -> treat as done
-            if (!r.ok) throw new Error('erase ' + r.status); // 503 etc. -> retry
-            return r.json();
-          })
-          .then(function (data) {
-            if (data && data.erased) {
-              track('account_erased', {});
-              // Erasure severs the backend's attribution tokens too — drop the
-              // cached one so the widget stops stamping with a dead token.
-              moAttrReset();
-              lsDel(historyKey()); messages = []; activeConversationId = null; clearConvKey();
-              applyAuth(null); // session no longer resolves
-              renderAllMessages();
-              closeHistory();
-            } else { throw new Error('not erased'); }
-          })
-          .catch(function () { msg.style.display = ''; msg.textContent = ACCOUNT_COPY.eraseError; yes.disabled = false; no.disabled = false; });
+            if (r.status === 401) return 'gone';    // session already gone
+            if (r.status === 503) return 'failed';  // nothing was erased -> retry
+            if (!r.ok) return 'error';
+            // Shape unchanged: { ok, erased, deletedConversations }.
+            return r.json().catch(function () { return null; })
+              .then(function (d) { return (d && d.erased === true) ? 'erased' : 'error'; });
+          }, function () { return 'error'; })
+          .then(function (result) {
+            erasingData = false;
+            if (result === 'erased') {
+              busy = false;
+              clearAfterErase(wrap);
+              showEraseDone(copy);
+              return;
+            }
+            if (result === 'gone') {
+              // 401: the session no longer resolves (logged out, expired or
+              // already erased) — nothing left to confirm; just leave no
+              // signed-in state or stored history behind.
+              busy = false;
+              clearAfterErase(wrap);
+              try { textarea.focus(); } catch (e) {} // the drawer (and its focus) is gone
+              return;
+            }
+            // 503 says nothing was deleted (served failedBody); anything else
+            // gets the chrome error. Both keep the confirmation for a retry.
+            setBusy(false);
+            msg.textContent = (result === 'failed' && typeof copy.failedBody === 'string' && copy.failedBody)
+              ? copy.failedBody : ACCOUNT_COPY.eraseError;
+            msg.style.display = '';
+            try { yes.focus(); } catch (e) {}
+          });
       });
-    });
-    wrap.appendChild(btn);
+    }
+
+    wrap.replaceChildren(box);
+    renderLoading();
+  }
+
+  // After a 200 (or a 401): the backend session no longer resolves
+  // (/api/auth/me answers signedIn:false, /api/account/* 401), so drop every
+  // signed-in state at once, then remove this session's stored chat history
+  // the same way sign-out does (dropSessionHistory: history + thread key
+  // gone, fresh session id, attribution token reset). The cached
+  // conversation list of the erased account is emptied too, so a later
+  // sign-in on this page never flashes it.
+  function clearAfterErase(wrap) {
+    // Same as signOut: the shop's whoami must not re-sign the visitor in.
+    ssSet(WHOAMI_SS_KEY, '1');
+    closeHistory();
+    applyAuth(null);
+    dropSessionHistory(); // also clears the loaded conversation list
+    buildEraseControl(wrap); // a fresh footer for a later sign-in
+  }
+
+  // The served doneHeading + doneBody, shown over the (now anonymous) chat in
+  // the shared gate dialog shell (focus trap, Esc/backdrop/button close) —
+  // the drawer that held the confirmation is already closed.
+  function showEraseDone(copy) {
+    var heading = (typeof copy.doneHeading === 'string' && copy.doneHeading) ? copy.doneHeading : '';
+    var body = (typeof copy.doneBody === 'string' && copy.doneBody) ? copy.doneBody : '';
+    if (!heading && !body) return;
+    if (gateEl) return; // never stack dialogs
+    var dlg = openGateDialog(heading || body, function () {});
+    var card = dlg.card;
+    if (heading) card.appendChild(el('div', { class: 'ms-chat-gate-headline', text: heading }));
+    if (body) card.appendChild(el('div', { class: 'ms-chat-gate-intro', text: body }));
+    var ok = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary' }, [ACCOUNT_COPY.eraseDoneOk]);
+    ok.addEventListener('click', dlg.close);
+    card.appendChild(ok);
+    dlg.show();
+    try { ok.focus(); } catch (e) {}
+  }
+
+  // ---------------------------------------------------------------------------
+  // Campaign link attribution (?mo_c=<token>, API_CONTRACT.md §2 "Optional
+  // campaignToken", §11.2). A Mo CTA in a campaign e-mail lands here with the
+  // send's token appended. It is read on EVERY load (not only with mo=open)
+  // and BEFORE handleMoDeepLink strips the mo* params, then stripped itself so
+  // a reload or a copied/shared URL never counts the send for someone else.
+  // Each strip re-reads window.location, so it composes with the ms_auth and
+  // mo* strips in any order. The token goes into sessionStorage ONLY (never
+  // localStorage, cookies, KPI payloads or logs) and is handed back exactly
+  // once as campaignToken on this tab session's next POST /api/chat
+  // (startStream), which deletes it on res.ok. A malformed value is dropped
+  // silently — the backend would ignore it anyway — but still leaves the URL.
+  // ---------------------------------------------------------------------------
+  var CAMPAIGN_TOKEN_KEY = 'ms_mo_c';
+  var CAMPAIGN_TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
+  function captureCampaignToken() {
+    try {
+      // The theme's <head> script may already have moved it off the address
+      // bar (earlyParam, see readAuthReturn); the URL is the fallback.
+      var early = earlyParam('mo_c');
+      if (early != null) {
+        var etok = String(early).trim();
+        if (CAMPAIGN_TOKEN_RE.test(etok)) ssSet(CAMPAIGN_TOKEN_KEY, etok);
+      }
+      var u = new URL(window.location.href);
+      if (!u.searchParams.has('mo_c')) return;
+      var tok = String(u.searchParams.get('mo_c') || '').trim();
+      if (early == null && CAMPAIGN_TOKEN_RE.test(tok)) ssSet(CAMPAIGN_TOKEN_KEY, tok);
+      u.searchParams.delete('mo_c');
+      window.history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    } catch (e) {}
   }
 
   // ---------------------------------------------------------------------------
@@ -5407,7 +6177,9 @@
   // All three params (+ the #mo-open hash) are stripped via replaceState —
   // the same cleanup idiom as ?ms_auth= in handleAuthReturn — so a reload or
   // copied URL doesn't re-trigger the auto-open. utm_* params are left
-  // untouched (the shop's analytics, not ours). Fail-silent by design: the
+  // untouched (the shop's analytics, not ours). The campaign token (mo_c) is
+  // NOT handled here: captureCampaignToken() already read and stripped it at
+  // the top of init(), with or without mo=open. Fail-silent by design: the
   // deep link must never break widget init.
   // ---------------------------------------------------------------------------
   function handleMoDeepLink() {
@@ -5463,6 +6235,12 @@
   // Init.
   // ---------------------------------------------------------------------------
   function init() {
+    // Campaign token first: it must be read before ANY strip of the address
+    // bar (ms_auth / mo*) and before anything could copy the URL elsewhere.
+    captureCampaignToken();
+    // Then the sign-in return (?ms_auth / one-time ?ms_code): stripped now,
+    // processed by handleAuthReturn below once the widget is built.
+    readAuthReturn();
     buildShell();
     autoGrow(); // size the input to its clean single-line height up front
     renderAllMessages();
@@ -5488,6 +6266,8 @@
     // Order attribution: arm the consent listener + once-per-page-load
     // re-stamp of the live cart (only when a cached token already exists).
     initAttribution();
+    // Follow a session rotation (sign-out / erase / new chat) in another tab.
+    window.addEventListener('storage', onSidChangedElsewhere);
     // Customer Account: process a sign-in/logout return marker (?ms_auth=…),
     // re-hydrating identity and re-opening the panel onto the SAME conversation.
     handleAuthReturn();

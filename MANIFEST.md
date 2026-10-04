@@ -12,7 +12,50 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-01, latest) — clean welcome, sign-in popup, no Beta badge, Q&A zebra rows, cart drawer fix
+## ⭐ Session update (2026-10-04, latest) — customer platform: one-time sign-in code, shop recognition, consent rules, erase copy, campaign token, silent order status
+
+Implements the backend's `docs/frontend-handoff/FRONTEND_PROMPT_2026-10.md`
+(backend repo `4motionsports-GmbH/mo`) against `CUSTOMER_ACCOUNT.md`,
+`CONSENT_FLOW.md`, `CHAT_ORDER_STATUS.md` and `API_CONTRACT.md`.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (all six tasks) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.css` | **MODIFIED** (erase dialog, link notice, account-menu sign-in) | ✅ Yes — replace the whole file |
+| `layout/theme.liquid` | **MODIFIED** (small inline script at the top of `<head>`) | ✅ Yes — or hand-insert the `{%- if settings.ai_advisor_enabled -%}<script>…</script>{%- endif -%}` block right after `<meta charset="utf-8">` |
+
+### Changes
+
+1. **One-time sign-in code (security fix, required since 2026-10-03).** Every
+   return `?ms_auth=ok&ms_code=…` is redeemed at `POST /api/auth/link` with the
+   session id the login used, before `/api/auth/me`. 400 → stays anonymous with
+   a notice and „Anmelden“; 503 → one retry on the next page load (≤10 min, same
+   session). `account_signin_return` reports `ok` only after the 200, otherwise
+   `link_failed` / the marker. A head script moves `ms_auth`, `ms_code` and
+   `mo_c` off the address bar before Shopify analytics / web pixels record it.
+2. **Consent popup only for undecided customers.** Popup and inline card need
+   `signedIn` + `optInActionable === true`; a „Nein“ is remembered 30 days on
+   the device, a dismissal for the session. „Already subscribed“ answers (opt-in
+   popup and capture form) show „Du bist bereits für unsere Angebote angemeldet —
+   es ist nichts weiter zu tun.“ instead of „check your inbox“.
+3. **„Meine Daten löschen“** builds the confirmation, done and failed states
+   from `GET /api/consent-copy?surface=erase`; afterwards no signed-in UI and no
+   stored history remain. The widget no longer sends the server-only
+   `account_erased` event.
+4. **Campaign token** `mo_c` → `campaignToken` on the first `POST /api/chat` of
+   the session (sessionStorage only, never KPI/localStorage).
+5. **Shop recognition** via same-origin `/apps/chat/whoami` once per browser
+   session on first open; its `linkCode` is redeemed like task 1. While the App
+   Proxy is not set up (Shopify 404 page) nothing visible changes.
+6. **`get_order_status` and any unknown tool render nothing** (streaming and
+   restored history). Sign-out, erase, a server-confirmed end of the sign-in and
+   a sign-out in another tab drop the stored chat history and continue on a
+   fresh session id. Shop-recognised visitors keep „Mit Kundenkonto anmelden“
+   in the account menu (order status needs the chat sign-in once).
+
+---
+
+## ⭐ Session update (2026-10-01) — clean welcome, sign-in popup, no Beta badge, Q&A zebra rows, cart drawer fix
 
 | Path | Status | Re-upload to Shopify? |
 | --- | --- | --- |
