@@ -4233,6 +4233,7 @@
     // A reply still streaming belongs to the OLD thread: cancel it first, or
     // it would be drawn into (and, signed in, saved with) the new one.
     if (abortActiveStream) { abortActiveStream(); abortActiveStream = null; }
+    endSpeaking(); // and stop any audio still queued for that reply
     removeTyping();
     clearNotice();
     if (auth.signedIn) {
@@ -5878,6 +5879,7 @@
         // Same as startNewChat(): a reply still streaming belongs to the
         // thread on screen, never to the one being opened.
         if (abortActiveStream) { abortActiveStream(); abortActiveStream = null; }
+        endSpeaking();
         removeTyping();
         track('conversation_opened', {});
         messages = transcriptToMessages(conv).slice(-40);

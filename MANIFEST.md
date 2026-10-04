@@ -21,7 +21,8 @@ The widget talks to the already-deployed headless backend (configured via the
 | `templates/product.produkt-new.json`, `templates/product.produktnew.json`, `templates/product.produkte-im-set.json` | **MODIFIED** (fix 5: + "MO only" block) | ✅ Yes — or add the "MO only" custom-liquid block in the theme editor |
 
 1. **New chat / opening a past chat while Mo is still answering** cancels that
-   reply (`abortActiveStream()` in `startNewChat()` and `openConversation()`),
+   reply and its queued voice audio (`abortActiveStream()` + `endSpeaking()` in
+   `startNewChat()` and `openConversation()`),
    so it is never drawn into or saved with the new thread.
 2. **Contact form** sends `sessionId` in the `POST /api/contact` body, so the
    backend's `contact_form_submitted` KPI row joins the session.
