@@ -27,6 +27,12 @@
       assign ms_chat_render = false
     endif
 
+    # Without the shared secret the JS exits at boot — don't load it, and
+    # let the else-branch below hide the product-page CTA.
+    if settings.ms_chat_shared_secret == blank
+      assign ms_chat_render = false
+    endif
+
     # Operator-configurable exclusions.
     assign ms_chat_excluded = settings.ai_advisor_excluded_templates | newline_to_br | split: '<br />' | join: ',' | replace: ' ', '' | split: ','
     assign ms_chat_template_full = template | downcase
@@ -79,5 +85,13 @@
       };
     </script>
     <script src="{{ 'ms-chat-widget.js' | asset_url }}" defer></script>
+  {%- else -%}
+    {%- comment -%}
+      The product-page CTA blocks (templates/product*.json, "MO only") are
+      gated only on ai_advisor_enabled. Where the widget does NOT mount
+      (excluded template, cart/checkout) their button would do nothing —
+      hide it instead of showing a dead control.
+    {%- endcomment -%}
+    <style>.ms-chat-product-advisor, .ms-chat-product-cta { display: none !important; }</style>
   {%- endif -%}
 {%- endif -%}

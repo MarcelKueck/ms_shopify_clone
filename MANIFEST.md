@@ -12,7 +12,33 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-04, latest) — customer platform: one-time sign-in code, shop recognition, consent rules, erase copy, campaign token, silent order status
+## ⭐ Session update (2026-10-04 b, latest) — five follow-up fixes found while writing docs/frontend
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (fixes 1–3) | ✅ Yes — replace the whole file |
+| `snippets/ms-chat-widget.liquid` | **MODIFIED** (fix 4) | ✅ Yes — replace the whole file |
+| `templates/product.produkt-new.json`, `templates/product.produktnew.json`, `templates/product.produkte-im-set.json` | **MODIFIED** (fix 5: + "MO only" block) | ✅ Yes — or add the "MO only" custom-liquid block in the theme editor |
+
+1. **New chat / opening a past chat while Mo is still answering** cancels that
+   reply (`abortActiveStream()` in `startNewChat()` and `openConversation()`),
+   so it is never drawn into or saved with the new thread.
+2. **Contact form** sends `sessionId` in the `POST /api/contact` body, so the
+   backend's `contact_form_submitted` KPI row joins the session.
+3. **`order_support` contact reason** gets its own label („Kontakt zum motion
+   sports Team“ + subline) and the placeholder „Bestellnummer + kurz dein
+   Anliegen…“ (CONTACT_FORM_ORDER_SUPPORT.md).
+4. **No dead product-page button:** where the widget does not mount (excluded
+   template, cart/checkout, empty shared secret) the snippet hides
+   `.ms-chat-product-advisor` / `.ms-chat-product-cta`; an empty secret no
+   longer loads the JS at all.
+5. **"MO only" CTA block** added to the three product templates that lacked it
+   (same block as `templates/product.json`, placed after the Kurzinfo / SKU
+   block).
+
+---
+
+## ⭐ Session update (2026-10-04) — customer platform: one-time sign-in code, shop recognition, consent rules, erase copy, campaign token, silent order status
 
 Implements the backend's `docs/frontend-handoff/FRONTEND_PROMPT_2026-10.md`
 (backend repo `4motionsports-GmbH/mo`) against `CUSTOMER_ACCOUNT.md`,

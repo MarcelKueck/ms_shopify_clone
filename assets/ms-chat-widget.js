@@ -2120,6 +2120,8 @@
     bulk_discount: { title: 'Mengenrabatt anfragen', sub: 'Wir erstellen ein individuelles Angebot.' },
     leasing: { title: 'Leasing-Anfrage', sub: 'Flexible Finanzierung für gewerbliche Kunden.' },
     maintenance: { title: 'Wartungsvertrag', sub: 'Langfristige Wartung und Ersatzteilversorgung.' },
+    // Customer-service escalation (CONTACT_FORM_ORDER_SUPPORT.md).
+    order_support: { title: 'Kontakt zum motion sports Team', sub: 'Bestellstatus, Retoure/Rückgabe, Stornierung oder Reklamation — das Team kümmert sich.' },
     general: { title: 'Persönliche Beratung', sub: 'Wir helfen dir gerne weiter.' }
   };
   if (LOCALE === 'en') Object.assign(REASON_LABELS, {
@@ -2129,6 +2131,7 @@
     bulk_discount: { title: 'Request a volume discount', sub: 'We\'ll prepare an individual quote.' },
     leasing: { title: 'Leasing enquiry', sub: 'Flexible financing for business customers.' },
     maintenance: { title: 'Maintenance contract', sub: 'Long-term maintenance and spare-parts supply.' },
+    order_support: { title: 'Contact the motion sports team', sub: 'Order status, return, cancellation or complaint — the team will take care of it.' },
     general: { title: 'Personal consultation', sub: 'We\'re happy to help.' }
   });
 
@@ -2178,7 +2181,9 @@
     var orgInput = el('input', { type: 'text', name: 'organization', autocomplete: 'organization' });
     if (orgRequired) orgInput.setAttribute('required', 'required');
     var phoneInput = el('input', { type: 'tel', name: 'phone', autocomplete: 'tel' });
-    var msgInput = el('textarea', { name: 'message', required: 'required', placeholder: L('Beschreibe kurz dein Anliegen…', 'Briefly describe your request…') });
+    var msgInput = el('textarea', { name: 'message', required: 'required', placeholder: reason === 'order_support'
+      ? L('Bestellnummer + kurz dein Anliegen…', 'Order number + briefly your request…')
+      : L('Beschreibe kurz dein Anliegen…', 'Briefly describe your request…') });
 
     form.appendChild(field('Name *', nameInput));
     form.appendChild(field(L('E-Mail *', 'Email *'), emailInput));
@@ -2208,7 +2213,10 @@
         email: emailInput.value.trim(),
         organization: orgInput.value.trim(),
         phone: phoneInput.value.trim(),
-        message: msgInput.value.trim()
+        message: msgInput.value.trim(),
+        // The backend keys its contact_form_submitted KPI row on the BODY's
+        // sessionId (API_CONTRACT §5) — the header alone leaves it unjoined.
+        sessionId: sid
       };
       if (input.productIds && input.productIds.length) payload.productIds = input.productIds;
 
@@ -4222,6 +4230,10 @@
   }
 
   function startNewChat() {
+    // A reply still streaming belongs to the OLD thread: cancel it first, or
+    // it would be drawn into (and, signed in, saved with) the new one.
+    if (abortActiveStream) { abortActiveStream(); abortActiveStream = null; }
+    removeTyping();
     clearNotice();
     if (auth.signedIn) {
       // Signed-in: the session id is the identity link (CUSTOMER_ACCOUNT.md §1),
@@ -5863,6 +5875,10 @@
         if (accountReplyStale(reqSid)) throw 0;
         var conv = data && data.conversation;
         if (!conv) throw new Error('no conversation');
+        // Same as startNewChat(): a reply still streaming belongs to the
+        // thread on screen, never to the one being opened.
+        if (abortActiveStream) { abortActiveStream(); abortActiveStream = null; }
+        removeTyping();
         track('conversation_opened', {});
         messages = transcriptToMessages(conv).slice(-40);
         activeConversationId = conv.conversationId;
