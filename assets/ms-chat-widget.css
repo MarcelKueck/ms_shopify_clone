@@ -711,7 +711,7 @@ html.ms-chat-page-anim {
 .ms-chat-optin .ms-chat-consent-group,
 .ms-chat-optin .ms-chat-consent-footer,
 .ms-chat-optin .ms-chat-form-error,
-.ms-chat-optin .ms-chat-legal-links { margin-top: 4px; }
+.ms-chat-optin .ms-chat-legal-links { margin: 2px 0 4px; }
 .ms-chat-optin { display: flex; flex-direction: column; gap: 10px; }
 .ms-chat-optin .ms-chat-btn--primary { margin-top: 2px; }
 /* Benefit framing above the checkbox — NOT consent text. */

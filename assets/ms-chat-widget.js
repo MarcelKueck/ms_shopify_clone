@@ -5063,6 +5063,15 @@
       if (typeof c.consentFooter === 'string' && c.consentFooter) {
         form.appendChild(el('div', { class: 'ms-chat-consent-footer', text: c.consentFooter }));
       }
+      // Imprint / privacy links nearby (compliance), between the footer and the
+      // buttons as CONSENT_CONTRACT §3.1 orders them — targets backend-served.
+      var legal = el('div', { class: 'ms-chat-legal-links' });
+      var impHref = safeHref(c.imprintUrl);
+      var privHref = safeHref(c.privacyUrl);
+      if (impHref) legal.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: L('Impressum', 'Imprint') }));
+      if (privHref) legal.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: L('Datenschutz', 'Privacy') }));
+      form.appendChild(legal);
+
       form.appendChild(errEl);
 
       var submit = el('button', { type: 'submit', class: 'ms-chat-btn ms-chat-btn--primary' }, [OPTIN_COPY.submit]);
@@ -5073,14 +5082,6 @@
       var skip = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--secondary ms-chat-optin-decline' }, [OPTIN_COPY.decline]);
       skip.addEventListener('click', decline);
       form.appendChild(skip);
-
-      // Imprint / privacy links nearby (compliance) — targets backend-served.
-      var legal = el('div', { class: 'ms-chat-legal-links' });
-      var impHref = safeHref(c.imprintUrl);
-      var privHref = safeHref(c.privacyUrl);
-      if (impHref) legal.appendChild(el('a', { href: impHref, target: '_blank', rel: 'noopener noreferrer', text: L('Impressum', 'Imprint') }));
-      if (privHref) legal.appendChild(el('a', { href: privHref, target: '_blank', rel: 'noopener noreferrer', text: L('Datenschutz', 'Privacy') }));
-      form.appendChild(legal);
 
       body.appendChild(form);
       // Counted only once the served copy is really on screen (a card that
