@@ -12,7 +12,59 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-04 b, latest) — five follow-up fixes found while writing docs/frontend
+## ⭐ Session update (2026-10-05, latest) — served consent benefits + variant, page context, attribution renewal
+
+Implements the backend's `TASKS.md` of 2026-10-05 (tasks 1–3) against
+`API_CONTRACT.md`, `ACCOUNT_CONTRACT.md` and `CONSENT_CONTRACT.md`. The backend
+for all three has been live since 2026-10-05; every change is additive, so the
+widget keeps working against an older backend.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (tasks 1–3) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.css` | **MODIFIED** (task 1: `.ms-chat-optin-benefits` list in the inline card) | ✅ Yes — replace the whole file |
+
+Shared theme files to hand-edit: **none**.
+
+1. **Consent popup + inline card render the served benefits** (`benefits` of
+   `GET /api/consent-copy?surface=signin`, v5): verbatim via `textContent`,
+   1–4 strings ≤ 200 chars, all or nothing; a missing/invalid list renders no
+   list (the popup/card still show). The widget's own bullets
+   (`GATE_COPY.benefits`) are removed. The served `variant`
+   (`^[a-z0-9_-]{1,32}$`) and the `placement` (`popup` | `signin_return`) are
+   echoed in `consent_gate_*` KPI data and in the opt-in POST. The copy cache is
+   keyed by sid. After an accept has started, Esc/backdrop sends no
+   `consent_gate_dismissed` and a late answer draws nothing into a closed dialog;
+   `consent_gate_accepted` only for the sid the ask was rendered for.
+2. **Page context on typed/spoken messages:** the first typed or spoken message
+   of a thread on a product page (and the first after the page's product
+   changed) carries `context {type:'product', productId, productTitle,
+   source:'page'}`; on a collection page `{type:'browsing', recentlyViewed:[one
+   category], source:'page'}`. Remembered per tab in sessionStorage
+   `ms-chat-ctx-last` (`<sid>|p:<handle>` / `<sid>|c:<collection>`), written only
+   once the answer was saved. CTA context carries `source:'cta'`, nudge context
+   `source:'nudge'`; `product_cta_clicked` carries `samePage`. The stale
+   `PRIVACY POSTURE` comment is corrected.
+3. **Attribution token renewal + ending the marker:** after a cleanly finished
+   streamed turn with a consultation tool (`show_product`, `compare_products`,
+   `add_to_cart`, `suggest_showroom`) and a cached token, the widget calls
+   `POST /api/attribution/token` once per page view (consent-gated); a new token
+   replaces the cache and is stamped, anything else keeps the cached token. On
+   sign-out, erase (also on a 401) and a server-ended sign-in, and when
+   analytics consent is withdrawn, every key of the cached `cartAttributes` is
+   blanked with `""` via `/cart/update.js`. No UI change.
+
+**Switches to flip after the live check:** none required by the widget. The
+backend's `CHAT_PAGE_CONTEXT_ENABLED` (task 2) and `MO_ATTRIBUTION_SESSION_ANCHOR`
+(task 3) are the backend's own switches; the widget works with them on or off.
+
+**Live checks after upload:** the popup shows the served bullets in DE and EN;
+`/cart.js` has no `_mo` after a sign-out (Shopify removes an attribute set to
+`""`); a hand-deleted test token is replaced on the next product turn.
+
+---
+
+## ⭐ Session update (2026-10-04 b) — five follow-up fixes found while writing docs/frontend
 
 | Path | Status | Re-upload to Shopify? |
 | --- | --- | --- |

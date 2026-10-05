@@ -807,6 +807,31 @@ html.ms-chat-page-anim {
   margin-top: 2px;
   color: rgb(var(--msc-success));
 }
+/* Served benefit bullets on the inline opt-in card (v5 copy `benefits`) —
+   same look as the popup's list above; margin keeps it off the headline and
+   the consent statement in the card's body flow. */
+.ms-chat-optin-benefits {
+  list-style: none;
+  margin: 6px 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ms-chat-optin-benefits li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: rgb(var(--msc-fg) / 88%);
+}
+.ms-chat-optin-benefits li svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: rgb(var(--msc-success));
+}
 /* The served consent statement — small but fully visible, never truncated. */
 .ms-chat-gate-consent {
   font-size: 0.78rem;

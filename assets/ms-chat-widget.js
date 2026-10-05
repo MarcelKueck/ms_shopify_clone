@@ -318,18 +318,15 @@
   // ---------------------------------------------------------------------------
   // Page context + browsing trail (engagement layer).
   //
-  // PRIVACY POSTURE (do not change): everything here is gathered CLIENT-SIDE
-  // and used only in-session to tailor copy. The trail lives ONLY in the
-  // user's localStorage, is capped and pruned, and is NEVER transmitted —
-  // no backend call carries it (the only telemetry is the existing
-  // fail-silent track() events: names + page type, never names of products
-  // browsed, never message text). Context (productId/title) leaves the
-  // browser only when the USER sends a chat message that carries it — the
-  // same mechanism the product-page CTA already uses.
-  //
-  // TONE RULE for any copy built from this data: reference the PAGE or
-  // CATEGORY ("Fragen zum Produkt …?"), never the user's behavior ("ich habe
-  // gesehen, dass du …"). Helpful salesperson, not surveillant.
+  // PRIVACY POSTURE (do not change): page facts and the browsing trail are gathered
+  // client-side. Context leaves the browser ONLY inside a /api/chat request the user
+  // starts: the product CTA (product + trail), a nudge click (greeting; product or
+  // trail), and - page facts only, NO trail - the first typed or spoken message of a
+  // thread on a product (or collection) page and the first after the page changed
+  // (pageContextForSend()). Never in background calls. KPI events carry ids, enums
+  // and booleans only (clicked product id, pageType, samePage); never product names,
+  // the browsing trail, message text, URLs or tokens.
+  // TONE RULE: copy references the page or category, never the visitor's behaviour.
   // ---------------------------------------------------------------------------
   var PAGE_CTX = (function () {
     var pc = (CFG.pageContext && typeof CFG.pageContext === 'object') ? CFG.pageContext : {};
@@ -882,8 +879,12 @@
   // never hard-coded, so the stored Art. 7 audit text can't diverge from what
   // was shown. Same guard as the default consent-copy call (no shared secret —
   // these are public strings already shown to users).
-  var signInConsentCache = null;    // { copy, at }
-  var signInConsentInflight = null; // de-duped GET while a fetch is pending
+  // Keyed by the session id (CONSENT_CONTRACT §3.1 "Cache per session"): while
+  // the backend runs a framing test it assigns the variant per x-ms-session, so
+  // a copy fetched under a previous sid (sign-out, rotation, another tab's sid)
+  // must never be rendered or reported for the current one.
+  var signInConsentCache = null;    // { sid, copy, at }
+  var signInConsentInflight = null; // { sid, p } — de-duped GET while a fetch is pending
 
   function validSignInConsentCopy(c) {
     return !!(c && typeof c === 'object' &&
@@ -892,26 +893,69 @@
   }
 
   function fetchSignInConsentCopy() {
-    if (signInConsentCache && (Date.now() - signInConsentCache.at) < CONSENT_COPY_TTL_MS) {
+    var reqSid = sid;
+    if (signInConsentCache && signInConsentCache.sid === reqSid &&
+        (Date.now() - signInConsentCache.at) < CONSENT_COPY_TTL_MS) {
       return Promise.resolve(signInConsentCache.copy);
     }
-    if (signInConsentInflight) return signInConsentInflight;
-    signInConsentInflight = fetch(API_BASE + '/api/consent-copy?surface=signin&locale=' + LOCALE, { method: 'GET', headers: { 'x-ms-session': sid } })
+    if (signInConsentInflight && signInConsentInflight.sid === reqSid) return signInConsentInflight.p;
+    var entry = { sid: reqSid, p: null };
+    entry.p = fetch(API_BASE + '/api/consent-copy?surface=signin&locale=' + LOCALE, { method: 'GET', headers: { 'x-ms-session': reqSid } })
       .then(function (res) {
         if (!res.ok) throw new Error('consent-copy signin ' + res.status);
         return res.json();
       })
       .then(function (data) {
-        signInConsentInflight = null;
+        if (signInConsentInflight === entry) signInConsentInflight = null;
         if (!validSignInConsentCopy(data)) throw new Error('consent-copy signin: invalid payload');
-        signInConsentCache = { copy: data, at: Date.now() };
+        signInConsentCache = { sid: reqSid, copy: data, at: Date.now() };
         return data;
       })
       .catch(function (err) {
-        signInConsentInflight = null;
+        if (signInConsentInflight === entry) signInConsentInflight = null;
         throw err;
       });
-    return signInConsentInflight;
+    signInConsentInflight = entry;
+    return entry.p;
+  }
+
+  // Served benefit bullets of surface=signin (CONSENT_CONTRACT §3.1): rendered
+  // only when ALL are valid — an array of 1–4 strings, each non-empty after
+  // trim and at most 200 characters. Anything else -> null: no list at all,
+  // never a subset and never bullets of the widget's own (§0 rule 11).
+  function servedBenefits(c) {
+    var b = c && c.benefits;
+    if (!Array.isArray(b) || b.length < 1 || b.length > 4) return null;
+    for (var i = 0; i < b.length; i++) {
+      if (typeof b[i] !== 'string' || !b[i].trim() || b[i].length > 200) return null;
+    }
+    return b.slice();
+  }
+  // The served framing variant id, echoed (never rendered) in the opt-in POST
+  // and the consent_gate_* data; anything not matching the id pattern is left
+  // out everywhere.
+  function servedVariant(c) {
+    var v = c && c.variant;
+    return (typeof v === 'string' && /^[a-z0-9_-]{1,32}$/.test(v)) ? v : null;
+  }
+  // consent_gate_* KPI data: ids and enums only (API_CONTRACT §5).
+  function consentGateData(placement, variant) {
+    var d = { surface: 'signin', placement: placement };
+    if (variant) d.variant = variant;
+    return d;
+  }
+  // The served bullets as a list, each item via textContent. `cls` is passed
+  // as a complete class-name literal by the caller (the backend fingerprints
+  // 'ms-chat-optin-benefits' in the served file).
+  function benefitsList(items, cls) {
+    var ul = el('ul', { class: cls });
+    items.forEach(function (b) {
+      var li = el('li');
+      li.appendChild(icon('check'));
+      li.appendChild(el('span', { text: b }));
+      ul.appendChild(li);
+    });
+    return ul;
   }
 
   // ---------------------------------------------------------------------------
@@ -1132,6 +1176,7 @@
   // never a network error or 5xx, and never for a visitor that was anonymous.
   function endedSignInCleanup() {
     ssSet(WHOAMI_SS_KEY, '1'); // the shop must not silently re-link the fresh sid
+    moBlankCart(); // before the rotation drops the cached token
     closeHistory();
     dropSessionHistory();
   }
@@ -1530,6 +1575,7 @@
   function signOut() {
     track('account_signout', {});
     ssSet(WHOAMI_SS_KEY, '1');
+    moBlankCart(); // before the rotation drops the cached token
     closeHistory();
     applyAuth(null);
     dropSessionHistory();
@@ -1605,11 +1651,18 @@
   // Prominent primary CTA button to a product page (feature 2 / KPI driver).
   // These are the highest-value clicks, so they get the theme's primary pill
   // button instead of a subtle text link. Fires a fail-silent KPI event.
+  // samePage (API_CONTRACT §5 "Product clicks"): computed at click time —
+  // true only when the clicked product IS the open product page's product
+  // (catalog handle vs the page's handle); always false off a product page.
+  function isSamePageProduct(id) {
+    return PAGE_CTX.type === 'product' && !!PAGE_CTX.productHandle && String(id) === PAGE_CTX.productHandle;
+  }
+
   function productButton(product, label) {
     var a = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: product.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer' });
     a.appendChild(el('span', { text: label || L('Zum Produkt', 'View product') }));
     a.appendChild(icon('external'));
-    a.addEventListener('click', function () { track('product_cta_clicked', { productId: product.id }); });
+    a.addEventListener('click', function () { track('product_cta_clicked', { productId: product.id, samePage: isSamePageProduct(product.id) }); });
     return a;
   }
 
@@ -1872,6 +1925,9 @@
   var moAttrFailed = false;      // mint failed -> give up silently for THIS page view
   var moAttrConsulted = false;   // a product card rendered (session is "consulted")
   var moAttrPageStamped = false; // render/page-load paths stamp at most once per load
+  var moAttrRenewed = false;     // live-consultation renewal: at most once per page view
+  var moAttrRenewing = false;    // a renewal POST is in flight (render stamps wait for it)
+  var moAttrStampDeferred = false; // a render stamp was skipped during the renewal
 
   function moAnalyticsAllowed() {
     try {
@@ -1933,6 +1989,10 @@
     if (!moAnalyticsAllowed()) return;
     if (moAttrLoad()) {
       if (viaRender && moAttrPageStamped) return;
+      // A renewal may replace the token any moment: a render stamp issued now
+      // could land AFTER the renewal's stamp and put the old token back. The
+      // renewal stamps (or, unchanged/failed, catches this stamp up) itself.
+      if (viaRender && moAttrRenewing) { moAttrStampDeferred = true; return; }
       moAttrPageStamped = true;
       moStampCart();
       return;
@@ -1958,6 +2018,91 @@
     } catch (e) { moAttrInflight = false; moAttrFailed = true; }
   }
 
+  // Renewal after a LIVE product consultation (API_CONTRACT §10 "Lifetime and
+  // renewal"): the endpoint returns the same token while it exists and a new
+  // one once the backend deleted it (retention, erasure) — without this a
+  // device keeps stamping a dead token until its sid rotates. Called only from
+  // finalizeStream() of a streamed turn (never restored history, never page
+  // load), only with a cached token for this sid and analytics consent, at
+  // most once per page view. Any failure keeps the cached token and does NOT
+  // set moAttrFailed (the checkout path keeps stamping it). A reply for a sid
+  // that rotated meanwhile is dropped.
+  function moAttrRenew() {
+    if (moAttrRenewed || moAttrInflight) return;
+    if (!moAnalyticsAllowed()) return;
+    var cached = moAttrLoad();
+    if (!cached) return; // no token yet -> the card render mints as before
+    moAttrRenewed = true;
+    moAttrInflight = true;
+    moAttrRenewing = true;
+    var reqSid = sid;
+    function done(stamped) {
+      moAttrInflight = false;
+      moAttrRenewing = false;
+      var catchUp = moAttrStampDeferred && !stamped;
+      moAttrStampDeferred = false;
+      // A render stamp skipped during the renewal still owes this page its stamp.
+      if (catchUp && sid === reqSid && !moAttrPageStamped && moAttrLoad()) {
+        moAttrPageStamped = true;
+        moStampCart();
+      }
+    }
+    try {
+      fetch(API_BASE + '/api/attribution/token', {
+        method: 'POST',
+        headers: { 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': reqSid }
+      })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          if (sid !== reqSid) { done(false); return; } // rotated meanwhile: drop
+          if (!data || data.ok !== true || !moAttrValid(data)) { done(false); return; }
+          var cur = moAttrLoad();
+          if (cur && cur.token === data.token) { done(false); return; } // unchanged
+          var c = { sid: reqSid, token: data.token, cartAttributes: data.cartAttributes };
+          moAttr = c;
+          try { lsSet(MO_ATTR_KEY, JSON.stringify(c)); } catch (e) {}
+          moAttrPageStamped = true;
+          moStampCart(); // consent re-checked inside
+          done(true);
+        })
+        .catch(function () { done(false); });
+    } catch (e) { done(false); }
+  }
+
+  // API_CONTRACT §10 "Ending the marker": when the session ends (sign-out,
+  // erase, a sign-in the server ended) or analytics consent is withdrawn, set
+  // every key of the cached cartAttributes to "" so the cart stops carrying
+  // this session's marker. Not consent-gated (it removes a marker and sends
+  // nothing for analytics); same-origin, fire-and-forget. Without a cached
+  // entry (none minted, or another tab rotated first) it skips — the widget
+  // never hard-codes the attribute key.
+  function moBlankCart() {
+    var c = moAttrLoad();
+    if (!c) return;
+    var blanked = {};
+    for (var k in c.cartAttributes) {
+      if (Object.prototype.hasOwnProperty.call(c.cartAttributes, k)) blanked[k] = '';
+    }
+    try {
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attributes: blanked }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  // The backend's consultation tools (API_CONTRACT §10): a finished turn with
+  // one of these is a live product consultation.
+  var MO_CONSULT_PARTS = { 'tool-show_product': 1, 'tool-compare_products': 1, 'tool-add_to_cart': 1, 'tool-suggest_showroom': 1 };
+  function hasConsultationPart(parts) {
+    for (var i = 0; parts && i < parts.length; i++) {
+      if (parts[i] && MO_CONSULT_PARTS[parts[i].type] === 1) return true;
+    }
+    return false;
+  }
+
   // First product card rendered -> the session is "consulted"; mint lazily.
   function moAttrOnProductCard() {
     moAttrConsulted = true;
@@ -1969,7 +2114,7 @@
     // the moment Shopify announces it.
     try {
       document.addEventListener('visitorConsentCollected', function () {
-        if (!moAnalyticsAllowed()) return;
+        if (!moAnalyticsAllowed()) { moBlankCart(); return; } // withdrawn: end the marker
         // Cached token -> re-stamp; consulted but tokenless -> mint now.
         if (moAttrLoad() || moAttrConsulted) moAttrEnsure(true);
       });
@@ -2076,7 +2221,7 @@
             var link = el('a', { class: 'ms-chat-btn ms-chat-btn--secondary', href: p.shopifyUrl, target: '_blank', rel: 'noopener noreferrer' });
             link.appendChild(el('span', { text: multi ? (p.name || L('Zum Produkt', 'View product')) : L('Zum Produkt', 'View product') }));
             link.appendChild(icon('external'));
-            link.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id }); });
+            link.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: isSamePageProduct(p.id) }); });
             body.appendChild(link);
           });
         }
@@ -3192,7 +3337,7 @@
   function voiceSubmit(text) {
     if (state.streaming || state.rateLocked || !text) return;
     endSpeaking();          // a new turn supersedes any current playback
-    sendMessage(text);
+    sendMessage(text, pageContextForSend());
   }
 
   function showSpeakingIndicator() {
@@ -3818,6 +3963,39 @@
   // ---------------------------------------------------------------------------
   // Send + SSE stream consumption.
   // ---------------------------------------------------------------------------
+  // Page context on typed / spoken turns (API_CONTRACT §2 "Typed turns",
+  // source:"page"): the open page's facts — never the trail — ride along with
+  // the first user message of a thread on a product (or collection) page and
+  // with the first message after the page changed. "Already sent for this
+  // page in this session" is sessionStorage['ms-chat-ctx-last'] =
+  // '<sid>|p:<handle>' / '<sid>|c:<collectionHandle>', written by
+  // finalizeStream() only for a finished, saved, non-cancelled turn of that
+  // sid (a failed / cancelled / rate-limited turn re-sends it next time).
+  function pageCtxKey(ctx) {
+    if (!ctx) return null;
+    if (ctx.type === 'product' && ctx.productId) return 'p:' + String(ctx.productId);
+    if (ctx.type === 'browsing' && ctx.source === 'page' && ctx.recentlyViewed && ctx.recentlyViewed[0] && ctx.recentlyViewed[0].id) return 'c:' + String(ctx.recentlyViewed[0].id);
+    return null;
+  }
+  function pageContextForSend() {
+    try {
+      var ctx;
+      if (PAGE_CTX.type === 'product' && PAGE_CTX.productHandle) {
+        ctx = { type: 'product', productId: PAGE_CTX.productHandle, source: 'page' };
+        if (PAGE_CTX.productName) ctx.productTitle = PAGE_CTX.productName;
+      } else if (PAGE_CTX.type === 'collection' && PAGE_CTX.collectionHandle && PAGE_CTX.category) {
+        // Exactly one category entry, no trail, no products — the only
+        // browsing shape the backend accepts with source:"page".
+        ctx = { type: 'browsing', recentlyViewed: [{ type: 'category', id: PAGE_CTX.collectionHandle, name: PAGE_CTX.category }], source: 'page' };
+      } else {
+        return undefined; // home, search, content, account … never send context
+      }
+      var hasUserMsg = messages.some(function (m) { return m && m.role === 'user'; });
+      if (hasUserMsg && ssGet(CTX_LAST_KEY) === sid + '|' + pageCtxKey(ctx)) return undefined;
+      return ctx;
+    } catch (e) { return undefined; }
+  }
+
   function onSend() {
     if (state.streaming || state.rateLocked) return;
     stopVoice();
@@ -3826,7 +4004,7 @@
     if (voiceMode) endSpeaking();
     var text = textarea.value.trim();
     if (!text) return;
-    sendMessage(text);
+    sendMessage(text, pageContextForSend());
   }
 
   function sendMessage(text, context) {
@@ -3951,6 +4129,10 @@
       if (asstParts.length && sid === streamSid) {
         messages.push({ id: 'a-' + uuid(), role: 'assistant', parts: asstParts });
         saveHistory();
+        // This turn's context (typed page / CTA / nudge) is now part of a
+        // saved answer of this session: don't attach it again on this page.
+        var sentCtxKey = pageCtxKey(chatBody.context);
+        if (sentCtxKey) ssSet(CTX_LAST_KEY, streamSid + '|' + sentCtxKey);
       }
       state.streaming = false;
       updateInputState();
@@ -3963,6 +4145,9 @@
       }
       // Voice mode: speak the completed reply, then resume listening.
       if (voiceMode) voiceAfterReply(asstParts, streamErrored);
+      // A live product consultation finished cleanly: renew the attribution
+      // token once per page view (API_CONTRACT §10; fail-silent, consent-gated).
+      if (!streamErrored && sid === streamSid && hasConsultationPart(asstParts)) moAttrRenew();
     }
 
     // Feed a part in the widget's canonical shape into history + the renderer.
@@ -4336,6 +4521,7 @@
         } else {
           ctx = browsingContext(null);
         }
+        if (ctx) ctx.source = 'nudge'; // API_CONTRACT §2: the nudge path
         if (ctx) sendContextGreeting(ctx);
       }
     });
@@ -4450,6 +4636,7 @@
       var context = { type: 'product', productId: ctxId, productTitle: ptitle };
       var rv = recentlyViewedPayload();
       if (rv) context.recentlyViewed = rv;
+      context.source = 'cta'; // API_CONTRACT §2: the CTA path, never held out
       // Deliberately a primer user message, NOT the messages:[] greeting:
       // the primer carries the title in text, so the consultation works even
       // if the context's productId were ever dropped server-side. (With
@@ -4821,9 +5008,15 @@
   // existing DOI path (POST /api/account/marketing-opt-in) echoing
   // consentTextShown verbatim. The equally prominent "Nein, danke" POSTs
   // nothing (it is remembered on the device only) and blocks nothing. KPI:
-  // consent_gate_shown / _accepted / _declined with { surface: 'signin' },
-  // the same funnel as the popup (the card has no dismiss path).
-  function buildMarketingOptInCard() {
+  // consent_gate_shown / _accepted / _declined with { surface: 'signin',
+  // placement, variant? }, the same funnel as the popup (the card has no
+  // dismiss path). `placement` is 'signin_return' from presentSignInOptIn().
+  function buildMarketingOptInCard(placement) {
+    placement = placement || 'signin_return';
+    // Captured with the RENDERED copy (CONSENT_CONTRACT §3.2): the variant the
+    // shopper saw and the session it was rendered for.
+    var variant = null;
+    var renderSid = sid;
     var card = el('div', { class: 'ms-chat-card ms-chat-optin-card' });
     var body = el('div', { class: 'ms-chat-card-body' });
     card.appendChild(body);
@@ -4841,18 +5034,23 @@
     function decline() {
       recordMktDecision('declined');
       markOptInDone();
-      track('consent_gate_declined', { surface: 'signin' });
+      track('consent_gate_declined', consentGateData(placement, variant));
       card.remove();
     }
 
     function renderForm(c) {
       copy = c;
+      variant = servedVariant(c);
+      renderSid = sid;
       body.replaceChildren();
       // Benefit framing ABOVE the consent statement — explicitly NOT part of
       // consentTextShown (CONSENT_FLOW.md §2.1); rendered as served.
       if (typeof c.headline === 'string' && c.headline) {
         body.appendChild(el('div', { class: 'ms-chat-optin-headline', text: c.headline }));
       }
+      // Served benefit bullets (v5), all or nothing — never widget text.
+      var cardBenefits = servedBenefits(c);
+      if (cardBenefits) body.appendChild(benefitsList(cardBenefits, 'ms-chat-optin-benefits'));
       var form = el('form', { class: 'ms-chat-form ms-chat-optin', novalidate: 'novalidate' });
 
       // The SERVED consent statement, fully visible (never truncated) directly
@@ -4891,7 +5089,7 @@
       // reload re-rendering an unanswered card is not a second impression.
       if (ssGet(OPTIN_SHOWN_KPI_KEY) !== '1') {
         ssSet(OPTIN_SHOWN_KPI_KEY, '1');
-        track('consent_gate_shown', { surface: 'signin' });
+        track('consent_gate_shown', consentGateData(placement, variant));
       }
 
       form.addEventListener('submit', function (ev) {
@@ -4905,8 +5103,12 @@
           consentTextShown: copy.consentTextShown,
           // Stored with the consent record + carried to the DOI email; matches
           // the locale the sign-in consent copy was served in (LOCALE.md §1).
-          locale: LOCALE
+          locale: LOCALE,
+          // Telemetry echo (ACCOUNT_CONTRACT §6.2): where the ask was shown and
+          // which served framing variant — body only, never a header.
+          placement: placement
         };
+        if (variant) payload.variant = variant;
         submit.disabled = true;
         submit.textContent = OPTIN_COPY.sending;
         // Guarded account XHR (CONSENT_FLOW.md §2.2): same headers as /api/auth/me.
@@ -4930,8 +5132,10 @@
               body.replaceChildren(ok);
               markOptInDone();
               recordMktDecision('accepted'); // quiets the consent gate on this device
-              // Same place the popup counts it: the accept tap's POST succeeded.
-              track('consent_gate_accepted', { surface: 'signin' });
+              // Same place the popup counts it: the accept tap's POST succeeded —
+              // and only under the session the ask was rendered for (a late 2xx
+              // after a sign-out / rotation must not land on the next session).
+              if (sid === renderSid) track('consent_gate_accepted', consentGateData(placement, variant));
               scrollToBottom();
             });
           }
@@ -4998,7 +5202,7 @@
         return;
       }
       var ar = assistantRow();
-      ar.content.appendChild(buildMarketingOptInCard());
+      ar.content.appendChild(buildMarketingOptInCard('signin_return'));
       messagesEl.appendChild(ar.row);
       lastOptInRow = ar.row;
       scrollToBottom();
@@ -5048,12 +5252,8 @@
   // ---------------------------------------------------------------------------
   var GATE_COPY = {
     aria: 'Angebote aktivieren',
-    // Benefit framing (UI chrome, like the sign-in card's bullets — NOT part
-    // of the consent text): personalized offers, first access to promotions.
-    benefits: [
-      'Persönliche Empfehlungen, passend zu deiner Beratung',
-      'Exklusive Angebote & Rabattaktionen zuerst erfahren'
-    ],
+    // No benefit bullets here: the consent popup's framing (headline +
+    // `benefits`) is SERVED copy (API_CONTRACT §0 rule 11, CONSENT_CONTRACT §1).
     accept: 'Ja, Angebote aktivieren',
     decline: 'Nein, danke',
     sending: 'Wird gesendet…',
@@ -5075,10 +5275,6 @@
   };
   if (LOCALE === 'en') Object.assign(GATE_COPY, {
     aria: 'Activate offers',
-    benefits: [
-      'Personal recommendations matching your consultation',
-      'Exclusive offers & discount promotions — hear about them first'
-    ],
     accept: 'Yes, activate offers',
     decline: 'No, thanks',
     sending: 'Sending…',
@@ -5346,19 +5542,30 @@
 
   // Signed-in marketing opt-in gate (surface=signin).
   function presentConsentGate(c) {
-    var surface = 'signin';
+    var placement = 'popup';
+    // Captured from the RENDERED copy object (CONSENT_CONTRACT §3.2), together
+    // with the session the ask is rendered for.
+    var variant = servedVariant(c);
+    var renderSid = sid;
+    // acceptStarted: the accept POST went out — from then on Esc / backdrop
+    // (also on the success view) is no "dismiss" (it was a decision).
+    // dialogClosed: the dialog is gone — a late POST answer must not reopen
+    // anything (no capture form, no error text on a detached card).
+    var acceptStarted = false;
+    var dialogClosed = false;
     ssSet(GATE_SS_KEY, '1');
     if (ssGet(OPTIN_SHOWN_KPI_KEY) !== '1') { // shared with the inline card
       ssSet(OPTIN_SHOWN_KPI_KEY, '1');
-      track('consent_gate_shown', { surface: surface });
+      track('consent_gate_shown', consentGateData(placement, variant));
     }
 
     var dlg = openGateDialog(GATE_COPY.aria, function () {
-      // Esc/backdrop: no decision, so nothing on the device — but quiet for
-      // this browser session, the inline card included.
+      // Esc/backdrop: quiet for this browser session, the inline card
+      // included. Counted as consent_gate_dismissed only while no decision
+      // was made — after the accept tap it behaves like „Weiter zur Antwort“.
       markOptInDone();
-      track('consent_gate_dismissed', { surface: surface });
-    });
+      if (!acceptStarted) track('consent_gate_dismissed', consentGateData(placement, variant));
+    }, function () { dialogClosed = true; });
     var card = dlg.card;
     var close = dlg.close;
 
@@ -5366,17 +5573,10 @@
     if (typeof c.headline === 'string' && c.headline) {
       card.appendChild(el('div', { class: 'ms-chat-gate-headline', text: c.headline }));
     }
-    // Benefit bullets — UI chrome framing (same precedent as the sign-in
-    // card's bullets): personalized offers & first access to promotions. No
-    // concrete discount promise (the copy ceiling stays with legal).
-    var ul = el('ul', { class: 'ms-chat-gate-benefits' });
-    GATE_COPY.benefits.forEach(function (b) {
-      var li = el('li');
-      li.appendChild(icon('check'));
-      li.appendChild(el('span', { text: b }));
-      ul.appendChild(li);
-    });
-    card.appendChild(ul);
+    // Served benefit bullets (v5, CONSENT_CONTRACT §3.1): verbatim, all or
+    // nothing — never bullets of the widget's own (§0 rule 11).
+    var gateBenefits = servedBenefits(c);
+    if (gateBenefits) card.appendChild(benefitsList(gateBenefits, 'ms-chat-gate-benefits'));
 
     var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
     function showError(m) { errEl.textContent = m; errEl.style.display = 'block'; }
@@ -5408,7 +5608,7 @@
     decline.addEventListener('click', function () {
       recordMktDecision('declined');
       markOptInDone(); // also quiets the welcome opt-in card this session
-      track('consent_gate_declined', { surface: surface });
+      track('consent_gate_declined', consentGateData(placement, variant));
       close();
     });
 
@@ -5459,17 +5659,23 @@
         // The served audit string, echoed back VERBATIM (Art. 7) — never
         // recomposed client-side.
         consentTextShown: c.consentTextShown,
-        locale: LOCALE
+        locale: LOCALE,
+        // Telemetry echo (ACCOUNT_CONTRACT §6.2) — JSON body only, no header.
+        placement: placement
       };
+      if (variant) payload.variant = variant;
+      acceptStarted = true;
       fetch(API_BASE + '/api/account/marketing-opt-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid, 'x-ms-locale': LOCALE },
         body: JSON.stringify(payload)
       }).then(function (res) {
-        if (res.status === 401) { accountUnauthorized(); close(); return; }
+        if (res.status === 401) { accountUnauthorized(); if (!dialogClosed) close(); return; }
         if (res.status === 422) {
           // No verified account email -> fall back to the typed-email capture
-          // form (the existing, unchanged path).
+          // form (the existing, unchanged path) — unless the shopper already
+          // closed the dialog: then they left the ask deliberately.
+          if (dialogClosed) return;
           close();
           openCaptureForm();
           return;
@@ -5478,12 +5684,16 @@
           return res.json().catch(function () { return null; }).then(function (data) {
             recordMktDecision('accepted');
             markOptInDone();
-            track('consent_gate_accepted', { surface: surface });
-            showSuccess(marketingOutcome(data && data.marketing));
+            // Only under the session the ask was rendered for: a late 2xx
+            // after a sign-out / rotation must not land on the next session
+            // (the server's signin_optin events keep the record).
+            if (sid === renderSid) track('consent_gate_accepted', consentGateData(placement, variant));
+            if (!dialogClosed) showSuccess(marketingOutcome(data && data.marketing));
           });
         }
+        if (dialogClosed) return; // closed meanwhile: nothing visible, no KPI
         return res.json().catch(function () { return null; }).then(function (data) { handleFailure(res, data); });
-      }).catch(function () { handleFailure(null, null); });
+      }).catch(function () { if (!dialogClosed) handleFailure(null, null); });
     });
 
     dlg.show();
@@ -5881,6 +6091,9 @@
         if (abortActiveStream) { abortActiveStream(); abortActiveStream = null; }
         endSpeaking();
         removeTyping();
+        // A past thread knows nothing of this page: the next typed message on
+        // a product page carries its context once more.
+        ssDel(CTX_LAST_KEY);
         track('conversation_opened', {});
         messages = transcriptToMessages(conv).slice(-40);
         activeConversationId = conv.conversationId;
@@ -6124,6 +6337,7 @@
   function clearAfterErase(wrap) {
     // Same as signOut: the shop's whoami must not re-sign the visitor in.
     ssSet(WHOAMI_SS_KEY, '1');
+    moBlankCart(); // before the rotation drops the cached token (erased or 401)
     closeHistory();
     applyAuth(null);
     dropSessionHistory(); // also clears the loaded conversation list
@@ -6163,6 +6377,10 @@
   // silently — the backend would ignore it anyway — but still leaves the URL.
   // ---------------------------------------------------------------------------
   var CAMPAIGN_TOKEN_KEY = 'ms_mo_c';
+  // Page context already sent for this page in this session (pageContextForSend):
+  // '<sid>|p:<handle>' / '<sid>|c:<collectionHandle>'. sessionStorage only,
+  // chat-functional, never in a KPI payload.
+  var CTX_LAST_KEY = 'ms-chat-ctx-last';
   var CAMPAIGN_TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
   function captureCampaignToken() {
     try {
