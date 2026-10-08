@@ -5363,6 +5363,10 @@
     if (historyEl && historyEl.classList.contains('ms-chat-history--open')) return false;
     if (!auth.settled || !auth.signedIn || !optInActionable()) return false;
     if (ssGet(OPTIN_SHOWN_KPI_KEY) === '1') return false;
+    // Back from the chat's own sign-in in this tab: they keep the immediate
+    // ask (popup / signin_return card, SPEC B3a) — even when a fast product
+    // turn finishes before the first-message popup's 700 ms timer.
+    if (ssGet(SIGNIN_RETURNED_SS_KEY) === '1') return false;
     // A pending opt-in card already is the ask — never stack a second one.
     if (lastOptInRow && lastOptInRow.parentNode === messagesEl &&
         lastOptInRow.querySelector('.ms-chat-optin-card')) return false;
