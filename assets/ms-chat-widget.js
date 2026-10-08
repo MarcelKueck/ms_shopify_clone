@@ -525,7 +525,10 @@
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
     // Download glyph — signed-in "Zusammenfassung herunterladen" header button.
-    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    // Newsletter reward badge / sign-in teaser. Always this literal name —
+    // never icon(<served value>) (an unknown name returns null).
+    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>'
   };
   function icon(name) {
     var tpl = document.createElement('template');
@@ -938,10 +941,13 @@
     var v = c && c.variant;
     return (typeof v === 'string' && /^[a-z0-9_-]{1,32}$/.test(v)) ? v : null;
   }
-  // consent_gate_* KPI data: ids and enums only (API_CONTRACT §5).
-  function consentGateData(placement, variant) {
+  // consent_gate_* KPI data: ids, enums and booleans only (API_CONTRACT §5).
+  // `reward` (boolean) only when the served reward rendered on that ask —
+  // otherwise the key is absent, keeping the pre-reward shape.
+  function consentGateData(placement, variant, reward) {
     var d = { surface: 'signin', placement: placement };
     if (variant) d.variant = variant;
+    if (reward) d.reward = true;
     return d;
   }
   // The served bullets as a list, each item via textContent. `cls` is passed
@@ -956,6 +962,72 @@
       ul.appendChild(li);
     });
     return ul;
+  }
+
+  // Served newsletter reward + value-moment lead (copy v6, optional). Like the
+  // bullets: served strings only, rendered verbatim via textContent, never a
+  // widget fallback. An absent / invalid field -> null -> exactly the v5 DOM.
+  // On /en only once the backend marks the English copy legally reviewed.
+  // Callers additionally require c.lawyerApproved === true.
+  function servedStr(v, max) {
+    return (typeof v === 'string' && v.trim() && v.length <= max) ? v : null;
+  }
+  function servedObj(c, key) {
+    if (!c || (LOCALE === 'en' && c.enLegalReviewed !== true)) return null;
+    var o = c[key];
+    return (o && Object.prototype.toString.call(o) === '[object Object]') ? o : null;
+  }
+  // All-or-nothing on badge + terms; an invalid optional sub-field is dropped
+  // on its own (null) and never invalidates the reward.
+  function servedReward(c) {
+    var r = servedObj(c, 'reward');
+    if (!r) return null;
+    var badge = servedStr(r.badge, 60), terms = servedStr(r.terms, 300);
+    if (!badge || !terms) return null;
+    // A blank string would resolve to the current page in safeHref -> require
+    // a non-empty value first.
+    var url = (typeof r.termsUrl === 'string' && r.termsUrl.trim()) ? safeHref(r.termsUrl) : null;
+    return {
+      badge: badge,
+      terms: terms,
+      termsUrl: url || null,
+      teaser: servedStr(r.teaser, 160),
+      afterAccept: servedStr(r.afterAccept, 200)
+    };
+  }
+  function servedValueMoment(c) {
+    var v = servedObj(c, 'valueMoment');
+    var lead = v ? servedStr(v.lead, 200) : null;
+    return lead ? { lead: lead } : null;
+  }
+  // Reward DOM (CONSENT_CONTRACT §3.1 extended). Served text via textContent,
+  // the terms link only through safeHref (servedReward), the glyph a constant.
+  function rewardBadge(r) {
+    var d = el('div', { class: 'ms-chat-reward-badge' });
+    d.appendChild(icon('gift'));
+    d.appendChild(el('span', { text: r.badge }));
+    return d;
+  }
+  function rewardTerms(r) {
+    var d = el('div', { class: 'ms-chat-reward-terms', text: r.terms });
+    if (r.termsUrl) {
+      d.appendChild(document.createTextNode(' '));
+      d.appendChild(el('a', { href: r.termsUrl, target: '_blank', rel: 'noopener noreferrer', text: L('Bedingungen', 'Conditions') }));
+    }
+    return d;
+  }
+  function rewardTeaser(r) {
+    var d = el('div', { class: 'ms-chat-reward-teaser' });
+    d.appendChild(icon('gift'));
+    d.appendChild(el('span', { text: r.teaser }));
+    return d;
+  }
+  // The teaser of the anonymous sign-in surfaces (login popup, welcome card):
+  // the reward with a valid teaser from approved copy, else null.
+  function signInTeaserReward(c) {
+    if (!c || c.lawyerApproved !== true) return null;
+    var r = servedReward(c);
+    return (r && r.teaser) ? r : null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1481,6 +1553,10 @@
           });
         }
         track('account_signin_return', { result: 'ok' });
+        // They signed in through the chat expecting the offer: in value-moment
+        // mode the popup / signin_return ask still runs this tab session
+        // (SPEC B3a; read by maybeShowConsentGate).
+        ssSet(SIGNIN_RETURNED_SS_KEY, '1');
         return probeAuth(true).then(function () {
           if (wantsOpen || auth.signedIn) openPanel();
           // The sign-in moment: offer the marketing opt-in. The welcome state
@@ -4070,6 +4146,9 @@
     var toolNames = {};      // toolCallId -> toolName (from tool-input-start / -available)
     var finished = false;
     var streamErrored = false;
+    // The network failed after partial content (catch below): finalized to
+    // keep the partial answer, but not a clean finish (SPEC C, HARDENING-1).
+    var streamBroken = false;
     // The session this turn belongs to. A sign-out / erase mid-stream rotates
     // the session and wipes the stored history — the late reply (it may carry
     // order data) must not be written into the NEXT person's fresh session.
@@ -4147,7 +4226,15 @@
       if (voiceMode) voiceAfterReply(asstParts, streamErrored);
       // A live product consultation finished cleanly: renew the attribution
       // token once per page view (API_CONTRACT §10; fail-silent, consent-gated).
-      if (!streamErrored && sid === streamSid && hasConsultationPart(asstParts)) moAttrRenew();
+      // A broken stream (network error after partial content) is no clean
+      // finish, even though streamErrored is still false there (SPEC C).
+      if (!streamBroken && !streamErrored && sid === streamSid && hasConsultationPart(asstParts)) moAttrRenew();
+      // Value moment (SPEC B3b): a clean product turn may carry the opt-in
+      // ask. Dormant unless the served copy has `valueMoment`. Guarded so a
+      // throw can never reach the catch below and add a false error row.
+      if (!streamBroken && !streamErrored && sid === streamSid) {
+        try { maybeValueMomentAsk(asstParts, streamSid, opts); } catch (e) {}
+      }
     }
 
     // Feed a part in the widget's canonical shape into history + the renderer.
@@ -4347,6 +4434,7 @@
         // (finalizeStream already shows the notice when an `error` chunk was
         // seen — don't double it.)
         var notified = streamErrored;
+        streamBroken = true;
         finalizeStream();
         if (!notified) showMessageError(L('Es gab ein Problem. Bitte versuch es gleich nochmal.', 'Something went wrong. Please try again in a moment.'));
       } else {
@@ -4932,6 +5020,18 @@
     // chat — anonymous visitors should feel free to just start typing.
     body.appendChild(el('div', { class: 'ms-chat-signin-hint', text: ACCOUNT_COPY.signInHint }));
     card.appendChild(body);
+    // Served reward teaser (SPEC B2): the card renders at once as before; the
+    // teaser + terms join above the CTA only if the copy answers while this
+    // card is still the live one in the welcome slot (updateWelcomeAuth
+    // replaces it on every auth change), for the same anonymous session.
+    var reqSid = sid;
+    fetchSignInConsentCopy().then(function (c) {
+      var r = signInTeaserReward(c);
+      if (!r || sid !== reqSid || !auth.settled || auth.signedIn) return;
+      if (!welcomeAuthEl || card.parentNode !== welcomeAuthEl || btn.parentNode !== body) return;
+      body.insertBefore(rewardTeaser(r), btn);
+      body.insertBefore(rewardTerms(r), btn);
+    }).catch(function () {}); // no copy -> the card stays as it is
     return card;
   }
 
@@ -5010,13 +5110,18 @@
   // nothing (it is remembered on the device only) and blocks nothing. KPI:
   // consent_gate_shown / _accepted / _declined with { surface: 'signin',
   // placement, variant? }, the same funnel as the popup (the card has no
-  // dismiss path). `placement` is 'signin_return' from presentSignInOptIn().
-  function buildMarketingOptInCard(placement) {
+  // dismiss path). `placement` is 'signin_return' from presentSignInOptIn(),
+  // 'value_moment' from maybeValueMomentAsk() — which passes the approved copy
+  // it already checked as `preCopy` (rendered at once, no second fetch).
+  function buildMarketingOptInCard(placement, preCopy) {
     placement = placement || 'signin_return';
     // Captured with the RENDERED copy (CONSENT_CONTRACT §3.2): the variant the
     // shopper saw and the session it was rendered for.
     var variant = null;
     var renderSid = sid;
+    // The served reward as rendered on this card (null: none) — drives the
+    // `reward` KPI flag and the after-accept line.
+    var reward = null;
     var card = el('div', { class: 'ms-chat-card ms-chat-optin-card' });
     var body = el('div', { class: 'ms-chat-card-body' });
     card.appendChild(body);
@@ -5034,7 +5139,7 @@
     function decline() {
       recordMktDecision('declined');
       markOptInDone();
-      track('consent_gate_declined', consentGateData(placement, variant));
+      track('consent_gate_declined', consentGateData(placement, variant, !!reward));
       card.remove();
     }
 
@@ -5042,7 +5147,13 @@
       copy = c;
       variant = servedVariant(c);
       renderSid = sid;
+      reward = c.lawyerApproved === true ? servedReward(c) : null;
       body.replaceChildren();
+      // Value-moment lead (served, SPEC B3) — this placement only, on top.
+      var vm = placement === 'value_moment' ? servedValueMoment(c) : null;
+      if (vm) body.appendChild(el('div', { class: 'ms-chat-vm-lead', text: vm.lead }));
+      // Reward badge above the headline (CONSENT_CONTRACT §3.1 extended).
+      if (reward) body.appendChild(rewardBadge(reward));
       // Benefit framing ABOVE the consent statement — explicitly NOT part of
       // consentTextShown (CONSENT_FLOW.md §2.1); rendered as served.
       if (typeof c.headline === 'string' && c.headline) {
@@ -5051,6 +5162,9 @@
       // Served benefit bullets (v5), all or nothing — never widget text.
       var cardBenefits = servedBenefits(c);
       if (cardBenefits) body.appendChild(benefitsList(cardBenefits, 'ms-chat-optin-benefits'));
+      // Served reward terms right after the framing, before the consent
+      // statement — never part of consentTextShown.
+      if (reward) body.appendChild(rewardTerms(reward));
       var form = el('form', { class: 'ms-chat-form ms-chat-optin', novalidate: 'novalidate' });
 
       // The SERVED consent statement, fully visible (never truncated) directly
@@ -5090,7 +5204,7 @@
       // reload re-rendering an unanswered card is not a second impression.
       if (ssGet(OPTIN_SHOWN_KPI_KEY) !== '1') {
         ssSet(OPTIN_SHOWN_KPI_KEY, '1');
-        track('consent_gate_shown', consentGateData(placement, variant));
+        track('consent_gate_shown', consentGateData(placement, variant, !!reward));
       }
 
       form.addEventListener('submit', function (ev) {
@@ -5130,13 +5244,17 @@
                 : (outcome === 'already' ? MKT_RESULT_COPY.alreadyTitle : MKT_RESULT_COPY.otherTitle) }));
               ok.appendChild(el('p', { text: outcome === 'pending' ? OPTIN_COPY.successPending
                 : (outcome === 'already' ? MKT_RESULT_COPY.already : MKT_RESULT_COPY.other) }));
+              // Served reward note — never for 'already' (no new sign-up).
+              if (reward && reward.afterAccept && outcome !== 'already') {
+                ok.appendChild(el('p', { class: 'ms-chat-reward-after', text: reward.afterAccept }));
+              }
               body.replaceChildren(ok);
               markOptInDone();
               recordMktDecision('accepted'); // quiets the consent gate on this device
               // Same place the popup counts it: the accept tap's POST succeeded —
               // and only under the session the ask was rendered for (a late 2xx
               // after a sign-out / rotation must not land on the next session).
-              if (sid === renderSid) track('consent_gate_accepted', consentGateData(placement, variant));
+              if (sid === renderSid) track('consent_gate_accepted', consentGateData(placement, variant, !!reward));
               scrollToBottom();
             });
           }
@@ -5175,6 +5293,9 @@
       });
     }
 
+    // preCopy: the caller already fetched + approved it for this sid.
+    if (preCopy) { renderForm(preCopy); return card; }
+
     fetchSignInConsentCopy().then(function (c) {
       // lawyerApproved:false means the copy is not yet legally signed off — do
       // not launch the surface to real users (CONSENT_FLOW.md §1).
@@ -5210,6 +5331,54 @@
     } catch (e) {
       try { console.error('[ms-chat] presentSignInOptIn failed', e); } catch (e2) {}
     }
+  }
+
+  // Value-moment ask (SPEC B3b, placement 'value_moment'): when the served
+  // copy carries `valueMoment`, the signed-in opt-in waits for a finished
+  // live product turn instead of the first-message popup, and is appended
+  // as its own Mo row (never part of asstParts, so never saved to history).
+  // Only finalizeStream calls this — restored history never asks. At most
+  // once per tab session (OPTIN_SHOWN_KPI_KEY, set when the card renders);
+  // vmAskState stops a second turn from arming it while the copy is fetched.
+  var VM_PARTS = { 'tool-show_product': 1, 'tool-compare_products': 1, 'tool-add_to_cart': 1 };
+  var vmAskState = 0; // 0 idle, 1 copy in flight, 2 shown (this page view)
+  function hasValueMomentPart(parts) {
+    for (var i = 0; parts && i < parts.length; i++) {
+      if (parts[i] && VM_PARTS[parts[i].type] === 1) return true;
+    }
+    return false;
+  }
+  // Re-run after the copy fetch: anything may have changed meanwhile.
+  function valueMomentEligible(forSid) {
+    if (sid !== forSid || !state.open || voiceMode || gateEl || state.rateLocked) return false;
+    // A newer turn already streaming: the card would land inside it.
+    if (state.streaming) return false;
+    // Never while a dialog is open — the history drawer counts too.
+    if (historyEl && historyEl.classList.contains('ms-chat-history--open')) return false;
+    if (!auth.settled || !auth.signedIn || !optInActionable()) return false;
+    if (ssGet(OPTIN_SHOWN_KPI_KEY) === '1') return false;
+    // A pending opt-in card already is the ask — never stack a second one.
+    if (lastOptInRow && lastOptInRow.parentNode === messagesEl &&
+        lastOptInRow.querySelector('.ms-chat-optin-card')) return false;
+    return true;
+  }
+  function maybeValueMomentAsk(parts, forSid, opts) {
+    if (vmAskState !== 0) return;
+    // A live user turn only (not the nudge's context greeting).
+    if (!opts || !opts.userMsg || !hasValueMomentPart(parts)) return;
+    if (!valueMomentEligible(forSid)) return;
+    vmAskState = 1;
+    fetchSignInConsentCopy().then(function (c) {
+      vmAskState = 0;
+      if (!c || c.lawyerApproved !== true || !servedValueMoment(c)) return;
+      if (!valueMomentEligible(forSid)) return;
+      var ar = assistantRow();
+      ar.content.appendChild(buildMarketingOptInCard('value_moment', c));
+      messagesEl.appendChild(ar.row);
+      lastOptInRow = ar.row;
+      vmAskState = 2;
+      scrollToBottom();
+    }).catch(function () { vmAskState = 0; }); // no copy -> no ask, silent
   }
 
   // ---------------------------------------------------------------------------
@@ -5305,6 +5474,13 @@
   // purpose: declining to sign in is not a marketing decision.
   var LOGIN_GATE_SNOOZE_KEY = 'ms-chat-login-gate-snooze';
   var LOGIN_GATE_SNOOZE_MS = 24 * 60 * 60 * 1000;
+  // An accept recorded on this device keeps every signin ask quiet this long
+  // (SPEC C, HARDENING-2): a second tab whose /api/auth/me predates the
+  // accept must not ask again and trigger a second DOI mail.
+  var MKT_ACCEPT_QUIET_MS = 24 * 60 * 60 * 1000;
+  // A chat sign-in return completed in this tab session (handleAuthReturn).
+  // In value-moment mode those visitors keep the immediate ask (SPEC B3a).
+  var SIGNIN_RETURNED_SS_KEY = 'ms-chat-signin-returned';
 
   function loadMktDecision() {
     try {
@@ -5318,17 +5494,21 @@
     try { lsSet(MKT_DECISION_KEY, JSON.stringify({ state: state, at: Date.now() })); } catch (e) {}
   }
   // True while this device remembers a DECLINE within MKT_DECLINE_SNOOZE_MS
-  // (the backend does not record a "Nein", CUSTOMER_ACCOUNT.md §6.1). An
-  // accept is NOT remembered here: after it the backend answers
-  // optInActionable:false, and when a DOI link expires unconfirmed it
-  // deliberately turns true again so the ask may be offered once more — a
-  // device "accepted" flag would override that. Read by optInActionable(), so
-  // the popup and the inline card follow the same memory.
+  // (the backend does not record a "Nein", CUSTOMER_ACCOUNT.md §6.1), or an
+  // ACCEPT within MKT_ACCEPT_QUIET_MS. The accept window is short on purpose:
+  // after it the backend answers optInActionable:false anyway, and when a DOI
+  // link expires unconfirmed it deliberately turns true again so the ask may
+  // be offered once more — a lasting device "accepted" flag would override
+  // that; 24 h only covers another tab with a stale /api/auth/me. Read by
+  // optInActionable(), so the popup and the inline cards follow one memory.
   function mktDecisionQuiet() {
     var d = loadMktDecision();
     if (!d) return false;
     var age = Date.now() - Number(d.at);
-    return d.state === 'declined' && age >= 0 && age < MKT_DECLINE_SNOOZE_MS;
+    if (!(age >= 0)) return false;
+    if (d.state === 'declined') return age < MKT_DECLINE_SNOOZE_MS;
+    if (d.state === 'accepted') return age < MKT_ACCEPT_QUIET_MS;
+    return false;
   }
 
   var gateEl = null; // the open gate overlay (at most one)
@@ -5392,10 +5572,14 @@
       setTimeout(function () { maybeShowConsentGate(tries + 1, userMsg); }, 500);
       return;
     }
-    if (loginGateEligible()) { presentLoginGate(); return; }
+    if (loginGateEligible()) { presentLoginGate(userMsg); return; }
     if (!consentGateEligible()) return;
     fetchSignInConsentCopy().then(function (c) {
       if (!c || c.lawyerApproved !== true) return;
+      // Value-moment mode (SPEC B3a): the ask waits for a product turn
+      // (maybeValueMomentAsk) — no popup, no GATE_SS_KEY, no KPI here. A
+      // visitor back from the chat's own sign-in keeps the immediate ask.
+      if (servedValueMoment(c) && ssGet(SIGNIN_RETURNED_SS_KEY) !== '1') return;
       // Re-check after the async fetch (a second send, sign-out, voice mode…).
       if (!consentGateEligible() || !state.open) return;
       presentConsentGate(c);
@@ -5478,10 +5662,46 @@
   //                                sends account_signin_started {source:'login_gate'})
   //   login_gate_declined        — "Später" (24h snooze)
   //   login_gate_dismissed       — backdrop / Esc (this session only)
-  // Nothing personal is sent — event names only.
-  function presentLoginGate() {
+  // Nothing personal is sent — event names only (login_gate_shown adds
+  // teaser:true + the served variant id only when the reward teaser rendered).
+  //
+  // The served reward teaser (SPEC B2) needs the signin copy: it is fetched
+  // first, but the popup waits for it at most LOGIN_GATE_COPY_WAIT_MS and
+  // then shows without it. loginGatePending keeps a second send's gate check
+  // from presenting a second popup during that wait (GATE_SS_KEY is set only
+  // at show time).
+  var LOGIN_GATE_COPY_WAIT_MS = 1200;
+  var loginGatePending = false;
+  function presentLoginGate(userMsg) {
+    if (loginGatePending) return;
+    loginGatePending = true;
+    var reqSid = sid;
+    var timer = null;
+    var copyP = fetchSignInConsentCopy().catch(function () { return null; });
+    var waitP = new Promise(function (resolve) {
+      timer = setTimeout(function () { resolve(null); }, LOGIN_GATE_COPY_WAIT_MS);
+    });
+    Promise.race([copyP, waitP]).then(function (c) {
+      clearTimeout(timer);
+      loginGatePending = false;
+      // Re-check after the wait: same session, panel open, no dialog, still
+      // anonymous + eligible — plus maybeShowConsentGate's own send guards
+      // (a rolled-back or rate-limited send keeps its error notice visible).
+      if (sid !== reqSid || !state.open || gateEl || !loginGateEligible()) return;
+      if ((userMsg && messages.indexOf(userMsg) === -1) || state.rateLocked) return;
+      showLoginGate(c);
+    });
+  }
+  function showLoginGate(c) {
+    var teaser = signInTeaserReward(c);
+    var shownData = {};
+    if (teaser) {
+      shownData.teaser = true;
+      var tv = servedVariant(c);
+      if (tv) shownData.variant = tv;
+    }
     ssSet(GATE_SS_KEY, '1');
-    track('login_gate_shown', {});
+    track('login_gate_shown', shownData);
 
     var waitTimer = null;
     var dlg = openGateDialog(GATE_COPY.loginAria,
@@ -5499,6 +5719,11 @@
       ul.appendChild(li);
     });
     card.appendChild(ul);
+    // Served reward teaser + its terms under the (widget) benefits.
+    if (teaser) {
+      card.appendChild(rewardTeaser(teaser));
+      card.appendChild(rewardTerms(teaser));
+    }
 
     var signIn = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary ms-chat-gate-accept' }, [ACCOUNT_COPY.signInHeader]);
     // "Später" is a REAL, equally reachable choice (same size, right below).
@@ -5548,6 +5773,9 @@
     // with the session the ask is rendered for.
     var variant = servedVariant(c);
     var renderSid = sid;
+    // The served reward (null: none) — rendered all or nothing; flags every
+    // consent_gate_* of this ask with reward:true (SPEC B1).
+    var reward = c.lawyerApproved === true ? servedReward(c) : null;
     // acceptStarted: the accept POST went out — from then on Esc / backdrop
     // (also on the success view) is no "dismiss" (it was a decision).
     // dialogClosed: the dialog is gone — a late POST answer must not reopen
@@ -5557,7 +5785,7 @@
     ssSet(GATE_SS_KEY, '1');
     if (ssGet(OPTIN_SHOWN_KPI_KEY) !== '1') { // shared with the inline card
       ssSet(OPTIN_SHOWN_KPI_KEY, '1');
-      track('consent_gate_shown', consentGateData(placement, variant));
+      track('consent_gate_shown', consentGateData(placement, variant, !!reward));
     }
 
     var dlg = openGateDialog(GATE_COPY.aria, function () {
@@ -5565,11 +5793,13 @@
       // included. Counted as consent_gate_dismissed only while no decision
       // was made — after the accept tap it behaves like „Weiter zur Antwort“.
       markOptInDone();
-      if (!acceptStarted) track('consent_gate_dismissed', consentGateData(placement, variant));
+      if (!acceptStarted) track('consent_gate_dismissed', consentGateData(placement, variant, !!reward));
     }, function () { dialogClosed = true; });
     var card = dlg.card;
     var close = dlg.close;
 
+    // Reward badge between the logo and the headline (§3.1 extended).
+    if (reward) card.appendChild(rewardBadge(reward));
     // Served benefit headline (framing, NOT part of consentTextShown).
     if (typeof c.headline === 'string' && c.headline) {
       card.appendChild(el('div', { class: 'ms-chat-gate-headline', text: c.headline }));
@@ -5578,6 +5808,8 @@
     // nothing — never bullets of the widget's own (§0 rule 11).
     var gateBenefits = servedBenefits(c);
     if (gateBenefits) card.appendChild(benefitsList(gateBenefits, 'ms-chat-gate-benefits'));
+    // Served reward terms after the framing, before the consent statement.
+    if (reward) card.appendChild(rewardTerms(reward));
 
     var errEl = el('div', { class: 'ms-chat-form-error', style: 'display:none' });
     function showError(m) { errEl.textContent = m; errEl.style.display = 'block'; }
@@ -5609,7 +5841,7 @@
     decline.addEventListener('click', function () {
       recordMktDecision('declined');
       markOptInDone(); // also quiets the welcome opt-in card this session
-      track('consent_gate_declined', consentGateData(placement, variant));
+      track('consent_gate_declined', consentGateData(placement, variant, !!reward));
       close();
     });
 
@@ -5622,6 +5854,10 @@
         : (outcome === 'already' ? MKT_RESULT_COPY.alreadyTitle : MKT_RESULT_COPY.otherTitle) }));
       ok.appendChild(el('p', { text: outcome === 'pending' ? GATE_COPY.successPending
         : (outcome === 'already' ? MKT_RESULT_COPY.already : MKT_RESULT_COPY.other) }));
+      // Served reward note — never for 'already' (no new sign-up).
+      if (reward && reward.afterAccept && outcome !== 'already') {
+        ok.appendChild(el('p', { class: 'ms-chat-reward-after', text: reward.afterAccept }));
+      }
       var cont = el('button', { type: 'button', class: 'ms-chat-btn ms-chat-btn--primary' }, [GATE_COPY.continueBtn]);
       cont.addEventListener('click', close);
       card.replaceChildren(ok, cont);
@@ -5688,7 +5924,7 @@
             // Only under the session the ask was rendered for: a late 2xx
             // after a sign-out / rotation must not land on the next session
             // (the server's signin_optin events keep the record).
-            if (sid === renderSid) track('consent_gate_accepted', consentGateData(placement, variant));
+            if (sid === renderSid) track('consent_gate_accepted', consentGateData(placement, variant, !!reward));
             if (!dialogClosed) showSuccess(marketingOutcome(data && data.marketing));
           });
         }

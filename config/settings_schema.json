@@ -1195,5 +1195,23 @@
         "default": "cart"
       }
     ]
+  },
+  {
+    "name": "Marketing-Hinweise",
+    "settings": [
+      {
+        "type": "header",
+        "content": "§ 7 Abs. 3 UWG"
+      },
+      {
+        "type": "paragraph",
+        "content": "Hinweis nach § 7 Abs. 3 UWG (Widerspruchsrecht bei E-Mail-Werbung an Bestandskunden). Nur mit anwaltlich freigegebenem Text befüllen; leer = kein Hinweis."
+      },
+      {
+        "type": "richtext",
+        "id": "ms_uwg73_notice",
+        "label": "Widerspruchshinweis im Warenkorb"
+      }
+    ]
   }
 ]

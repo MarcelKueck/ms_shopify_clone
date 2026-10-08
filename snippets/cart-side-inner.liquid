@@ -148,6 +148,9 @@
         </div>
     {% endcase %}
   {% endfor %}
+
+  {%- comment -%} § 7 Abs. 3 UWG objection notice (dormant while settings.ms_uwg73_notice is blank) {%- endcomment -%}
+  {% render 'ms-marketing-objection-notice' %}
 </div>
 
 <div id="Cart-Errors" role="alert" class="message message-danger text-danger mt-6"></div>

@@ -1,0 +1,17 @@
+{%- comment -%}
+  § 7 Abs. 3 UWG objection notice (existing-customer e-mail advertising).
+  DORMANT: renders nothing while Theme settings > Marketing-Hinweise >
+  "Widerspruchshinweis im Warenkorb" (settings.ms_uwg73_notice) is blank.
+  Fill it only with lawyer-approved copy.
+  Rendered in sections/cart-modal.liquid and snippets/cart-side-inner.liquid.
+{%- endcomment -%}
+{%- if settings.ms_uwg73_notice != blank -%}
+  <div class="ms-marketing-objection-notice text-xs md:text-sm text-foreground/75 mt-4">
+    {{- settings.ms_uwg73_notice -}}
+  </div>
+  <style>
+    .ms-marketing-objection-notice p { margin: 0; }
+    .ms-marketing-objection-notice p + p { margin-top: 0.5em; }
+    .ms-marketing-objection-notice a { text-decoration: underline; text-underline-offset: 2px; }
+  </style>
+{%- endif -%}

@@ -189,6 +189,9 @@
                 {% endform %}
               {% endif %}
             </div>
+
+            {%- comment -%} § 7 Abs. 3 UWG objection notice (dormant while settings.ms_uwg73_notice is blank) {%- endcomment -%}
+            {% render 'ms-marketing-objection-notice' %}
           </div>
         </div>
       </cart-form>

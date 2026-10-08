@@ -850,6 +850,59 @@ html.ms-chat-page-anim {
 }
 .ms-chat-gate-hint { margin-top: 0; }
 
+/* Served newsletter reward (copy v6, SPEC B/E) on the consent surfaces and
+   the anonymous sign-in teaser. Sale-tinted so it reads as the offer; the
+   terms stay small and muted but fully visible (served, never truncated). */
+.ms-chat-reward-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  margin: 0 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--msc-sale) / 30%);
+  background: rgb(var(--msc-sale) / 8%);
+  color: rgb(var(--msc-sale));
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.ms-chat-reward-badge svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.ms-chat-reward-badge span { min-width: 0; overflow-wrap: anywhere; }
+.ms-chat-reward-terms {
+  margin: 4px 0 8px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--msc-muted);
+  overflow-wrap: anywhere;
+}
+.ms-chat-reward-terms a { color: inherit; text-decoration: underline; }
+.ms-chat-reward-terms a:hover { color: rgb(var(--msc-fg)); }
+.ms-chat-reward-teaser {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--msc-input-radius, 8px);
+  background: rgb(var(--msc-sale) / 6%);
+  color: rgb(var(--msc-fg));
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.ms-chat-reward-teaser svg { width: 18px; height: 18px; flex: 0 0 auto; color: rgb(var(--msc-sale)); }
+.ms-chat-reward-teaser span { min-width: 0; overflow-wrap: anywhere; }
+/* The popup card is centered and spaced by its flex gap. */
+.ms-chat-gate-card .ms-chat-reward-badge { align-self: center; margin: 0; }
+.ms-chat-gate-card .ms-chat-reward-terms { margin: 0; }
+/* The sign-in card's teaser + terms sit right above the CTA (body gap 10px). */
+.ms-chat-signin-card .ms-chat-reward-terms { margin: -4px 0 0; }
+/* Value-moment lead on top of the inline opt-in card (served). */
+.ms-chat-vm-lead { font-weight: 600; margin: 0 0 8px; }
+.ms-chat-form-success .ms-chat-reward-after { margin-top: 6px; font-size: 0.85rem; }
+
 /* History drawer — slides over the panel from the right edge; signed-in only. */
 .ms-chat-history {
   position: absolute;
