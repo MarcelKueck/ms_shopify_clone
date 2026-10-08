@@ -12,7 +12,56 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-05, latest) — served consent benefits + variant, page context, attribution renewal
+## ⭐ Session update (2026-10-08, latest) — newsletter reward, sign-in teaser, value-moment ask (all dormant); cart § 7(3) notice setting
+
+Prepares the owner's four options for the newsletter sign-up reward. **Nothing changes for shoppers
+after this upload**: the widget parts stay off until the backend serves the new consent-copy fields
+(copy v6, see `docs/backend-handoff/OPTIN_REWARD_2026-10-08.md`), and the cart notice stays empty
+until a lawyer-approved text is entered in the theme settings. Pre-selection stays forbidden.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.css` | **MODIFIED** (reward badge / terms / teaser / value-moment styles) | ✅ Yes — replace the whole file |
+| `snippets/ms-marketing-objection-notice.liquid` | **NEW** | ✅ Yes — upload as a new file |
+| `sections/cart-modal.liquid` | **MODIFIED** (+1 render tag) | ✅ Yes — or hand-insert (below) |
+| `snippets/cart-side-inner.liquid` | **MODIFIED** (+1 render tag) | ✅ Yes — or hand-insert (below) |
+| `config/settings_schema.json` | **MODIFIED** (+ settings group „Marketing-Hinweise") | ✅ Yes — or hand-insert (below) |
+| `docs/backend-handoff/OPTIN_REWARD_2026-10-08.md` | **NEW** (docs only) | ❌ No — attach it for the backend agent |
+
+**Hand-edit instead of overwriting the shared theme files**
+- `sections/cart-modal.liquid`: directly after the `</div>` that closes the checkout-buttons block (after
+  `{% endform %}{% endif %}`), still inside the footer div, add
+  `{% render 'ms-marketing-objection-notice' %}`.
+- `snippets/cart-side-inner.liquid`: after the block loop's `{% endfor %}` (before the closing `</div>` that
+  precedes `<div id="Cart-Errors" …>`), add `{% render 'ms-marketing-objection-notice' %}`.
+- `config/settings_schema.json`: append this group as the last element of the top-level array:
+  `{"name":"Marketing-Hinweise","settings":[{"type":"header","content":"§ 7 Abs. 3 UWG"},{"type":"paragraph","content":"Hinweis nach § 7 Abs. 3 UWG (Widerspruchsrecht bei E-Mail-Werbung an Bestandskunden). Nur mit anwaltlich freigegebenem Text befüllen; leer = kein Hinweis."},{"type":"richtext","id":"ms_uwg73_notice","label":"Widerspruchshinweis im Warenkorb"}]}`
+
+**What the widget does once the backend serves copy v6** (all optional fields of
+`GET /api/consent-copy?surface=signin`, rendered verbatim, only with `lawyerApproved: true`, on `/en`
+only with `enLegalReviewed: true`):
+1. `reward.badge` + `reward.terms` (+ optional `termsUrl`): a gift badge above the headline and the
+   conditions under the benefits on the consent popup and the inline opt-in card; `reward.afterAccept`
+   on the success view. KPI `consent_gate_*` get `reward: true`.
+2. `reward.teaser`: shown with the terms on the anonymous login popup (which waits at most 1.2 s for the
+   copy) and on the welcome sign-in card. `login_gate_shown` gets `{teaser: true, variant}`.
+3. `valueMoment.lead`: the signed-in ask moves from the first-message popup to an inline card right after
+   Mo's first product recommendation (`placement: "value_moment"`), once per tab session. Visitors who just
+   signed in through the chat keep the immediate ask.
+
+**Active now (small hardening):** no attribution renewal or value-moment ask after a stream that broke
+mid-answer; an accept in another tab within 24 h keeps this tab from asking again (no second confirmation
+mail from the same device).
+
+**Switches / settings:** none in the widget. Theme setting „Widerspruchshinweis im Warenkorb" stays EMPTY
+until counsel approves a § 7 Abs. 3 UWG text.
+
+**New fingerprint markers:** `ms-chat-reward-badge`, `ms-chat-vm-lead` (existing markers unchanged).
+
+---
+
+## ⭐ Session update (2026-10-05) — served consent benefits + variant, page context, attribution renewal
 
 Implements the backend's `TASKS.md` of 2026-10-05 (tasks 1–3) against
 `API_CONTRACT.md`, `ACCOUNT_CONTRACT.md` and `CONSENT_CONTRACT.md`. The backend

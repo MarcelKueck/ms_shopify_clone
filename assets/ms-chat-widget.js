@@ -5024,14 +5024,20 @@
     // teaser + terms join above the CTA only if the copy answers while this
     // card is still the live one in the welcome slot (updateWelcomeAuth
     // replaces it on every auth change), for the same anonymous session.
-    var reqSid = sid;
-    fetchSignInConsentCopy().then(function (c) {
-      var r = signInTeaserReward(c);
-      if (!r || sid !== reqSid || !auth.settled || auth.signedIn) return;
-      if (!welcomeAuthEl || card.parentNode !== welcomeAuthEl || btn.parentNode !== body) return;
-      body.insertBefore(rewardTeaser(r), btn);
-      body.insertBefore(rewardTerms(r), btn);
-    }).catch(function () {}); // no copy -> the card stays as it is
+    // A sid change elsewhere while the copy loads (another tab signed out /
+    // rotated) refetches once for the new sid — the copy is per session.
+    function addTeaser(retry) {
+      var reqSid = sid;
+      fetchSignInConsentCopy().then(function (c) {
+        if (sid !== reqSid) { if (retry) addTeaser(false); return; }
+        var r = signInTeaserReward(c);
+        if (!r || !auth.settled || auth.signedIn) return;
+        if (!welcomeAuthEl || card.parentNode !== welcomeAuthEl || btn.parentNode !== body) return;
+        body.insertBefore(rewardTeaser(r), btn);
+        body.insertBefore(rewardTerms(r), btn);
+      }).catch(function () {}); // no copy -> the card stays as it is
+    }
+    addTeaser(true);
     return card;
   }
 
@@ -5672,7 +5678,11 @@
   // at show time).
   var LOGIN_GATE_COPY_WAIT_MS = 1200;
   var loginGatePending = false;
+  // The latest send that asked for the popup during the wait: if the first
+  // send is rolled back, a later one still gets its popup.
+  var loginGateLatestMsg = null;
   function presentLoginGate(userMsg) {
+    loginGateLatestMsg = userMsg || null;
     if (loginGatePending) return;
     loginGatePending = true;
     var reqSid = sid;
@@ -5688,7 +5698,10 @@
       // anonymous + eligible — plus maybeShowConsentGate's own send guards
       // (a rolled-back or rate-limited send keeps its error notice visible).
       if (sid !== reqSid || !state.open || gateEl || !loginGateEligible()) return;
-      if ((userMsg && messages.indexOf(userMsg) === -1) || state.rateLocked) return;
+      var liveMsg = (userMsg && messages.indexOf(userMsg) !== -1) ||
+        (loginGateLatestMsg && messages.indexOf(loginGateLatestMsg) !== -1);
+      if ((userMsg || loginGateLatestMsg) && !liveMsg) return;
+      if (state.rateLocked) return;
       showLoginGate(c);
     });
   }
