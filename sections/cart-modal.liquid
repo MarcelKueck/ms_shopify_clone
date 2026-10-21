@@ -1,17 +1,279 @@
 <style>
-  #shopify-section-{{ section.id }} .button-view-cart {
-    {% render 'button-vars',
-      background: section.settings.view_cart_background_color,
-      text: section.settings.view_cart_text_color
-    %}
+  #shopify-section-{{ section.id }} .button-checkout { background:#080808!important;color:#fff!important;border-color:#080808!important;width:100%;min-height:54px;font-size:15px;font-weight:700;letter-spacing:.015em; }
+  #shopify-section-{{ section.id }} .button-checkout:hover {background:#252525!important;border-color:#252525!important;}
+  #shopify-section-{{ section.id }} .ms-cart-summary {border-top:1px solid rgba(0,0,0,.12);padding-top:20px;}
+  #shopify-section-{{ section.id }} .ms-cart-summary__heading {font-size:13px;font-weight:750;letter-spacing:.055em;margin-bottom:14px;}
+  #shopify-section-{{ section.id }} .ms-cart-discount {margin-bottom:20px;}
+  #shopify-section-{{ section.id }} .ms-cart-discount__row {display:flex;gap:8px;align-items:stretch;}
+  #shopify-section-{{ section.id }} .ms-cart-discount__input {min-width:0;flex:1;border:1px solid #ccc;border-radius:3px;padding:12px;font-size:14px;background:#fff;color:#111;}
+  #shopify-section-{{ section.id }} .ms-cart-discount__apply {background:#111;color:#fff;border:1px solid #111;border-radius:3px;padding:0 16px;font-size:13px;font-weight:650;cursor:pointer;}
+  #shopify-section-{{ section.id }} .ms-cart-discount__apply:disabled {opacity:.55;cursor:wait;}
+  #shopify-section-{{ section.id }} .ms-cart-discount__message {font-size:12px;margin-top:8px;line-height:1.4;}
+  #shopify-section-{{ section.id }} .ms-cart-discount__message[data-state=error] {color:#b42318;}
+  #shopify-section-{{ section.id }} .ms-cart-discount__message[data-state=success] {color:#187044;}
+  #shopify-section-{{ section.id }} .ms-cart-summary__line {display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:14px;}
+  #shopify-section-{{ section.id }} .ms-cart-summary__line strong {font-size:17px;font-weight:750;white-space:nowrap;}
+  #shopify-section-{{ section.id }} .ms-cart-payments {display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;margin-top:15px;}
+  #shopify-section-{{ section.id }} .ms-cart-payments svg {height:23px;width:auto;max-width:55px;}
+  #shopify-section-{{ section.id }} .ms-cart-payments img {display:block;height:23px;width:auto;max-width:85px;object-fit:contain;}
+  #shopify-section-{{ section.id }} .ms-cart-payments__targo {border:1px solid #e2e2e2;border-radius:3px;padding:2px 5px;}
+  #shopify-section-{{ section.id }} .ms-cart-checkout {margin-top:18px;}
+  @media(max-width:575px){#shopify-section-{{ section.id }} .ms-cart-discount__input {font-size:16px;}#shopify-section-{{ section.id }} .ms-cart-discount__apply {padding:0 12px;}#shopify-section-{{ section.id }} .ms-cart-payments {gap:5px;}}
+
+/* KLEINER GEWÄHRLEISTUNGSLINK */
+.ms-legal-guarantee {
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.ms-legal-guarantee__link {
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: #777;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.ms-legal-guarantee__link:hover {
+  color: #111;
+}
+
+/* LIGHTBOX */
+.ms-legal-lightbox {
+  position: fixed;
+  inset: 0;
+  width: min(92vw, 720px);
+  max-width: 720px;
+  max-height: 92dvh;
+  margin: auto;
+  padding: 45px 20px 20px;
+  border: 0;
+  border-radius: 6px;
+  background: #fff;
+  color: #111;
+  overflow: auto;
+  box-shadow: 0 20px 80px rgba(0,0,0,.25);
+}
+
+.ms-legal-lightbox[open] {
+  display: block;
+}
+
+.ms-legal-lightbox::backdrop {
+  background: rgba(0,0,0,.78);
+}
+
+.ms-legal-lightbox__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 4px;
+  background: #111;
+  color: #fff;
+  font-size: 29px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.ms-legal-lightbox__close:hover {
+  background: #444;
+}
+
+.ms-legal-lightbox__content {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.ms-legal-lightbox__content img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: calc(92dvh - 75px);
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+/* MOBILE */
+@media (max-width: 749px) {
+  .ms-legal-lightbox {
+    width: 96vw;
+    max-width: 96vw;
+    max-height: 94dvh;
+    padding: 48px 12px 12px;
+    border-radius: 4px;
   }
 
-  #shopify-section-{{ section.id }} .button-checkout {
-    {% render 'button-vars',
-      background: section.settings.checkout_background_color,
-      text: section.settings.checkout_text_color
-    %}
+  .ms-legal-lightbox__content img {
+    max-height: calc(94dvh - 65px);
   }
+}
+
+/* MOTIONSPORTS: PAYMENT ICONS MOBIL EINZEILIG */
+@media (max-width: 749px) {
+
+  #shopify-section-{{ section.id }} .ms-cart-payments {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 3px !important;
+    width: 100%;
+    margin-top: 15px;
+  }
+
+  #shopify-section-{{ section.id }} .ms-cart-payments svg,
+  #shopify-section-{{ section.id }} .ms-cart-payments img {
+    display: block;
+    width: auto !important;
+    height: 17px !important;
+    max-width: 100% !important;
+    object-fit: contain;
+  }
+
+  #shopify-section-{{ section.id }} .ms-cart-payments__targo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 2px !important;
+    flex-shrink: 0;
+  }
+
+  #shopify-section-{{ section.id }} .ms-cart-payments > svg {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+}
+
+/* Gewährleistungshinweis mobil zentrieren */
+  .ms-legal-guarantee {
+    text-align: center !important;
+  }
+
+  
+/* ==========================================
+   MOTIONSPORTS CART DRAWER
+   MOBILE COMPACT LAYOUT
+   ========================================== */
+
+@media (max-width: 749px) {
+
+  /* 1. Oberen Leerraum reduzieren */
+  #cart-modal .modal-header {
+    padding-top: 8px !important;
+    padding-bottom: 10px !important;
+  }
+
+  #cart-modal .modal-header h2 {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* 2. Überschriften ausblenden */
+  #cart-modal .ms-cart-summary__heading {
+    display: none !important;
+  }
+
+  /* 3. Bestellübersicht kompakter */
+  #cart-modal .ms-cart-summary {
+    padding-top: 10px !important;
+    padding-bottom: 8px !important;
+  }
+
+  /* 4. Rabattcode-Abstände reduzieren */
+  #cart-modal .ms-cart-discount {
+    margin-top: 0 !important;
+    margin-bottom: 12px !important;
+  }
+
+  #cart-modal .ms-cart-discount__input {
+    padding: 9px 11px !important;
+    min-height: 40px !important;
+    font-size: 14px !important;
+  }
+
+  #cart-modal .ms-cart-discount__apply {
+    padding: 0 12px !important;
+    min-height: 40px !important;
+    font-size: 12px !important;
+  }
+
+  /* 5. Gesamtpreis kompakter */
+  #cart-modal .ms-cart-summary__line {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    font-size: 13px !important;
+  }
+
+  #cart-modal .ms-cart-summary__line strong {
+    font-size: 16px !important;
+  }
+
+  /* 6. Checkout-Button verkleinern */
+  #cart-modal .ms-cart-checkout {
+    margin-top: 10px !important;
+  }
+
+  #cart-modal .button-checkout {
+    min-height: 44px !important;
+    padding: 10px 15px !important;
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+
+  /* 7. Payments dichter an Checkout */
+  #cart-modal .ms-cart-payments {
+    margin-top: 9px !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* 8. Gewährleistungslink kompakter */
+  #cart-modal .ms-legal-guarantee {
+    margin-top: 5px !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    text-align: center !important;
+  }
+
+  #cart-modal .ms-legal-guarantee__link {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+  }
+
+  /* 9. Unteren Leerraum reduzieren */
+  #cart-modal cart-form > .flex.flex-col.h-full {
+    padding-bottom: 0 !important;
+  }
+
+  /* 10. Artikelliste bekommt verfügbaren Platz */
+  #cart-modal #CartModal-ScrollBody {
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    padding-bottom: 8px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+}
+/* MOTIONSPORTS – Überschriften auf allen Geräten ausblenden */
+#cart-modal .ms-cart-summary__heading {
+  display: none !important;
+}
+
 </style>
 
 <cart-modal position="right" class="modal modal-drawer modal-drawer--right cart-modal" id="cart-modal">
@@ -59,138 +321,140 @@
 
             {% render 'cart-modal-product-recommendations' %}
           </div>
-{% assign egl_locale = request.locale.iso_code | default: 'de' | downcase %}
-{% assign egl_country = localization.country.iso_code | default: 'DE' | downcase %}
-
-<div
-  id="consentico-cart-modal"
-  class="px-[--cart-modal-px] pt-4 pb-4"
->
-  <div class="egl-cn">
-
-    <details class="egl-cn__panel">
-
-      <summary class="egl-cn__summary">
-        Ihre gesetzliche Gewährleistung
-      </summary>
-
-      <div class="egl-cn__body">
-
-        <img
-          class="egl-cn__img"
-          src="https://eu-guarantee.consentico.com/api/notice.svg?locale={{ egl_locale }}&market={{ egl_country }}&country={{ egl_country }}&defaultCountry={{ egl_country }}"
-          width="595"
-          height="842"
-          loading="eager"
-          alt="Hinweis zur gesetzlichen Gewährleistung in der EU"
-        >
-
-        <div
-          class="egl-cn__a11y"
-          data-egl-notice-text
-          data-src="https://eu-guarantee.consentico.com/api/notice.txt?locale={{ egl_locale }}&market={{ egl_country }}&country={{ egl_country }}&defaultCountry={{ egl_country }}"
-          lang="{{ egl_locale }}"
-        ></div>
-
-        <a
-          class="egl-cn__link"
-          href="https://eu-guarantee.consentico.com/api/notice/link?locale={{ egl_locale }}&market={{ egl_country }}&country={{ egl_country }}&defaultCountry={{ egl_country }}"
-          target="_blank"
-          rel="noopener"
-        >
-          Mehr über Ihre gesetzliche Gewährleistung erfahren
-        </a>
-
-      </div>
-
-    </details>
-
-    <p class="egl-cn__attr">
-      Bereitgestellt von
-      <a
-        class="egl-cn__attr-link"
-        href="https://apps.shopify.com/eu-guarantee-warranty-label?utm_source=storefront&utm_medium=attribution&utm_campaign=powered_by"
-        target="_blank"
-        rel="noopener"
-      >
-        Consent<span class="egl-cn__ico">ico</span>
-      </a>
-    </p>
-
-  </div>
-</div>
-          <div class="mt-0 px-[--cart-modal-px] pt-6 sm:pt-8 pb-6 sm:pb-10 border-t">
-            <div class="h6 leading-none flex items-center justify-between gap-4">
-              <div>
-                {{ 'sections.cart.total' | t }}
-              </div>
-
-              <div class="cart-total">{{ cart.total_price | money_with_currency }}</div>
-            </div>
-
-            {% if section.settings.show_tax_and_shipping_message %}
-              <div class="text-xs md:text-sm text-foreground/75 mt-4">
-                {% render 'cart-policy-text' %}
+          <div class="ms-cart-summary px-[--cart-modal-px] pb-6 sm:pb-8">
+            {% if section.settings.ms_show_discount %}
+              <div class="ms-cart-discount">
+                <div class="ms-cart-summary__heading">RABATTCODE</div>
+                <form class="ms-cart-discount__form" data-ms-discount-form>
+                  <div class="ms-cart-discount__row">
+                    <input class="ms-cart-discount__input" name="discount" type="text" autocomplete="off" placeholder="Rabattcode eingeben" aria-label="Rabattcode" required>
+                    <button class="ms-cart-discount__apply" type="submit">Anwenden</button>
+                  </div>
+                  <p class="ms-cart-discount__message" data-ms-discount-message role="status" aria-live="polite" hidden></p>
+                </form>
               </div>
             {% endif %}
 
+            <div class="ms-cart-summary__heading">BESTELLÜBERSICHT</div>
+            <div class="ms-cart-summary__line">
+              <span>{{ 'sections.cart.total' | t }}</span>
+              <strong class="cart-total">{{ cart.total_price | money_with_currency }}</strong>
+            </div>
+            {% if cart.cart_level_discount_applications.size > 0 %}
+              {% for discount in cart.cart_level_discount_applications %}
+                <div class="ms-cart-summary__line" style="margin-top:10px;color:#187044;">
+                  <span>{{ discount.title | escape }}</span>
+                  <span>-{{ discount.total_allocated_amount | money }}</span>
+                </div>
+              {% endfor %}
+            {% endif %}
+            {% if section.settings.show_tax_and_shipping_message %}
+              <div class="text-xs md:text-sm text-foreground/75 mt-3">{% render 'cart-policy-text' %}</div>
+            {% endif %}
             {% if section.settings.show_cart_note or section.settings.show_shipping_estimator %}
               <div class="flex flex-wrap gap-x-6 gap-y-4 my-4 md:my-6">
                 {% if section.settings.show_cart_note %}
                   <modal-trigger class="contents" target="#cart-modal-add-order-note">
-                    <button class="flex gap-3 text-xs md:text-sm hover:underline underline-offset-4">
-                      <div class="icon-xs md:icon-sm">
-                        {% render 'icon-pencil' %}
-                      </div>
-                      <span class="order-note-button-label">
-                        {% if cart.note != blank %}
-                          {{ 'sections.cart.edit_note' | t }}
-                        {% else %}
-                          {{ 'sections.cart.add_note' | t }}
-                        {% endif %}
-                      </span>
+                    <button type="button" class="flex gap-3 text-xs md:text-sm hover:underline underline-offset-4">
+                      <div class="icon-xs md:icon-sm">{% render 'icon-pencil' %}</div>
+                      <span class="order-note-button-label">{% if cart.note != blank %}{{ 'sections.cart.edit_note' | t }}{% else %}{{ 'sections.cart.add_note' | t }}{% endif %}</span>
                     </button>
                   </modal-trigger>
                 {% endif %}
-
                 {% if section.settings.show_shipping_estimator %}
                   <modal-trigger class="contents" target="#cart-modal-estimate-shipping">
-                    <button class="flex gap-3 text-xs md:text-sm hover:underline underline-offset-4">
-                      <div class="icon-xs md:icon-sm">
-                        {% render 'icon-truck' %}
-                      </div>
+                    <button type="button" class="flex gap-3 text-xs md:text-sm hover:underline underline-offset-4">
+                      <div class="icon-xs md:icon-sm">{% render 'icon-truck' %}</div>
                       <span>{{ 'sections.cart.estimate_shipping' | t }}</span>
                     </button>
                   </modal-trigger>
                 {% endif %}
               </div>
             {% endif %}
+            <div class="ms-cart-checkout">
+              {% form 'cart', cart, data-form-button-loading: true %}
+                
+<button type="submit" name="checkout" class="button button-primary button-checkout">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+    style="display:inline-block;vertical-align:middle;margin-right:9px;"
+  >
+    <path d="M5 8h14l1 13H4L5 8Z"/>
+    <path d="M9 9V6a3 3 0 0 1 6 0v3"/>
+  </svg>
+  <span style="vertical-align:middle;">
+    {{ 'sections.cart.checkout' | t }}
+  </span>
+</button>
 
-            <div class="cart-modal-buttons flex flex-wrap gap-2 md:gap-3 mt-6">
-              {% if section.settings.show_view_cart_button or section.settings.show_checkout_button == false %}
-                <a
-                  data-instant
-                  href="{{ routes.cart_url }}"
-                  class="button button-secondary button-view-cart min-w-fit max-sm:text-xs flex-1"
-                >
-                  {{ 'sections.cart.view_cart' | t }}
-                </a>
-              {% endif %}
-
-              {% if section.settings.show_checkout_button %}
-                {% form 'cart', cart, data-form-button-loading: true, class: 'contents' %}
-                  <button
-                    type="submit"
-                    name="checkout"
-                    class="button button-primary button-checkout min-w-fit max-sm:text-xs flex-1"
-                  >
-                    {{ 'sections.cart.checkout' | t }}
-                  </button>
-                {% endform %}
-              {% endif %}
+              {% endform %}
             </div>
+            
+{% if section.settings.ms_show_payments %}
+  <div class="ms-cart-payments" aria-label="Akzeptierte Zahlungsarten">
 
-            {%- comment -%} § 7 Abs. 3 UWG objection notice (dormant while settings.ms_uwg73_notice is blank) {%- endcomment -%}
+    <!-- TARGOBANK -->
+    <span class="ms-cart-payments__targo">
+      <img
+        src="https://cdn.shopify.com/s/files/1/0823/4896/6217/files/targo-mini.jpg?v=1769417895"
+        alt="TARGOBANK"
+        width="38"
+        height="24"
+        loading="lazy"
+      >
+    </span>
+
+    <!-- Festgelegte Zahlungsarten -->
+    {% assign ms_payment_types = 'visa,master,american_express,maestro,apple_pay,google_pay,klarna,paypal' | split: ',' %}
+
+    {% for type in ms_payment_types %}
+      {{ type | payment_type_svg_tag: class: 'ms-cart-payment-icon' }}
+    {% endfor %}
+
+  </div>
+{% endif %}
+
+<!-- GESETZLICHE GEWÄHRLEISTUNG -->
+<div class="ms-legal-guarantee">
+  <button
+    type="button"
+    class="ms-legal-guarantee__link"
+    onclick="document.getElementById('ms-legal-lightbox').showModal()"
+  >
+    Deine gesetzliche Gewährleistung
+  </button>
+</div>
+
+<dialog id="ms-legal-lightbox" class="ms-legal-lightbox" aria-label="Ihre gesetzliche Gewährleistung">
+  <button
+    type="button"
+    class="ms-legal-lightbox__close"
+    aria-label="Schließen"
+    onclick="document.getElementById('ms-legal-lightbox').close()"
+  >
+    &times;
+  </button>
+
+  <div class="ms-legal-lightbox__content">
+    <img
+      src="https://cdn.shopify.com/s/files/1/0823/4896/6217/files/Legal_guarantee_notice_DE.webp?v=1792409318"
+      alt="Informationen zur gesetzlichen Gewährleistung"
+      loading="lazy"
+      width="595"
+      height="842"
+    >
+  </div>
+</dialog>
+
             {% render 'ms-marketing-objection-notice' %}
           </div>
         </div>
@@ -301,6 +565,27 @@
       "id": "show_checkout_button",
       "label": "t:sections.cart-modal.settings.show_checkout_button.label",
       "default": true
+    },
+    {
+      "type": "header",
+      "content": "MotionSports Checkout"
+    },
+    {
+      "type": "checkbox",
+      "id": "ms_show_discount",
+      "label": "Rabattcode im Drawer anzeigen",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "ms_show_payments",
+      "label": "Zahlungslogos anzeigen",
+      "default": true
+    },
+    {
+      "type": "image_picker",
+      "id": "ms_targo_logo",
+      "label": "TARGOBANK-Logo (falls nicht automatisch enthalten)"
     },
     {
       "type": "header",

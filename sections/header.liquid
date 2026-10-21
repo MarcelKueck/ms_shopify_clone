@@ -936,12 +936,7 @@ href="{{ link.url }}"
 </a>
 {% else %}
 {% assign menu_dropdown_id = 'menu-dropdown-' | append: forloop.index %}
-{% render 'menu-dropdown',
-link: link,
-interaction_handler: section.settings.open_dropdowns_on,
-id: menu_dropdown_id,
-is_active: link.current or link.child_active
-%}
+{% render 'menu-dropdown', link: link, interaction_handler: section.settings.open_dropdowns_on, id: menu_dropdown_id, is_active: link.current %}
 {% endif %}
 {% endif %}
 </li>
@@ -1598,3 +1593,20 @@ language_selector: section.settings.enable_language_selector
 ]
 }
 {% endschema %}
+{% comment %}
+
+This file has been rewritten to preserve the original behavior.
+
+---
+Changes:
+- from: |-
+    {% render 'menu-dropdown',
+    link: link,
+    interaction_handler: section.settings.open_dropdowns_on,
+    id: menu_dropdown_id,
+    is_active: link.current or link.child_active
+    %}
+  to: "{% render 'menu-dropdown', link: link, interaction_handler: section.settings.open_dropdowns_on,
+    id: menu_dropdown_id, is_active: link.current %}"
+  position: 22264..22408
+{% endcomment %}

@@ -228,8 +228,171 @@
     </details>
   {%- endif -%}
 
+
+  {%- comment -%}
+    4. TARGOBANK Ratenkauf – Konditionen analog Checkout-Erweiterung
+  {%- endcomment -%}
+  <details class="pda-accordion pda-accordion--targobank">
+    <summary class="pda-accordion__summary">
+      <span class="pda-accordion__title pda-targo__summary-title">
+        <span class="pda-targo__wordmark" aria-label="TARGOBANK"><span>TARGO</span><span>BANK</span></span>
+        <span class="pda-targo__summary-subtitle" data-pda-targo-rate="{{ product.id }}">Ratenkauf ab 99 € Warenkorb</span>
+      </span>
+      <span class="pda-accordion__icon" aria-hidden="true">
+        <svg viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+          <path d="M1 1.25L6 6.25L11 1.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </span>
+    </summary>
+    <div class="pda-accordion__content pda-targo__content">
+      <h3 class="pda-targo__heading">Erfülle dir deinen Wunsch – ganz einfach finanzieren</h3>
+      <p>Gemeinsam mit unserem Finanzierungspartner TARGOBANK ermöglichen wir dir eine bequeme Finanzierung in monatlichen Raten – für Warenkörbe ab 99,00 €.</p>
+      <h4 class="pda-targo__subheading">Unsere Finanzierungskonditionen</h4>
+      <div class="pda-targo__table-scroll">
+        <table class="pda-targo__table">
+          <thead><tr><th scope="col">Laufzeit</th><th scope="col">Effektiver Jahreszins</th></tr></thead>
+          <tbody>
+            <tr><td>6–12 Monate</td><td>5,90 %</td></tr>
+            <tr><td>15–21 Monate</td><td>6,90 %</td></tr>
+            <tr><td>24–30 Monate</td><td>7,90 %</td></tr>
+            <tr><td>33–36 Monate</td><td>8,90 %</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pda-targo__de-only"><strong>Nur innerhalb Deutschlands verfügbar.</strong> Finanzierung ab 99,00 € Warenkorbwert und vorbehaltlich der Prüfung durch die TARGOBANK.</p>
+      <h4 class="pda-targo__subheading">Deine Vorteile</h4>
+      <ul class="pda-targo__benefits">
+        <li>Flexible Laufzeiten von 6 bis 36 Monaten</li>
+        <li>Übersichtliche monatliche Raten</li>
+        <li>Finanzierungsantrag online abschließen</li>
+      </ul>
+      <div class="pda-targo__howto">
+        <strong>So einfach funktioniert die Finanzierung</strong>
+        <p>Wähle an der Kasse einfach die Zahlungsart <strong>TARGOBANK Finanzierung</strong> und folge den weiteren Schritten. Nach Abschluss deiner Bestellung gelangst du zum Finanzierungsantrag der TARGOBANK.</p>
+      </div>
+      <p class="pda-targo__legal">Die Finanzierung erfolgt vorbehaltlich der Prüfung und Genehmigung durch die TARGOBANK. Die Angaben sind unverbindlich; maßgeblich sind die Konditionen im individuellen Finanzierungsangebot. Eine monatliche Mindestrate kann gelten.</p>
+    </div>
+  </details>
+
 </div>
 <style>
+
+  /* Einheitliche kleine Schrift in allen vier Accordion-Kopfzeilen */
+  .pda-accordions .pda-accordion > .pda-accordion__summary .pda-accordion__title,
+  .pda-accordions .pda-accordion > .pda-accordion__summary .pda-accordion__title strong {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+  /* Einheitliche Typografie fuer Highlights-Listen und Lieferzeit */
+  .pda-accordions .pda-accordion--highlights .pda-accordion__content--highlights,
+  .pda-accordions .pda-accordion--highlights .pda-accordion__content--highlights ul,
+  .pda-accordions .pda-accordion--highlights .pda-accordion__content--highlights ol,
+  .pda-accordions .pda-accordion--highlights .pda-accordion__content--highlights li,
+  .pda-accordions .pda-accordion--highlights .pda-accordion__content--highlights li *,
+  .pda-accordions .pda-accordion--delivery > .pda-accordion__summary,
+  .pda-accordions .pda-accordion--delivery > .pda-accordion__summary .pda-accordion__title,
+  .pda-accordions .pda-accordion--delivery > .pda-accordion__summary .pda-accordion__title *,
+  .pda-accordions .pda-accordion--delivery .pda-accordion__content--delivery,
+  .pda-accordions .pda-accordion--delivery .pda-accordion__content--delivery * {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* TARGOBANK Accordion – nur Produktdetailansicht */
+  .pda-accordion--targobank .pda-targo__summary-title {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .pda-accordion--targobank .pda-targo__wordmark {
+    display: inline-flex;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: -.35px;
+    white-space: nowrap;
+  }
+  .pda-accordion--targobank .pda-targo__wordmark span:first-child { color: #003b70; }
+  .pda-accordion--targobank .pda-targo__wordmark span:last-child { color: #c61c48; }
+  .pda-accordion--targobank .pda-targo__summary-subtitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+  }
+  .pda-accordion--targobank[open] > .pda-accordion__summary {
+    border-bottom: 2px solid #008ccb;
+  }
+  .pda-accordion--targobank .pda-targo__content {
+    padding-top: 32px !important;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .pda-accordion--targobank .pda-targo__heading {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 0 0 8px;
+  }
+  .pda-accordion--targobank .pda-targo__subheading {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 20px 0 9px;
+  }
+  .pda-accordion--targobank .pda-targo__content p { margin: 0 0 12px; }
+  .pda-accordion--targobank .pda-targo__table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .pda-accordion--targobank .pda-targo__table {
+    width: 100%;
+    min-width: 230px;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 0;
+  }
+  .pda-accordion--targobank .pda-targo__table th,
+  .pda-accordion--targobank .pda-targo__table td {
+    border: 1px solid #d7e2e9;
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: middle;
+  }
+  .pda-accordion--targobank .pda-targo__table th {
+    background: #f0f9fd;
+    color: #003b70;
+    font-weight: 700;
+  }
+  .pda-accordion--targobank .pda-targo__table tbody tr:nth-child(even) { background: #f8fbfd; }
+  .pda-accordion--targobank .pda-targo__de-only {
+    margin: 12px 0 6px !important;
+    font-size: 12px;
+    color: #334a5c;
+  }
+  .pda-accordion--targobank .pda-targo__benefits {
+    padding-left: 19px;
+    margin: 0 0 16px;
+  }
+  .pda-accordion--targobank .pda-targo__benefits li { margin: 3px 0; }
+  .pda-accordion--targobank .pda-targo__howto {
+    background: #f0f9fd;
+    border-left: 4px solid #008ccb;
+    padding: 13px 15px;
+    margin: 18px 0 14px;
+  }
+  .pda-accordion--targobank .pda-targo__howto strong { color: #003b70; }
+  .pda-accordion--targobank .pda-targo__howto p { margin: 6px 0 0; }
+  .pda-accordion--targobank .pda-targo__legal {
+    color: #666;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+  }
+  @media (max-width: 749px) {
+    .pda-accordion--targobank .pda-targo__summary-title { gap: 5px 9px; }
+    .pda-accordion--targobank .pda-targo__table th,
+    .pda-accordion--targobank .pda-targo__table td { padding: 8px 9px; }
+  }
   /*
    * Produktempfehlungen: sichtbare horizontale Scrollbars vollständig
    * unterdrücken, ohne die Pfeil-/Touch-Navigation zu deaktivieren.
@@ -285,6 +448,108 @@
     }
   }
 </style>
+
+<script>
+  (function () {
+    var productId = {{ product.id | json }};
+    var priceCents = {{ product.selected_or_first_available_variant.price | json }};
+    var variants = {{ product.variants | json }};
+    var rateElement = document.querySelector('[data-pda-targo-rate="' + productId + '"]');
+    if (!rateElement) return;
+
+    var cartTotalCents = null;
+    var cartRequest = 0;
+    var refreshTimer = null;
+    var euroFormatter = new Intl.NumberFormat('de-DE', {
+      style: 'currency', currency: 'EUR'
+    });
+
+    function readSelectedVariant() {
+      var params = new URLSearchParams(window.location.search);
+      var variantId = params.get('variant');
+      var productForm = rateElement.closest('.product') || document;
+      var variantInput = productForm.querySelector('form[action*="/cart/add"] [name="id"]');
+      if (variantInput && variantInput.value) variantId = variantInput.value;
+      var selected = variants.find(function (variant) {
+        return String(variant.id) === String(variantId);
+      });
+      return selected ? selected.price : priceCents;
+    }
+
+    function updateRate() {
+      var amount = Number(readSelectedVariant()) / 100;
+      var cartAmount = Number(cartTotalCents) / 100;
+      var cartEmpty = cartTotalCents === 0;
+      var eligible = cartTotalCents !== null && (
+        cartAmount >= 99 || (cartEmpty && amount >= 99)
+      );
+
+      if (!eligible || !Number.isFinite(amount) || amount <= 0) {
+        rateElement.textContent = 'Ratenkauf ab 99 € Warenkorb';
+        return;
+      }
+
+      var yearlyRate = 0.089;
+      var monthlyRate = Math.pow(1 + yearlyRate, 1 / 12) - 1;
+      var payment = amount * monthlyRate / (1 - Math.pow(1 + monthlyRate, -36));
+      if (!Number.isFinite(payment)) {
+        rateElement.textContent = 'Ratenkauf ab 99 € Warenkorb';
+        return;
+      }
+      rateElement.textContent = 'ab ' +
+        euroFormatter.format(payment) + ' mtl. finanzieren';
+    }
+
+    function refreshCart() {
+      var requestId = ++cartRequest;
+      var root = (window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/';
+      fetch(root + 'cart.js', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {Accept: 'application/json'}
+      }).then(function (response) {
+        if (!response.ok) throw new Error('Warenkorb nicht erreichbar');
+        return response.json();
+      }).then(function (cart) {
+        if (requestId !== cartRequest) return;
+        cartTotalCents = Number(cart.total_price);
+        if (!Number.isFinite(cartTotalCents)) cartTotalCents = null;
+        updateRate();
+      }).catch(function () {
+        if (requestId !== cartRequest) return;
+        cartTotalCents = null;
+        updateRate();
+      });
+    }
+
+    function scheduleCartRefresh() {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(refreshCart, 250);
+    }
+
+    updateRate();
+    refreshCart();
+    document.addEventListener('change', function () {
+      window.setTimeout(updateRate, 0);
+    });
+    window.addEventListener('popstate', updateRate);
+    document.addEventListener('variant:change', function (event) {
+      var variant = event.detail && event.detail.variant;
+      if (variant && variant.price != null) {
+        priceCents = variant.price;
+      }
+      updateRate();
+    });
+    ['cart:updated', 'cart:refresh', 'cart:change', 'cart:added', 'cart:removed'].forEach(function (name) {
+      document.addEventListener(name, scheduleCartRefresh);
+      window.addEventListener(name, scheduleCartRefresh);
+    });
+    window.addEventListener('pageshow', refreshCart);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) refreshCart();
+    });
+  })();
+</script>
 
 <script>
   (function () {
@@ -792,3 +1057,17 @@ return (
     );
   })();
 </script>
+
+<!-- TARGOBANK v6: Lieferzeile konsequent auf 12px setzen -->
+<style>
+  .pda-accordions details.pda-accordion--delivery > summary.pda-accordion__summary,
+  .pda-accordions details.pda-accordion--delivery > summary.pda-accordion__summary *,
+  .pda-accordions details.pda-accordion--delivery > summary.pda-accordion__summary *::before,
+  .pda-accordions details.pda-accordion--delivery > summary.pda-accordion__summary *::after,
+  .pda-accordions details.pda-accordion--delivery .pda-accordion__content--delivery,
+  .pda-accordions details.pda-accordion--delivery .pda-accordion__content--delivery * {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    letter-spacing: normal !important;
+  }
+</style>

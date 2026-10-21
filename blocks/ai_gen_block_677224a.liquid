@@ -668,6 +668,12 @@
 
 }
 
+.ai-{{ ai_gen_id }}__grid > [hidden] { display: none !important; }
+/* Endless Scrolling: Pagination als technischer Fallback erhalten */
+.ai-{{ ai_gen_id }}__pagination { display:none; }
+.ai-{{ ai_gen_id }}__infinite { display:flex; align-items:center; justify-content:center; gap:12px; min-height:42px; margin-top:18px; font-size:13px; }
+.ai-{{ ai_gen_id }}__infinite [data-infinite-retry] { padding:10px 18px; border:1px solid currentColor; background:transparent; cursor:pointer; }
+@media (prefers-reduced-motion: reduce) { .ai-{{ ai_gen_id }}__card { transition:none; } }
 {% endstyle %}
 
 
@@ -1216,9 +1222,12 @@
 
 <div class="ai-{{ ai_gen_id }}__grid">
 
+{% assign availability_passes = 'available,unavailable' | split: ',' %}
+{% for availability_pass in availability_passes %}
 {% for product in collection.products %}
+{% if availability_pass == 'available' and product.available or availability_pass == 'unavailable' and product.available == false %}
 
-<article class="ai-{{ ai_gen_id }}__card">
+<article class="ai-{{ ai_gen_id }}__card" data-product-available="{{ product.available }}">
 
 
 <a
@@ -1226,25 +1235,33 @@
   href="{{ product.url }}"
 >
 
-{% assign max_saving = 0 %}
-
+{% comment %}
+  Rabatt der Haupt-/Preisvariante: Die Variante mit dem Preis,
+  der unten in der Produktkarte als product.price ausgegeben wird.
+{% endcomment %}
+{% assign card_variant = blank %}
 {% for variant in product.variants %}
-  {% if variant.compare_at_price != blank and variant.compare_at_price > variant.price %}
-    {% assign variant_saving = variant.compare_at_price | minus: variant.price %}
-    {% if variant_saving > max_saving %}
-      {% assign max_saving = variant_saving %}
-    {% endif %}
+  {% if variant.price == product.price %}
+    {% assign card_variant = variant %}
+    {% break %}
   {% endif %}
 {% endfor %}
+
+{% assign card_saving = 0 %}
+{% if card_variant != blank and card_variant.compare_at_price != blank %}
+  {% if card_variant.compare_at_price > card_variant.price %}
+    {% assign card_saving = card_variant.compare_at_price | minus: card_variant.price %}
+  {% endif %}
+{% endif %}
 
 <div class="ai-{{ ai_gen_id }}__badges">
   {% unless product.available %}
     <span class="ai-{{ ai_gen_id }}__badge ai-{{ ai_gen_id }}__badge--soldout">Ausverkauft</span>
   {% endunless %}
 
-  {% if max_saving > 0 %}
+  {% if card_saving > 0 %}
     <span class="ai-{{ ai_gen_id }}__badge ai-{{ ai_gen_id }}__badge--sale">
-      {{ max_saving | money }} sparen
+      {{ card_saving | money }} sparen
     </span>
   {% endif %}
 </div>
@@ -1282,10 +1299,10 @@
 
 {{ product.price | money }}
 
-{% if product.compare_at_price > product.price %}
+{% if card_saving > 0 %}
 
 <s>
-  {{ product.compare_at_price | money }}
+  {{ card_variant.compare_at_price | money }}
 </s>
 
 {% endif %}
@@ -1574,13 +1591,19 @@
 
 </article>
 
+{% endif %}
+{% endfor %}
 {% endfor %}
 
 </div>
 
 
-<div class="ai-{{ ai_gen_id }}__pagination">
+<div class="ai-{{ ai_gen_id }}__pagination" data-infinite-pagination data-next-url="{% if paginate.next %}{{ paginate.next.url | escape }}{% endif %}" data-total-products="{{ collection.products_count }}" data-page-size="{{ block.settings.products_per_page }}">
   {{ paginate | default_pagination }}
+</div>
+<div class="ai-{{ ai_gen_id }}__infinite" data-infinite-sentinel aria-live="polite">
+  <span data-infinite-status></span>
+  <button type="button" data-infinite-retry hidden>Weitere Produkte laden</button>
 </div>
 
 {% endpaginate %}
@@ -1671,7 +1694,10 @@
          QUICK ADD TO CART
       ============================================================ */
 
-      this.querySelectorAll('[data-id]').forEach(button => {
+      const bindQuickButtons = (scope) => {
+      scope.querySelectorAll('[data-id]').forEach(button => {
+        if (button.dataset.quickBound === 'true') return;
+        button.dataset.quickBound = 'true';
 
         button.addEventListener('click', async (event) => {
 
@@ -1835,6 +1861,108 @@
         });
 
       });
+      };
+      bindQuickButtons(this);
+
+      /* Globale Sortierung: alle gefilterten Ergebnisseiten anhand der
+         Shopify-Ergebniszahl laden, danach gestaffelt sichtbar machen. */
+      const grid = this.querySelector('.ai-{{ ai_gen_id }}__grid');
+      const pager = this.querySelector('[data-infinite-pagination]');
+      const sentinel = this.querySelector('[data-infinite-sentinel]');
+      const status = this.querySelector('[data-infinite-status]');
+      const retry = this.querySelector('[data-infinite-retry]');
+      if (!grid || !pager || !sentinel || !status || !retry) return;
+
+      const batchSize = Math.max(1, Number(pager.dataset.pageSize) || 24);
+      const totalProducts = Math.max(0, Number(pager.dataset.totalProducts) || 0);
+      const firstPageCards = Array.from(grid.querySelectorAll(':scope > [data-product-available]'));
+      let allCards = [];
+      let shownCount = 0;
+      let observer = null;
+      let preparing = false;
+      let ready = false;
+
+      const showNextBatch = () => {
+        if (!ready) return;
+        const end = Math.min(shownCount + batchSize, allCards.length);
+        for (let i = shownCount; i < end; i++) allCards[i].hidden = false;
+        shownCount = end;
+        const hasMore = shownCount < allCards.length;
+        status.textContent = hasMore ? '' : 'Alle Produkte angezeigt';
+        retry.hidden = true;
+        if (!hasMore && observer) observer.disconnect();
+      };
+
+      const prepareCollection = async () => {
+        if (preparing || ready) return;
+        preparing = true;
+        retry.hidden = true;
+        status.textContent = 'Produkte werden nach Verfügbarkeit sortiert …';
+        try {
+          const pageCount = Math.max(1, Math.ceil(totalProducts / batchSize));
+          if (pageCount > 100) throw new Error('Collection zu groß für globale Browser-Sortierung');
+          const collected = firstPageCards.slice();
+          const currentPage = Number(new URL(window.location.href).searchParams.get('page') || 1);
+          const pages = Array.from({ length: pageCount }, (_, i) => i + 1).filter(page => page !== currentPage);
+
+          // Jede Seite separat anfordern. Die URL übernimmt aktive Shopify-Filter.
+          for (const page of pages) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', String(page));
+            const response = await fetch(url.toString(), {
+              credentials: 'same-origin',
+              headers: { 'Accept': 'text/html' },
+              cache: 'no-store'
+            });
+            if (!response.ok) throw new Error('Shopify Seite ' + page + ': HTTP ' + response.status);
+            const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const incoming = doc.querySelector('collection-grid-{{ ai_gen_id }} .ai-{{ ai_gen_id }}__grid')
+              || doc.querySelector('.ai-{{ ai_gen_id }}__grid');
+            if (!incoming) throw new Error('Produktgrid auf Seite ' + page + ' nicht gefunden');
+            const cards = Array.from(incoming.querySelectorAll(':scope > [data-product-available]'));
+            if (!cards.length) throw new Error('Keine Produktkarten auf Seite ' + page);
+            collected.push(...cards);
+          }
+
+          // Stable Partition: manuelle Reihenfolge innerhalb der Gruppen erhalten.
+          const available = collected.filter(card => card.dataset.productAvailable === 'true');
+          const unavailable = collected.filter(card => card.dataset.productAvailable !== 'true');
+          allCards = available.concat(unavailable);
+          const fragment = document.createDocumentFragment();
+          allCards.forEach((card, index) => {
+            card.hidden = index >= batchSize;
+            fragment.appendChild(card);
+          });
+          bindQuickButtons(fragment);
+          grid.replaceChildren(fragment);
+          shownCount = Math.min(batchSize, allCards.length);
+          ready = true;
+          pager.dataset.nextUrl = '';
+          status.textContent = shownCount < allCards.length ? '' : 'Alle Produkte angezeigt';
+          if (shownCount < allCards.length) {
+            if ('IntersectionObserver' in window) {
+              observer = new IntersectionObserver(entries => {
+                if (entries.some(entry => entry.isIntersecting)) showNextBatch();
+              }, { rootMargin: '450px 0px' });
+              observer.observe(sentinel);
+            } else {
+              retry.hidden = false;
+              retry.textContent = 'Weitere Produkte anzeigen';
+            }
+          }
+          console.info('[Premium Collection Grid] Sortiert:', available.length, 'verfügbar,', unavailable.length, 'ausverkauft');
+        } catch (error) {
+          console.error('[Premium Collection Grid] Sortierung fehlgeschlagen:', error);
+          status.textContent = 'Sortierung konnte nicht vollständig geladen werden.';
+          retry.hidden = false;
+          retry.textContent = 'Erneut versuchen';
+        } finally {
+          preparing = false;
+        }
+      };
+
+      retry.addEventListener('click', () => ready ? showNextBatch() : prepareCollection());
+      prepareCollection();
 
     }
 
