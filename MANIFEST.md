@@ -12,7 +12,72 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-08, latest) — newsletter reward, sign-in teaser, value-moment ask (all dormant); cart § 7(3) notice setting
+## ⭐ Session update (2026-10-21, latest) — Home-Gym-Konfigurator mit Mo (Men's Health / Women's Health)
+
+A new landing page: the visitor picks a few basics on the left („Ich bin … / Trainingsort & Platz /
+Training & Niveau / Ich will …“), „Weiter – Mo berät mich“ hands them to Mo, docked on the right of the
+same page. Mo asks for budget and wishes with tappable answer chips, builds a home-gym plan from the
+curated assortment (Shopify tag `home-gym-konfigurator`), and the editable plan appears on the left —
+quantities, variants, remove — with one „Alles in den Warenkorb“ (cart drawer opens). Backend:
+`docs/CONFIGURATOR.md` and `docs/frontend/API_CONTRACT.md` §2 / §5 of the mo repo (deployed with it;
+the backend side is inert for every other chat). **Every other page behaves exactly as before.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **NEW** (the landing page section: hero + seals, configurator, Mo dock, plan, „So funktioniert's“, cooperation) | ✅ Yes — upload as a new file |
+| `assets/ms-home-gym-configurator.js` | **NEW** (page logic) | ✅ Yes — upload as a new file |
+| `assets/ms-home-gym-configurator.css` | **NEW** (page styles) | ✅ Yes — upload as a new file |
+| `templates/page.home-gym-mo.json` | **NEW** (page template with the section and its default texts) | ✅ Yes — upload as a new file |
+| `assets/ms-chat-widget.js` | **MODIFIED** (docked mode, `MS_CHAT.configurator`, answer chips, plan card + plan view, cart add) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.css` | **MODIFIED** (dock, chips, plan styles appended at the end) | ✅ Yes — replace the whole file |
+
+Shared theme files to hand-edit: **none**. Untouched: the old static guide
+`templates/page.home-gym-konfigurator.json` and its blocks (`ai_gen_block_296597c`, `ai_gen_block_fc74bf0`).
+
+**After the upload (Shopify admin + theme editor):**
+1. Onlineshop → Seiten → „Seite hinzufügen“ (e.g. „Home-Gym-Konfigurator“), template **`page.home-gym-mo`**.
+   Any page also shows it with `?view=home-gym-mo` (e.g. `/pages/angebotsanfrage?view=home-gym-mo`).
+2. Theme editor → that page → section „Home-Gym-Konfigurator (Mo)“: upload the two seals („Siegel Men's
+   Health“ / „Siegel Women's Health“, PNG, transparent, ≥ 520 px), check the texts, replace the draft
+   cooperation text with the partner material, optionally a hero background image and „Partner dieser
+   Landingpage“ for a partner-specific copy of the page.
+3. Tag the products Mo should plan with `home-gym-konfigurator` (or use Mo admin → Konfigurator →
+   „Zusätzliche Produkte“ for a first test).
+4. The widget must render on the page: Theme settings → AI Advisor on, `page` not in „ausgeschlossene Vorlagen“.
+
+**What happens on the page**
+1. Without a handover the right column shows Mo's intro card; the floating launcher and the nudge are off
+   on this page (the chat IS the dock).
+2. `window.MS_CHAT.configurator.start(answers)` starts a fresh thread (like „Neuen Chat starten“) with
+   `context: { type: "configurator", configurator: {…} }`; every later turn of that thread carries the
+   answers and the plan as it stands. Changing answers („Ändern“) sends a visible message to Mo.
+3. `suggest_replies` → chips under Mo's message (single tap sends; multi-select + „Übernehmen“).
+   `show_gym_plan` → a plan card in the chat and the editable plan in `[data-ms-chat-plan]`; „Alles in den
+   Warenkorb“ → `POST /cart/add.js` (line by line on a refusal), `_mo` stamp first (consent-gated), drawer
+   opens. A reload restores the thread, the answers and the plan (edits included).
+4. The sign-in / opt-in popup waits until Mo has shown a plan in a configurator thread.
+5. Promotional links: `?partner=mh|wh`, `?location=house&space=xs&level=rookie&goal=muscle&persona=busy&training=free_weights,cardio`
+   (aliases `target`/`ziel`, `skills`/`niveau`, `ort`, `platz`; `target=01` = first option).
+
+**KPI** (ids/enums only): `configurator_viewed` (only with analytics consent), `configurator_started`,
+`configurator_handover`, `configurator_answers_changed`, `configurator_chip_clicked`,
+`configurator_plan_edited`, `configurator_cart_added` — read by Mo admin → Konfigurator.
+
+**Switches / settings:** Mo admin → Konfigurator („Geführte Beratung“, default on; tag, focus, notes).
+Theme: the section settings above.
+
+**Live checks after upload:** open the page, answer, „Weiter – Mo berät mich“ → greeting + chips;
+budget + wishes → plan left and in the chat; change a quantity → total updates; „Alles in den Warenkorb“
+→ drawer with the products; reload → restored. On any other page: launcher, sidebar and product cards as
+before.
+
+**Fingerprint:** the widget of `cc6c8c8` adds the class names `ms-chat-root--dock` and `ms-chat-planhost`
+(existing markers unchanged); `npm run verify:widget` in the mo repo reports it as build
+`konfigurator-2026-10-21` (both markers on top of `495fdf6`; only one → unknown = half uploaded).
+
+---
+
+## ⭐ Session update (2026-10-08) — newsletter reward, sign-in teaser, value-moment ask (all dormant); cart § 7(3) notice setting
 
 Prepares the owner's four options for the newsletter sign-up reward. **Nothing changes for shoppers
 after this upload**: the widget parts stay off until the backend serves the new consent-copy fields
