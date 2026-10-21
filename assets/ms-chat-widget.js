@@ -2078,16 +2078,21 @@
     }
     if (moAttrInflight || moAttrFailed) return;
     moAttrInflight = true;
+    var reqSid = sid;
     try {
       fetch(API_BASE + '/api/attribution/token', {
         method: 'POST',
-        headers: { 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': sid }
+        headers: { 'x-ms-chat-key': CHAT_KEY, 'x-ms-session': reqSid }
       })
         .then(function (res) { return res.ok ? res.json() : null; })
         .then(function (data) {
           moAttrInflight = false;
+          // The session rotated meanwhile (a new chat, a configurator handover,
+          // sign-out): this token belongs to the old session — drop it, and mint
+          // for the new one only once that session itself was consulted (LAZY).
+          if (sid !== reqSid) { if (moAttrConsulted) moAttrEnsure(viaRender); return; }
           if (!data || data.ok !== true || !moAttrValid(data)) { moAttrFailed = true; return; }
-          var c = { sid: sid, token: data.token, cartAttributes: data.cartAttributes };
+          var c = { sid: reqSid, token: data.token, cartAttributes: data.cartAttributes };
           moAttr = c;
           try { lsSet(MO_ATTR_KEY, JSON.stringify(c)); } catch (e) {}
           moAttrPageStamped = true;
@@ -3420,6 +3425,7 @@
     var li = el('li', { class: 'ms-chat-planhost-line' + (l.removed ? ' ms-chat-planhost-line--removed' : '') + (!avail ? ' ms-chat-planhost-line--na' : '') });
     var img = el('a', { class: 'ms-chat-planhost-thumb', href: p.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer', 'aria-hidden': 'true', tabindex: '-1' });
     if (p.images && p.images[0]) img.appendChild(el('img', { src: p.images[0], alt: '', loading: 'lazy' }));
+    img.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
     li.appendChild(img);
 
     var main = el('div', { class: 'ms-chat-planhost-main' });
@@ -3506,6 +3512,7 @@
     if (cfgCartBusy) return;
     var items = [];
     var names = {};
+    var prices = {};
     plan.lines.forEach(function (l) {
       if (l.removed || !l.product) return;
       var v = cfgVariantOf(l.product, l);
@@ -3514,6 +3521,7 @@
       if (!isFinite(id)) return;
       items.push({ id: id, quantity: l.qty });
       names[id] = l.product.name || '';
+      prices[id] = cfgUnitPrice(l.product, v) || 0;
     });
     if (!items.length) { cfgPlanStatus(plan, 'warn', L('Keine lieferbaren Produkte im Plan.', 'No available products in the plan.')); return; }
     cfgCartBusy = true;
@@ -3523,7 +3531,6 @@
     // (consent-gated, fail-silent) before the add.
     moAttrConsulted = true;
     moAttrEnsure(false);
-    var t = cfgPlanTotals(plan);
     cfgPostAdd(items).then(function (ok) {
       if (ok) return { added: items, failed: [] };
       var added = [], failed = [];
@@ -3540,7 +3547,9 @@
         return;
       }
       var units = r.added.reduce(function (n, it) { return n + it.quantity; }, 0);
-      track('configurator_cart_added', { items: r.added.length, units: units, value: Math.round(t.total), partial: r.failed.length > 0 });
+      // value = whole EUR of the lines that actually landed (not the plan total).
+      var value = r.added.reduce(function (n, it) { return n + prices[it.id] * it.quantity; }, 0);
+      track('configurator_cart_added', { items: r.added.length, units: units, value: Math.round(value), partial: r.failed.length > 0 });
       if (r.failed.length) {
         cfgPlanStatus(plan, 'warn', L('Im Warenkorb — bis auf: ', 'In your cart — except: ') + r.failed.map(function (it) { return names[it.id]; }).join(', ') + L(' (gerade nicht in dieser Menge verfügbar).', ' (not available in this quantity right now).'));
       } else {
@@ -5296,6 +5305,9 @@
     } else {
       rotateSession(); // anonymous/email-only: unchanged (rotates sid + history)
       activeConversationKey = null; // anonymous never sends a conversationKey
+      // The panel stays open across the rotation (always so in the dock), so
+      // openPanel() will not fire again: the new session is open from now on.
+      if (state.open) track('chat_opened', {});
     }
     if (rateTimer) { clearTimeout(rateTimer); rateTimer = null; }
     state.rateLocked = false;

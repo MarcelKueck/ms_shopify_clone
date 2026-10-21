@@ -281,7 +281,16 @@
       groupsEl.appendChild(card);
     });
 
+    // configurator_started: once per configurator run — the first answer picked,
+    // or the handover itself when the answers came prefilled from the link.
+    // „Neu starten“ begins a new run (reset() clears the flag).
     var startedTracked = false;
+    function trackStarted() {
+      if (startedTracked || ssGet('ms-hgk-started') === '1') return;
+      startedTracked = true;
+      ssSet('ms-hgk-started', '1');
+      track('configurator_started', { partner: partner || '', prefilled: prefilled });
+    }
     function choose(key, value) {
       var f = FIELDS[key];
       if (f.multi) {
@@ -294,11 +303,7 @@
       }
       saveDraft();
       paint();
-      if (!startedTracked && ssGet('ms-hgk-started') !== '1') {
-        startedTracked = true;
-        ssSet('ms-hgk-started', '1');
-        track('configurator_started', { partner: partner || '', prefilled: prefilled });
-      }
+      trackStarted();
     }
 
     function missing() {
@@ -432,6 +437,7 @@
         setMode('live');
         return;
       }
+      trackStarted();
       if (!a.start(payload(), { partner: partner, prefilled: prefilled })) {
         hintEl.textContent = T('Mo ist gerade ausgelastet – bitte in ein paar Sekunden nochmal.', 'Mo is busy – please try again in a few seconds.');
         return;
@@ -461,6 +467,8 @@
     });
 
     function reset() {
+      startedTracked = false;
+      ssSet('ms-hgk-started', '0');
       sentAnswers = null;
       extras = {};
       setMode('start');
@@ -476,6 +484,10 @@
       switch (d.type) {
         case 'ready':
           clearTimeout(unavailableTimer);
+          // No configurator thread to restore: whatever ran before (in this tab,
+          // maybe ended on another page) is over — the next start is a new run.
+          startedTracked = false;
+          ssSet('ms-hgk-started', '0');
           flushTrack();
           trackView();
           break;
