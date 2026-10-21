@@ -12,7 +12,24 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-21, latest) — Home-Gym-Konfigurator mit Mo (Men's Health / Women's Health)
+## ⭐ Session update (2026-10-21, follow-up, latest) — Konfigurator: genauere Kennzahlen
+
+Nothing visible changes — the widget and the configurator page report their numbers more exactly, so the
+Mo admin (KPIs → „Home-Gym-Konfigurator“, Konfigurator → „Wirkung“) counts right.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (cart value = the lines that landed; „chat opened“ after a new chat in the always-open dock; plan thumbnail counts as a product click; an order marker minted for a session that changed meanwhile is dropped, and minted again only once the new session itself is consulted) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | **MODIFIED** („Konfigurator begonnen“ once per run — also for a prefilled direct handover, after „Neu starten“ and after a configurator chat that ended on another page) | ✅ Yes — replace the whole file |
+
+Everything else of the entry below stays as uploaded. Check (in a private window, not signed in to a
+customer account — a signed-in session keeps its id, and the stage counts sessions): open the configurator
+page, run it once, „Neu starten“, run it again — Konfigurator → „Wirkung“ shows two starts. `npm run verify:widget` (mo repo)
+still reports `konfigurator-2026-10-21` (no new class names).
+
+---
+
+## ⭐ Session update (2026-10-21) — Home-Gym-Konfigurator mit Mo (Men's Health / Women's Health)
 
 A new landing page: the visitor picks a few basics on the left („Ich bin … / Trainingsort & Platz /
 Training & Niveau / Ich will …“), „Weiter – Mo berät mich“ hands them to Mo, docked on the right of the
