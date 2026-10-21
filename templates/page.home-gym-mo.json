@@ -1,0 +1,27 @@
+{
+  "sections": {
+    "main": {
+      "type": "ms-home-gym-configurator",
+      "settings": {
+        "partner": "none",
+        "eyebrow": "Produktberater Mo · Home-Gym-Konfigurator",
+        "heading": "Dein Home Gym. Klar geplant.",
+        "subheading": "In wenigen Schritten zu den passenden Geräten – mit persönlicher KI-Beratung von Mo.",
+        "hero_cta": "Jetzt Home Gym planen",
+        "usp_1": "Kostenlose KI-Beratung",
+        "usp_2": "Passendes Zubehör inklusive",
+        "usp_3": "Showroom in Gröbenzell bei München",
+        "seal_label": "Empfohlen von",
+        "seal_mh_alt": "Empfehlungssiegel Men's Health",
+        "seal_wh_alt": "Empfehlungssiegel Women's Health",
+        "mo_title": "Hallo, ich bin Mo – dein Home-Gym-Berater.",
+        "mo_text": "Wähle links ein paar Grundeinstellungen – dann übernehme ich: Ich frage kurz nach Budget und Wünschen und stelle dir dein passendes Home Gym zusammen.",
+        "fallback_url": "/pages/angebotsanfrage",
+        "coop_eyebrow": "Kooperation",
+        "coop_heading": "motion sports × Men's Health & Women's Health",
+        "coop_text": "<p>Training zu Hause soll einfach sein – darum arbeiten wir mit Men's Health und Women's Health zusammen. Du sagst uns, wer du bist und was du willst; Mo, unser KI-Fitnessberater, stellt dir daraus dein persönliches Home Gym zusammen: mit Geräten in Studioqualität, passendem Zubehör und ehrlicher Beratung – auf Wunsch auch persönlich in unserem Showroom bei München.</p>"
+      }
+    }
+  },
+  "order": ["main"]
+}

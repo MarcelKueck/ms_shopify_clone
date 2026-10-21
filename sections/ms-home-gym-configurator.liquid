@@ -1,0 +1,288 @@
+{% comment %}
+  Home-Gym-Konfigurator mit Mo — Men's Health / Women's Health cooperation.
+
+  The landing page of the cooperation: hero with the partner seals, the
+  configurator (left, ≤ 50 %) and Mo docked next to it (right). The visitor
+  picks a few basics („Ich bin … / ich will …“), „Weiter – Mo berät mich“
+  hands them to Mo (window.MS_CHAT.configurator.start of ms-chat-widget.js),
+  Mo asks for budget and wishes with answer chips and builds the plan; the
+  editable plan appears on the left with one „Alles in den Warenkorb“.
+
+  Hosts the widget fills (contract in ms-chat-widget.js → Home-Gym-Konfigurator):
+    [data-ms-chat-dock]  the docked chat panel (intro below until the handover)
+    [data-ms-chat-plan]  the editable plan (data-state: empty | waiting | ready)
+  Page logic: assets/ms-home-gym-configurator.js, styles: …configurator.css.
+  Answer ids are the backend's vocabulary (mo repo, src/lib/configurator-core.mjs).
+
+  Promotional links can preselect answers and the partner:
+    ?partner=mh|wh  (or utm_source containing menshealth / womenshealth)
+    ?location=house&space=xs&level=rookie&goal=muscle&persona=busy&training=free_weights,cardio
+    (aliases target/ziel → goal, skills/niveau → level, ort → location, platz → space;
+     a value may also be the option's position, e.g. target=01)
+{% endcomment %}
+
+{{ 'ms-home-gym-configurator.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign hgk_en = false
+  if request.locale.iso_code == 'en'
+    assign hgk_en = true
+  endif
+  assign hgk_mo_on = false
+  if settings.ai_advisor_enabled and settings.ms_chat_shared_secret != blank
+    assign hgk_mo_on = true
+  endif
+-%}
+
+<section
+  class="ms-hgk"
+  id="ms-hgk-{{ section.id }}"
+  data-ms-hgk
+  data-locale="{% if hgk_en %}en{% else %}de{% endif %}"
+  data-partner="{{ section.settings.partner }}"
+  data-mo="{% if hgk_mo_on %}on{% else %}off{% endif %}"
+  data-fallback-url="{{ section.settings.fallback_url | default: '/pages/angebotsanfrage' }}"
+>
+  {%- comment -%} ---------- Hero ---------- {%- endcomment -%}
+  <div class="ms-hgk-hero">
+    {%- if section.settings.hero_image != blank -%}
+      <div class="ms-hgk-hero__media" aria-hidden="true">
+        {{ section.settings.hero_image | image_url: width: 2400 | image_tag: loading: 'eager', fetchpriority: 'high', sizes: '100vw', widths: '800, 1200, 1600, 2400', alt: '' }}
+      </div>
+    {%- endif -%}
+    <div class="ms-hgk-wrap ms-hgk-hero__inner">
+      <div class="ms-hgk-hero__copy">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="ms-hgk-eyebrow">{{ section.settings.eyebrow | escape }}</p>
+        {%- endif -%}
+        <h1 class="ms-hgk-hero__title">{{ section.settings.heading | escape }}</h1>
+        {%- if section.settings.subheading != blank -%}
+          <p class="ms-hgk-hero__sub">{{ section.settings.subheading | escape }}</p>
+        {%- endif -%}
+        <div class="ms-hgk-hero__actions">
+          <a class="ms-hgk-btn ms-hgk-btn--light" href="#ms-hgk-start-{{ section.id }}" data-ms-hgk-scroll>
+            {{ section.settings.hero_cta | default: 'Jetzt Home Gym planen' | escape }}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="ms-hgk-btn ms-hgk-btn--ghost" href="#ms-hgk-how-{{ section.id }}" data-ms-hgk-scroll>
+            {%- if hgk_en -%}How it works{%- else -%}So funktioniert’s{%- endif -%}
+          </a>
+        </div>
+        <ul class="ms-hgk-usps" role="list">
+          {%- for i in (1..3) -%}
+            {%- assign usp_key = 'usp_' | append: i -%}
+            {%- if section.settings[usp_key] != blank -%}
+              <li>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span>{{ section.settings[usp_key] | escape }}</span>
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+
+      {%- if section.settings.seal_mh != blank or section.settings.seal_wh != blank -%}
+        <div class="ms-hgk-seals" aria-label="{{ section.settings.seal_label | escape }}">
+          {%- if section.settings.seal_label != blank -%}
+            <p class="ms-hgk-seals__label">{{ section.settings.seal_label | escape }}</p>
+          {%- endif -%}
+          <div class="ms-hgk-seals__row">
+            {%- if section.settings.seal_mh != blank -%}
+              <div class="ms-hgk-seal" data-partner-seal="mh">
+                {{ section.settings.seal_mh | image_url: width: 400 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '200, 400', sizes: '160px' }}
+              </div>
+            {%- endif -%}
+            {%- if section.settings.seal_wh != blank -%}
+              <div class="ms-hgk-seal" data-partner-seal="wh">
+                {{ section.settings.seal_wh | image_url: width: 400 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '200, 400', sizes: '160px' }}
+              </div>
+            {%- endif -%}
+          </div>
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+
+  {%- comment -%} ---------- Configurator stage ---------- {%- endcomment -%}
+  <div class="ms-hgk-stage" id="ms-hgk-start-{{ section.id }}">
+    <div class="ms-hgk-wrap">
+      <ol class="ms-hgk-steps" data-ms-hgk-steps aria-label="{% if hgk_en %}Progress{% else %}Fortschritt{% endif %}">
+        <li class="ms-hgk-steps__item is-current" data-step="start"><span class="ms-hgk-steps__num">1</span><span class="ms-hgk-steps__label">{% if hgk_en %}Your basics{% else %}Grundeinstellungen{% endif %}</span></li>
+        <li class="ms-hgk-steps__item" data-step="questions"><span class="ms-hgk-steps__num">2</span><span class="ms-hgk-steps__label">{% if hgk_en %}Mo asks{% else %}Anforderungen{% endif %}</span></li>
+        <li class="ms-hgk-steps__item" data-step="plan"><span class="ms-hgk-steps__num">3</span><span class="ms-hgk-steps__label">{% if hgk_en %}Your plan{% else %}Empfehlung{% endif %}</span></li>
+        <li class="ms-hgk-steps__item" data-step="cart"><span class="ms-hgk-steps__num">4</span><span class="ms-hgk-steps__label">{% if hgk_en %}Done{% else %}Fertig{% endif %}</span></li>
+      </ol>
+
+      <div class="ms-hgk-grid">
+        <div class="ms-hgk-left">
+          <form class="ms-hgk-form" data-ms-hgk-form novalidate>
+            <div class="ms-hgk-form__groups" data-ms-hgk-groups>
+              <noscript><p class="ms-hgk-note">{% if hgk_en %}Please enable JavaScript to use the configurator.{% else %}Bitte aktiviere JavaScript, um den Konfigurator zu nutzen.{% endif %}</p></noscript>
+            </div>
+            <div class="ms-hgk-form__footer">
+              <p class="ms-hgk-form__hint" data-ms-hgk-hint aria-live="polite"></p>
+              <button type="submit" class="ms-hgk-cta" data-ms-hgk-cta disabled>
+                <span data-ms-hgk-cta-label>{% if hgk_en %}Next – Mo advises me{% else %}Weiter – Mo berät mich{% endif %}</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <button type="button" class="ms-hgk-link" data-ms-hgk-cancel hidden>{% if hgk_en %}Cancel{% else %}Abbrechen{% endif %}</button>
+            </div>
+          </form>
+
+          <div class="ms-hgk-profile" data-ms-hgk-profile hidden>
+            <div class="ms-hgk-profile__head">
+              <p class="ms-hgk-profile__title">{% if hgk_en %}Your answers{% else %}Deine Angaben{% endif %}</p>
+              <div class="ms-hgk-profile__actions">
+                <button type="button" class="ms-hgk-link" data-ms-hgk-edit>{% if hgk_en %}Change{% else %}Ändern{% endif %}</button>
+                <button type="button" class="ms-hgk-link" data-ms-hgk-restart>{% if hgk_en %}Start over{% else %}Neu starten{% endif %}</button>
+              </div>
+            </div>
+            <ul class="ms-hgk-chips" data-ms-hgk-chips role="list"></ul>
+          </div>
+
+          <div class="ms-hgk-plan" data-ms-chat-plan data-state="empty">
+            <div class="ms-hgk-plan__waiting">
+              <span class="ms-hgk-plan__pulse" aria-hidden="true"></span>
+              <div>
+                <p class="ms-hgk-plan__title">{% if hgk_en %}Your home-gym plan{% else %}Dein Home-Gym-Plan{% endif %}</p>
+                <p class="ms-hgk-plan__text">{% if hgk_en %}Answer Mo's questions – your plan with every product, price and total appears right here.{% else %}Beantworte Mos Fragen – dein Plan mit allen Produkten, Preisen und der Gesamtsumme erscheint genau hier.{% endif %}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ms-hgk-right">
+          <div class="ms-hgk-dock" data-ms-chat-dock>
+            <div class="ms-hgk-intro" data-ms-hgk-intro>
+              <span class="ms-chat-logo ms-hgk-intro__orb" aria-hidden="true"></span>
+              <p class="ms-hgk-intro__title">{{ section.settings.mo_title | escape }}</p>
+              <p class="ms-hgk-intro__text">{{ section.settings.mo_text | escape }}</p>
+              <ul class="ms-hgk-intro__list" role="list">
+                <li>{% if hgk_en %}I only ask what really matters{% else %}Ich frage nur, was wirklich zählt{% endif %}</li>
+                <li>{% if hgk_en %}Your set – matched to space, goal and budget{% else %}Dein Set – passend zu Platz, Ziel und Budget{% endif %}</li>
+                <li>{% if hgk_en %}Everything into the cart with one click{% else %}Alles mit einem Klick in den Warenkorb{% endif %}</li>
+              </ul>
+              <p class="ms-hgk-intro__hint" data-ms-hgk-intro-hint>
+                {%- if hgk_en -%}← Pick your basics on the left{%- else -%}← Wähle links deine Grundeinstellungen{%- endif -%}
+              </p>
+              <p class="ms-hgk-intro__fallback" data-ms-hgk-fallback hidden>
+                {%- if hgk_en -%}Mo is not available right now.{%- else -%}Mo ist gerade nicht erreichbar.{%- endif %}
+                <a href="{{ section.settings.fallback_url | default: '/pages/angebotsanfrage' }}">{% if hgk_en %}Ask our team instead{% else %}Frag stattdessen unser Team{% endif %}</a>
+              </p>
+              <p class="ms-hgk-intro__legal">{% if hgk_en %}AI fitness advisor · free and without obligation{% else %}KI-Fitnessberater · kostenlos & unverbindlich{% endif %}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {%- comment -%} ---------- How it works ---------- {%- endcomment -%}
+  <div class="ms-hgk-how" id="ms-hgk-how-{{ section.id }}">
+    <div class="ms-hgk-wrap">
+      <h2 class="ms-hgk-h2">{% if hgk_en %}Your home gym in three steps{% else %}In drei Schritten zum Home Gym{% endif %}</h2>
+      <ol class="ms-hgk-how__list" role="list">
+        <li>
+          <span class="ms-hgk-how__num">1</span>
+          <p class="ms-hgk-how__title">{% if hgk_en %}Pick your basics{% else %}Grundeinstellungen wählen{% endif %}</p>
+          <p class="ms-hgk-how__text">{% if hgk_en %}Who trains, where, how much space, which goal – a few clicks.{% else %}Wer trainiert, wo, wie viel Platz, welches Ziel – ein paar Klicks.{% endif %}</p>
+        </li>
+        <li>
+          <span class="ms-hgk-how__num">2</span>
+          <p class="ms-hgk-how__title">{% if hgk_en %}Talk to Mo{% else %}Mit Mo sprechen{% endif %}</p>
+          <p class="ms-hgk-how__text">{% if hgk_en %}Mo asks about budget and wishes – tap an answer or write freely.{% else %}Mo fragt nach Budget und Wünschen – Antwort antippen oder frei schreiben.{% endif %}</p>
+        </li>
+        <li>
+          <span class="ms-hgk-how__num">3</span>
+          <p class="ms-hgk-how__title">{% if hgk_en %}Get your plan{% else %}Plan bekommen{% endif %}</p>
+          <p class="ms-hgk-how__text">{% if hgk_en %}Your set with matching accessories – adjust it and add everything to the cart.{% else %}Dein Set mit passendem Zubehör – anpassen und alles in den Warenkorb legen.{% endif %}</p>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  {%- comment -%} ---------- Cooperation ---------- {%- endcomment -%}
+  {%- if section.settings.coop_heading != blank or section.settings.coop_text != blank -%}
+    <div class="ms-hgk-coop">
+      <div class="ms-hgk-wrap ms-hgk-coop__inner">
+        {%- if section.settings.seal_mh != blank or section.settings.seal_wh != blank -%}
+          <div class="ms-hgk-coop__seals">
+            {%- if section.settings.seal_mh != blank -%}
+              <div class="ms-hgk-seal ms-hgk-seal--lg" data-partner-seal="mh">{{ section.settings.seal_mh | image_url: width: 520 | image_tag: loading: 'lazy', alt: section.settings.seal_mh_alt, widths: '260, 520', sizes: '220px' }}</div>
+            {%- endif -%}
+            {%- if section.settings.seal_wh != blank -%}
+              <div class="ms-hgk-seal ms-hgk-seal--lg" data-partner-seal="wh">{{ section.settings.seal_wh | image_url: width: 520 | image_tag: loading: 'lazy', alt: section.settings.seal_wh_alt, widths: '260, 520', sizes: '220px' }}</div>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+        <div class="ms-hgk-coop__copy">
+          {%- if section.settings.coop_eyebrow != blank -%}<p class="ms-hgk-eyebrow ms-hgk-eyebrow--dark">{{ section.settings.coop_eyebrow | escape }}</p>{%- endif -%}
+          {%- if section.settings.coop_heading != blank -%}<h2 class="ms-hgk-h2">{{ section.settings.coop_heading | escape }}</h2>{%- endif -%}
+          {%- if section.settings.coop_text != blank -%}<div class="ms-hgk-coop__text">{{ section.settings.coop_text }}</div>{%- endif -%}
+          {%- if section.settings.coop_link != blank and section.settings.coop_link_label != blank -%}
+            <a class="ms-hgk-btn ms-hgk-btn--dark" href="{{ section.settings.coop_link }}">{{ section.settings.coop_link_label | escape }}</a>
+          {%- endif -%}
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+</section>
+
+<script src="{{ 'ms-home-gym-configurator.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Home-Gym-Konfigurator (Mo)",
+  "tag": "div",
+  "class": "section-ms-hgk",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Konfigurator mit Mo: links die Grundeinstellungen, rechts berät Mo und stellt den Home-Gym-Plan zusammen. Mo nutzt dafür das Konfigurator-Sortiment (Shopify-Tag „home-gym-konfigurator“, einstellbar im Mo-Backend unter Konfigurator). Mo muss unter Theme-Einstellungen → AI Advisor aktiv sein."
+    },
+    {
+      "type": "select",
+      "id": "partner",
+      "label": "Partner dieser Landingpage",
+      "info": "Wird in den Kennzahlen als Herkunft gezählt und setzt das Siegel des Partners nach vorn. Ein Link mit ?partner=mh oder ?partner=wh überschreibt die Einstellung.",
+      "options": [
+        { "value": "none", "label": "Beide / keiner" },
+        { "value": "mh", "label": "Men's Health" },
+        { "value": "wh", "label": "Women's Health" }
+      ],
+      "default": "none"
+    },
+    { "type": "header", "content": "Kopfbereich" },
+    { "type": "text", "id": "eyebrow", "label": "Überzeile", "default": "Produktberater Mo · Home-Gym-Konfigurator" },
+    { "type": "text", "id": "heading", "label": "Überschrift", "default": "Dein Home Gym. Klar geplant." },
+    { "type": "textarea", "id": "subheading", "label": "Unterzeile", "default": "In wenigen Schritten zu den passenden Geräten – mit persönlicher KI-Beratung von Mo." },
+    { "type": "text", "id": "hero_cta", "label": "Button", "default": "Jetzt Home Gym planen" },
+    { "type": "image_picker", "id": "hero_image", "label": "Hintergrundbild (optional)", "info": "Wird abgedunkelt hinter dem Text gezeigt. Querformat, mind. 2400 px breit." },
+    { "type": "text", "id": "usp_1", "label": "Vorteil 1", "default": "Kostenlose KI-Beratung" },
+    { "type": "text", "id": "usp_2", "label": "Vorteil 2", "default": "Passendes Zubehör inklusive" },
+    { "type": "text", "id": "usp_3", "label": "Vorteil 3", "default": "Showroom in Gröbenzell bei München" },
+    { "type": "header", "content": "Empfehlungssiegel" },
+    { "type": "text", "id": "seal_label", "label": "Text über den Siegeln", "default": "Empfohlen von" },
+    { "type": "image_picker", "id": "seal_mh", "label": "Siegel Men's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px." },
+    { "type": "text", "id": "seal_mh_alt", "label": "Alternativtext Men's Health", "default": "Empfehlungssiegel Men's Health" },
+    { "type": "image_picker", "id": "seal_wh", "label": "Siegel Women's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px." },
+    { "type": "text", "id": "seal_wh_alt", "label": "Alternativtext Women's Health", "default": "Empfehlungssiegel Women's Health" },
+    { "type": "header", "content": "Mo" },
+    { "type": "text", "id": "mo_title", "label": "Begrüßung", "default": "Hallo, ich bin Mo – dein Home-Gym-Berater." },
+    { "type": "textarea", "id": "mo_text", "label": "Einleitung", "default": "Wähle links ein paar Grundeinstellungen – dann übernehme ich: Ich frage kurz nach Budget und Wünschen und stelle dir dein passendes Home Gym zusammen." },
+    { "type": "url", "id": "fallback_url", "label": "Link, falls Mo nicht erreichbar ist", "default": "/pages/angebotsanfrage" },
+    { "type": "header", "content": "Kooperation" },
+    { "type": "text", "id": "coop_eyebrow", "label": "Überzeile", "default": "Kooperation" },
+    { "type": "text", "id": "coop_heading", "label": "Überschrift", "default": "motion sports × Men's Health & Women's Health" },
+    {
+      "type": "richtext",
+      "id": "coop_text",
+      "label": "Text",
+      "default": "<p>Training zu Hause soll einfach sein – darum arbeiten wir mit Men's Health und Women's Health zusammen. Du sagst uns, wer du bist und was du willst; Mo, unser KI-Fitnessberater, stellt dir daraus dein persönliches Home Gym zusammen: mit Geräten in Studioqualität, passendem Zubehör und ehrlicher Beratung – auf Wunsch auch persönlich in unserem Showroom bei München.</p>"
+    },
+    { "type": "text", "id": "coop_link_label", "label": "Link-Text (optional)" },
+    { "type": "url", "id": "coop_link", "label": "Link (optional)" }
+  ],
+  "presets": [{ "name": "Home-Gym-Konfigurator (Mo)" }]
+}
+{% endschema %}
