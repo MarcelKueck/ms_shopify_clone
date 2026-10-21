@@ -276,6 +276,7 @@
   }
   function rotateSession() {
     lsDel(historyKey());
+    lsDel('ms-chat-cfg:' + sid); // the configurator answers of the old thread
     sid = uuid();
     lsSet(SID_KEY, sid);
     messages = [];
@@ -437,7 +438,9 @@
   // ---------------------------------------------------------------------------
   // Tool names.
   // ---------------------------------------------------------------------------
-  var VISIBLE_TOOLS = ['show_product', 'compare_products', 'add_to_cart', 'suggest_showroom', 'show_contact_form', 'offer_email_summary'];
+  // suggest_replies + show_gym_plan: the Home-Gym-Konfigurator's answer chips
+  // and plan (the backend offers them only in a configurator thread).
+  var VISIBLE_TOOLS = ['show_product', 'compare_products', 'add_to_cart', 'suggest_showroom', 'show_contact_form', 'offer_email_summary', 'suggest_replies', 'show_gym_plan'];
   // Background tools: kept in the local history (the backend replays them) but
   // NEVER rendered — no card, no placeholder, no error. get_order_status
   // (CHAT_ORDER_STATUS.md) carries the signed-in customer's order data in its
@@ -2171,7 +2174,7 @@
 
   // The backend's consultation tools (API_CONTRACT §10): a finished turn with
   // one of these is a live product consultation.
-  var MO_CONSULT_PARTS = { 'tool-show_product': 1, 'tool-compare_products': 1, 'tool-add_to_cart': 1, 'tool-suggest_showroom': 1 };
+  var MO_CONSULT_PARTS = { 'tool-show_product': 1, 'tool-compare_products': 1, 'tool-add_to_cart': 1, 'tool-suggest_showroom': 1, 'tool-show_gym_plan': 1 };
   function hasConsultationPart(parts) {
     for (var i = 0; parts && i < parts.length; i++) {
       if (parts[i] && MO_CONSULT_PARTS[parts[i].type] === 1) return true;
@@ -2815,8 +2818,10 @@
     return card;
   }
 
-  function buildToolCard(name, input) {
+  function buildToolCard(name, input, key) {
     switch (name) {
+      case 'suggest_replies': return buildReplies(input);
+      case 'show_gym_plan': return buildGymPlan(input, key);
       case 'show_product': return buildShowProduct(input);
       case 'compare_products': return buildCompare(input);
       case 'add_to_cart': return buildAddToCart(input);
@@ -2830,6 +2835,730 @@
         return Promise.resolve(buildCaptureCard({ message: input.message, productIds: input.productIds, trigger: input.trigger }));
       default: return Promise.resolve(null);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Home-Gym-Konfigurator (Men's Health / Women's Health cooperation).
+  //
+  // The configurator page (sections/ms-home-gym-configurator.liquid) lets the
+  // visitor pick a few basic answers and hands the conversation to Mo through
+  // window.MS_CHAT.configurator.start(). From then on:
+  //   * the panel is DOCKED into the page's [data-ms-chat-dock] host (no
+  //     launcher, no backdrop, no page shift, no scroll lock — see DOCK);
+  //   * every /api/chat request of that thread carries
+  //     context { type: "configurator", configurator: {answers…, plan} }
+  //     (backend API_CONTRACT §2) — the page's own form state, so a changed
+  //     answer or an edited plan reaches Mo with the next message;
+  //   * Mo's suggest_replies renders answer chips, show_gym_plan a plan card
+  //     in the chat AND the editable plan in the page's [data-ms-chat-plan]
+  //     host, with one „Alles in den Warenkorb“ (POST /cart/add.js).
+  // The page follows along through `ms-chat:configurator` CustomEvents on
+  // document (type: ready | restored | started | stage | plan | reply | cart |
+  // reset). KPI: ids, enums, counts and booleans only (§0 rule 13).
+  // The thread's answers live in localStorage under the session id
+  // (ms-chat-cfg:<sid>) and are active only while the same thread is open —
+  // a new chat (rotated sid / new conversationKey) ends them.
+  // ---------------------------------------------------------------------------
+  var DOCK = null;                    // [data-ms-chat-dock] host on the configurator page
+  var dockRoot = null;                // .ms-chat-root inside the host
+  var CFG_STORE_PREFIX = 'ms-chat-cfg:';
+  var CFG_FIELDS = {
+    persona: ['busy', 'ambitious', 'health', 'family', 'best_ager'],
+    location: ['house', 'apartment', 'garage'],
+    space: ['xs', 's', 'm', 'l'],
+    level: ['rookie', 'intermediate', 'pro'],
+    goal: ['muscle', 'fitness', 'health', 'endurance', 'athletic'],
+    budget: ['b1', 'b2', 'b3', 'b4', 'b5']
+  };
+  var CFG_MULTI = {
+    training: ['free_weights', 'machines', 'cardio', 'functional'],
+    wishes: ['assembly', 'fast_delivery', 'quiet', 'no_drilling', 'foldable', 'floor_protection', 'showroom']
+  };
+  var CFG_ROLES = {
+    base: L('Basisgerät', 'Base unit'),
+    accessory: L('Zubehör', 'Accessory'),
+    weights: L('Gewichte', 'Weights'),
+    cardio: 'Cardio',
+    flooring: L('Bodenschutz', 'Floor protection'),
+    extra: 'Extra'
+  };
+  var CFG_REPLY_TOPICS = ['budget', 'wishes', 'frequency', 'space', 'equipment', 'other'];
+  var cfgPlans = {};          // toolCallId -> plan (this thread's rendered plans)
+  var cfgPlanSeq = 0;
+  var cfgActivePlanKey = null;
+  var cfgStage = 'start';     // start | questions | plan | cart
+  var cfgCartBusy = false;
+
+  function cfgStorageKey() { return CFG_STORE_PREFIX + sid; }
+  // Plan prices always with cents (euro() trims them for product cards).
+  function cfgMoney(value) {
+    var n = Number(value);
+    if (!isFinite(n)) return '';
+    return LOCALE === 'en'
+      ? n.toLocaleString('en-GB', { style: 'currency', currency: 'EUR' })
+      : n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  }
+  function cfgEmit(type, detail) {
+    try {
+      var d = detail || {};
+      d.type = type;
+      document.dispatchEvent(new CustomEvent('ms-chat:configurator', { detail: d }));
+    } catch (e) {}
+  }
+
+  // Keep only known ids (the vocabulary is the backend's configurator-core.mjs).
+  function cfgSanitize(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    var out = {};
+    var known = 0;
+    var k, i, v;
+    for (k in CFG_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(CFG_FIELDS, k)) continue;
+      v = typeof raw[k] === 'string' ? raw[k] : '';
+      if (CFG_FIELDS[k].indexOf(v) !== -1) { out[k] = v; if (k !== 'budget') known++; }
+    }
+    for (k in CFG_MULTI) {
+      if (!Object.prototype.hasOwnProperty.call(CFG_MULTI, k)) continue;
+      var list = Array.isArray(raw[k]) ? raw[k] : [];
+      var picked = [];
+      for (i = 0; i < CFG_MULTI[k].length; i++) {
+        if (list.indexOf(CFG_MULTI[k][i]) !== -1) picked.push(CFG_MULTI[k][i]);
+      }
+      out[k] = picked;
+      if (k === 'training' && picked.length) known++;
+    }
+    return known ? out : null;
+  }
+
+  function cfgLoad() {
+    var raw = lsGet(cfgStorageKey());
+    if (!raw) return null;
+    try {
+      var c = JSON.parse(raw);
+      if (c && c.v === 1 && c.answers && typeof c.answers === 'object') return c;
+    } catch (e) {}
+    return null;
+  }
+  function cfgSave(c) {
+    if (!sidIsCurrent()) return;
+    try { lsSet(cfgStorageKey(), JSON.stringify(c)); } catch (e) {}
+  }
+  // The configurator state of the OPEN thread, or null (another thread, or none).
+  function cfgActive() {
+    var c = cfgLoad();
+    if (!c) return null;
+    if ((c.convKey || null) !== (activeConversationKey || null)) return null;
+    return c;
+  }
+
+  // context { type: "configurator" } for /api/chat — the answers plus the plan
+  // as it stands on the page (ids + quantities only).
+  function cfgContextForSend() {
+    var c = cfgActive();
+    if (!c) return null;
+    var a = c.answers || {};
+    var conf = { v: 1 };
+    for (var k in a) { if (Object.prototype.hasOwnProperty.call(a, k)) conf[k] = a[k]; }
+    if (c.partner === 'mh' || c.partner === 'wh') conf.partner = c.partner;
+    var plan = cfgPlanForContext();
+    if (plan.length) conf.plan = plan;
+    return { type: 'configurator', source: 'configurator', configurator: conf };
+  }
+
+  // Hold the one-per-session sign-in / opt-in popup in a configurator thread
+  // until Mo has shown a plan — the guided questions are not interrupted.
+  function cfgGateHold() {
+    return !!(cfgActive() && !cfgActivePlanKey);
+  }
+
+  function cfgSetStage(stage) {
+    if (cfgStage === stage) return;
+    cfgStage = stage;
+    cfgEmit('stage', { stage: stage });
+  }
+
+  // Starts a configurator thread with the page's answers. A thread in
+  // progress is ended first exactly like „Neuen Chat starten“ (anonymous: new
+  // session id). Returns false when Mo cannot start right now (rate limit).
+  function cfgStart(rawAnswers, meta) {
+    var answers = cfgSanitize(rawAnswers);
+    if (!answers) return false;
+    if (state.rateLocked) return false;
+    meta = meta || {};
+    if (messages.length || state.streaming) startNewChat(true);
+    var partner = meta.partner === 'mh' || meta.partner === 'wh' ? meta.partner : null;
+    // Signed in, startNewChat already minted the new thread's key; otherwise
+    // the first turn mints it (updated below).
+    cfgSave({ v: 1, answers: answers, partner: partner, convKey: activeConversationKey || null, edits: {}, startedAt: Date.now() });
+    track('configurator_handover', {
+      persona: answers.persona || '',
+      location: answers.location || '',
+      space: answers.space || '',
+      training: (answers.training || []).join(','),
+      level: answers.level || '',
+      goal: answers.goal || '',
+      partner: partner || '',
+      prefilled: !!meta.prefilled
+    });
+    openPanel(true);
+    cfgApplyChrome();
+    sendContextGreeting(cfgContextForSend());
+    // A signed-in visitor's first turn minted the thread key just now.
+    var c = cfgLoad();
+    if (c) { c.convKey = activeConversationKey || null; cfgSave(c); }
+    cfgStage = 'start';
+    cfgSetStage('questions');
+    cfgEmit('started', { answers: answers, partner: partner });
+    return true;
+  }
+
+  // Changed answers after the handover: stored for the next turns and told to
+  // Mo as a visible user message (the page composes the text).
+  function cfgUpdate(rawAnswers, text) {
+    var c = cfgActive();
+    var answers = cfgSanitize(rawAnswers);
+    if (!c || !answers) return false;
+    if (state.streaming || state.rateLocked) return false;
+    c.answers = answers;
+    cfgSave(c);
+    var msg = typeof text === 'string' ? text.trim().slice(0, 600) : '';
+    if (msg) sendMessage(msg, null);
+    return true;
+  }
+
+  function cfgApplyChrome() {
+    var on = !!cfgActive();
+    if (textarea) {
+      textarea.placeholder = on
+        ? L('Antwort auswählen oder eigene Nachricht schreiben …', 'Pick an answer or write your own message …')
+        : L('Wie kann ich dir helfen?', 'How can I help you?');
+    }
+    if (DOCK) DOCK.classList.toggle('ms-chat-dock--live', state.open);
+  }
+
+  // Docked mode boot: a restored configurator thread opens in the dock right
+  // away (reload, back navigation); otherwise the page's intro stays visible
+  // until the handover.
+  function cfgInitDock() {
+    var c = cfgActive();
+    var restored = !!(DOCK && c && messages.length);
+    if (restored) {
+      openPanel(true);
+      cfgApplyChrome();
+      cfgSetStage(cfgActivePlanKey ? 'plan' : 'questions');
+    }
+    cfgRenderHost();
+    cfgEmit(restored ? 'restored' : 'ready', {
+      answers: restored ? c.answers : null,
+      partner: restored ? (c.partner || null) : null,
+      stage: cfgStage,
+      dock: !!DOCK
+    });
+  }
+
+  // KPI from the page: only configurator_* names, only flat ids/enums/numbers.
+  function cfgTrackFromPage(event, data) {
+    if (typeof event !== 'string' || !/^configurator_[a-z_]{1,40}$/.test(event)) return;
+    if (event === 'configurator_chat_started' || event === 'configurator_plan_shown') return; // server-only
+    var safe = {};
+    if (data && typeof data === 'object') {
+      for (var k in data) {
+        if (!Object.prototype.hasOwnProperty.call(data, k) || !/^[a-z_]{1,30}$/.test(k)) continue;
+        var v = data[k];
+        if (typeof v === 'boolean' || (typeof v === 'number' && isFinite(v))) safe[k] = v;
+        else if (typeof v === 'string' && /^[a-z0-9_,.-]{0,80}$/i.test(v)) safe[k] = v;
+      }
+    }
+    track(event, safe);
+  }
+
+  function cfgRestart() {
+    startNewChat();
+    return true;
+  }
+
+  // ----- suggest_replies → answer chips --------------------------------------
+  function buildReplies(input) {
+    var opts = Array.isArray(input && input.options) ? input.options : [];
+    var options = [];
+    for (var i = 0; i < opts.length && options.length < 8; i++) {
+      var o = typeof opts[i] === 'string' ? opts[i].trim() : '';
+      if (o && o.length <= 80 && options.indexOf(o) === -1) options.push(o);
+    }
+    if (options.length < 2) return Promise.resolve(null);
+    var multi = input.multiSelect === true;
+    var topic = CFG_REPLY_TOPICS.indexOf(input.topic) !== -1 ? input.topic : 'other';
+    var wrap = el('div', { class: 'ms-chat-replies' + (multi ? ' ms-chat-replies--multi' : ''), role: 'group', 'aria-label': L('Antwortvorschläge', 'Suggested answers') });
+    var picked = [];
+    var confirm = null;
+    function send(values) {
+      if (wrap.classList.contains('ms-chat-replies--used')) return;
+      if (state.streaming || state.rateLocked) return;
+      wrap.classList.add('ms-chat-replies--used');
+      track('configurator_chip_clicked', { topic: topic, multi: multi, count: values.length });
+      cfgEmit('reply', { topic: topic, values: values.slice() });
+      var text = values.length > 1
+        ? values.slice(0, -1).join(', ') + L(' und ', ' and ') + values[values.length - 1]
+        : values[0];
+      sendMessage(text, null);
+    }
+    options.forEach(function (label) {
+      var b = el('button', { class: 'ms-chat-reply', type: 'button', text: label });
+      if (multi) b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', function () {
+        if (wrap.classList.contains('ms-chat-replies--used')) return;
+        if (!multi) { send([label]); return; }
+        var idx = picked.indexOf(label);
+        if (idx === -1) picked.push(label); else picked.splice(idx, 1);
+        b.setAttribute('aria-pressed', idx === -1 ? 'true' : 'false');
+        b.classList.toggle('ms-chat-reply--on', idx === -1);
+        if (confirm) confirm.disabled = picked.length === 0;
+      });
+      wrap.appendChild(b);
+    });
+    if (multi) {
+      confirm = el('button', { class: 'ms-chat-reply ms-chat-reply--confirm', type: 'button', text: L('Übernehmen', 'Confirm') });
+      confirm.disabled = true;
+      confirm.addEventListener('click', function () {
+        if (!picked.length) return;
+        // Keep the order Mo offered them in.
+        send(options.filter(function (o) { return picked.indexOf(o) !== -1; }));
+      });
+      wrap.appendChild(confirm);
+    }
+    return Promise.resolve(wrap).then(function (node) { setTimeout(cfgSyncReplies, 0); return node; });
+  }
+
+  // Chips are answerable only until the visitor wrote the next message.
+  function cfgSyncReplies() {
+    if (!messagesEl) return;
+    try {
+      var userRows = messagesEl.querySelectorAll('.ms-chat-row--user');
+      var lastUser = userRows.length ? userRows[userRows.length - 1] : null;
+      var groups = messagesEl.querySelectorAll('.ms-chat-replies');
+      for (var i = 0; i < groups.length; i++) {
+        var g = groups[i];
+        var before = lastUser && (g.compareDocumentPosition(lastUser) & 4);
+        if (before) g.classList.add('ms-chat-replies--used');
+      }
+    } catch (e) {}
+  }
+
+  // ----- show_gym_plan → plan card + the page's plan view ----------------------
+  function cfgResetPlans() {
+    cfgPlans = {};
+    cfgPlanSeq = 0;
+    cfgActivePlanKey = null;
+  }
+
+  function cfgVariantOf(p, line) {
+    var vs = Array.isArray(p && p.variants) ? p.variants : [];
+    if (!vs.length) return null;
+    var want = line.variantId || (p.selectedVariantId != null ? String(p.selectedVariantId) : null);
+    var i;
+    if (want) { for (i = 0; i < vs.length; i++) { if (vs[i] && String(vs[i].id) === String(want)) return vs[i]; } }
+    for (i = 0; i < vs.length; i++) { if (vs[i] && vs[i].isDefault && vs[i].available) return vs[i]; }
+    for (i = 0; i < vs.length; i++) { if (vs[i] && vs[i].available) return vs[i]; }
+    return vs[0];
+  }
+  function cfgUnitPrice(p, v) {
+    if (v) return (typeof v.salePrice === 'number' && v.salePrice > 0) ? v.salePrice : Number(v.price) || 0;
+    return p.salePrice != null ? Number(p.salePrice) || 0 : Number(p.price) || 0;
+  }
+  function cfgLineAvailable(p, v) {
+    if (!p) return false;
+    if (v) return v.available !== false && v.id != null;
+    return p.inStock !== false;
+  }
+
+  // The plan from the tool input, with the visitor's edits of this thread.
+  function cfgMakePlan(input, key) {
+    var items = Array.isArray(input && input.items) ? input.items : [];
+    var lines = [];
+    var seen = {};
+    for (var i = 0; i < items.length && lines.length < 12; i++) {
+      var it = items[i];
+      if (!it || typeof it.productId !== 'string') continue;
+      var ref = it.productId.trim();
+      if (!ref || seen[ref]) continue;
+      seen[ref] = 1;
+      var q = parseInt(it.quantity, 10);
+      lines.push({
+        ref: ref,
+        qty: isFinite(q) && q >= 1 ? Math.min(q, 20) : 1,
+        role: CFG_ROLES[it.role] ? it.role : 'extra',
+        note: typeof it.note === 'string' ? it.note.slice(0, 160) : '',
+        removed: false,
+        variantId: null,
+        product: null
+      });
+    }
+    var c = cfgLoad();
+    var edits = c && c.edits && c.edits[key];
+    if (edits) {
+      lines.forEach(function (l) {
+        var e = edits[l.ref];
+        if (!e) return;
+        if (e.qty >= 1 && e.qty <= 20) l.qty = e.qty;
+        if (typeof e.variantId === 'string') l.variantId = e.variantId;
+        l.removed = e.removed === true;
+      });
+    }
+    return {
+      key: key,
+      seq: ++cfgPlanSeq,
+      title: typeof input.title === 'string' ? input.title.slice(0, 120) : '',
+      summary: typeof input.summary === 'string' ? input.summary.slice(0, 500) : '',
+      tips: (Array.isArray(input.tips) ? input.tips : []).filter(function (t) { return typeof t === 'string' && t.trim(); }).slice(0, 3),
+      lines: lines,
+      ready: false
+    };
+  }
+
+  function cfgSaveEdits(plan) {
+    var c = cfgActive();
+    if (!c) return;
+    c.edits = c.edits || {};
+    var e = {};
+    plan.lines.forEach(function (l) { e[l.ref] = { qty: l.qty, variantId: l.variantId, removed: l.removed }; });
+    c.edits[plan.key] = e;
+    // Only the edits of the active plan matter — keep the stored object small.
+    for (var k in c.edits) { if (Object.prototype.hasOwnProperty.call(c.edits, k) && k !== plan.key) delete c.edits[k]; }
+    cfgSave(c);
+  }
+
+  function cfgPlanTotals(plan) {
+    var total = 0, units = 0, count = 0, unavailable = 0;
+    plan.lines.forEach(function (l) {
+      if (l.removed || !l.product) return;
+      var v = cfgVariantOf(l.product, l);
+      if (!cfgLineAvailable(l.product, v)) { unavailable++; return; }
+      total += cfgUnitPrice(l.product, v) * l.qty;
+      units += l.qty;
+      count++;
+    });
+    return { total: total, units: units, count: count, unavailable: unavailable };
+  }
+
+  function cfgPlanForContext() {
+    var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+    if (!plan) return [];
+    var out = [];
+    plan.lines.forEach(function (l) {
+      if (l.removed || !l.product) return;
+      var v = cfgVariantOf(l.product, l);
+      var base = l.ref.split('~')[0];
+      var id = v && v.id != null && Array.isArray(l.product.variants) && l.product.variants.length > 1 ? base + '~' + v.id : base;
+      out.push({ id: id, qty: l.qty });
+    });
+    return out.slice(0, 20);
+  }
+
+  function cfgSetActivePlan(key) {
+    if (!cfgPlans[key]) return;
+    cfgActivePlanKey = key;
+    cfgRenderHost();
+    cfgRefreshPlanCards();
+    if (cfgStage !== 'cart') cfgSetStage('plan');
+    var t = cfgPlanTotals(cfgPlans[key]);
+    cfgEmit('plan', { items: t.count, units: t.units, total: Math.round(t.total) });
+  }
+
+  function buildGymPlan(input, key) {
+    key = key || ('plan:' + JSON.stringify(input).length + ':' + cfgPlanSeq);
+    var plan = cfgMakePlan(input || {}, key);
+    if (!plan.lines.length) return Promise.resolve(null);
+    var previous = cfgPlans[key];
+    if (previous) plan.seq = previous.seq;
+    cfgPlans[key] = plan;
+    var card = el('div', { class: 'ms-chat-card ms-chat-plan', 'data-plan-key': key });
+    return hydrate(plan.lines.map(function (l) { return l.ref; })).then(function (res) {
+      for (var i = 0; i < plan.lines.length; i++) plan.lines[i].product = res[i] || null;
+      plan.lines = plan.lines.filter(function (l) { return !!l.product; });
+      if (!plan.lines.length) return null;
+      plan.ready = true;
+      // A plan is a product consultation (attribution token, consent-gated).
+      moAttrOnProductCard();
+      plan.card = card;
+      // The newest plan of the thread is the active one — decided when its
+      // products arrive, since restored plans hydrate in any order.
+      if (cfgPlans[key] !== plan) return null; // superseded by a re-render
+      var newest = true;
+      for (var k in cfgPlans) {
+        if (Object.prototype.hasOwnProperty.call(cfgPlans, k) && cfgPlans[k].seq > plan.seq) newest = false;
+      }
+      if (newest) cfgSetActivePlan(key);
+      else if (cfgActivePlanKey !== key) cfgRefreshPlanCards();
+      fillPlanCard(card, plan);
+      return card;
+    });
+  }
+
+  function cfgRefreshPlanCards() {
+    for (var k in cfgPlans) {
+      if (!Object.prototype.hasOwnProperty.call(cfgPlans, k)) continue;
+      var p = cfgPlans[k];
+      if (p.ready && p.card) fillPlanCard(p.card, p);
+    }
+  }
+
+  function planHost() {
+    try { return document.querySelector('[data-ms-chat-plan]'); } catch (e) { return null; }
+  }
+
+  // The compact plan card in the chat.
+  function fillPlanCard(card, plan) {
+    var active = plan.key === cfgActivePlanKey;
+    var host = planHost();
+    card.replaceChildren();
+    card.classList.toggle('ms-chat-plan--old', !active);
+    var body = el('div', { class: 'ms-chat-card-body' });
+    var head = el('div', { class: 'ms-chat-plan-eyebrow', text: active ? L('Dein Home-Gym-Plan', 'Your home-gym plan') : L('Früherer Plan', 'Earlier plan') });
+    body.appendChild(head);
+    if (plan.title) body.appendChild(el('div', { class: 'ms-chat-plan-title', text: plan.title }));
+    if (plan.summary && !host) body.appendChild(el('div', { class: 'ms-chat-card-text', text: plan.summary }));
+    var list = el('div', { class: 'ms-chat-plan-lines' });
+    plan.lines.forEach(function (l) {
+      var p = l.product;
+      var v = cfgVariantOf(p, l);
+      var row = el('div', { class: 'ms-chat-plan-line' + (l.removed ? ' ms-chat-plan-line--removed' : '') });
+      if (p.images && p.images[0]) row.appendChild(el('img', { class: 'ms-chat-plan-thumb', src: p.images[0], alt: '', loading: 'lazy' }));
+      var meta = el('div', { class: 'ms-chat-plan-meta' });
+      meta.appendChild(el('div', { class: 'ms-chat-plan-name', text: p.name || '' }));
+      var sub = CFG_ROLES[l.role] + (v && v.title && p.variants && p.variants.length > 1 ? ' · ' + v.title : '');
+      meta.appendChild(el('div', { class: 'ms-chat-plan-sub', text: sub }));
+      row.appendChild(meta);
+      var avail = cfgLineAvailable(p, v);
+      row.appendChild(el('div', { class: 'ms-chat-plan-price', text: !avail ? L('ausverkauft', 'sold out') : (l.qty > 1 ? l.qty + '× ' : '') + cfgMoney(cfgUnitPrice(p, v)) }));
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+    var t = cfgPlanTotals(plan);
+    var tot = el('div', { class: 'ms-chat-plan-total' });
+    tot.appendChild(el('span', { text: L('Gesamt', 'Total') + ' · ' + t.units + ' ' + (t.units === 1 ? L('Artikel', 'item') : L('Artikel', 'items')) }));
+    tot.appendChild(el('strong', { text: cfgMoney(Math.round(t.total * 100) / 100) }));
+    body.appendChild(tot);
+    if (active) {
+      var add = el('button', { class: 'ms-chat-btn ms-chat-btn--checkout', type: 'button' });
+      add.appendChild(icon('cart'));
+      add.appendChild(el('span', { text: L('Alles in den Warenkorb', 'Add everything to cart') }));
+      add.disabled = !t.count || cfgCartBusy;
+      add.addEventListener('click', function () { cfgAddToCart(plan, add); });
+      body.appendChild(add);
+      if (host) {
+        var view = el('button', { class: 'ms-chat-btn ms-chat-btn--secondary', type: 'button', text: L('Plan ansehen & anpassen', 'View & adjust plan') });
+        view.addEventListener('click', function () {
+          try { host.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' }); } catch (e) {}
+        });
+        body.appendChild(view);
+      }
+    } else {
+      var use = el('button', { class: 'ms-chat-btn ms-chat-btn--secondary', type: 'button', text: L('Diesen Plan übernehmen', 'Use this plan') });
+      use.addEventListener('click', function () { cfgSetActivePlan(plan.key); });
+      body.appendChild(use);
+    }
+    card.appendChild(body);
+  }
+
+  // The editable plan in the page's [data-ms-chat-plan] host.
+  function cfgRenderHost() {
+    var host = planHost();
+    if (!host) return;
+    var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+    var wrap = host.querySelector('.ms-chat-planhost');
+    if (!plan || !plan.ready || !cfgActive()) {
+      if (wrap) wrap.parentNode.removeChild(wrap);
+      host.setAttribute('data-state', cfgActive() ? 'waiting' : 'empty');
+      return;
+    }
+    if (!wrap) {
+      wrap = el('div', { class: 'ms-chat-root ms-chat-planhost' });
+      host.appendChild(wrap);
+    }
+    host.setAttribute('data-state', 'ready');
+    wrap.replaceChildren();
+
+    var head = el('div', { class: 'ms-chat-planhost-head' });
+    head.appendChild(el('div', { class: 'ms-chat-plan-eyebrow', text: L('Dein Home-Gym-Plan von Mo', 'Your home-gym plan by Mo') }));
+    if (plan.title) head.appendChild(el('h3', { class: 'ms-chat-planhost-title', text: plan.title }));
+    if (plan.summary) head.appendChild(el('p', { class: 'ms-chat-planhost-summary', text: plan.summary }));
+    wrap.appendChild(head);
+
+    var list = el('ul', { class: 'ms-chat-planhost-lines' });
+    plan.lines.forEach(function (l) { list.appendChild(cfgHostLine(plan, l)); });
+    wrap.appendChild(list);
+
+    if (plan.tips.length) {
+      var tips = el('ul', { class: 'ms-chat-planhost-tips', 'aria-label': L('Tipps von Mo', 'Tips from Mo') });
+      plan.tips.forEach(function (tip) { tips.appendChild(el('li', { text: tip })); });
+      wrap.appendChild(tips);
+    }
+
+    var t = cfgPlanTotals(plan);
+    var foot = el('div', { class: 'ms-chat-planhost-foot' });
+    var sum = el('div', { class: 'ms-chat-planhost-sum' });
+    sum.appendChild(el('span', { class: 'ms-chat-planhost-sum-label', text: L('Gesamt', 'Total') }));
+    sum.appendChild(el('span', { class: 'ms-chat-planhost-sum-value', text: cfgMoney(Math.round(t.total * 100) / 100) }));
+    foot.appendChild(sum);
+    foot.appendChild(el('div', { class: 'ms-chat-planhost-legal', text: t.units + ' ' + L('Artikel · inkl. MwSt., zzgl. Versand', 'items · incl. VAT, plus shipping') + (t.unavailable ? L(' · nicht lieferbare Positionen bleiben draußen', ' · unavailable items are left out') : '') }));
+    var add = el('button', { class: 'ms-chat-btn ms-chat-btn--checkout ms-chat-planhost-add', type: 'button' });
+    add.appendChild(icon('cart'));
+    add.appendChild(el('span', { text: L('Alles in den Warenkorb', 'Add everything to cart') }));
+    add.disabled = !t.count || cfgCartBusy;
+    add.addEventListener('click', function () { cfgAddToCart(plan, add); });
+    foot.appendChild(add);
+    var status = el('div', { class: 'ms-chat-planhost-status', role: 'status', 'aria-live': 'polite' });
+    foot.appendChild(status);
+    plan.statusEl = status;
+    wrap.appendChild(foot);
+  }
+
+  function cfgHostLine(plan, l) {
+    var p = l.product;
+    var v = cfgVariantOf(p, l);
+    var avail = cfgLineAvailable(p, v);
+    var li = el('li', { class: 'ms-chat-planhost-line' + (l.removed ? ' ms-chat-planhost-line--removed' : '') + (!avail ? ' ms-chat-planhost-line--na' : '') });
+    var img = el('a', { class: 'ms-chat-planhost-thumb', href: p.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer', 'aria-hidden': 'true', tabindex: '-1' });
+    if (p.images && p.images[0]) img.appendChild(el('img', { src: p.images[0], alt: '', loading: 'lazy' }));
+    li.appendChild(img);
+
+    var main = el('div', { class: 'ms-chat-planhost-main' });
+    main.appendChild(el('span', { class: 'ms-chat-planhost-role ms-chat-planhost-role--' + l.role, text: CFG_ROLES[l.role] }));
+    var name = el('a', { class: 'ms-chat-planhost-name', href: p.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer', text: p.name || '' });
+    name.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
+    main.appendChild(name);
+    if (l.note) main.appendChild(el('div', { class: 'ms-chat-planhost-note', text: l.note }));
+    if (!avail) main.appendChild(el('span', { class: 'ms-chat-soldout-badge', text: L('Aktuell nicht lieferbar', 'Currently unavailable') }));
+
+    var vs = Array.isArray(p.variants) ? p.variants.filter(function (x) { return x && x.id != null; }) : [];
+    if (vs.length > 1 && !l.removed) {
+      var sel = el('select', { class: 'ms-chat-planhost-variant', 'aria-label': L('Variante von ', 'Variant of ') + (p.name || '') });
+      vs.forEach(function (x) {
+        var opt = el('option', { value: String(x.id), text: (x.title || '—') + ' · ' + cfgMoney(cfgUnitPrice(p, x)) + (x.available === false ? L(' (ausverkauft)', ' (sold out)') : '') });
+        if (x.available === false) opt.disabled = true;
+        if (v && String(v.id) === String(x.id)) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', function () {
+        l.variantId = sel.value;
+        cfgPlanEdited(plan, 'variant');
+      });
+      main.appendChild(sel);
+    }
+    li.appendChild(main);
+
+    var side = el('div', { class: 'ms-chat-planhost-side' });
+    if (!l.removed) {
+      var qty = el('div', { class: 'ms-chat-qty', role: 'group', 'aria-label': L('Menge', 'Quantity') });
+      var minus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '−', 'aria-label': L('Weniger', 'Fewer') });
+      var val = el('span', { class: 'ms-chat-qty-val', text: String(l.qty), 'aria-live': 'polite' });
+      var plus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '+', 'aria-label': L('Mehr', 'More') });
+      minus.disabled = l.qty <= 1;
+      plus.disabled = l.qty >= 20;
+      minus.addEventListener('click', function () { if (l.qty > 1) { l.qty--; cfgPlanEdited(plan, 'qty'); } });
+      plus.addEventListener('click', function () { if (l.qty < 20) { l.qty++; cfgPlanEdited(plan, 'qty'); } });
+      qty.appendChild(minus); qty.appendChild(val); qty.appendChild(plus);
+      side.appendChild(qty);
+      side.appendChild(el('div', { class: 'ms-chat-planhost-price', text: avail ? cfgMoney(Math.round(cfgUnitPrice(p, v) * l.qty * 100) / 100) : '—' }));
+    }
+    var toggle = el('button', { class: 'ms-chat-planhost-toggle', type: 'button', text: l.removed ? L('Wieder hinzufügen', 'Add back') : L('Entfernen', 'Remove') });
+    toggle.addEventListener('click', function () {
+      l.removed = !l.removed;
+      cfgPlanEdited(plan, l.removed ? 'remove' : 'restore');
+    });
+    side.appendChild(toggle);
+    li.appendChild(side);
+    return li;
+  }
+
+  function cfgPlanEdited(plan, action) {
+    cfgSaveEdits(plan);
+    track('configurator_plan_edited', { action: action });
+    cfgRenderHost();
+    if (plan.card) fillPlanCard(plan.card, plan);
+    var t = cfgPlanTotals(plan);
+    cfgEmit('plan', { items: t.count, units: t.units, total: Math.round(t.total) });
+  }
+
+  function cfgPlanStatus(plan, kind, text) {
+    if (!plan.statusEl) return;
+    plan.statusEl.className = 'ms-chat-planhost-status' + (kind ? ' ms-chat-planhost-status--' + kind : '');
+    plan.statusEl.textContent = text || '';
+  }
+
+  // POST /cart/add.js with the plan's available lines (theme route, locale-
+  // aware), then refresh the header badge and open the theme's cart drawer.
+  // A line Shopify refuses (stock) fails the whole batch — then line by line,
+  // so everything addable lands and the rest is named.
+  function cfgCartAddUrl() {
+    try { if (window.routes && window.routes.cart_add_url) return window.routes.cart_add_url.replace(/\.js$/, '') + '.js'; } catch (e) {}
+    return '/cart/add.js';
+  }
+  function cfgPostAdd(items) {
+    return fetch(cfgCartAddUrl(), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ items: items })
+    }).then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
+  function cfgAddToCart(plan, btn) {
+    if (cfgCartBusy) return;
+    var items = [];
+    var names = {};
+    plan.lines.forEach(function (l) {
+      if (l.removed || !l.product) return;
+      var v = cfgVariantOf(l.product, l);
+      if (!cfgLineAvailable(l.product, v) || !v) return;
+      var id = parseInt(v.id, 10);
+      if (!isFinite(id)) return;
+      items.push({ id: id, quantity: l.qty });
+      names[id] = l.product.name || '';
+    });
+    if (!items.length) { cfgPlanStatus(plan, 'warn', L('Keine lieferbaren Produkte im Plan.', 'No available products in the plan.')); return; }
+    cfgCartBusy = true;
+    if (btn) btn.disabled = true;
+    cfgPlanStatus(plan, '', L('Wird in den Warenkorb gelegt …', 'Adding to cart …'));
+    // The plan is a Mo consultation: stamp the cart's attribution marker
+    // (consent-gated, fail-silent) before the add.
+    moAttrConsulted = true;
+    moAttrEnsure(false);
+    var t = cfgPlanTotals(plan);
+    cfgPostAdd(items).then(function (ok) {
+      if (ok) return { added: items, failed: [] };
+      var added = [], failed = [];
+      return items.reduce(function (p, it) {
+        return p.then(function () {
+          return cfgPostAdd([it]).then(function (one) { (one ? added : failed).push(it); });
+        });
+      }, Promise.resolve()).then(function () { return { added: added, failed: failed }; });
+    }).then(function (r) {
+      cfgCartBusy = false;
+      if (btn) btn.disabled = false;
+      if (!r.added.length) {
+        cfgPlanStatus(plan, 'warn', L('Das hat leider nicht geklappt — bitte versuch es gleich nochmal.', 'That did not work — please try again in a moment.'));
+        return;
+      }
+      var units = r.added.reduce(function (n, it) { return n + it.quantity; }, 0);
+      track('configurator_cart_added', { items: r.added.length, units: units, value: Math.round(t.total), partial: r.failed.length > 0 });
+      if (r.failed.length) {
+        cfgPlanStatus(plan, 'warn', L('Im Warenkorb — bis auf: ', 'In your cart — except: ') + r.failed.map(function (it) { return names[it.id]; }).join(', ') + L(' (gerade nicht in dieser Menge verfügbar).', ' (not available in this quantity right now).'));
+      } else {
+        cfgPlanStatus(plan, 'ok', L('Alles im Warenkorb. ', 'Everything is in your cart. ') + L('Viel Spaß mit deinem Home Gym!', 'Enjoy your home gym!'));
+      }
+      cfgSetStage('cart');
+      cfgEmit('cart', { items: r.added.length, units: units, partial: r.failed.length > 0 });
+      try { document.dispatchEvent(new CustomEvent('cart:refresh')); } catch (e) {}
+      refreshCartUI();
+      try {
+        var modal = document.querySelector('cart-modal');
+        if (modal && typeof modal.reloadContent === 'function') {
+          var pr = modal.reloadContent();
+          var show = function () { try { if (typeof modal.show === 'function') modal.show(); } catch (e) {} };
+          if (pr && typeof pr.then === 'function') pr.then(show, show); else show();
+        }
+      } catch (e) {}
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -2878,6 +3607,17 @@
     // The "Mo" wordmark is intentionally omitted from the header so the action
     // buttons get the full width (the welcome state still shows the animated
     // brand orb). With no left title, the actions row is the sole flex child.
+    // Exception: docked on the configurator page the panel is part of the
+    // page and introduces itself (orb + name + status line).
+    if (DOCK) {
+      var dockTitle = el('div', { class: 'ms-chat-docktitle' });
+      dockTitle.appendChild(logoEl('ms-chat-docktitle-logo'));
+      var dockText = el('div', { class: 'ms-chat-docktitle-text' });
+      dockText.appendChild(el('div', { class: 'ms-chat-docktitle-name' }, ['Mo', el('span', { class: 'ms-chat-docktitle-long', text: L(' – Dein Home-Gym-Berater', ' – your home-gym advisor') })]));
+      dockText.appendChild(el('div', { class: 'ms-chat-docktitle-status', text: L('Online · KI-Fitnessberater', 'Online · AI fitness advisor') }));
+      dockTitle.appendChild(dockText);
+      header.appendChild(dockTitle);
+    }
     var actions = el('div', { class: 'ms-chat-header-actions' });
     // Feature 7: "Per E-Mail teilen" text button (replaces the share icon).
     // Same action as before — opens the email-capture form (same form the
@@ -2923,7 +3663,7 @@
     var newBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': L('Neuen Chat starten', 'Start new chat'), title: L('Neuen Chat starten', 'Start new chat') });
     newBtn.appendChild(icon('refresh'));
     newBtn.addEventListener('click', function () { startNewChat(); });
-    var closeBtn = el('button', { class: 'ms-chat-iconbtn', type: 'button', 'aria-label': L('Chat schließen', 'Close chat') });
+    var closeBtn = el('button', { class: 'ms-chat-iconbtn ms-chat-close', type: 'button', 'aria-label': L('Chat schließen', 'Close chat') });
     closeBtn.appendChild(icon('close'));
     closeBtn.addEventListener('click', closePanel);
     actions.appendChild(newBtn);
@@ -3005,7 +3745,18 @@
 
     root.appendChild(launcher);
     root.appendChild(backdrop);
-    root.appendChild(panel);
+    if (DOCK) {
+      // Configurator page: the panel lives in the page's dock host (its own
+      // .ms-chat-root carries the tokens); launcher + backdrop stay unused.
+      dockRoot = el('div', { class: 'ms-chat-root ms-chat-root--dock' });
+      panel.classList.add('ms-chat-panel--docked');
+      panel.setAttribute('role', 'region');
+      dockRoot.appendChild(panel);
+      DOCK.appendChild(dockRoot);
+      launcher.classList.add('ms-chat-launcher--hidden');
+    } else {
+      root.appendChild(panel);
+    }
     document.body.appendChild(root);
 
     applyViewMode();
@@ -3071,6 +3822,7 @@
   // layout switch, not a zoom).
   function applyViewMode() {
     if (!panel) return;
+    if (DOCK) { panel.classList.remove('ms-chat-panel--sidebar', 'ms-chat-panel--modal'); syncChrome(); return; }
     panel.classList.toggle('ms-chat-panel--sidebar', state.viewMode === 'sidebar');
     panel.classList.toggle('ms-chat-panel--modal', state.viewMode === 'modal');
     panel.setAttribute('aria-modal', state.viewMode === 'modal' ? 'true' : 'false');
@@ -3102,6 +3854,15 @@
   // mobile visual-viewport sizing. Single place, so open/close/toggle/resize
   // can never leave a stray backdrop, offset or lock behind.
   function syncChrome() {
+    if (DOCK) {
+      // Docked into the page: no backdrop, no page shift, no scroll lock.
+      if (backdrop) backdrop.classList.remove('ms-chat-backdrop--open');
+      setPageShift(false);
+      document.documentElement.classList.remove('ms-chat-mobile-open');
+      syncMobileViewport();
+      if (DOCK) DOCK.classList.toggle('ms-chat-dock--live', state.open);
+      return;
+    }
     var desktop = isDesktop();
     if (backdrop) backdrop.classList.toggle('ms-chat-backdrop--open', state.open && desktop && state.viewMode === 'modal');
     setPageShift(state.open && desktop && state.viewMode === 'sidebar');
@@ -3130,7 +3891,7 @@
   function syncMobileViewport() {
     if (!panel) return;
     var vv = window.visualViewport;
-    if (state.open && !isDesktop() && vv) {
+    if (state.open && !isDesktop() && vv && !DOCK) {
       var pinned = messagesEl && (messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight) < 120;
       panel.style.height = Math.round(vv.height) + 'px';
       panel.style.transform = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
@@ -3174,7 +3935,7 @@
   }
 
   function togglePanel() { state.open ? closePanel() : openPanel(); }
-  function openPanel() {
+  function openPanel(noFocus) {
     if (state.open) return;
     state.open = true;
     // Engagement layer: an opened chat ends the nudge's eligibility for this
@@ -3196,11 +3957,12 @@
     // mis-sized (internally overflowing) on first open.
     autoGrow();
     scrollToBottom();
-    setTimeout(function () { try { textarea.focus(); } catch (e) {} }, 50);
+    // Docked: never pull the page (or the mobile keyboard) to the input.
+    if (!DOCK && noFocus !== true) setTimeout(function () { try { textarea.focus(); } catch (e) {} }, 50);
     track('chat_opened', {});
   }
   function closePanel() {
-    if (!state.open) return;
+    if (!state.open || DOCK) return; // the dock has no close
     state.open = false;
     if (voiceMode) disableVoiceMode(); // stop playback + mic, return to normal
     panel.classList.remove('ms-chat-panel--open');
@@ -3882,6 +4644,7 @@
     var row = el('div', { class: 'ms-chat-row ms-chat-row--user' });
     row.appendChild(el('div', { class: 'ms-chat-bubble ms-chat-bubble--user', text: text }));
     messagesEl.appendChild(row);
+    cfgSyncReplies(); // answer chips above this message are spent
     return row;
   }
 
@@ -3942,7 +4705,7 @@
       ctx.tools[key] = holder;
       ctx.content.appendChild(holder.node);
     }
-    buildToolCard(name, input).then(function (cardEl) {
+    buildToolCard(name, input, key).then(function (cardEl) {
       holder.node.replaceChildren();
       if (cardEl) { holder.node.appendChild(cardEl); scrollToBottom(); }
     }).catch(function () { /* render nothing on failure */ });
@@ -3963,7 +4726,8 @@
   function renderAllMessages() {
     messagesEl.replaceChildren();
     updateShareBtn();
-    if (!messages.length) { showWelcome(); return; }
+    cfgResetPlans(); // the thread's plans register again as their cards rebuild
+    if (!messages.length) { showWelcome(); cfgRenderHost(); return; }
     for (var i = 0; i < messages.length; i++) {
       var m = messages[i];
       if (m.role === 'user') renderUserMessage(m);
@@ -4260,6 +5024,13 @@
     // de (default) is byte-identical to before. Also sent as x-ms-locale below.
     var chatBody = { messages: toWire(messages), locale: LOCALE };
     if (opts.context) chatBody.context = opts.context;
+    // Configurator thread (API_CONTRACT §2, type "configurator"): the page's
+    // answers + plan ride on every turn — a typed page context never replaces
+    // them; an explicit CTA / nudge context still wins.
+    if (!opts.context || opts.context.source === 'page') {
+      var cfgCtx = cfgContextForSend();
+      if (cfgCtx) chatBody.context = cfgCtx;
+    }
     // Signed-in: address the active thread so several conversations can live
     // under one stable session_id (CUSTOMER_ACCOUNT.md §7.6). OMITTED for
     // anonymous / email-only (activeConversationKey is always null for them) →
@@ -4502,7 +5273,8 @@
     }, seconds * 1000);
   }
 
-  function startNewChat() {
+  function startNewChat(fromConfigurator) {
+    var hadCfg = !!cfgActive();
     // A reply still streaming belongs to the OLD thread: cancel it first, or
     // it would be drawn into (and, signed in, saved with) the new one.
     if (abortActiveStream) { abortActiveStream(); abortActiveStream = null; }
@@ -4530,7 +5302,13 @@
     state.streaming = false;
     updateInputState();
     renderAllMessages(); // empty -> welcome
-    try { textarea.focus(); } catch (e) {}
+    if (hadCfg && fromConfigurator !== true) {
+      // The configurator thread ended: the page goes back to its first step.
+      cfgStage = 'start';
+      cfgApplyChrome();
+      cfgEmit('reset', {});
+    }
+    if (!DOCK) { try { textarea.focus(); } catch (e) {} }
   }
 
   // ---------------------------------------------------------------------------
@@ -4630,7 +5408,7 @@
   // torn down. showNudge() re-checks eligibility, so a chat opened after
   // arming silently wins.
   function initNudgeTriggers() {
-    if (!nudgeEligible()) return;
+    if (DOCK || !nudgeEligible()) return; // the docked chat needs no nudge
     var fired = false;
     var dwellTimer = null;
     var scrollBound = false;
@@ -4682,7 +5460,7 @@
   // belt-and-braces guard).
   // ---------------------------------------------------------------------------
   function playLauncherAttention() {
-    if (ssGet(SS_ATTN)) return;
+    if (DOCK || ssGet(SS_ATTN)) return;
     ssSet(SS_ATTN, '1'); // consumed even when skipped — never replays this session
     if (prefersReducedMotion()) return;
     setTimeout(function () {
@@ -5530,6 +6308,7 @@
   function gateBaseEligible() {
     if (gateEl || ssGet(GATE_SS_KEY)) return false;
     if (voiceMode) return false;      // never interrupt the hands-free loop
+    if (cfgGateHold()) return false;  // configurator: not before Mo's plan
     if (!auth.settled) return false;  // unknown tier -> wait for the next turn
     return true;
   }
@@ -6061,7 +6840,7 @@
   // Armed on each panel open and flushed once detection has settled.
   var autoHistoryArmed = false;
   function maybeAutoOpenHistory() {
-    if (!state.open || !auth.signedIn) return;
+    if (!state.open || !auth.signedIn || DOCK) return;
     if (messages.length) return;
     if (!historyEl || historyEl.classList.contains('ms-chat-history--open')) return;
     openHistory();
@@ -6731,6 +7510,8 @@
     // Then the sign-in return (?ms_auth / one-time ?ms_code): stripped now,
     // processed by handleAuthReturn below once the widget is built.
     readAuthReturn();
+    // Configurator page: dock the panel into the page (cfgInitDock below).
+    try { DOCK = document.querySelector('[data-ms-chat-dock]'); } catch (e) { DOCK = null; }
     buildShell();
     autoGrow(); // size the input to its clean single-line height up front
     renderAllMessages();
@@ -6747,7 +7528,20 @@
     window.MS_CHAT = window.MS_CHAT || {};
     window.MS_CHAT.openWithProduct = openWithProduct;
     window.MS_CHAT.openEmailSummary = openCaptureForm;
+    window.MS_CHAT.configurator = {
+      version: 1,
+      dock: !!DOCK,
+      start: cfgStart,
+      update: cfgUpdate,
+      restart: cfgRestart,
+      track: cfgTrackFromPage,
+      state: function () {
+        var c = cfgActive();
+        return c ? { answers: c.answers, partner: c.partner || null, stage: cfgStage, busy: state.streaming || state.rateLocked } : null;
+      }
+    };
     bindProductCtas();
+    cfgInitDock();
     // Engagement layer: record this page in the local browsing trail, arm the
     // contextual nudge triggers, play the one-time launcher attention motion.
     recordTrail();

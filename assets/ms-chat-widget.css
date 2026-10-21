@@ -1850,3 +1850,326 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   .ms-chat-logo .ms-chat-blob path,
   .ms-chat-launcher-logo { animation: none; }
 }
+
+/* ===========================================================================
+   Home-Gym-Konfigurator (sections/ms-home-gym-configurator.liquid)
+   - the panel DOCKED into the page's [data-ms-chat-dock] host,
+   - Mo's answer chips (suggest_replies),
+   - the plan card (show_gym_plan) and the editable plan in the page's
+     [data-ms-chat-plan] host (.ms-chat-planhost).
+   Theme tokens only, like the rest of this file.
+   =========================================================================== */
+
+/* ---------- Docked panel ---------- */
+.ms-chat-root--dock { position: relative; width: 100%; height: 100%; }
+/* Triple class: beats the sidebar/modal media rules and the mobile fullscreen
+   rule regardless of source order. */
+.ms-chat-root--dock .ms-chat-panel.ms-chat-panel--docked {
+  position: relative;
+  inset: auto;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  z-index: auto;
+  animation: none;
+  border: 1px solid var(--msc-border);
+  border-radius: var(--msc-card-radius);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 24%);
+  padding: 0;
+}
+.ms-chat-root--dock .ms-chat-panel--docked .ms-chat-header { padding-top: 14px; }
+.ms-chat-root--dock .ms-chat-close,
+.ms-chat-root--dock .ms-chat-iconbtn.ms-chat-mode { display: none; }
+.ms-chat-root--dock .ms-chat-history,
+.ms-chat-root--dock .ms-chat-gate { border-radius: var(--msc-card-radius); }
+
+.ms-chat-docktitle { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
+.ms-chat-docktitle-logo { width: 38px; height: 38px; flex: 0 0 auto; }
+.ms-chat-docktitle-text { min-width: 0; }
+.ms-chat-docktitle-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  color: rgb(var(--msc-heading));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-chat-docktitle-status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--msc-muted); }
+.ms-chat-docktitle-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgb(var(--msc-success));
+}
+.ms-chat-root--dock .ms-chat-header-actions { flex: 0 1 auto; }
+/* The dock is narrower than the viewport: from tablet down, the short title. */
+@media (max-width: 1199px) {
+  .ms-chat-docktitle-long,
+  .ms-chat-docktitle-status { display: none; }
+}
+@media (max-width: 640px) {
+  .ms-chat-docktitle-logo { width: 32px; height: 32px; }
+  .ms-chat-root--dock .ms-chat-panel--docked .ms-chat-header { padding: 10px 12px; }
+}
+
+/* ---------- Answer chips ---------- */
+.ms-chat-replies { display: flex; flex-wrap: wrap; gap: 8px; max-width: min(30rem, 100%); }
+.ms-chat-reply {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: var(--msc-btn-radius);
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-fg));
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.ms-chat-reply:hover,
+.ms-chat-reply:focus-visible {
+  border-color: rgb(var(--msc-secondary));
+  color: rgb(var(--msc-secondary));
+}
+.ms-chat-reply:focus-visible { outline: 2px solid rgb(var(--msc-secondary)); outline-offset: 2px; }
+.ms-chat-reply--on {
+  border-color: rgb(var(--msc-secondary));
+  background: rgb(var(--msc-secondary) / 10%);
+  color: rgb(var(--msc-secondary));
+}
+.ms-chat-reply--confirm {
+  border-color: transparent;
+  background: rgb(var(--msc-accent));
+  color: rgb(var(--msc-accent-fg));
+}
+.ms-chat-reply--confirm:hover,
+.ms-chat-reply--confirm:focus-visible { color: rgb(var(--msc-accent-fg)); border-color: transparent; filter: brightness(1.15); }
+.ms-chat-reply:disabled { opacity: 0.45; cursor: not-allowed; }
+.ms-chat-replies--used .ms-chat-reply { opacity: 0.45; pointer-events: none; }
+.ms-chat-replies--used .ms-chat-reply--confirm { display: none; }
+
+/* ---------- Plan card (chat) ---------- */
+.ms-chat-plan .ms-chat-card-body { gap: 8px; }
+.ms-chat-plan-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--msc-secondary));
+}
+.ms-chat-plan-title { font-weight: 700; font-size: 1rem; line-height: 1.3; color: rgb(var(--msc-heading)); }
+.ms-chat-plan-lines { display: flex; flex-direction: column; }
+.ms-chat-plan-line { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--msc-border); }
+.ms-chat-plan-line:first-child { border-top: 0; }
+.ms-chat-plan-line--removed { opacity: 0.4; text-decoration: line-through; }
+.ms-chat-plan-thumb {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--msc-border);
+  border-radius: 8px;
+}
+.ms-chat-plan-meta { min-width: 0; flex: 1 1 auto; }
+.ms-chat-plan-name {
+  font-weight: 600;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  color: rgb(var(--msc-heading));
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ms-chat-plan-sub { font-size: 0.72rem; color: var(--msc-muted); }
+.ms-chat-plan-price { flex: 0 0 auto; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+.ms-chat-plan-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--msc-border-strong);
+  font-size: 0.8rem;
+  color: var(--msc-muted);
+}
+.ms-chat-plan-total strong { font-size: 1.1rem; color: rgb(var(--msc-heading)); }
+.ms-chat-plan--old { opacity: 0.7; }
+
+/* ---------- Editable plan on the configurator page ---------- */
+.ms-chat-planhost {
+  background: rgb(var(--msc-bg));
+  border: 1px solid var(--msc-border);
+  border-radius: var(--msc-card-radius);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 18%);
+  padding: 24px;
+  animation: ms-chat-planhost-in 0.45s cubic-bezier(.22, .61, .36, 1);
+}
+@keyframes ms-chat-planhost-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.ms-chat-planhost-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.ms-chat-planhost-title {
+  margin: 0;
+  font-family: var(--font-heading-family, inherit);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: rgb(var(--msc-heading));
+}
+.ms-chat-planhost-summary { margin: 0; font-size: 0.9rem; color: rgb(var(--msc-fg) / 75%); }
+.ms-chat-planhost-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ms-chat-planhost-line {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--msc-border);
+}
+.ms-chat-planhost-line:first-child { border-top: 0; }
+.ms-chat-planhost-line--removed .ms-chat-planhost-thumb,
+.ms-chat-planhost-line--removed .ms-chat-planhost-main { opacity: 0.4; }
+.ms-chat-planhost-line--removed .ms-chat-planhost-name { text-decoration: line-through; }
+.ms-chat-planhost-thumb {
+  display: block;
+  width: 76px;
+  height: 76px;
+  border-radius: 12px;
+  border: 1px solid var(--msc-border);
+  background: #fff;
+  overflow: hidden;
+}
+.ms-chat-planhost-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ms-chat-planhost-main { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.ms-chat-planhost-role {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--msc-surface);
+  color: rgb(var(--msc-fg) / 70%);
+}
+.ms-chat-planhost-role--base { background: rgb(var(--msc-secondary) / 12%); color: rgb(var(--msc-secondary)); }
+.ms-chat-planhost-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  color: rgb(var(--msc-heading));
+  text-decoration: none;
+}
+.ms-chat-planhost-name:hover { text-decoration: underline; }
+.ms-chat-planhost-note { font-size: 0.8rem; color: var(--msc-muted); line-height: 1.4; }
+.ms-chat-planhost-variant {
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: var(--msc-input-radius);
+  background: rgb(var(--msc-bg));
+  color: rgb(var(--msc-fg));
+  font: inherit;
+  font-size: 0.8rem;
+}
+.ms-chat-planhost-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ms-chat-planhost-price { font-weight: 700; font-size: 0.95rem; white-space: nowrap; color: rgb(var(--msc-heading)); }
+.ms-chat-planhost-toggle {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--msc-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ms-chat-planhost-toggle:hover { color: rgb(var(--msc-fg)); }
+.ms-chat-qty {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--msc-border-strong);
+  border-radius: var(--msc-btn-radius);
+  overflow: hidden;
+}
+.ms-chat-qty-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: rgb(var(--msc-fg));
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ms-chat-qty-btn:hover:not(:disabled) { background: var(--msc-surface); }
+.ms-chat-qty-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.ms-chat-qty-val { min-width: 26px; text-align: center; font-weight: 700; font-size: 0.85rem; }
+.ms-chat-planhost-tips {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--msc-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+.ms-chat-planhost-tips li { position: relative; padding-left: 18px; }
+.ms-chat-planhost-tips li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(var(--msc-secondary));
+}
+.ms-chat-planhost-foot {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--msc-border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ms-chat-planhost-sum { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ms-chat-planhost-sum-label { font-weight: 700; font-size: 1rem; }
+.ms-chat-planhost-sum-value { font-weight: 800; font-size: 1.6rem; letter-spacing: -0.02em; color: rgb(var(--msc-heading)); }
+.ms-chat-planhost-legal { font-size: 0.75rem; color: var(--msc-muted); margin-top: -6px; }
+.ms-chat-planhost-add { min-height: 52px; font-size: 0.95rem; }
+.ms-chat-planhost-status { font-size: 0.82rem; min-height: 1.2em; }
+.ms-chat-planhost-status--ok { color: rgb(var(--msc-success)); font-weight: 600; }
+.ms-chat-planhost-status--warn { color: rgb(var(--msc-danger)); }
+
+@media (max-width: 640px) {
+  .ms-chat-planhost { padding: 18px 16px; }
+  .ms-chat-planhost-line { grid-template-columns: 60px minmax(0, 1fr); }
+  .ms-chat-planhost-thumb { width: 60px; height: 60px; }
+  .ms-chat-planhost-side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-chat-planhost,
+  .ms-chat-reply { animation: none; transition: none; }
+}
