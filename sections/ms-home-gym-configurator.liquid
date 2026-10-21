@@ -232,7 +232,7 @@
 
 {% schema %}
 {
-  "name": "Home-Gym-Konfigurator (Mo)",
+  "name": "Home-Gym-Konfigurator",
   "tag": "div",
   "class": "section-ms-hgk",
   "settings": [
@@ -270,7 +270,7 @@
     { "type": "header", "content": "Mo" },
     { "type": "text", "id": "mo_title", "label": "Begrüßung", "default": "Hallo, ich bin Mo – dein Home-Gym-Berater." },
     { "type": "textarea", "id": "mo_text", "label": "Einleitung", "default": "Wähle links ein paar Grundeinstellungen – dann übernehme ich: Ich frage kurz nach Budget und Wünschen und stelle dir dein passendes Home Gym zusammen." },
-    { "type": "url", "id": "fallback_url", "label": "Link, falls Mo nicht erreichbar ist", "default": "/pages/angebotsanfrage" },
+    { "type": "url", "id": "fallback_url", "label": "Link, falls Mo nicht erreichbar ist", "info": "Leer = /pages/angebotsanfrage" },
     { "type": "header", "content": "Kooperation" },
     { "type": "text", "id": "coop_eyebrow", "label": "Überzeile", "default": "Kooperation" },
     { "type": "text", "id": "coop_heading", "label": "Überschrift", "default": "motion sports × Men's Health & Women's Health" },
@@ -283,6 +283,6 @@
     { "type": "text", "id": "coop_link_label", "label": "Link-Text (optional)" },
     { "type": "url", "id": "coop_link", "label": "Link (optional)" }
   ],
-  "presets": [{ "name": "Home-Gym-Konfigurator (Mo)" }]
+  "presets": [{ "name": "Home-Gym-Konfigurator" }]
 }
 {% endschema %}

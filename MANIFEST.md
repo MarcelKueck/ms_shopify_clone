@@ -37,7 +37,7 @@ Shared theme files to hand-edit: **none**. Untouched: the old static guide
 **After the upload (Shopify admin + theme editor):**
 1. Onlineshop → Seiten → „Seite hinzufügen“ (e.g. „Home-Gym-Konfigurator“), template **`page.home-gym-mo`**.
    Any page also shows it with `?view=home-gym-mo` (e.g. `/pages/angebotsanfrage?view=home-gym-mo`).
-2. Theme editor → that page → section „Home-Gym-Konfigurator (Mo)“: upload the two seals („Siegel Men's
+2. Theme editor → that page → section „Home-Gym-Konfigurator“: upload the two seals („Siegel Men's
    Health“ / „Siegel Women's Health“, PNG, transparent, ≥ 520 px), check the texts, replace the draft
    cooperation text with the partner material, optionally a hero background image and „Partner dieser
    Landingpage“ for a partner-specific copy of the page.
