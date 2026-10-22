@@ -1878,25 +1878,27 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   max-height: none;
   z-index: auto;
   animation: none;
-  border: 1px solid var(--msc-border);
-  border-radius: var(--msc-card-radius);
-  box-shadow: 0 24px 64px rgb(0 0 0 / 24%);
+  /* Part of a white page: a light card, no heavy frame (Performance look). */
+  border: 1px solid var(--hgk-line, #e5e5e5);
+  border-radius: var(--hgk-radius, 7px);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 12px 32px rgb(0 0 0 / 7%);
   padding: 0;
 }
-.ms-chat-root--dock .ms-chat-panel--docked .ms-chat-header { padding-top: 14px; }
+.ms-chat-root--dock .ms-chat-panel--docked .ms-chat-header { padding-top: 14px; border-bottom-color: var(--hgk-line, #e5e5e5); }
 .ms-chat-root--dock .ms-chat-close,
 .ms-chat-root--dock .ms-chat-iconbtn.ms-chat-mode { display: none; }
 .ms-chat-root--dock .ms-chat-history,
-.ms-chat-root--dock .ms-chat-gate { border-radius: var(--msc-card-radius); }
+.ms-chat-root--dock .ms-chat-gate { border-radius: var(--hgk-radius, 7px); }
 
 .ms-chat-docktitle { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
 .ms-chat-docktitle-logo { width: 38px; height: 38px; flex: 0 0 auto; }
 .ms-chat-docktitle-text { min-width: 0; }
 .ms-chat-docktitle-name {
-  font-weight: 700;
+  font-weight: 800;
   font-size: 0.95rem;
   line-height: 1.2;
-  color: rgb(var(--msc-heading));
+  letter-spacing: -0.01em;
+  color: var(--hgk-ink, rgb(var(--msc-heading)));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2010,38 +2012,146 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
 .ms-chat-plan-total strong { font-size: 1.1rem; color: rgb(var(--msc-heading)); }
 .ms-chat-plan--old { opacity: 0.7; }
 
-/* ---------- Editable plan on the configurator page ---------- */
+/* ---------- Docked panel and chat cards on the white configurator page ----------
+   The "Performance" look of Mo's e-mails (owner decision, 2026-10-22): light
+   cards with a 1px #e5e5e5 border, the plan card framed in light blue, the
+   one purchase action red, other buttons a black outline. Scoped to the dock —
+   the floating widget on every other page is untouched. Colours come from the
+   page's --hgk-* tokens (section root .ms-hgk) with the same values as
+   fallback. */
+.ms-chat-root--dock .ms-chat-card {
+  border-color: var(--hgk-line, #e5e5e5);
+  border-radius: var(--hgk-radius, 7px);
+}
+.ms-chat-root--dock .ms-chat-card.ms-chat-plan { border: 2px solid var(--hgk-blue, #008ccb); }
+.ms-chat-root--dock .ms-chat-plan-eyebrow { color: var(--hgk-blue, #008ccb); letter-spacing: 1px; }
+.ms-chat-root--dock .ms-chat-plan-title { font-weight: 800; letter-spacing: -0.01em; color: var(--hgk-ink, #111111); }
+.ms-chat-root--dock .ms-chat-plan .ms-chat-btn {
+  border-radius: var(--hgk-btn-radius, 3px);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+.ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout,
+.ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout:hover,
+.ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout:active {
+  background: var(--hgk-red, #e30613);
+  border-color: var(--hgk-red, #e30613);
+  color: #fff;
+}
+.ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout:hover:not(:disabled) { filter: brightness(0.92); }
+.ms-chat-root--dock .ms-chat-plan .ms-chat-btn--secondary {
+  background: #fff;
+  border-color: var(--hgk-ink, #111111);
+  color: var(--hgk-ink, #111111);
+}
+.ms-chat-root--dock .ms-chat-plan .ms-chat-btn--secondary:hover { background: var(--hgk-ink, #111111); color: #fff; }
+
+/* ---------- Editable plan on the configurator page ----------
+   Framed like the e-mail's set card: white, 2px light-blue frame, blue
+   kicker and short rule under the title, item rows with #e5e5e5 dividers,
+   role labels as small blue pills, stepper / variant / secondary buttons in
+   the black outline look, „Alles in den Warenkorb“ red. */
 .ms-chat-planhost {
-  background: rgb(var(--msc-bg));
-  border: 1px solid var(--msc-border);
-  border-radius: var(--msc-card-radius);
-  box-shadow: 0 24px 64px rgb(0 0 0 / 18%);
-  padding: 24px;
+  --mscp-blue: var(--hgk-blue, #008ccb);
+  --mscp-tint: var(--hgk-blue-tint, #eaf6fc);
+  --mscp-tint-2: var(--hgk-blue-tint-2, #f5fafd);
+  --mscp-red: var(--hgk-red, #e30613);
+  --mscp-ink: var(--hgk-ink, #111111);
+  --mscp-text: var(--hgk-text, #333333);
+  --mscp-muted: var(--hgk-muted, #555555);
+  --mscp-line: var(--hgk-line, #e5e5e5);
+  --mscp-soft: var(--hgk-soft, #fafafa);
+  --mscp-radius: var(--hgk-radius, 7px);
+  --mscp-btn-radius: var(--hgk-btn-radius, 3px);
+  background: #fff;
+  color: var(--mscp-text);
+  border: 2px solid var(--mscp-blue);
+  border-radius: calc(var(--mscp-radius) + 3px);
+  padding: 26px 28px 24px;
   animation: ms-chat-planhost-in 0.45s cubic-bezier(.22, .61, .36, 1);
 }
 @keyframes ms-chat-planhost-in {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
 }
-.ms-chat-planhost-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.ms-chat-planhost [hidden] { display: none !important; }
+.ms-chat-planhost button { font-family: inherit; }
+.ms-chat-planhost button:focus-visible,
+.ms-chat-planhost select:focus-visible,
+.ms-chat-planhost a:focus-visible { outline: 2px solid var(--mscp-blue); outline-offset: 2px; }
+.ms-chat-planhost-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.ms-chat-planhost .ms-chat-plan-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--mscp-blue);
+}
 .ms-chat-planhost-title {
   margin: 0;
   font-family: var(--font-heading-family, inherit);
-  font-size: 1.45rem;
-  font-weight: 700;
+  font-size: 1.65rem;
+  font-weight: 800;
   line-height: 1.2;
-  letter-spacing: -0.01em;
-  color: rgb(var(--msc-heading));
+  letter-spacing: -0.02em;
+  color: var(--mscp-ink);
 }
-.ms-chat-planhost-summary { margin: 0; font-size: 0.9rem; color: rgb(var(--msc-fg) / 75%); }
-.ms-chat-planhost-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ms-chat-planhost-title::after {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 3px;
+  margin-top: 12px;
+  background: var(--mscp-blue);
+}
+.ms-chat-planhost-summary { margin: 2px 0 0; font-size: 0.92rem; line-height: 1.55; color: var(--mscp-text); }
+
+/* Weights: Mo names the kind, the visitor checks the steps. */
+.ms-chat-planhost-hint {
+  position: relative;
+  margin: 0 0 14px;
+  padding: 12px 16px 12px 46px;
+  border-radius: var(--mscp-radius);
+  background: var(--mscp-tint);
+  color: var(--mscp-ink);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.ms-chat-planhost-hint::before {
+  content: "i";
+  position: absolute;
+  left: 15px;
+  top: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--mscp-blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  font-style: normal;
+  line-height: 20px;
+  text-align: center;
+}
+
+.ms-chat-planhost-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--mscp-line);
+  border-bottom: 1px solid var(--mscp-line);
+}
 .ms-chat-planhost-line {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) auto;
-  gap: 14px;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  gap: 16px;
   align-items: center;
-  padding: 14px 0;
-  border-top: 1px solid var(--msc-border);
+  padding: 16px 0;
+  border-top: 1px solid var(--mscp-line);
 }
 .ms-chat-planhost-line:first-child { border-top: 0; }
 .ms-chat-planhost-line--removed .ms-chat-planhost-thumb,
@@ -2049,127 +2159,406 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
 .ms-chat-planhost-line--removed .ms-chat-planhost-name { text-decoration: line-through; }
 .ms-chat-planhost-thumb {
   display: block;
-  width: 76px;
-  height: 76px;
-  border-radius: 12px;
-  border: 1px solid var(--msc-border);
+  width: 84px;
+  height: 84px;
+  border-radius: var(--mscp-radius);
+  border: 1px solid var(--mscp-line);
   background: #fff;
   overflow: hidden;
 }
 .ms-chat-planhost-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.ms-chat-planhost-main { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-.ms-chat-planhost-role {
-  font-size: 0.66rem;
+.ms-chat-planhost-main { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.ms-chat-planhost-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ms-chat-planhost-role,
+.ms-chat-planhost-tag {
+  display: inline-block;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  line-height: 1.3;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--msc-surface);
-  color: rgb(var(--msc-fg) / 70%);
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: 30px;
 }
-.ms-chat-planhost-role--base { background: rgb(var(--msc-secondary) / 12%); color: rgb(var(--msc-secondary)); }
+.ms-chat-planhost-role { background: var(--mscp-tint); color: var(--mscp-blue); border: 1px solid transparent; }
+.ms-chat-planhost-role--base { background: var(--mscp-blue); color: #fff; }
+.ms-chat-planhost-tag { background: var(--mscp-tint-2); border: 1px dashed var(--mscp-blue); color: var(--mscp-ink); }
 .ms-chat-planhost-name {
   font-weight: 700;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   line-height: 1.3;
-  color: rgb(var(--msc-heading));
+  color: var(--mscp-ink);
   text-decoration: none;
 }
-.ms-chat-planhost-name:hover { text-decoration: underline; }
-.ms-chat-planhost-note { font-size: 0.8rem; color: var(--msc-muted); line-height: 1.4; }
+.ms-chat-planhost-name:hover { color: var(--mscp-blue); text-decoration: underline; }
+.ms-chat-planhost-note { font-size: 0.8rem; color: var(--mscp-muted); line-height: 1.45; }
+.ms-chat-planhost-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; max-width: 100%; }
 .ms-chat-planhost-variant {
+  -webkit-appearance: none;
+  appearance: none;
   max-width: 100%;
-  margin-top: 2px;
-  padding: 6px 28px 6px 10px;
-  border: 1px solid var(--msc-border-strong);
-  border-radius: var(--msc-input-radius);
-  background: rgb(var(--msc-bg));
-  color: rgb(var(--msc-fg));
+  min-height: 34px;
+  padding: 6px 30px 6px 10px;
+  border: 1px solid var(--mscp-ink);
+  border-radius: var(--mscp-btn-radius);
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23111111' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center / 10px 7px;
+  color: var(--mscp-ink);
   font: inherit;
   font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
 }
-.ms-chat-planhost-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.ms-chat-planhost-price { font-weight: 700; font-size: 0.95rem; white-space: nowrap; color: rgb(var(--msc-heading)); }
+.ms-chat-planhost-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--mscp-ink);
+  border-radius: var(--mscp-btn-radius);
+  background: #fff;
+  color: var(--mscp-ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.ms-chat-planhost-step:hover:not(:disabled) { background: var(--mscp-ink); color: #fff; }
+.ms-chat-planhost-step:disabled { opacity: 0.35; cursor: not-allowed; }
+.ms-chat-planhost-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.ms-chat-planhost-price { font-weight: 800; font-size: 1rem; white-space: nowrap; color: var(--mscp-ink); }
 .ms-chat-planhost-toggle {
   border: 0;
   background: none;
   padding: 2px 0;
-  font: inherit;
   font-size: 0.75rem;
-  color: var(--msc-muted);
+  color: var(--mscp-muted);
   text-decoration: underline;
   cursor: pointer;
 }
-.ms-chat-planhost-toggle:hover { color: rgb(var(--msc-fg)); }
+.ms-chat-planhost-toggle:hover { color: var(--mscp-ink); }
+.ms-chat-planhost-line--removed .ms-chat-planhost-toggle { color: var(--mscp-blue); font-weight: 700; }
 .ms-chat-qty {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--msc-border-strong);
-  border-radius: var(--msc-btn-radius);
+  border: 1px solid var(--mscp-ink, rgb(var(--msc-fg)));
+  border-radius: var(--mscp-btn-radius, 3px);
+  background: #fff;
   overflow: hidden;
 }
 .ms-chat-qty-btn {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border: 0;
   background: transparent;
-  color: rgb(var(--msc-fg));
+  color: var(--mscp-ink, rgb(var(--msc-fg)));
   font: inherit;
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
 }
-.ms-chat-qty-btn:hover:not(:disabled) { background: var(--msc-surface); }
+.ms-chat-qty-btn:hover:not(:disabled) { background: var(--mscp-tint-2, var(--msc-surface)); }
 .ms-chat-qty-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.ms-chat-qty-val { min-width: 26px; text-align: center; font-weight: 700; font-size: 0.85rem; }
+.ms-chat-qty-val { min-width: 26px; text-align: center; font-weight: 800; font-size: 0.85rem; color: var(--mscp-ink, inherit); }
+
+/* „+ Produkt hinzufügen“ and the inline product picker. */
+.ms-chat-planhost-addarea { margin-top: 16px; }
+.ms-chat-planhost-addbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 20px;
+  border: 1px solid var(--mscp-ink);
+  border-radius: var(--mscp-btn-radius);
+  background: #fff;
+  color: var(--mscp-ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.ms-chat-planhost-addbtn:hover { background: var(--mscp-ink); color: #fff; }
+.ms-chat-planhost-addbtn-plus { font-size: 20px; font-weight: 400; line-height: 1; margin-top: -2px; }
+.ms-chat-planpick {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--mscp-line);
+  border-radius: var(--mscp-radius);
+  background: var(--mscp-soft);
+}
+.ms-chat-planpick-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ms-chat-planpick-headtext { min-width: 0; }
+.ms-chat-planpick-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--mscp-blue);
+}
+.ms-chat-planpick-title {
+  margin-top: 3px;
+  font-family: var(--font-heading-family, inherit);
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--mscp-ink);
+}
+.ms-chat-planpick-done,
+.ms-chat-planpick-retry,
+.ms-chat-planpick-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid var(--mscp-ink);
+  border-radius: var(--mscp-btn-radius);
+  background: #fff;
+  color: var(--mscp-ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ms-chat-planpick-done { flex: 0 0 auto; padding: 7px 18px; }
+.ms-chat-planpick-done:hover,
+.ms-chat-planpick-retry:hover,
+.ms-chat-planpick-add:hover { background: var(--mscp-ink); color: #fff; }
+.ms-chat-planpick-tools { display: flex; flex-direction: column; gap: 10px; }
+.ms-chat-planpick-search {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid #cfcfcf;
+  border-radius: var(--mscp-btn-radius);
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23555555' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 13px center / 17px 17px;
+  color: var(--mscp-ink);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.ms-chat-planpick-search::placeholder { color: var(--mscp-muted); opacity: 1; }
+.ms-chat-planpick-search:focus { outline: none; border-color: var(--mscp-blue); box-shadow: 0 0 0 3px var(--mscp-tint); }
+.ms-chat-planpick-roles { display: flex; flex-wrap: wrap; gap: 6px; }
+.ms-chat-planpick-chip {
+  min-height: 32px;
+  padding: 6px 13px;
+  border: 1px solid var(--mscp-line);
+  border-radius: 30px;
+  background: #fff;
+  color: var(--mscp-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ms-chat-planpick-chip:hover { border-color: var(--mscp-blue); color: var(--mscp-blue); }
+.ms-chat-planpick-chip[aria-pressed="true"] { background: var(--mscp-blue); border-color: var(--mscp-blue); color: #fff; }
+.ms-chat-planpick-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--mscp-muted);
+}
+.ms-chat-planpick-state:empty,
+.ms-chat-planpick-note:empty { display: none; }
+.ms-chat-planpick-state--error { color: var(--mscp-ink); }
+.ms-chat-planpick-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid var(--mscp-tint);
+  border-top-color: var(--mscp-blue);
+  animation: ms-chat-planpick-spin 0.8s linear infinite;
+}
+@keyframes ms-chat-planpick-spin { to { transform: rotate(360deg); } }
+.ms-chat-planpick-note { font-size: 0.8rem; font-weight: 600; color: var(--mscp-ink); }
+.ms-chat-planpick-note--ok { color: var(--mscp-blue); }
+.ms-chat-planpick-note--warn { color: var(--mscp-red); }
+.ms-chat-planpick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 440px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--mscp-line);
+  border-radius: var(--mscp-radius);
+  background: #fff;
+}
+/* Row dividers as a 1px shadow above each row: the list clips the first
+   visible row's, so filtering never leaves a double line at the top. */
+.ms-chat-planpick-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 -1px 0 var(--mscp-line);
+}
+.ms-chat-planpick-thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--mscp-line);
+  border-radius: 5px;
+  background: #fff;
+  overflow: hidden;
+}
+.ms-chat-planpick-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ms-chat-planpick-meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ms-chat-planpick-role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--mscp-blue);
+}
+.ms-chat-planpick-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--mscp-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ms-chat-planpick-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 0.82rem; font-weight: 800; color: var(--mscp-ink); }
+.ms-chat-planpick-sale { color: var(--mscp-red); }
+.ms-chat-planpick-strike { font-size: 0.75rem; font-weight: 400; color: var(--mscp-muted); }
+.ms-chat-planpick-act { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.ms-chat-planpick-inplan { font-size: 11px; font-weight: 700; color: var(--mscp-blue); white-space: nowrap; }
+.ms-chat-planpick-inplan::before { content: "✓ "; }
+.ms-chat-planpick-soldout {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 30px;
+  background: #efefef;
+  color: var(--mscp-muted);
+  white-space: nowrap;
+}
+.ms-chat-planpick-row--na .ms-chat-planpick-thumb,
+.ms-chat-planpick-row--na .ms-chat-planpick-meta { opacity: 0.55; }
+.ms-chat-planpick-row--busy .ms-chat-planpick-add { opacity: 0.55; cursor: progress; }
+.ms-chat-planpick-row--added .ms-chat-planpick-add,
+.ms-chat-planpick-row--added .ms-chat-planpick-add:hover { background: var(--mscp-blue); border-color: var(--mscp-blue); color: #fff; }
+
+/* Mo's tips under a centred section title between thin grey rules. */
+.ms-chat-planhost-section {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 22px 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--mscp-ink);
+  white-space: nowrap;
+}
+.ms-chat-planhost-section::before,
+.ms-chat-planhost-section::after { content: ""; flex: 1 1 auto; border-top: 1px solid #cfcfcf; }
 .ms-chat-planhost-tips {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--msc-surface);
+  border: 1px solid var(--mscp-line);
+  border-radius: var(--mscp-radius);
+  background: var(--mscp-soft);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--mscp-text);
 }
 .ms-chat-planhost-tips li { position: relative; padding-left: 18px; }
 .ms-chat-planhost-tips li::before {
   content: "";
   position: absolute;
-  left: 0;
-  top: 0.55em;
-  width: 8px;
-  height: 8px;
+  left: 2px;
+  top: 0.6em;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
-  background: rgb(var(--msc-secondary));
+  background: var(--mscp-blue);
 }
 .ms-chat-planhost-foot {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--msc-border-strong);
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--mscp-line);
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 .ms-chat-planhost-sum { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.ms-chat-planhost-sum-label { font-weight: 700; font-size: 1rem; }
-.ms-chat-planhost-sum-value { font-weight: 800; font-size: 1.6rem; letter-spacing: -0.02em; color: rgb(var(--msc-heading)); }
-.ms-chat-planhost-legal { font-size: 0.75rem; color: var(--msc-muted); margin-top: -6px; }
-.ms-chat-planhost-add { min-height: 52px; font-size: 0.95rem; }
+.ms-chat-planhost-sum-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--mscp-muted);
+}
+.ms-chat-planhost-sum-value { font-weight: 800; font-size: 1.75rem; letter-spacing: -0.02em; color: var(--mscp-ink); }
+.ms-chat-planhost-legal { font-size: 0.75rem; color: var(--mscp-muted); margin-top: -6px; }
+.ms-chat-planhost .ms-chat-planhost-add,
+.ms-chat-planhost .ms-chat-planhost-add:hover,
+.ms-chat-planhost .ms-chat-planhost-add:active {
+  min-height: 52px;
+  border-color: var(--mscp-red);
+  border-radius: var(--mscp-btn-radius);
+  background: var(--mscp-red);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+.ms-chat-planhost .ms-chat-planhost-add:hover:not(:disabled) { filter: brightness(0.92); }
 .ms-chat-planhost-status { font-size: 0.82rem; min-height: 1.2em; }
 .ms-chat-planhost-status--ok { color: rgb(var(--msc-success)); font-weight: 600; }
-.ms-chat-planhost-status--warn { color: rgb(var(--msc-danger)); }
+.ms-chat-planhost-status--warn { color: var(--mscp-red); }
 
 @media (max-width: 640px) {
-  .ms-chat-planhost { padding: 18px 16px; }
-  .ms-chat-planhost-line { grid-template-columns: 60px minmax(0, 1fr); }
-  .ms-chat-planhost-thumb { width: 60px; height: 60px; }
-  .ms-chat-planhost-side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+  .ms-chat-planhost { padding: 20px 16px 18px; }
+  .ms-chat-planhost-title { font-size: 1.35rem; }
+  .ms-chat-planhost-line { grid-template-columns: 64px minmax(0, 1fr); gap: 12px; }
+  .ms-chat-planhost-thumb { width: 64px; height: 64px; }
+  .ms-chat-planhost-side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; row-gap: 6px; width: 100%; }
+  .ms-chat-planhost-side .ms-chat-planhost-toggle { flex: 0 0 100%; text-align: left; }
+  .ms-chat-planhost-hint { padding: 11px 12px 11px 42px; }
+  .ms-chat-planhost-hint::before { left: 12px; top: 11px; }
+  .ms-chat-planpick { padding: 14px 12px; }
+  .ms-chat-planpick-list { max-height: 60vh; }
+  .ms-chat-planpick-row { grid-template-columns: 48px minmax(0, 1fr); gap: 10px; padding: 10px 12px; }
+  .ms-chat-planpick-thumb { width: 48px; height: 48px; }
+  .ms-chat-planpick-act { grid-column: 2; justify-content: space-between; }
+  .ms-chat-planpick-act .ms-chat-planpick-add { margin-left: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ms-chat-planhost,
   .ms-chat-reply { animation: none; transition: none; }
+  .ms-chat-planpick-spinner { animation-duration: 2.4s; }
 }

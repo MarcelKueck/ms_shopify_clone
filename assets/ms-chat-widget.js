@@ -2868,13 +2868,19 @@
   var dockRoot = null;                // .ms-chat-root inside the host
   var CFG_STORE_PREFIX = 'ms-chat-cfg:';
   var CFG_FIELDS = {
-    persona: ['busy', 'ambitious', 'health', 'family', 'best_ager'],
+    // Mo's own customer personas (the ids the backend derives for every
+    // customer); they replace the former „Ich will …“ goal.
+    persona: ['pragmatic_beginner', 'ambitious_home_athlete', 'strength_focused', 'cardio_focused', 'design_lifestyle', 'weight_loss'],
     location: ['house', 'apartment', 'garage'],
     space: ['xs', 's', 'm', 'l'],
     level: ['rookie', 'intermediate', 'pro'],
-    goal: ['muscle', 'fitness', 'health', 'endurance', 'athletic'],
     budget: ['b1', 'b2', 'b3', 'b4', 'b5']
   };
+  // Answers of the first page version (stored threads, cached pages): its
+  // personas and the removed goal map onto today's personas (backend:
+  // configurator-core.mjs personaAnswer).
+  var CFG_LEGACY_PERSONA = { busy: 'pragmatic_beginner', ambitious: 'ambitious_home_athlete', health: 'cardio_focused', family: 'pragmatic_beginner', best_ager: 'cardio_focused' };
+  var CFG_LEGACY_GOAL = { muscle: 'strength_focused', fitness: 'weight_loss', health: 'cardio_focused', endurance: 'cardio_focused', athletic: 'ambitious_home_athlete' };
   var CFG_MULTI = {
     training: ['free_weights', 'machines', 'cardio', 'functional'],
     wishes: ['assembly', 'fast_delivery', 'quiet', 'no_drilling', 'foldable', 'floor_protection', 'showroom']
@@ -2920,6 +2926,9 @@
     for (k in CFG_FIELDS) {
       if (!Object.prototype.hasOwnProperty.call(CFG_FIELDS, k)) continue;
       v = typeof raw[k] === 'string' ? raw[k] : '';
+      if (k === 'persona' && CFG_FIELDS.persona.indexOf(v) === -1) {
+        v = CFG_LEGACY_PERSONA[v] || (typeof raw.goal === 'string' && CFG_LEGACY_GOAL[raw.goal]) || '';
+      }
       if (CFG_FIELDS[k].indexOf(v) !== -1) { out[k] = v; if (k !== 'budget') known++; }
     }
     for (k in CFG_MULTI) {
@@ -3001,7 +3010,6 @@
       space: answers.space || '',
       training: (answers.training || []).join(','),
       level: answers.level || '',
-      goal: answers.goal || '',
       partner: partner || '',
       prefilled: !!meta.prefilled
     });
@@ -3150,6 +3158,24 @@
   }
 
   // ----- show_gym_plan → plan card + the page's plan view ----------------------
+  // A plan line: { uid, ref, qty, role, note, removed, variantId, product, added }.
+  // Mo's lines carry uid = ref (edits stored before lines had uids keep
+  // working); lines the visitor added himself („+ Produkt hinzufügen“,
+  // „+ Gewichtsstufe“) carry uid 'a<n>' and added: true. The DOM and the stored
+  // edits key on uid, never on ref — the same product may sit in the plan
+  // twice with different variants (weight steps).
+  var CFG_MAX_LINES = 20;
+  var CFG_ROLE_ORDER = ['base', 'accessory', 'weights', 'cardio', 'flooring', 'extra'];
+  var CFG_ROLES_PLURAL = {
+    base: L('Basisgeräte', 'Base units'),
+    accessory: L('Zubehör', 'Accessories'),
+    weights: L('Gewichte', 'Weights'),
+    cardio: 'Cardio',
+    flooring: L('Bodenschutz', 'Floor protection'),
+    extra: 'Extras'
+  };
+  var cfgFocusNext = null;    // { uid, key } — focus target after the next host render
+
   function cfgResetPlans() {
     cfgPlans = {};
     cfgPlanSeq = 0;
@@ -3175,13 +3201,70 @@
     if (v) return v.available !== false && v.id != null;
     return p.inStock !== false;
   }
+  // The product a line stands for (variant suffix stripped).
+  function cfgBaseId(l) {
+    var id = l.product && l.product.id != null ? String(l.product.id) : String(l.ref || '');
+    return id.split('~')[0];
+  }
+  // Variants a visitor can pick (the ones with a cart id).
+  function cfgVariants(p) {
+    return Array.isArray(p && p.variants) ? p.variants.filter(function (x) { return x && x.id != null; }) : [];
+  }
+  function cfgDefaultVariant(p) {
+    var vs = cfgVariants(p);
+    var i;
+    for (i = 0; i < vs.length; i++) { if (vs[i].isDefault && vs[i].available !== false) return vs[i]; }
+    for (i = 0; i < vs.length; i++) { if (vs[i].available !== false) return vs[i]; }
+    return vs[0] || null;
+  }
+  // The first available variant of the product that no (kept) line of the
+  // plan uses yet — the next weight step — or null.
+  function cfgNextVariant(plan, p) {
+    var base = String(p && p.id != null ? p.id : '').split('~')[0];
+    var used = {};
+    plan.lines.forEach(function (l) {
+      if (l.removed || !l.product || cfgBaseId(l) !== base) return;
+      var v = cfgVariantOf(l.product, l);
+      if (v && v.id != null) used[String(v.id)] = 1;
+    });
+    var vs = cfgVariants(p);
+    for (var i = 0; i < vs.length; i++) {
+      if (vs[i].available !== false && !used[String(vs[i].id)]) return vs[i];
+    }
+    return null;
+  }
+  function cfgLineByUid(lines, uid) {
+    for (var i = 0; i < lines.length; i++) { if (lines[i].uid === uid) return lines[i]; }
+    return null;
+  }
+  function cfgNewUid(lines) {
+    var n = 0;
+    lines.forEach(function (l) {
+      var m = /^a(\d{1,6})$/.exec(l.uid);
+      if (m) n = Math.max(n, parseInt(m[1], 10));
+    });
+    var uid;
+    do { n++; uid = 'a' + n; } while (cfgLineByUid(lines, uid));
+    return uid;
+  }
+  // A visitor's line sits right after the last line of the same product
+  // (weight steps stay together), otherwise at the end. The restore uses the
+  // same rule, so the order survives a reload.
+  function cfgInsertLine(lines, line) {
+    var base = cfgBaseId(line);
+    var at = -1;
+    for (var i = 0; i < lines.length; i++) { if (cfgBaseId(lines[i]) === base) at = i; }
+    if (at === -1) lines.push(line); else lines.splice(at + 1, 0, line);
+  }
 
-  // The plan from the tool input, with the visitor's edits of this thread.
+  // The plan from the tool input, with the visitor's edits and added lines
+  // of this thread.
   function cfgMakePlan(input, key) {
     var items = Array.isArray(input && input.items) ? input.items : [];
     var lines = [];
     var seen = {};
-    for (var i = 0; i < items.length && lines.length < 12; i++) {
+    // Mo's lines: up to 16 (the backend's PLAN_MAX_ITEMS).
+    for (var i = 0; i < items.length && lines.length < 16; i++) {
       var it = items[i];
       if (!it || typeof it.productId !== 'string') continue;
       var ref = it.productId.trim();
@@ -3189,24 +3272,53 @@
       seen[ref] = 1;
       var q = parseInt(it.quantity, 10);
       lines.push({
+        uid: ref,
         ref: ref,
         qty: isFinite(q) && q >= 1 ? Math.min(q, 20) : 1,
         role: CFG_ROLES[it.role] ? it.role : 'extra',
         note: typeof it.note === 'string' ? it.note.slice(0, 160) : '',
         removed: false,
         variantId: null,
-        product: null
+        product: null,
+        added: false
       });
     }
     var c = cfgLoad();
+    // edits[key][uid] = { qty, variantId, removed } — Mo's lines (uid = ref,
+    // the shape stored before uids existed).
     var edits = c && c.edits && c.edits[key];
-    if (edits) {
+    if (edits && typeof edits === 'object') {
       lines.forEach(function (l) {
-        var e = edits[l.ref];
-        if (!e) return;
-        if (e.qty >= 1 && e.qty <= 20) l.qty = e.qty;
+        var e = edits[l.uid];
+        if (!e || typeof e !== 'object') return;
+        var eq = parseInt(e.qty, 10);
+        if (eq >= 1 && eq <= 20) l.qty = eq;
         if (typeof e.variantId === 'string') l.variantId = e.variantId;
         l.removed = e.removed === true;
+      });
+    }
+    // added[key] = [{ uid, ref, role, qty, variantId }] — the visitor's lines,
+    // after Mo's (no dedupe against Mo's lines: two lines of one product with
+    // different variants are fine).
+    var added = c && c.added && c.added[key];
+    if (Array.isArray(added) && lines.length) {
+      added.forEach(function (a) {
+        if (lines.length >= CFG_MAX_LINES || !a || typeof a.ref !== 'string') return;
+        var aref = a.ref.trim();
+        if (!aref || aref.length > 300) return;
+        var aq = parseInt(a.qty, 10);
+        var line = {
+          uid: typeof a.uid === 'string' && /^a\d{1,6}$/.test(a.uid) && !cfgLineByUid(lines, a.uid) ? a.uid : cfgNewUid(lines),
+          ref: aref,
+          qty: aq >= 1 && aq <= 20 ? aq : 1,
+          role: CFG_ROLES[a.role] ? a.role : 'extra',
+          note: '',
+          removed: false,
+          variantId: typeof a.variantId === 'string' ? a.variantId : null,
+          product: null,
+          added: true
+        };
+        cfgInsertLine(lines, line);
       });
     }
     return {
@@ -3220,15 +3332,20 @@
     };
   }
 
+  // Only the active plan's edits are kept — the stored object stays small.
   function cfgSaveEdits(plan) {
     var c = cfgActive();
     if (!c) return;
-    c.edits = c.edits || {};
     var e = {};
-    plan.lines.forEach(function (l) { e[l.ref] = { qty: l.qty, variantId: l.variantId, removed: l.removed }; });
+    var added = [];
+    plan.lines.forEach(function (l) {
+      if (l.added) added.push({ uid: l.uid, ref: l.ref, role: l.role, qty: l.qty, variantId: l.variantId || null });
+      else e[l.uid] = { qty: l.qty, variantId: l.variantId, removed: l.removed };
+    });
+    c.edits = {};
     c.edits[plan.key] = e;
-    // Only the edits of the active plan matter — keep the stored object small.
-    for (var k in c.edits) { if (Object.prototype.hasOwnProperty.call(c.edits, k) && k !== plan.key) delete c.edits[k]; }
+    c.added = {};
+    if (added.length) c.added[plan.key] = added;
     cfgSave(c);
   }
 
@@ -3245,16 +3362,29 @@
     return { total: total, units: units, count: count, unavailable: unavailable };
   }
 
+  // The plan as Mo should see it: [{ id, qty, added?: true }]. Two lines that
+  // resolve to the same id are one item (quantities summed, max 20); an item
+  // is `added` only when every line behind it is the visitor's own.
   function cfgPlanForContext() {
     var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
     if (!plan) return [];
     var out = [];
+    var byId = {};
     plan.lines.forEach(function (l) {
       if (l.removed || !l.product) return;
       var v = cfgVariantOf(l.product, l);
       var base = l.ref.split('~')[0];
       var id = v && v.id != null && Array.isArray(l.product.variants) && l.product.variants.length > 1 ? base + '~' + v.id : base;
-      out.push({ id: id, qty: l.qty });
+      var hit = byId[id];
+      if (hit) {
+        hit.qty = Math.min(20, hit.qty + l.qty);
+        if (!l.added) delete hit.added;
+        return;
+      }
+      var item = { id: id, qty: l.qty };
+      if (l.added) item.added = true;
+      byId[id] = item;
+      out.push(item);
     });
     return out.slice(0, 20);
   }
@@ -3277,6 +3407,8 @@
     if (previous) plan.seq = previous.seq;
     cfgPlans[key] = plan;
     var card = el('div', { class: 'ms-chat-card ms-chat-plan', 'data-plan-key': key });
+    // Mo's lines and the visitor's restored lines in one go (hydrate answers
+    // per requested id, duplicates included).
     return hydrate(plan.lines.map(function (l) { return l.ref; })).then(function (res) {
       for (var i = 0; i < plan.lines.length; i++) plan.lines[i].product = res[i] || null;
       plan.lines = plan.lines.filter(function (l) { return !!l.product; });
@@ -3326,11 +3458,11 @@
     plan.lines.forEach(function (l) {
       var p = l.product;
       var v = cfgVariantOf(p, l);
-      var row = el('div', { class: 'ms-chat-plan-line' + (l.removed ? ' ms-chat-plan-line--removed' : '') });
+      var row = el('div', { class: 'ms-chat-plan-line' + (l.removed ? ' ms-chat-plan-line--removed' : '') + (l.added ? ' ms-chat-plan-line--added' : '') });
       if (p.images && p.images[0]) row.appendChild(el('img', { class: 'ms-chat-plan-thumb', src: p.images[0], alt: '', loading: 'lazy' }));
       var meta = el('div', { class: 'ms-chat-plan-meta' });
       meta.appendChild(el('div', { class: 'ms-chat-plan-name', text: p.name || '' }));
-      var sub = CFG_ROLES[l.role] + (v && v.title && p.variants && p.variants.length > 1 ? ' · ' + v.title : '');
+      var sub = CFG_ROLES[l.role] + (v && v.title && p.variants && p.variants.length > 1 ? ' · ' + v.title : '') + (l.added ? ' · ' + L('von dir ergänzt', 'added by you') : '');
       meta.appendChild(el('div', { class: 'ms-chat-plan-sub', text: sub }));
       row.appendChild(meta);
       var avail = cfgLineAvailable(p, v);
@@ -3365,7 +3497,34 @@
     card.appendChild(body);
   }
 
-  // The editable plan in the page's [data-ms-chat-plan] host.
+  // The weights hint above the plan lines: Mo names the kind of weights, the
+  // visitor decides the steps (Mo cannot know which plates he already owns).
+  function cfgWeightsHint(plan) {
+    var names = '';
+    var byMo = false;
+    var steps = false;
+    plan.lines.forEach(function (l) {
+      if (l.removed || l.role !== 'weights' || !l.product) return;
+      names += ' ' + (l.product.name || '');
+      if (!l.added) byMo = true;
+      if (cfgVariants(l.product).length > 1) steps = true;
+    });
+    if (!names) return null;
+    var word = /scheibe|plate/i.test(names) ? L('Hantelscheiben', 'weight plates')
+      : /hantel|dumbbell/i.test(names) ? L('Hanteln', 'dumbbells')
+      : /kettlebell/i.test(names) ? 'Kettlebells'
+      : L('Gewichte', 'weights');
+    var text = (byMo ? L('Mo empfiehlt zu deinem Setup ' + word + '. ', 'Mo recommends ' + word + ' for your setup. ') : '') +
+      (steps
+        ? L('Bitte prüfe eigenständig, welche Gewichtsstufen du benötigst – weitere Stufen ergänzt du mit „+\u00a0Gewichtsstufe“.',
+          'Please check for yourself which weight steps you need – add more steps with “+\u00a0Weight\u00a0step”.')
+        : L('Bitte prüfe eigenständig, welche Gewichte du benötigst.', 'Please check for yourself which weights you need.'));
+    return el('p', { class: 'ms-chat-planhost-hint', role: 'note', text: text });
+  }
+
+  // The editable plan in the page's [data-ms-chat-plan] host. The product
+  // picker (cfgPick.area) survives every re-render — search text, filter,
+  // scroll position and focus stay — everything else is rebuilt around it.
   function cfgRenderHost() {
     var host = planHost();
     if (!host) return;
@@ -3373,6 +3532,8 @@
     var wrap = host.querySelector('.ms-chat-planhost');
     if (!plan || !plan.ready || !cfgActive()) {
       if (wrap) wrap.parentNode.removeChild(wrap);
+      cfgPick.open = false;
+      cfgPickRender();
       host.setAttribute('data-state', cfgActive() ? 'waiting' : 'empty');
       return;
     }
@@ -3381,19 +3542,42 @@
       host.appendChild(wrap);
     }
     host.setAttribute('data-state', 'ready');
-    wrap.replaceChildren();
+
+    // Focus inside a line (stepper, variant, remove …) comes back to the same
+    // control of the rebuilt line.
+    var focus = cfgFocusNext;
+    cfgFocusNext = null;
+    var area = cfgPickArea();
+    try {
+      var ae = document.activeElement;
+      if (!focus && ae && ae !== document.body && wrap.contains(ae) && !area.contains(ae)) {
+        var owner = ae.closest ? ae.closest('.ms-chat-planhost-line') : null;
+        if (owner && ae.getAttribute('data-focus')) focus = { uid: owner.getAttribute('data-uid'), key: ae.getAttribute('data-focus') };
+      }
+    } catch (e) {}
+
+    var kids = Array.prototype.slice.call(wrap.childNodes);
+    for (var i = 0; i < kids.length; i++) { if (kids[i] !== area) wrap.removeChild(kids[i]); }
+    if (area.parentNode !== wrap) wrap.appendChild(area);
+    function before(n) { wrap.insertBefore(n, area); }
 
     var head = el('div', { class: 'ms-chat-planhost-head' });
     head.appendChild(el('div', { class: 'ms-chat-plan-eyebrow', text: L('Dein Home-Gym-Plan von Mo', 'Your home-gym plan by Mo') }));
     if (plan.title) head.appendChild(el('h3', { class: 'ms-chat-planhost-title', text: plan.title }));
     if (plan.summary) head.appendChild(el('p', { class: 'ms-chat-planhost-summary', text: plan.summary }));
-    wrap.appendChild(head);
+    before(head);
+
+    var hint = cfgWeightsHint(plan);
+    if (hint) before(hint);
 
     var list = el('ul', { class: 'ms-chat-planhost-lines' });
     plan.lines.forEach(function (l) { list.appendChild(cfgHostLine(plan, l)); });
-    wrap.appendChild(list);
+    before(list);
+
+    cfgPickRender();
 
     if (plan.tips.length) {
+      wrap.appendChild(el('div', { class: 'ms-chat-planhost-section', 'aria-hidden': 'true', text: L('Tipps von Mo', 'Tips from Mo') }));
       var tips = el('ul', { class: 'ms-chat-planhost-tips', 'aria-label': L('Tipps von Mo', 'Tips from Mo') });
       plan.tips.forEach(function (tip) { tips.appendChild(el('li', { text: tip })); });
       wrap.appendChild(tips);
@@ -3416,29 +3600,56 @@
     foot.appendChild(status);
     plan.statusEl = status;
     wrap.appendChild(foot);
+
+    if (focus) cfgRestoreFocus(list, focus);
+  }
+
+  function cfgRestoreFocus(list, focus) {
+    try {
+      if (focus.uid === '#add') {
+        if (cfgPick.openBtn && !cfgPick.openBtn.hidden) cfgPick.openBtn.focus();
+        return;
+      }
+      var rows = list.querySelectorAll('.ms-chat-planhost-line');
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].getAttribute('data-uid') !== focus.uid) continue;
+        var ctrls = rows[i].querySelectorAll('[data-focus]');
+        var target = null;
+        for (var j = 0; j < ctrls.length; j++) {
+          if (ctrls[j].getAttribute('data-focus') === focus.key && !ctrls[j].disabled) target = ctrls[j];
+        }
+        for (j = 0; !target && j < ctrls.length; j++) { if (!ctrls[j].disabled) target = ctrls[j]; }
+        if (target) target.focus();
+        return;
+      }
+    } catch (e) {}
   }
 
   function cfgHostLine(plan, l) {
     var p = l.product;
     var v = cfgVariantOf(p, l);
     var avail = cfgLineAvailable(p, v);
-    var li = el('li', { class: 'ms-chat-planhost-line' + (l.removed ? ' ms-chat-planhost-line--removed' : '') + (!avail ? ' ms-chat-planhost-line--na' : '') });
+    var li = el('li', { class: 'ms-chat-planhost-line' + (l.removed ? ' ms-chat-planhost-line--removed' : '') + (!avail ? ' ms-chat-planhost-line--na' : '') + (l.added ? ' ms-chat-planhost-line--added' : ''), 'data-uid': l.uid });
     var img = el('a', { class: 'ms-chat-planhost-thumb', href: p.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer', 'aria-hidden': 'true', tabindex: '-1' });
     if (p.images && p.images[0]) img.appendChild(el('img', { src: p.images[0], alt: '', loading: 'lazy' }));
     img.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
     li.appendChild(img);
 
     var main = el('div', { class: 'ms-chat-planhost-main' });
-    main.appendChild(el('span', { class: 'ms-chat-planhost-role ms-chat-planhost-role--' + l.role, text: CFG_ROLES[l.role] }));
+    var tags = el('div', { class: 'ms-chat-planhost-tags' });
+    tags.appendChild(el('span', { class: 'ms-chat-planhost-role ms-chat-planhost-role--' + l.role, text: CFG_ROLES[l.role] }));
+    if (l.added) tags.appendChild(el('span', { class: 'ms-chat-planhost-tag', text: L('Von dir ergänzt', 'Added by you') }));
+    main.appendChild(tags);
     var name = el('a', { class: 'ms-chat-planhost-name', href: p.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer', text: p.name || '' });
     name.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
     main.appendChild(name);
     if (l.note) main.appendChild(el('div', { class: 'ms-chat-planhost-note', text: l.note }));
     if (!avail) main.appendChild(el('span', { class: 'ms-chat-soldout-badge', text: L('Aktuell nicht lieferbar', 'Currently unavailable') }));
 
-    var vs = Array.isArray(p.variants) ? p.variants.filter(function (x) { return x && x.id != null; }) : [];
+    var vs = cfgVariants(p);
     if (vs.length > 1 && !l.removed) {
-      var sel = el('select', { class: 'ms-chat-planhost-variant', 'aria-label': L('Variante von ', 'Variant of ') + (p.name || '') });
+      var opts = el('div', { class: 'ms-chat-planhost-opts' });
+      var sel = el('select', { class: 'ms-chat-planhost-variant', 'data-focus': 'variant', 'aria-label': L('Variante von ', 'Variant of ') + (p.name || '') });
       vs.forEach(function (x) {
         var opt = el('option', { value: String(x.id), text: (x.title || '—') + ' · ' + cfgMoney(cfgUnitPrice(p, x)) + (x.available === false ? L(' (ausverkauft)', ' (sold out)') : '') });
         if (x.available === false) opt.disabled = true;
@@ -3449,16 +3660,29 @@
         l.variantId = sel.value;
         cfgPlanEdited(plan, 'variant');
       });
-      main.appendChild(sel);
+      opts.appendChild(sel);
+      // Weights: another step of the same plates / dumbbells (the next
+      // variant not yet in the plan).
+      if (l.role === 'weights') {
+        var next = cfgNextVariant(plan, p);
+        var step = el('button', { class: 'ms-chat-planhost-step', type: 'button', 'data-focus': 'step' });
+        step.appendChild(el('span', { 'aria-hidden': 'true', text: '+' }));
+        step.appendChild(el('span', { text: L('Gewichtsstufe', 'Weight step') }));
+        if (!next) step.setAttribute('aria-label', L('Gewichtsstufe – alle Stufen sind schon im Plan', 'Weight step – every step is already in the plan'));
+        step.disabled = !next || plan.lines.length >= CFG_MAX_LINES;
+        step.addEventListener('click', function () { cfgAddStep(plan, l); });
+        opts.appendChild(step);
+      }
+      main.appendChild(opts);
     }
     li.appendChild(main);
 
     var side = el('div', { class: 'ms-chat-planhost-side' });
     if (!l.removed) {
       var qty = el('div', { class: 'ms-chat-qty', role: 'group', 'aria-label': L('Menge', 'Quantity') });
-      var minus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '−', 'aria-label': L('Weniger', 'Fewer') });
+      var minus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '−', 'data-focus': 'minus', 'aria-label': L('Weniger', 'Fewer') });
       var val = el('span', { class: 'ms-chat-qty-val', text: String(l.qty), 'aria-live': 'polite' });
-      var plus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '+', 'aria-label': L('Mehr', 'More') });
+      var plus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '+', 'data-focus': 'plus', 'aria-label': L('Mehr', 'More') });
       minus.disabled = l.qty <= 1;
       plus.disabled = l.qty >= 20;
       minus.addEventListener('click', function () { if (l.qty > 1) { l.qty--; cfgPlanEdited(plan, 'qty'); } });
@@ -3467,14 +3691,52 @@
       side.appendChild(qty);
       side.appendChild(el('div', { class: 'ms-chat-planhost-price', text: avail ? cfgMoney(Math.round(cfgUnitPrice(p, v) * l.qty * 100) / 100) : '—' }));
     }
-    var toggle = el('button', { class: 'ms-chat-planhost-toggle', type: 'button', text: l.removed ? L('Wieder hinzufügen', 'Add back') : L('Entfernen', 'Remove') });
+    // Mo's lines toggle (remove / add back); the visitor's own lines are
+    // simply deleted.
+    var toggle = el('button', { class: 'ms-chat-planhost-toggle', type: 'button', 'data-focus': 'toggle', text: l.removed ? L('Wieder hinzufügen', 'Add back') : L('Entfernen', 'Remove') });
     toggle.addEventListener('click', function () {
+      if (l.added) {
+        var idx = plan.lines.indexOf(l);
+        if (idx === -1) return;
+        var after = plan.lines[idx + 1] || plan.lines[idx - 1] || null;
+        plan.lines.splice(idx, 1);
+        cfgFocusNext = after ? { uid: after.uid, key: 'toggle' } : { uid: '#add' };
+        cfgPlanEdited(plan, 'remove');
+        return;
+      }
       l.removed = !l.removed;
       cfgPlanEdited(plan, l.removed ? 'remove' : 'restore');
     });
     side.appendChild(toggle);
     li.appendChild(side);
     return li;
+  }
+
+  function cfgLimitText() {
+    return L('Dein Plan hat schon ' + CFG_MAX_LINES + ' Positionen – entferne eine, um etwas hinzuzufügen.',
+      'Your plan already has ' + CFG_MAX_LINES + ' items – remove one to add something.');
+  }
+
+  // „+ Gewichtsstufe“: the same product once more with the next free variant.
+  function cfgAddStep(plan, src) {
+    if (!src.product || plan !== cfgPlans[cfgActivePlanKey]) return;
+    if (plan.lines.length >= CFG_MAX_LINES) { cfgPlanStatus(plan, 'warn', cfgLimitText()); return; }
+    var next = cfgNextVariant(plan, src.product);
+    if (!next) return;
+    var line = {
+      uid: cfgNewUid(plan.lines),
+      ref: cfgBaseId(src),
+      qty: src.qty,
+      role: 'weights',
+      note: '',
+      removed: false,
+      variantId: String(next.id),
+      product: src.product,
+      added: true
+    };
+    cfgInsertLine(plan.lines, line);
+    cfgFocusNext = { uid: line.uid, key: 'variant' };
+    cfgPlanEdited(plan, 'add_step');
   }
 
   function cfgPlanEdited(plan, action) {
@@ -3484,6 +3746,351 @@
     if (plan.card) fillPlanCard(plan.card, plan);
     var t = cfgPlanTotals(plan);
     cfgEmit('plan', { items: t.count, units: t.units, total: Math.round(t.total) });
+  }
+
+  // ----- „+ Produkt hinzufügen“: the curated assortment as an inline picker ----
+  // GET /api/configurator/assortment (origin-guarded like /api/products) once
+  // per page load; a failed load can be retried. Cards: { id, name, category,
+  // role, price, salePrice?, priceMin?, priceMax?, images, shopifyUrl, inStock,
+  // variants? } sorted by role, then name.
+  var cfgAsm = { state: 'idle', products: [], promise: null };
+  var cfgPick = { area: null, open: false, query: '', role: 'all', rows: [], built: false };
+
+  function cfgCleanCard(c) {
+    if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !c.id.trim() || typeof c.name !== 'string') return null;
+    var num = function (x) { var n = Number(x); return typeof x === 'number' && isFinite(n) ? n : undefined; };
+    var vs = Array.isArray(c.variants) ? c.variants.filter(function (v) { return v && typeof v === 'object'; }).slice(0, 100).map(function (v) {
+      return {
+        id: v.id != null && v.id !== '' ? String(v.id) : null,
+        title: typeof v.title === 'string' ? v.title : '',
+        price: Number(v.price) || 0,
+        salePrice: num(v.salePrice),
+        available: v.available !== false,
+        isDefault: v.isDefault === true
+      };
+    }) : [];
+    return {
+      id: c.id.trim(),
+      name: c.name.slice(0, 200),
+      category: typeof c.category === 'string' ? c.category : '',
+      role: CFG_ROLES[c.role] ? c.role : 'extra',
+      price: Number(c.price) || 0,
+      salePrice: num(c.salePrice),
+      priceMin: num(c.priceMin),
+      priceMax: num(c.priceMax),
+      images: (Array.isArray(c.images) ? c.images : []).filter(function (s) { return typeof s === 'string' && s; }).slice(0, 1),
+      shopifyUrl: typeof c.shopifyUrl === 'string' ? c.shopifyUrl : '',
+      inStock: c.inStock !== false,
+      variants: vs
+    };
+  }
+
+  function cfgLoadAssortment() {
+    if (cfgAsm.state === 'ok') return Promise.resolve(cfgAsm.products);
+    if (cfgAsm.promise) return cfgAsm.promise;
+    cfgAsm.state = 'loading';
+    cfgPickRender();
+    cfgAsm.promise = fetch(API_BASE + '/api/configurator/assortment', { method: 'GET', headers: { 'x-ms-session': sid } })
+      .then(function (res) {
+        if (!res.ok) throw new Error('assortment ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data || data.ok !== true || !Array.isArray(data.products)) throw new Error('assortment: invalid payload');
+        var out = [];
+        for (var i = 0; i < data.products.length && out.length < 400; i++) {
+          var card = cfgCleanCard(data.products[i]);
+          if (card) out.push(card);
+        }
+        cfgAsm.products = out;
+        cfgAsm.state = 'ok';
+        cfgAsm.promise = null;
+        cfgPickRender();
+        return out;
+      })
+      .catch(function () {
+        cfgAsm.state = 'error';
+        cfgAsm.promise = null;
+        cfgPickRender();
+        return [];
+      });
+    return cfgAsm.promise;
+  }
+
+  // The product as a plan line needs it, when /api/products cannot answer.
+  function cfgCardProduct(card) {
+    return {
+      id: card.id,
+      name: card.name,
+      category: card.category,
+      price: card.price,
+      salePrice: card.salePrice,
+      priceMin: card.priceMin,
+      priceMax: card.priceMax,
+      images: card.images.slice(),
+      shopifyUrl: card.shopifyUrl,
+      inStock: card.inStock,
+      variants: card.variants.slice()
+    };
+  }
+
+  function cfgCardPriceEl(card) {
+    var box = el('div', { class: 'ms-chat-planpick-price' });
+    var min = card.priceMin, max = card.priceMax;
+    if (typeof min === 'number' && typeof max === 'number' && min > 0 && max > min) {
+      box.appendChild(el('span', { text: L('ab ', 'from ') + cfgMoney(min) }));
+      return box;
+    }
+    var sale = typeof card.salePrice === 'number' && card.salePrice > 0 && card.salePrice < card.price ? card.salePrice : null;
+    if (sale != null) {
+      box.appendChild(el('span', { class: 'ms-chat-planpick-sale', text: cfgMoney(sale) }));
+      box.appendChild(el('s', { class: 'ms-chat-planpick-strike', text: cfgMoney(card.price) }));
+    } else {
+      box.appendChild(el('span', { text: cfgMoney(card.price) }));
+    }
+    return box;
+  }
+
+  // The persistent „+ Produkt hinzufügen“ area of the plan host.
+  function cfgPickArea() {
+    if (cfgPick.area) return cfgPick.area;
+    var area = el('div', { class: 'ms-chat-planhost-addarea' });
+    var openBtn = el('button', { class: 'ms-chat-planhost-addbtn', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'ms-chat-planpick' });
+    openBtn.appendChild(el('span', { class: 'ms-chat-planhost-addbtn-plus', 'aria-hidden': 'true', text: '+' }));
+    openBtn.appendChild(el('span', { text: L('Produkt hinzufügen', 'Add a product') }));
+    openBtn.addEventListener('click', cfgPickOpen);
+    area.appendChild(openBtn);
+
+    var pick = el('div', { class: 'ms-chat-planpick', id: 'ms-chat-planpick', role: 'region', 'aria-label': L('Produkt zum Plan hinzufügen', 'Add a product to the plan') });
+    pick.hidden = true;
+    var head = el('div', { class: 'ms-chat-planpick-head' });
+    var headText = el('div', { class: 'ms-chat-planpick-headtext' });
+    headText.appendChild(el('div', { class: 'ms-chat-planpick-kicker', text: L('Produkt hinzufügen', 'Add a product') }));
+    headText.appendChild(el('div', { class: 'ms-chat-planpick-title', text: L('Aus dem Home-Gym-Sortiment', 'From the home-gym range') }));
+    head.appendChild(headText);
+    var done = el('button', { class: 'ms-chat-planpick-done', type: 'button', text: L('Fertig', 'Done') });
+    done.addEventListener('click', cfgPickClose);
+    head.appendChild(done);
+    pick.appendChild(head);
+
+    var tools = el('div', { class: 'ms-chat-planpick-tools' });
+    var search = el('input', { class: 'ms-chat-planpick-search', type: 'search', placeholder: L('Produkt suchen …', 'Search products …'), 'aria-label': L('Sortiment durchsuchen', 'Search the range'), autocomplete: 'off', enterkeyhint: 'search', maxlength: '80' });
+    search.addEventListener('input', function () { cfgPick.query = search.value; cfgPickFilter(); });
+    search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+    tools.appendChild(search);
+    var roles = el('div', { class: 'ms-chat-planpick-roles', role: 'group', 'aria-label': L('Nach Kategorie filtern', 'Filter by category') });
+    tools.appendChild(roles);
+    pick.appendChild(tools);
+
+    var stateEl = el('div', { class: 'ms-chat-planpick-state', role: 'status', 'aria-live': 'polite' });
+    pick.appendChild(stateEl);
+    var note = el('div', { class: 'ms-chat-planpick-note', role: 'status', 'aria-live': 'polite' });
+    pick.appendChild(note);
+    var list = el('ul', { class: 'ms-chat-planpick-list', 'aria-label': L('Produkte', 'Products') });
+    pick.appendChild(list);
+    pick.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.stopPropagation(); cfgPickClose(); }
+    });
+    area.appendChild(pick);
+
+    cfgPick.area = area;
+    cfgPick.openBtn = openBtn;
+    cfgPick.panel = pick;
+    cfgPick.tools = tools;
+    cfgPick.search = search;
+    cfgPick.rolesEl = roles;
+    cfgPick.stateEl = stateEl;
+    cfgPick.noteEl = note;
+    cfgPick.listEl = list;
+    return area;
+  }
+
+  function cfgPickOpen() {
+    cfgPick.open = true;
+    cfgPickNote('', '');
+    cfgPickRender();
+    cfgLoadAssortment();
+    try {
+      if (!cfgPick.tools.hidden) cfgPick.search.focus();
+      else cfgPick.panel.querySelector('.ms-chat-planpick-done').focus();
+    } catch (e) {}
+  }
+  function cfgPickClose() {
+    cfgPick.open = false;
+    cfgPickRender();
+    try { cfgPick.openBtn.focus(); } catch (e) {}
+  }
+  function cfgPickNote(kind, text) {
+    if (!cfgPick.noteEl) return;
+    cfgPick.noteEl.className = 'ms-chat-planpick-note' + (kind ? ' ms-chat-planpick-note--' + kind : '');
+    cfgPick.noteEl.textContent = text || '';
+  }
+
+  function cfgPickRender() {
+    if (!cfgPick.area) return;
+    cfgPick.openBtn.hidden = cfgPick.open;
+    cfgPick.openBtn.setAttribute('aria-expanded', cfgPick.open ? 'true' : 'false');
+    cfgPick.panel.hidden = !cfgPick.open;
+    if (!cfgPick.open) return;
+    var st = cfgAsm.state;
+    var has = st === 'ok' && cfgAsm.products.length > 0;
+    cfgPick.tools.hidden = !has;
+    cfgPick.listEl.hidden = !has;
+    var stateEl = cfgPick.stateEl;
+    stateEl.replaceChildren();
+    stateEl.className = 'ms-chat-planpick-state';
+    if (st === 'idle' || st === 'loading') {
+      stateEl.classList.add('ms-chat-planpick-state--loading');
+      stateEl.appendChild(el('span', { class: 'ms-chat-planpick-spinner', 'aria-hidden': 'true' }));
+      stateEl.appendChild(el('span', { text: L('Sortiment wird geladen …', 'Loading the range …') }));
+    } else if (st === 'error') {
+      stateEl.classList.add('ms-chat-planpick-state--error');
+      stateEl.appendChild(el('span', { text: L('Das Sortiment konnte gerade nicht geladen werden.', 'The range could not be loaded right now.') }));
+      var retry = el('button', { class: 'ms-chat-planpick-retry', type: 'button', text: L('Erneut versuchen', 'Try again') });
+      retry.addEventListener('click', function () { cfgLoadAssortment(); });
+      stateEl.appendChild(retry);
+    } else if (!has) {
+      stateEl.appendChild(el('span', { text: L('Für den Konfigurator ist noch kein Sortiment hinterlegt.', 'No range has been set up for the configurator yet.') }));
+    }
+    if (has && !cfgPick.built) cfgPickBuild();
+    if (has) { cfgPickSync(); cfgPickFilter(); }
+  }
+
+  // Role chips (Alle + the roles present) and one row per card — built once,
+  // filtering only shows / hides rows.
+  function cfgPickBuild() {
+    cfgPick.built = true;
+    var present = {};
+    cfgAsm.products.forEach(function (c) { present[c.role] = 1; });
+    var chips = [{ id: 'all', label: L('Alle', 'All') }];
+    CFG_ROLE_ORDER.forEach(function (r) { if (present[r]) chips.push({ id: r, label: CFG_ROLES_PLURAL[r] }); });
+    if (!present[cfgPick.role]) cfgPick.role = 'all';
+    cfgPick.rolesEl.replaceChildren();
+    cfgPick.chips = [];
+    if (chips.length > 2) {
+      chips.forEach(function (ch) {
+        var b = el('button', { class: 'ms-chat-planpick-chip', type: 'button', 'data-role': ch.id, 'aria-pressed': ch.id === cfgPick.role ? 'true' : 'false', text: ch.label });
+        b.addEventListener('click', function () { cfgPick.role = ch.id; cfgPickFilter(); });
+        cfgPick.rolesEl.appendChild(b);
+        cfgPick.chips.push(b);
+      });
+    }
+    cfgPick.rolesEl.hidden = chips.length <= 2;
+    cfgPick.listEl.replaceChildren();
+    cfgPick.rows = cfgAsm.products.map(function (card) {
+      var li = el('li', { class: 'ms-chat-planpick-row' + (card.inStock ? '' : ' ms-chat-planpick-row--na') });
+      var thumb = el('span', { class: 'ms-chat-planpick-thumb', 'aria-hidden': 'true' });
+      if (card.images[0]) thumb.appendChild(el('img', { src: card.images[0], alt: '', loading: 'lazy' }));
+      li.appendChild(thumb);
+      var meta = el('div', { class: 'ms-chat-planpick-meta' });
+      meta.appendChild(el('span', { class: 'ms-chat-planpick-role', text: CFG_ROLES[card.role] }));
+      meta.appendChild(el('span', { class: 'ms-chat-planpick-name', text: card.name }));
+      meta.appendChild(cfgCardPriceEl(card));
+      li.appendChild(meta);
+      var act = el('div', { class: 'ms-chat-planpick-act' });
+      var inPlan = el('span', { class: 'ms-chat-planpick-inplan', text: L('Im Plan', 'In plan') });
+      inPlan.hidden = true;
+      act.appendChild(inPlan);
+      var row = { card: card, li: li, inPlan: inPlan, btn: null, busy: false, timer: null, key: (card.name + ' ' + card.category).toLowerCase() };
+      if (card.inStock) {
+        var btn = el('button', { class: 'ms-chat-planpick-add', type: 'button', 'aria-label': L('Hinzufügen: ', 'Add: ') + card.name });
+        btn.appendChild(el('span', { class: 'ms-chat-planpick-add-label', text: L('Hinzufügen', 'Add') }));
+        btn.addEventListener('click', function () { cfgPickAdd(row); });
+        act.appendChild(btn);
+        row.btn = btn;
+      } else {
+        act.appendChild(el('span', { class: 'ms-chat-planpick-soldout', text: L('Ausverkauft', 'Sold out') }));
+      }
+      li.appendChild(act);
+      cfgPick.listEl.appendChild(li);
+      return row;
+    });
+  }
+
+  function cfgPickFilter() {
+    if (!cfgPick.built) return;
+    var words = String(cfgPick.query || '').toLowerCase().split(/\s+/).filter(Boolean);
+    var shown = 0;
+    cfgPick.rows.forEach(function (r) {
+      var ok = cfgPick.role === 'all' || r.card.role === cfgPick.role;
+      for (var i = 0; ok && i < words.length; i++) { if (r.card.name.toLowerCase().indexOf(words[i]) === -1) ok = false; }
+      r.li.hidden = !ok;
+      if (ok) shown++;
+    });
+    (cfgPick.chips || []).forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-role') === cfgPick.role ? 'true' : 'false');
+    });
+    var stateEl = cfgPick.stateEl;
+    stateEl.className = 'ms-chat-planpick-state';
+    stateEl.textContent = shown ? '' : L('Keine passenden Produkte gefunden.', 'No matching products found.');
+  }
+
+  // "Im Plan" on the rows whose product the active plan holds.
+  function cfgPickSync() {
+    if (!cfgPick.built) return;
+    var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+    var inPlan = {};
+    if (plan) plan.lines.forEach(function (l) { if (!l.removed && l.product) inPlan[cfgBaseId(l)] = 1; });
+    cfgPick.rows.forEach(function (r) { r.inPlan.hidden = !inPlan[r.card.id] || !!r.timer; });
+  }
+
+  function cfgPickAdd(row) {
+    var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+    if (!plan || !plan.ready || row.busy) return;
+    if (plan.lines.length >= CFG_MAX_LINES) { cfgPickNote('warn', cfgLimitText()); return; }
+    var card = row.card;
+    row.busy = true;
+    row.btn.setAttribute('aria-busy', 'true');
+    row.li.classList.add('ms-chat-planpick-row--busy');
+    hydrate([card.id]).then(function (res) { return res && res[0] ? res[0] : null; }, function () { return null; }).then(function (prod) {
+      row.busy = false;
+      row.btn.removeAttribute('aria-busy');
+      row.li.classList.remove('ms-chat-planpick-row--busy');
+      var cur = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+      if (!cur || !cur.ready) return;
+      if (cur.lines.length >= CFG_MAX_LINES) { cfgPickNote('warn', cfgLimitText()); return; }
+      var p = prod || cfgCardProduct(card);
+      var weights = card.role === 'weights';
+      var v = weights ? (cfgNextVariant(cur, p) || cfgDefaultVariant(p)) : cfgDefaultVariant(p);
+      var vid = v && v.id != null ? String(v.id) : null;
+      // The same product and variant the visitor already added: one more of
+      // it instead of a second identical row.
+      var same = null;
+      cur.lines.forEach(function (l) {
+        if (same || !l.added || l.removed || !l.product || l.ref !== card.id) return;
+        var lv = cfgVariantOf(l.product, l);
+        if (String(lv && lv.id != null ? lv.id : '') === String(vid || '')) same = l;
+      });
+      if (same) {
+        same.qty = Math.min(20, same.qty + (weights ? 2 : 1));
+      } else {
+        cfgInsertLine(cur.lines, {
+          uid: cfgNewUid(cur.lines),
+          ref: card.id,
+          qty: weights ? 2 : 1,
+          role: card.role,
+          note: '',
+          removed: false,
+          variantId: vid,
+          product: p,
+          added: true
+        });
+      }
+      cfgPlanEdited(cur, 'add');
+      // Feedback on the row; the picker stays open for the next product.
+      var label = row.btn.querySelector('.ms-chat-planpick-add-label');
+      row.li.classList.add('ms-chat-planpick-row--added');
+      if (label) label.textContent = L('✓ hinzugefügt', '✓ added');
+      cfgPickNote('ok', L('„' + card.name + '“ ist jetzt in deinem Plan.', '“' + card.name + '” is now in your plan.'));
+      if (row.timer) clearTimeout(row.timer);
+      row.timer = setTimeout(function () {
+        row.timer = null;
+        row.li.classList.remove('ms-chat-planpick-row--added');
+        if (label) label.textContent = L('Hinzufügen', 'Add');
+        cfgPickSync();
+      }, 2400);
+      cfgPickSync();
+    });
   }
 
   function cfgPlanStatus(plan, kind, text) {
@@ -3513,13 +4120,18 @@
     var items = [];
     var names = {};
     var prices = {};
+    var byId = {};
+    // Mo's lines and the visitor's own; two lines of the same variant are one
+    // cart line.
     plan.lines.forEach(function (l) {
       if (l.removed || !l.product) return;
       var v = cfgVariantOf(l.product, l);
       if (!cfgLineAvailable(l.product, v) || !v) return;
       var id = parseInt(v.id, 10);
       if (!isFinite(id)) return;
-      items.push({ id: id, quantity: l.qty });
+      if (byId[id]) { byId[id].quantity += l.qty; return; }
+      byId[id] = { id: id, quantity: l.qty };
+      items.push(byId[id]);
       names[id] = l.product.name || '';
       prices[id] = cfgUnitPrice(l.product, v) || 0;
     });
