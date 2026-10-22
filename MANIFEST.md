@@ -12,7 +12,55 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-21, follow-up, latest) — Konfigurator: genauere Kennzahlen
+## ⭐ Session update (2026-10-22, latest) — Konfigurator nach Annas Feedback: helles Design, Trainingsfokus, Gewichtsstufen, eigene Produkte
+
+The round of the partner feedback (Anna, Men's Health / Women's Health). Upload **after the mo backend is
+deployed** (it brings the new personas and `GET /api/configurator/assortment`) — and right after it, in the
+same sitting. This entry includes the follow-up of 21.10. below.
+
+What changes on the configurator page:
+- **Light design** after the Performance campaign mail: white, light blue accent `#008ccb`, red
+  „Jetzt Home Gym planen“ / „Alles in den Warenkorb“, black outline buttons.
+- **Hero:** „In wenigen Schritten dein Home Gym konfigurieren – mit persönlicher KI-Beratung von Mo.“,
+  „Dein Home Gym. Klar geplant.“ on one line, one button, larger seals with „Unser Konfigurator trägt das
+  Empfehlungssiegel Men's und Women's Health.“, no checkmark lines („So funktioniert's“ stays further down).
+- **„Welcher Typ bist du? Wähle deinen Trainingsfokus aus.“** with the seals and six types — Mo's personas
+  (Pragmatisch starten · Ambitioniert trainieren · Kraft und Muskeln aufbauen · Gesundheit und Ausdauer
+  fördern · Design und Lifestyle leben · Abnehmen und fit bleiben, each with Anna's subtitle). The card
+  „Ich will …“ is gone. Links: `typ` / `type` / `fokus` / `focus` / `target` / `ziel` = the type (`target=01`
+  = the first), old links (`persona=busy`, `goal=muscle`) still work.
+- **„Starke Partner“** with Anna's three paragraphs.
+- **The plan:** „+ Produkt hinzufügen“ (the Konfigurator-Sortiment of the Mo admin, with search and filter),
+  „+ Gewichtsstufe“ on weights with several steps, the hint „Mo empfiehlt zu deinem Setup Hantelscheiben.
+  Bitte prüfe eigenständig, welche Gewichtsstufen du benötigst …“; lines the visitor adds are marked „Von dir
+  ergänzt“ and Mo keeps them. After „Weiter – Mo berät mich“ the page scrolls Mo into view at every width.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (hero, persona card, „Starke Partner“; new setting ids `hero_intro`, `seal_caption`, `partners_label`, `partners_text`, `mo_intro`) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | **MODIFIED** (personas, link prefill, no goal, handover scroll) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (light design) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.js` | **MODIFIED** (plan: add products, weight steps, hint; personas; light dock) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.css` | **MODIFIED** (plan and dock styles, all scoped to the configurator page) | ✅ Yes — replace the whole file |
+| `templates/page.home-gym-mo.json` | **MODIFIED** (new setting ids, for new installs only) | ❌ **No — do NOT upload.** Shopify keeps the section's texts and the two uploaded seals in the live template; uploading this file would drop the seals. The new texts use new setting ids, so they appear without it. |
+
+Shared theme files to hand-edit: **none**. **Every other page behaves exactly as before** — the floating
+widget is pixel-identical (checked at 1440 / 1024 / 390 px in all states).
+
+**After the upload:**
+1. Open `/pages/home-gym-konfigurator-1` (desktop and phone): the light page with the new hero, the six types,
+   „Starke Partner“. In the theme editor the section shows the new texts as editable settings; the seals
+   stay as uploaded. The old settings (Eyebrow, Unterzeile, USP 1–3, Siegel-Label, Kooperation) are gone.
+2. Run it once: pick a type, hand over to Mo, answer budget and wishes — the plan shows weights as several
+   steps, the hint, „+ Gewichtsstufe“ and „+ Produkt hinzufügen“ (lists the products tagged
+   `home-gym-konfigurator` — Mo admin → Konfigurator → „Sortiment“); „Alles in den Warenkorb“ puts everything
+   into the cart.
+3. `npm run verify:widget` (mo repo) reports `konfigurator-2026-10-22` — tell C, who marks it as the expected
+   build.
+
+---
+
+## ⭐ Session update (2026-10-21, follow-up) — Konfigurator: genauere Kennzahlen
 
 Nothing visible changes — the widget and the configurator page report their numbers more exactly, so the
 Mo admin (KPIs → „Home-Gym-Konfigurator“, Konfigurator → „Wirkung“) counts right.
