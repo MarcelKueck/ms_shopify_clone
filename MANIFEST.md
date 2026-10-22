@@ -12,7 +12,42 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-22, latest) — Konfigurator nach Annas Feedback: helles Design, Trainingsfokus, Gewichtsstufen, eigene Produkte
+## ⭐ Session update (2026-10-22 b, latest) — Konfigurator, zweite Feedback-Runde: Struktur wie die Startseite
+
+Anna's second round. Upload any time (the mo backend deploy only updates Mo's copy of the persona
+subtitles; the two are independent).
+
+- **Sections alternate** white `#ffffff` / light grey `#f9f9f9` like the homepage: hero white, configurator
+  grey (cards and Mo white on it), „So funktioniert's“ white, „Starke Partner“ grey.
+- **Headings like the homepage** („Darf in keinem Gym fehlen. / Bestseller.“): the hero line in blue above
+  „Dein Home Gym. Klar geplant.“ in regular weight; „So funktioniert's“ and „Starke Partner“ as blue caps
+  lines over a headline („In drei Schritten zu deinem Home Gym.“ / „motion sports × Men's Health &
+  Women's Health“). The theme editor checkbox **„Einleitung in Großbuchstaben“** (off) puts the hero line
+  in caps.
+- **Seals larger** everywhere; caption „Unser Konfigurator trägt das Empfehlungssiegel von Men's und
+  Women's Health.“
+- **No divider lines** (blue rules under titles, grey rules around section titles, the progress bar's
+  borders, the lines in Mo's plan); the progress connectors stay.
+- **Persona tiles:** every title on two lines, Anna's new subtitles.
+- **Mo's panel:** „Hallo, ich bin Mo.“ + one sentence; the three checkmark lines are gone.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (headings, Mo panel; new setting ids `seal_note`, `mo_hello`, `mo_lead`, checkbox `hero_intro_caps`) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | **MODIFIED** (persona titles on two lines, new subtitles) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (backgrounds, headings, seals, no rules) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.css` | **MODIFIED** (no lines in the page plan) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.js` | unchanged since „2026-10-22“ | — |
+| `templates/page.home-gym-mo.json` | **MODIFIED** (new ids, for new installs only) | ❌ **No — do NOT upload** (it would drop the uploaded seals). |
+
+The floating widget on every other page is unchanged. After the upload, check
+`/pages/home-gym-konfigurator-1` on desktop and phone; in the theme editor the section shows the new
+settings (Begrüßung „Hallo, ich bin Mo.“, Einleitung, Text zu den Siegeln, „Einleitung in
+Großbuchstaben“). `npm run verify:widget` (mo repo) still reports `konfigurator-2026-10-22`.
+
+---
+
+## ⭐ Session update (2026-10-22) — Konfigurator nach Annas Feedback: helles Design, Trainingsfokus, Gewichtsstufen, eigene Produkte
 
 The round of the partner feedback (Anna, Men's Health / Women's Health). Upload **after the mo backend is
 deployed** (it brings the new personas and `GET /api/configurator/assortment`) — and right after it, in the
