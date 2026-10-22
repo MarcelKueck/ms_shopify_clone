@@ -3287,7 +3287,10 @@
   }
   // The first available variant of the product that no (kept) line of the
   // plan uses yet — the next weight step — or null.
-  function cfgNextVariant(plan, p) {
+  // The next free variant of a product. With a source line („+ Gewichtsstufe“
+  // on the 10 kg line) the search starts after that line's variant — the next
+  // heavier step first, lighter ones only when nothing heavier is free.
+  function cfgNextVariant(plan, p, from) {
     var base = String(p && p.id != null ? p.id : '').split('~')[0];
     var used = {};
     plan.lines.forEach(function (l) {
@@ -3296,8 +3299,16 @@
       if (v && v.id != null) used[String(v.id)] = 1;
     });
     var vs = cfgVariants(p);
-    for (var i = 0; i < vs.length; i++) {
-      if (vs[i].available !== false && !used[String(vs[i].id)]) return vs[i];
+    var start = 0;
+    if (from && from.product) {
+      var cur = cfgVariantOf(from.product, from);
+      for (var k = 0; cur && k < vs.length; k++) {
+        if (String(vs[k].id) === String(cur.id)) { start = k + 1; break; }
+      }
+    }
+    for (var n = 0; n < vs.length; n++) {
+      var v2 = vs[(start + n) % vs.length];
+      if (v2.available !== false && !used[String(v2.id)]) return v2;
     }
     return null;
   }
@@ -3745,7 +3756,7 @@
       // variant not yet in the plan). A full plan keeps the button usable:
       // the click explains the limit (cfgAddStep).
       if (l.role === 'weights') {
-        var next = cfgNextVariant(plan, p);
+        var next = cfgNextVariant(plan, p, l);
         var step = el('button', { class: 'ms-chat-planhost-step', type: 'button', 'data-focus': 'step' });
         step.appendChild(el('span', { 'aria-hidden': 'true', text: '+' }));
         step.appendChild(el('span', { text: L('Gewichtsstufe', 'Weight step') }));
@@ -3821,7 +3832,7 @@
   function cfgAddStep(plan, src) {
     if (!src.product || plan !== cfgPlans[cfgActivePlanKey]) return;
     if (cfgPlanFull(plan)) { cfgLimitNote(plan, src); return; }
-    var next = cfgNextVariant(plan, src.product);
+    var next = cfgNextVariant(plan, src.product, src);
     if (!next) return;
     var line = {
       uid: cfgNewUid(plan.lines),
