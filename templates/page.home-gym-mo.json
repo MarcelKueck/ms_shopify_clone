@@ -4,22 +4,18 @@
       "type": "ms-home-gym-configurator",
       "settings": {
         "partner": "none",
-        "eyebrow": "Produktberater Mo · Home-Gym-Konfigurator",
+        "hero_intro": "In wenigen Schritten dein Home Gym konfigurieren – mit persönlicher KI-Beratung von Mo.",
         "heading": "Dein Home Gym. Klar geplant.",
-        "subheading": "In wenigen Schritten zu den passenden Geräten – mit persönlicher KI-Beratung von Mo.",
         "hero_cta": "Jetzt Home Gym planen",
-        "usp_1": "Kostenlose KI-Beratung",
-        "usp_2": "Passendes Zubehör inklusive",
-        "usp_3": "Showroom in Gröbenzell bei München",
-        "seal_label": "Empfohlen von",
+        "seal_caption": "Unser Konfigurator trägt das Empfehlungssiegel Men's und Women's Health.",
         "seal_mh_alt": "Empfehlungssiegel Men's Health",
         "seal_wh_alt": "Empfehlungssiegel Women's Health",
         "mo_title": "Hallo, ich bin Mo – dein Home-Gym-Berater.",
-        "mo_text": "Wähle links ein paar Grundeinstellungen – dann übernehme ich: Ich frage kurz nach Budget und Wünschen und stelle dir dein passendes Home Gym zusammen.",
+        "mo_intro": "Wähle ein paar Grundeinstellungen – dann übernehme ich: Ich frage kurz nach Budget und Wünschen und stelle dir dein passendes Home Gym zusammen.",
         "fallback_url": "/pages/angebotsanfrage",
-        "coop_eyebrow": "Kooperation",
+        "partners_label": "Starke Partner",
         "coop_heading": "motion sports × Men's Health & Women's Health",
-        "coop_text": "<p>Training zu Hause soll einfach sein – darum arbeiten wir mit Men's Health und Women's Health zusammen. Du sagst uns, wer du bist und was du willst; Mo, unser KI-Fitnessberater, stellt dir daraus dein persönliches Home Gym zusammen: mit Geräten in Studioqualität, passendem Zubehör und ehrlicher Beratung – auf Wunsch auch persönlich in unserem Showroom bei München.</p>"
+        "partners_text": "<p>Ob Einsteiger, ambitionierter Home-Athlet oder professioneller Kraftsportler – jeder Mensch trainiert anders und hat individuelle Ansprüche. Deshalb entwickeln wir gemeinsam mit dir dein persönliches Home Gym: mit erstklassigem Fitness-Equipment, professioneller Beratung und Lösungen, die perfekt zu deinen Zielen, deinem Platzangebot und deinem Alltag passen.</p><p>Auch Men’s Health und Women’s Health vertrauen auf unsere Expertise und empfehlen motion sports als Partner für die individuelle Home-Gym-Planung. Denn uns verbindet die Überzeugung, dass erfolgreiches Training zu Hause mit einer persönlichen Beratung und der richtigen Ausstattung beginnt. Gemeinsam möchten wir dir helfen, das Beste aus deinem Home Gym herauszuholen.</p><p>Und so einfach geht’s: Du verrätst uns, wie du trainieren möchtest und was dir wichtig ist. Mo, unser KI-Fitnessberater, unterstützt dich dabei, dein individuelles Home Gym zusammenzustellen. Dabei stehen wir dir jederzeit auch persönlich zur Seite – online oder direkt in unserem Showroom bei München.</p>"
       }
     }
   },

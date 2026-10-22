@@ -7,8 +7,10 @@
  * ms-chat-widget.js) and follows Mo's progress through the widget's
  * `ms-chat:configurator` events (stepper, profile summary). The answer ids are
  * the backend's vocabulary (mo repo: src/lib/configurator-core.mjs) — keep
- * both in sync. KPI goes through MS_CHAT.configurator.track (ids and enums
- * only); the page view is sent only with Shopify analytics consent.
+ * both in sync; the personas are Mo's own customer personas (the old
+ * „Ich bin …“ / „Ich will …“ ids still map, see LEGACY_PERSONA). KPI goes
+ * through MS_CHAT.configurator.track (ids and enums only); the page view is
+ * sent only with Shopify analytics consent.
  */
 (function () {
   'use strict';
@@ -24,11 +26,13 @@
 
     // ----- vocabulary (ids = backend configurator-core.mjs) -----------------
     var ICON = {
-      busy: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>',
-      ambitious: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
-      health: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
-      family: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
-      best_ager: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+      target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+      pragmatic_beginner: '<circle cx="12" cy="14.5" r="6"/><path d="M8.6 9.7 8.1 7.6A2 2 0 0 1 10 5h4a2 2 0 0 1 1.9 2.6l-.5 2.1"/>',
+      ambitious_home_athlete: '<path d="M6 21V3M18 21V3M4 21h4M16 21h4M3 9h18M8.5 7v4M15.5 7v4"/>',
+      strength_focused: '<path d="M2 12h20"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/>',
+      cardio_focused: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/><path d="M6 12h3l1.5-2.5 2 4.5 1.5-2h4"/>',
+      design_lifestyle: '<path d="M10 3.5 11.8 8.2 16.5 10l-4.7 1.8L10 16.5l-1.8-4.7L3.5 10l4.7-1.8z"/><path d="M18 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>',
+      weight_loss: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3.2.5 1.5 1.5 2.7 3 2.7z"/>',
       house: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
       apartment: '<rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
       garage: '<path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-9h10v9M7 15h10M7 18h10"/>',
@@ -42,25 +46,23 @@
       functional: '<circle cx="13" cy="4" r="2"/><path d="M4 17l4-1 2-4 4 3v5M10 12l2-4 5 2 3-2"/>',
       rookie: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.4 5.1-6"/>',
       intermediate: '<path d="M18 20V10M12 20V4M6 20v-6"/>',
-      pro: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
-      muscle: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
-      fitness: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3.2.5 1.5 1.5 2.7 3 2.7z"/>',
-      goal_health: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12h6M12 9v6"/>',
-      endurance: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>',
-      athletic: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>'
+      pro: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>'
     };
     function svg(name) {
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICON[name] || '') + '</svg>';
     }
     var CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+    // options: [id, title, subtitle?] — the persona order is Mo's (the URL
+    // index 01–06 counts in this order).
     var FIELDS = {
-      persona: { label: T('Ich bin', 'I am'), short: T('Ich bin', 'I am'), multi: false, required: true, options: [
-        ['busy', T('Berufstätig & wenig Zeit', 'Busy, little time')],
-        ['ambitious', T('Sportlich ambitioniert', 'Ambitious')],
-        ['health', T('Gesundheits­bewusst', 'Health-conscious')],
-        ['family', T('Zu zweit / Familie', 'Couple / family')],
-        ['best_ager', T('Aktiv mit 50+', 'Active at 50+')]
+      persona: { label: T('Trainingsfokus', 'Training focus'), short: T('Typ', 'Type'), multi: false, required: true, options: [
+        ['pragmatic_beginner', T('Pragmatisch starten', 'Start pragmatically'), T('Kompakte Fitnesslösungen für Einsteiger und begrenzten Platz.', 'Compact fitness solutions for beginners and limited space.')],
+        ['ambitious_home_athlete', T('Ambitioniert trainieren', 'Train ambitiously'), T('Facettenreiche Fitnessgeräte in Studioqualität für zu Hause.', 'Versatile studio-quality equipment for your home.')],
+        ['strength_focused', T('Kraft und Muskeln aufbauen', 'Build strength and muscle'), T('Gezielt und progressiv stärker werden.', 'Get stronger, step by step.')],
+        ['cardio_focused', T('Gesundheit und Ausdauer fördern', 'Boost health and endurance'), T('Fit und aktiv bleiben.', 'Stay fit and active.')],
+        ['design_lifestyle', T('Design und Lifestyle leben', 'Live design and lifestyle'), T('Stilvolle Fitnessgeräte Zuhause integrieren.', 'Integrate stylish fitness equipment at home.')],
+        ['weight_loss', T('Abnehmen und fit bleiben', 'Lose weight and stay fit'), T('Mit Cardiotraining das Wohlbefinden steigern.', 'Boost your well-being with cardio.')]
       ] },
       location: { label: T('Trainingsort', 'Where'), short: T('Ort', 'Where'), multi: false, required: true, options: [
         ['house', T('Haus / Keller', 'House / basement')],
@@ -83,24 +85,37 @@
         ['rookie', T('Einsteiger:in', 'Beginner')],
         ['intermediate', T('Fortgeschritten', 'Intermediate')],
         ['pro', T('Profi', 'Advanced')]
-      ] },
-      goal: { label: T('Ich will', 'I want to'), short: T('Ziel', 'Goal'), multi: false, required: true, options: [
-        ['muscle', T('Muskeln & Kraft aufbauen', 'Build muscle & strength')],
-        ['fitness', T('Fitter werden & abnehmen', 'Get fitter & lose weight')],
-        ['health', T('Rücken & Gesundheit stärken', 'Strengthen back & health')],
-        ['endurance', T('Ausdauer steigern', 'Improve endurance')],
-        ['athletic', T('Athletik & Performance', 'Athleticism & performance')]
       ] }
     };
-    var ICON_FOR = { goal: { health: 'goal_health' } };
+    var FIELD_KEYS = ['persona', 'location', 'space', 'training', 'level'];
     var GROUPS = [
-      { key: 'who', icon: 'family', title: T('Ich bin …', 'I am …'), sub: T('Wer trainiert?', 'Who is training?'), fields: ['persona'] },
+      { key: 'who', icon: 'target', title: T('Welcher Typ bist du?', 'What type are you?'), sub: T('Wähle deinen Trainingsfokus aus.', 'Choose your training focus.'), fields: ['persona'], seals: true },
       { key: 'where', icon: 'house', title: T('Trainingsort & Platz', 'Place & space'), sub: T('Wo und wie viel Fläche?', 'Where, and how much room?'), fields: ['location', 'space'] },
-      { key: 'how', icon: 'free_weights', title: T('Training & Niveau', 'Training & level'), sub: T('Wie trainierst du am liebsten?', 'How do you like to train?'), fields: ['training', 'level'] },
-      { key: 'goal', icon: 'athletic', title: T('Ich will …', 'I want to …'), sub: T('Was ist dir am wichtigsten?', 'What matters most?'), fields: ['goal'] }
+      { key: 'how', icon: 'free_weights', title: T('Training & Niveau', 'Training & level'), sub: T('Wie trainierst du am liebsten?', 'How do you like to train?'), fields: ['training', 'level'] }
     ];
-    var REQUIRED = ['persona', 'location', 'space', 'level', 'goal'];
-    var ALIASES = { target: 'goal', ziel: 'goal', skills: 'level', skill: 'level', niveau: 'level', ort: 'location', platz: 'space', typ: 'persona' };
+    var REQUIRED = ['persona', 'location', 'space', 'level'];
+    // URL parameter names → field. The persona has two strengths: its own
+    // names (rank 1) beat the old goal names (rank 2) when a link has both.
+    var ALIASES = {
+      persona: 'persona', typ: 'persona', type: 'persona', fokus: 'persona', focus: 'persona',
+      target: 'persona', ziel: 'persona', goal: 'persona',
+      skills: 'level', skill: 'level', niveau: 'level',
+      ort: 'location', platz: 'space'
+    };
+    var PERSONA_RANK = { persona: 1, typ: 1, type: 1, fokus: 1, focus: 1, target: 2, ziel: 2, goal: 2 };
+    // Old persona („Ich bin …“) and goal („Ich will …“) ids → Mo's personas:
+    // old links, drafts and threads keep working.
+    var LEGACY_PERSONA = {
+      busy: 'pragmatic_beginner',
+      ambitious: 'ambitious_home_athlete',
+      health: 'cardio_focused',
+      family: 'pragmatic_beginner',
+      best_ager: 'cardio_focused',
+      muscle: 'strength_focused',
+      fitness: 'weight_loss',
+      endurance: 'cardio_focused',
+      athletic: 'ambitious_home_athlete'
+    };
 
     // ----- elements ----------------------------------------------------------
     var form = root.querySelector('[data-ms-hgk-form]');
@@ -124,7 +139,7 @@
     function optionLabel(key, id) {
       var f = FIELDS[key];
       if (!f) return '';
-      for (var i = 0; i < f.options.length; i++) if (f.options[i][0] === id) return f.options[i][1].replace(/­/g, '');
+      for (var i = 0; i < f.options.length; i++) if (f.options[i][0] === id) return f.options[i][1].replace(/\u00ad/g, '');
       return '';
     }
     function hasOption(key, id) { return !!optionLabel(key, id); }
@@ -169,54 +184,96 @@
     if (partner) root.setAttribute('data-active-partner', partner);
 
     // ----- answers: URL prefill > draft --------------------------------------
-    var answers = { persona: null, location: null, space: null, training: [], level: null, goal: null };
+    function emptyAnswers() {
+      return { persona: null, location: null, space: null, training: [], level: null };
+    }
+    var answers = emptyAnswers();
     var prefilled = false;
+    // One raw value (id, legacy id or 1-based position) → a known option id.
+    function optionId(key, raw) {
+      var f = FIELDS[key];
+      var v = String(raw == null ? '' : raw).toLowerCase().replace(/^\s+|\s+$/g, '');
+      if (!f || !v) return '';
+      if (/^\d{1,2}$/.test(v)) { var o = f.options[parseInt(v, 10) - 1]; return o ? o[0] : ''; }
+      if (key === 'persona' && LEGACY_PERSONA[v]) v = LEGACY_PERSONA[v];
+      return hasOption(key, v) ? v : '';
+    }
     function setFromRaw(key, raw) {
       var f = FIELDS[key];
       if (!f || raw == null) return false;
-      var vals = String(raw).toLowerCase().split(',');
+      var vals = String(raw).split(',');
       var picked = [];
       for (var i = 0; i < vals.length; i++) {
-        var v = vals[i].trim();
-        if (/^\d{1,2}$/.test(v)) { var o = f.options[parseInt(v, 10) - 1]; v = o ? o[0] : ''; }
-        if (v && hasOption(key, v) && picked.indexOf(v) === -1) picked.push(v);
+        var v = optionId(key, vals[i]);
+        if (v && picked.indexOf(v) === -1) picked.push(v);
       }
       if (!picked.length) return false;
-      if (f.multi) answers[key] = picked; else answers[key] = picked[0];
+      if (f.multi) {
+        answers[key] = f.options.map(function (o) { return o[0]; }).filter(function (id) { return picked.indexOf(id) !== -1; });
+      } else {
+        answers[key] = picked[0];
+      }
       return true;
     }
+    // Answers stored elsewhere (draft, the widget's thread) → this page's
+    // vocabulary: unknown ids are dropped, old persona/goal ids mapped.
+    function normalizeAnswers(src) {
+      var out = emptyAnswers();
+      if (!src || typeof src !== 'object') return out;
+      var persona = optionId('persona', typeof src.persona === 'string' ? src.persona : '');
+      if (!persona && typeof src.goal === 'string') persona = optionId('persona', src.goal);
+      out.persona = persona || null;
+      ['location', 'space', 'level'].forEach(function (k) {
+        out[k] = (typeof src[k] === 'string' && optionId(k, src[k])) || null;
+      });
+      var list = Array.isArray(src.training) ? src.training : [];
+      out.training = FIELDS.training.options.map(function (o) { return o[0]; }).filter(function (id) { return list.indexOf(id) !== -1; });
+      return out;
+    }
     (function () {
-      try {
-        var draft = JSON.parse(ssGet('ms-hgk-draft') || 'null');
-        if (draft && typeof draft === 'object') {
-          for (var k in answers) {
-            if (!Object.prototype.hasOwnProperty.call(answers, k)) continue;
-            if (FIELDS[k].multi && Array.isArray(draft[k])) setFromRaw(k, draft[k].join(','));
-            else if (typeof draft[k] === 'string') setFromRaw(k, draft[k]);
-          }
-        }
-      } catch (e) {}
+      try { answers = normalizeAnswers(JSON.parse(ssGet('ms-hgk-draft') || 'null')); } catch (e) { answers = emptyAnswers(); }
       try {
         var u = new URL(window.location.href);
+        var personaRank = 99;
         u.searchParams.forEach(function (value, name) {
-          var key = ALIASES[name.toLowerCase()] || name.toLowerCase();
-          if (FIELDS[key] && setFromRaw(key, value)) prefilled = true;
+          var n = name.toLowerCase();
+          var key = ALIASES[n] || n;
+          if (!FIELDS[key]) return;
+          if (key === 'persona') {
+            var rank = PERSONA_RANK[n] || 1;
+            if (rank > personaRank) return;
+            if (setFromRaw(key, value)) { prefilled = true; personaRank = rank; }
+            return;
+          }
+          if (setFromRaw(key, value)) prefilled = true;
         });
       } catch (e) {}
     })();
     function saveDraft() { ssSet('ms-hgk-draft', JSON.stringify(answers)); }
 
     // ----- render the cards ---------------------------------------------------
+    // The partner seals, small, in the header of the persona card (only when
+    // uploaded: the section renders them into a <template>).
+    function smallSeals() {
+      var tpl = root.querySelector('template[data-ms-hgk-seals-small]');
+      if (!tpl) return null;
+      var box = document.createElement('span');
+      box.className = 'ms-hgk-card__seals';
+      if (tpl.content) box.appendChild(tpl.content.cloneNode(true));
+      else box.innerHTML = tpl.innerHTML;
+      return box.querySelector('img') ? box : null;
+    }
     var optButtons = {};
     groupsEl.innerHTML = '';
     GROUPS.forEach(function (g) {
       var card = document.createElement('div');
-      card.className = 'ms-hgk-card';
+      card.className = 'ms-hgk-card ms-hgk-card--' + g.key;
       card.setAttribute('data-group', g.key);
       var head = document.createElement('div');
       head.className = 'ms-hgk-card__head';
       head.innerHTML = '<span class="ms-hgk-card__icon">' + svg(g.icon) + '</span>';
       var titles = document.createElement('div');
+      titles.className = 'ms-hgk-card__titles';
       var h = document.createElement('h3');
       h.className = 'ms-hgk-card__title';
       h.textContent = g.title;
@@ -226,6 +283,8 @@
       titles.appendChild(h);
       titles.appendChild(sub);
       head.appendChild(titles);
+      var seals = g.seals ? smallSeals() : null;
+      if (seals) head.appendChild(seals);
       var done = document.createElement('span');
       done.className = 'ms-hgk-card__done';
       done.innerHTML = CHECK;
@@ -235,42 +294,44 @@
         var f = FIELDS[key];
         var fs = document.createElement('fieldset');
         fs.className = 'ms-hgk-field';
+        var lg = document.createElement('legend');
+        lg.className = 'ms-hgk-field__label';
         if (g.fields.length > 1) {
-          var lg = document.createElement('legend');
-          lg.className = 'ms-hgk-field__label';
           lg.textContent = f.label;
           if (f.multi) {
             var sm = document.createElement('small');
             sm.textContent = T(' · Mehrfachauswahl', ' · pick several');
             lg.appendChild(sm);
           }
-          fs.appendChild(lg);
         } else {
-          var lgh = document.createElement('legend');
-          lgh.className = 'ms-hgk-field__label';
-          lgh.style.position = 'absolute';
-          lgh.style.width = '1px';
-          lgh.style.height = '1px';
-          lgh.style.overflow = 'hidden';
-          lgh.style.clip = 'rect(0 0 0 0)';
-          lgh.textContent = g.title;
-          fs.appendChild(lgh);
+          lg.className += ' ms-hgk-sr';
+          lg.textContent = g.title;
         }
+        fs.appendChild(lg);
         var grid = document.createElement('div');
-        grid.className = 'ms-hgk-opts ms-hgk-opts--' + f.options.length + (key === 'goal' || key === 'training' ? ' ms-hgk-opts--compact' : '');
+        grid.className = 'ms-hgk-opts ms-hgk-opts--' + (key === 'persona' ? 'persona' : f.options.length + (key === 'training' ? ' ms-hgk-opts--compact' : ''));
         optButtons[key] = [];
         f.options.forEach(function (o) {
           var b = document.createElement('button');
           b.type = 'button';
-          b.className = 'ms-hgk-opt';
+          b.className = 'ms-hgk-opt' + (o[2] ? ' ms-hgk-opt--rich' : '');
           b.setAttribute('aria-pressed', 'false');
           b.setAttribute('data-field', key);
           b.setAttribute('data-value', o[0]);
-          var iconName = (ICON_FOR[key] && ICON_FOR[key][o[0]]) || o[0];
-          b.innerHTML = svg(iconName);
-          var span = document.createElement('span');
-          span.textContent = o[1];
-          b.appendChild(span);
+          b.innerHTML = svg(o[0]);
+          var text = document.createElement('span');
+          text.className = 'ms-hgk-opt__text';
+          var title = document.createElement('span');
+          title.className = 'ms-hgk-opt__title';
+          title.textContent = o[1];
+          text.appendChild(title);
+          if (o[2]) {
+            var desc = document.createElement('span');
+            desc.className = 'ms-hgk-opt__sub';
+            desc.textContent = o[2];
+            text.appendChild(desc);
+          }
+          b.appendChild(text);
           b.addEventListener('click', function () { choose(key, o[0]); });
           optButtons[key].push(b);
           grid.appendChild(b);
@@ -347,12 +408,11 @@
     function changedFields() {
       if (!sentAnswers) return [];
       var out = [];
-      for (var k in answers) {
-        if (!Object.prototype.hasOwnProperty.call(answers, k)) continue;
+      FIELD_KEYS.forEach(function (k) {
         var a = FIELDS[k].multi ? answers[k].join(',') : (answers[k] || '');
         var b = FIELDS[k].multi ? (sentAnswers[k] || []).join(',') : (sentAnswers[k] || '');
         if (a !== b) out.push(k);
-      }
+      });
       return out;
     }
 
@@ -362,8 +422,7 @@
         location: answers.location,
         space: answers.space,
         training: answers.training.slice(),
-        level: answers.level,
-        goal: answers.goal
+        level: answers.level
       };
     }
 
@@ -392,8 +451,8 @@
         li.appendChild(s);
         chipsEl.appendChild(li);
       }
-      ['persona', 'location', 'space', 'level', 'goal'].forEach(function (k) {
-        if (answers[k]) chip((ICON_FOR[k] && ICON_FOR[k][answers[k]]) || answers[k], optionLabel(k, answers[k]));
+      ['persona', 'location', 'space', 'level'].forEach(function (k) {
+        if (answers[k]) chip(answers[k], optionLabel(k, answers[k]));
       });
       answers.training.forEach(function (id) { chip(id, optionLabel('training', id)); });
       if (extras.budget) chip(null, T('Budget: ', 'Budget: ') + extras.budget, true);
@@ -496,7 +555,7 @@
           flushTrack();
           trackView();
           if (d.answers) {
-            answers = { persona: d.answers.persona || null, location: d.answers.location || null, space: d.answers.space || null, training: (d.answers.training || []).slice(), level: d.answers.level || null, goal: d.answers.goal || null };
+            answers = normalizeAnswers(d.answers);
             if (d.partner === 'mh' || d.partner === 'wh') { partner = d.partner; root.setAttribute('data-active-partner', partner); }
             saveDraft();
             sentAnswers = JSON.parse(JSON.stringify(answers));
@@ -555,6 +614,30 @@
     measureHeader();
     window.addEventListener('resize', measureHeader);
 
+    // The hero headline stays on ONE line from 990 px up (CSS: nowrap + a size
+    // that fits the default text). A longer text from the theme editor is
+    // scaled down to the column instead of running out of it.
+    var heroTitle = root.querySelector('.ms-hgk-hero__title');
+    function fitTitle() {
+      if (!heroTitle) return;
+      heroTitle.style.fontSize = '';
+      try {
+        if (!window.matchMedia('(min-width: 990px)').matches) return;
+        var avail = heroTitle.parentNode.clientWidth;
+        var need = heroTitle.scrollWidth;
+        if (!avail || need <= avail) return;
+        var size = parseFloat(window.getComputedStyle(heroTitle).fontSize) || 0;
+        if (size) heroTitle.style.fontSize = Math.max(24, Math.floor(size * avail / need * 0.98)) + 'px';
+      } catch (e) {}
+    }
+    fitTitle();
+    var fitTimer = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(fitTimer);
+      fitTimer = setTimeout(fitTitle, 80);
+    });
+    try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTitle); } catch (e) {}
+
     // Smooth in-page links of the hero.
     var links = root.querySelectorAll('[data-ms-hgk-scroll]');
     for (var li = 0; li < links.length; li++) {
@@ -570,7 +653,7 @@
     // The widget may have booted before this script (state() answers then).
     var already = api() && api().state ? api().state() : null;
     if (already && already.answers) {
-      answers = { persona: already.answers.persona || null, location: already.answers.location || null, space: already.answers.space || null, training: (already.answers.training || []).slice(), level: already.answers.level || null, goal: already.answers.goal || null };
+      answers = normalizeAnswers(already.answers);
       sentAnswers = JSON.parse(JSON.stringify(answers));
       setMode('live');
       setStep(already.stage || 'questions');
