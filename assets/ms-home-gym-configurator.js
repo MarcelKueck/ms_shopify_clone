@@ -494,6 +494,7 @@
         track('configurator_answers_changed', { fields: changed.join(',') });
         sentAnswers = JSON.parse(JSON.stringify(answers));
         setMode('live');
+        showDock();
         return;
       }
       trackStarted();
@@ -505,16 +506,30 @@
       extras = {};
       setMode('live');
       setStep('questions');
-      if (window.matchMedia && window.matchMedia('(max-width: 989px)').matches && dock) {
-        setTimeout(function () {
-          try { dock.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' }); } catch (err) {}
-        }, 120);
-      }
+      showDock();
     });
     cancelBtn.addEventListener('click', function () {
       if (sentAnswers) { answers = JSON.parse(JSON.stringify(sentAnswers)); saveDraft(); }
       setMode('live');
+      showDock();
     });
+    // Hiding the long form shortens the page above the visitor's scroll
+    // position, so at every width Mo would end up above the viewport. Bring
+    // the dock to its resting place below the sticky header (scroll-margin-top
+    // in the CSS; it is the header height + 16 px) unless it is already fully
+    // in view. The delay lets the widget switch the dock to its live height.
+    function showDock() {
+      if (!dock) return;
+      setTimeout(function () {
+        try {
+          var r = dock.getBoundingClientRect();
+          var margin = parseFloat(window.getComputedStyle(dock).scrollMarginTop) || 0;
+          var vh = window.innerHeight || document.documentElement.clientHeight;
+          if (r.top >= margin - 16 && r.bottom <= vh) return;
+          dock.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+        } catch (err) {}
+      }, 120);
+    }
     root.querySelector('[data-ms-hgk-edit]').addEventListener('click', function () {
       setMode('edit');
       try { form.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' }); } catch (e) {}

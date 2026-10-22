@@ -329,7 +329,7 @@
 .ms-hgk-right { grid-area: right; align-self: stretch; min-width: 0; }
 
 /* ---------- Form ---------- */
-.ms-hgk-form { display: flex; flex-direction: column; gap: 16px; }
+.ms-hgk-form { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: var(--hgk-sticky-top); }
 .ms-hgk-form__groups { display: flex; flex-direction: column; gap: 14px; }
 .ms-hgk-note { padding: 16px; border: 1px solid var(--hgk-line); border-radius: var(--hgk-radius); background: var(--hgk-soft); }
 .ms-hgk-card {
@@ -568,6 +568,7 @@
   height: min(860px, calc(100vh - var(--hgk-sticky-top) - 24px));
   height: min(860px, calc(100dvh - var(--hgk-sticky-top) - 24px));
   min-height: 580px;
+  scroll-margin-top: var(--hgk-sticky-top);
 }
 /* Before the handover: the „Frag Mo“ panel of the e-mail. */
 .ms-hgk-intro {
