@@ -1917,9 +1917,34 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   .ms-chat-docktitle-long,
   .ms-chat-docktitle-status { display: none; }
 }
+/* With „Per E-Mail teilen“ and „Anmelden“ next to it the long title only fits
+   from ~1440 px; below, „Mo“ alone instead of „Mo – Dein Home-Gym-Ber…“. */
+@media (max-width: 1439px) {
+  .ms-chat-docktitle-long { display: none; }
+}
 @media (max-width: 640px) {
   .ms-chat-docktitle-logo { width: 32px; height: 32px; }
   .ms-chat-root--dock .ms-chat-panel--docked .ms-chat-header { padding: 10px 12px; }
+  /* Next to „Per E-Mail teilen“, „Anmelden“ and the restart button even „Mo“
+     no longer fits: the orb alone introduces Mo, the name stays for screen
+     readers, every action keeps its full label. */
+  .ms-chat-root--dock .ms-chat-docktitle { flex: 1 0 auto; }
+  .ms-chat-root--dock .ms-chat-docktitle-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+/* Very narrow phones (≤ 380 px): the three actions no longer fit next to the
+   orb — they move under it and may wrap, never over it. */
+@media (max-width: 380px) {
+  .ms-chat-root--dock .ms-chat-panel--docked .ms-chat-header { flex-wrap: wrap; row-gap: 6px; }
+  .ms-chat-root--dock .ms-chat-header-actions { flex: 1 1 auto; flex-wrap: wrap; row-gap: 6px; }
+  .ms-chat-root--dock .ms-chat-header-actions > * { flex-shrink: 0; }
 }
 
 /* ---------- Answer chips ---------- */
@@ -2047,6 +2072,23 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   color: var(--hgk-ink, #111111);
 }
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--secondary:hover { background: var(--hgk-ink, #111111); color: #fff; }
+/* The product card's „Zum Produkt“: a secondary action, black outline. */
+.ms-chat-root--dock .ms-chat-card .ms-chat-btn--product {
+  background: #fff;
+  border-color: var(--hgk-ink, #111111);
+  color: var(--hgk-ink, #111111);
+  border-radius: var(--hgk-btn-radius, 3px);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.ms-chat-root--dock .ms-chat-card .ms-chat-btn--product:hover {
+  background: var(--hgk-ink, #111111);
+  color: #fff;
+  filter: none;
+}
 
 /* ---------- Editable plan on the configurator page ----------
    Framed like the e-mail's set card: white, 2px light-blue frame, blue
@@ -2071,6 +2113,9 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   border-radius: calc(var(--mscp-radius) + 3px);
   padding: 26px 28px 24px;
   animation: ms-chat-planhost-in 0.45s cubic-bezier(.22, .61, .36, 1);
+  /* Its own width drives the compact layouts below (the page puts it in a
+     ~400–550 px column from 990 to ~1300 px viewport). */
+  container: ms-chat-planhost / inline-size;
 }
 @keyframes ms-chat-planhost-in {
   from { opacity: 0; transform: translateY(12px); }
@@ -2107,6 +2152,10 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   background: var(--mscp-blue);
 }
 .ms-chat-planhost-summary { margin: 2px 0 0; font-size: 0.92rem; line-height: 1.55; color: var(--mscp-text); }
+/* Both are <p>: inside the page's .ms-hgk section its `.ms-hgk p { margin: 0 }`
+   (0,1,1) would win over a single class. */
+.ms-chat-planhost .ms-chat-planhost-summary { margin: 2px 0 0; }
+.ms-chat-planhost .ms-chat-planhost-hint { margin: 0 0 14px; }
 
 /* Weights: Mo names the kind, the visitor checks the steps. */
 .ms-chat-planhost-hint {
@@ -2193,6 +2242,7 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
 }
 .ms-chat-planhost-name:hover { color: var(--mscp-blue); text-decoration: underline; }
 .ms-chat-planhost-note { font-size: 0.8rem; color: var(--mscp-muted); line-height: 1.45; }
+.ms-chat-planhost-limit { font-size: 0.8rem; font-weight: 600; line-height: 1.45; color: var(--mscp-red); }
 .ms-chat-planhost-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; max-width: 100%; }
 .ms-chat-planhost-variant {
   -webkit-appearance: none;
@@ -2555,6 +2605,35 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
   .ms-chat-planpick-thumb { width: 48px; height: 48px; }
   .ms-chat-planpick-act { grid-column: 2; justify-content: space-between; }
   .ms-chat-planpick-act .ms-chat-planpick-add { margin-left: auto; }
+}
+
+/* The same compact layouts whenever the plan host itself is narrow — on a
+   tablet or a small laptop it sits in the page's left column, phone-narrow
+   while the viewport is wide. Browsers without container queries keep the
+   viewport rule above. Picker rows: „Im Plan“ + „Hinzufügen“ under the name
+   (no names cut after one word). Plan lines: thumb + text, quantity / price /
+   remove underneath, the variant select on its own full-width row. */
+@container ms-chat-planhost (max-width: 560px) {
+  .ms-chat-planpick-row { grid-template-columns: 48px minmax(0, 1fr); gap: 10px; padding: 10px 12px; }
+  .ms-chat-planpick-name { -webkit-line-clamp: 3; }
+  .ms-chat-planpick-thumb { width: 48px; height: 48px; }
+  .ms-chat-planpick-act { grid-column: 2; justify-content: space-between; }
+  .ms-chat-planpick-act .ms-chat-planpick-add { margin-left: auto; }
+}
+@container ms-chat-planhost (max-width: 480px) {
+  .ms-chat-planhost-line { grid-template-columns: 64px minmax(0, 1fr); gap: 12px; }
+  .ms-chat-planhost-thumb { width: 64px; height: 64px; }
+  .ms-chat-planhost-side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; row-gap: 6px; width: 100%; }
+  .ms-chat-planhost-side .ms-chat-planhost-toggle { flex: 0 0 100%; text-align: left; }
+  .ms-chat-planhost-opts { align-self: stretch; }
+  .ms-chat-planhost-variant { flex: 1 1 100%; width: 100%; }
+}
+/* Very narrow host (phones ≤ ~360 px): a smaller thumb and select text so
+   „Variante · Preis“ stays readable. */
+@container ms-chat-planhost (max-width: 340px) {
+  .ms-chat-planhost-line { grid-template-columns: 40px minmax(0, 1fr); gap: 8px; }
+  .ms-chat-planhost-thumb { width: 40px; height: 40px; }
+  .ms-chat-planhost-variant { font-size: 12px; padding: 6px 24px 6px 8px; background-position: right 8px center; }
 }
 
 @media (prefers-reduced-motion: reduce) {

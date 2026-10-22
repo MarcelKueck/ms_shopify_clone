@@ -1738,7 +1738,7 @@
   }
 
   function productButton(product, label) {
-    var a = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: product.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer' });
+    var a = el('a', { class: 'ms-chat-btn ms-chat-btn--primary ms-chat-btn--product', href: product.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer' });
     a.appendChild(el('span', { text: label || L('Zum Produkt', 'View product') }));
     a.appendChild(icon('external'));
     a.addEventListener('click', function () { track('product_cta_clicked', { productId: product.id, samePage: isSamePageProduct(product.id) }); });
@@ -3041,12 +3041,32 @@
 
   function cfgApplyChrome() {
     var on = !!cfgActive();
-    if (textarea) {
-      textarea.placeholder = on
-        ? L('Antwort auswählen oder eigene Nachricht schreiben …', 'Pick an answer or write your own message …')
-        : L('Wie kann ich dir helfen?', 'How can I help you?');
-    }
     if (DOCK) DOCK.classList.toggle('ms-chat-dock--live', state.open);
+    if (textarea) {
+      // The composer is one row high: where the docked panel is too narrow
+      // for the long placeholder (phones, the tablet's chat column) it would
+      // wrap and be cut in half, so the short one there.
+      var longText = L('Antwort auswählen oder eigene Nachricht schreiben …', 'Pick an answer or write your own message …');
+      var shortText = L('Antwort wählen oder schreiben …', 'Pick an answer or write …');
+      textarea.placeholder = !on
+        ? L('Wie kann ich dir helfen?', 'How can I help you?')
+        : !DOCK || cfgFitsOneRow(longText)
+          ? longText
+          : cfgFitsOneRow(shortText)
+            ? shortText
+            : L('Antwort schreiben …', 'Write …');
+    }
+  }
+  var cfgMeasure = null;
+  function cfgFitsOneRow(text) {
+    try {
+      var cs = window.getComputedStyle(textarea);
+      var box = textarea.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (!(box > 0)) return isDesktop();
+      if (!cfgMeasure) cfgMeasure = document.createElement('canvas').getContext('2d');
+      cfgMeasure.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      return cfgMeasure.measureText(text).width + 4 <= box;
+    } catch (e) { return isDesktop(); }
   }
 
   // Docked mode boot: a restored configurator thread opens in the dock right
@@ -3055,6 +3075,19 @@
   function cfgInitDock() {
     var c = cfgActive();
     var restored = !!(DOCK && c && messages.length);
+    // Rotation / resize: the placeholder follows the composer's width — and
+    // once the web font has loaded (measured with the fallback font before,
+    // which is narrower).
+    if (DOCK) {
+      var chromeTimer = null;
+      window.addEventListener('resize', function () {
+        if (chromeTimer) clearTimeout(chromeTimer);
+        chromeTimer = setTimeout(function () { chromeTimer = null; cfgApplyChrome(); }, 150);
+      });
+      try {
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { cfgApplyChrome(); });
+      } catch (e) {}
+    }
     if (restored) {
       openPanel(true);
       cfgApplyChrome();
@@ -3192,6 +3225,41 @@
     for (i = 0; i < vs.length; i++) { if (vs[i] && vs[i].available) return vs[i]; }
     return vs[0];
   }
+  // The name and PDP link a line shows. /api/products answers a pinned ref
+  // (handle~variantId) with the product projected onto THAT variant: name
+  // „<name> – <variant>“, shopifyUrl ?variant=<id>, selectedVariantId. A line
+  // whose own variant differs (a weight step added from it, a changed select)
+  // must never show that projection, so the projection is stripped and the
+  // line's own variant appended whenever the line names one.
+  function cfgSelectedVariant(p) {
+    if (!p || p.selectedVariantId == null) return null;
+    var vs = Array.isArray(p.variants) ? p.variants : [];
+    for (var i = 0; i < vs.length; i++) { if (vs[i] && String(vs[i].id) === String(p.selectedVariantId)) return vs[i]; }
+    return null;
+  }
+  function cfgBaseName(p) {
+    var name = String((p && p.name) || '');
+    var sv = cfgSelectedVariant(p);
+    var title = sv && typeof sv.title === 'string' ? sv.title.trim() : '';
+    var suffix = ' – ' + title;
+    if (title && name.length > suffix.length && name.slice(-suffix.length) === suffix) return name.slice(0, -suffix.length);
+    return name;
+  }
+  function cfgBaseUrl(p) {
+    return String((p && p.shopifyUrl) || '').replace(/([?&])variant=[^&#]*(&?)/, function (m, sep, amp) { return amp ? sep : ''; });
+  }
+  function cfgLineView(p, l) {
+    var projected = !!(p && p.selectedVariantId != null);
+    var v = cfgVariantOf(p, l);
+    if ((!l.variantId && !projected) || !v || cfgVariants(p).length < 2) {
+      return projected ? { name: cfgBaseName(p), url: cfgBaseUrl(p) } : { name: String(p.name || ''), url: String(p.shopifyUrl || '') };
+    }
+    var title = typeof v.title === 'string' ? v.title.trim() : '';
+    var url = cfgBaseUrl(p);
+    var vid = v.id != null ? String(v.id) : '';
+    if (url && /^\d+$/.test(vid)) url += (url.indexOf('?') === -1 ? '?' : '&') + 'variant=' + vid;
+    return { name: cfgBaseName(p) + (title ? ' – ' + title : ''), url: url };
+  }
   function cfgUnitPrice(p, v) {
     if (v) return (typeof v.salePrice === 'number' && v.salePrice > 0) ? v.salePrice : Number(v.price) || 0;
     return p.salePrice != null ? Number(p.salePrice) || 0 : Number(p.price) || 0;
@@ -3237,6 +3305,14 @@
     for (var i = 0; i < lines.length; i++) { if (lines[i].uid === uid) return lines[i]; }
     return null;
   }
+  // The plan's cap counts the lines in the plan: a line of Mo's that the
+  // visitor removed stays visible (to add it back) but frees its slot.
+  function cfgKeptCount(lines) {
+    var n = 0;
+    for (var i = 0; i < lines.length; i++) { if (!lines[i].removed) n++; }
+    return n;
+  }
+  function cfgPlanFull(plan) { return cfgKeptCount(plan.lines) >= CFG_MAX_LINES; }
   function cfgNewUid(lines) {
     var n = 0;
     lines.forEach(function (l) {
@@ -3263,8 +3339,10 @@
     var items = Array.isArray(input && input.items) ? input.items : [];
     var lines = [];
     var seen = {};
-    // Mo's lines: up to 16 (the backend's PLAN_MAX_ITEMS).
-    for (var i = 0; i < items.length && lines.length < 16; i++) {
+    // Mo's lines: up to 20 (the backend's PLAN_MAX_ITEMS, the same as the
+    // page plan's cap — a full plan from Mo leaves no room until the visitor
+    // removes a line).
+    for (var i = 0; i < items.length && lines.length < CFG_MAX_LINES; i++) {
       var it = items[i];
       if (!it || typeof it.productId !== 'string') continue;
       var ref = it.productId.trim();
@@ -3303,7 +3381,7 @@
     var added = c && c.added && c.added[key];
     if (Array.isArray(added) && lines.length) {
       added.forEach(function (a) {
-        if (lines.length >= CFG_MAX_LINES || !a || typeof a.ref !== 'string') return;
+        if (cfgKeptCount(lines) >= CFG_MAX_LINES || !a || typeof a.ref !== 'string') return;
         var aref = a.ref.trim();
         if (!aref || aref.length > 300) return;
         var aq = parseInt(a.qty, 10);
@@ -3461,7 +3539,7 @@
       var row = el('div', { class: 'ms-chat-plan-line' + (l.removed ? ' ms-chat-plan-line--removed' : '') + (l.added ? ' ms-chat-plan-line--added' : '') });
       if (p.images && p.images[0]) row.appendChild(el('img', { class: 'ms-chat-plan-thumb', src: p.images[0], alt: '', loading: 'lazy' }));
       var meta = el('div', { class: 'ms-chat-plan-meta' });
-      meta.appendChild(el('div', { class: 'ms-chat-plan-name', text: p.name || '' }));
+      meta.appendChild(el('div', { class: 'ms-chat-plan-name', text: cfgLineView(p, l).name }));
       var sub = CFG_ROLES[l.role] + (v && v.title && p.variants && p.variants.length > 1 ? ' · ' + v.title : '') + (l.added ? ' · ' + L('von dir ergänzt', 'added by you') : '');
       meta.appendChild(el('div', { class: 'ms-chat-plan-sub', text: sub }));
       row.appendChild(meta);
@@ -3629,8 +3707,10 @@
     var p = l.product;
     var v = cfgVariantOf(p, l);
     var avail = cfgLineAvailable(p, v);
+    var view = cfgLineView(p, l);
+    var baseName = cfgBaseName(p);
     var li = el('li', { class: 'ms-chat-planhost-line' + (l.removed ? ' ms-chat-planhost-line--removed' : '') + (!avail ? ' ms-chat-planhost-line--na' : '') + (l.added ? ' ms-chat-planhost-line--added' : ''), 'data-uid': l.uid });
-    var img = el('a', { class: 'ms-chat-planhost-thumb', href: p.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer', 'aria-hidden': 'true', tabindex: '-1' });
+    var img = el('a', { class: 'ms-chat-planhost-thumb', href: view.url || '#', target: '_blank', rel: 'noopener noreferrer', 'aria-hidden': 'true', tabindex: '-1' });
     if (p.images && p.images[0]) img.appendChild(el('img', { src: p.images[0], alt: '', loading: 'lazy' }));
     img.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
     li.appendChild(img);
@@ -3640,7 +3720,7 @@
     tags.appendChild(el('span', { class: 'ms-chat-planhost-role ms-chat-planhost-role--' + l.role, text: CFG_ROLES[l.role] }));
     if (l.added) tags.appendChild(el('span', { class: 'ms-chat-planhost-tag', text: L('Von dir ergänzt', 'Added by you') }));
     main.appendChild(tags);
-    var name = el('a', { class: 'ms-chat-planhost-name', href: p.shopifyUrl || '#', target: '_blank', rel: 'noopener noreferrer', text: p.name || '' });
+    var name = el('a', { class: 'ms-chat-planhost-name', href: view.url || '#', target: '_blank', rel: 'noopener noreferrer', text: view.name });
     name.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
     main.appendChild(name);
     if (l.note) main.appendChild(el('div', { class: 'ms-chat-planhost-note', text: l.note }));
@@ -3649,7 +3729,7 @@
     var vs = cfgVariants(p);
     if (vs.length > 1 && !l.removed) {
       var opts = el('div', { class: 'ms-chat-planhost-opts' });
-      var sel = el('select', { class: 'ms-chat-planhost-variant', 'data-focus': 'variant', 'aria-label': L('Variante von ', 'Variant of ') + (p.name || '') });
+      var sel = el('select', { class: 'ms-chat-planhost-variant', 'data-focus': 'variant', 'aria-label': L('Variante von ', 'Variant of ') + baseName });
       vs.forEach(function (x) {
         var opt = el('option', { value: String(x.id), text: (x.title || '—') + ' · ' + cfgMoney(cfgUnitPrice(p, x)) + (x.available === false ? L(' (ausverkauft)', ' (sold out)') : '') });
         if (x.available === false) opt.disabled = true;
@@ -3662,14 +3742,17 @@
       });
       opts.appendChild(sel);
       // Weights: another step of the same plates / dumbbells (the next
-      // variant not yet in the plan).
+      // variant not yet in the plan). A full plan keeps the button usable:
+      // the click explains the limit (cfgAddStep).
       if (l.role === 'weights') {
         var next = cfgNextVariant(plan, p);
         var step = el('button', { class: 'ms-chat-planhost-step', type: 'button', 'data-focus': 'step' });
         step.appendChild(el('span', { 'aria-hidden': 'true', text: '+' }));
         step.appendChild(el('span', { text: L('Gewichtsstufe', 'Weight step') }));
-        if (!next) step.setAttribute('aria-label', L('Gewichtsstufe – alle Stufen sind schon im Plan', 'Weight step – every step is already in the plan'));
-        step.disabled = !next || plan.lines.length >= CFG_MAX_LINES;
+        step.setAttribute('aria-label', next
+          ? L('Gewichtsstufe hinzufügen: ', 'Add weight step: ') + baseName
+          : L('Gewichtsstufe – alle Stufen sind schon im Plan', 'Weight step – every step is already in the plan'));
+        step.disabled = !next;
         step.addEventListener('click', function () { cfgAddStep(plan, l); });
         opts.appendChild(step);
       }
@@ -3704,6 +3787,7 @@
         cfgPlanEdited(plan, 'remove');
         return;
       }
+      if (l.removed && cfgPlanFull(plan)) { cfgLimitNote(plan, l); return; }
       l.removed = !l.removed;
       cfgPlanEdited(plan, l.removed ? 'remove' : 'restore');
     });
@@ -3716,11 +3800,27 @@
     return L('Dein Plan hat schon ' + CFG_MAX_LINES + ' Positionen – entferne eine, um etwas hinzuzufügen.',
       'Your plan already has ' + CFG_MAX_LINES + ' items – remove one to add something.');
   }
+  // The limit message where the visitor clicked (a full plan is long, the
+  // status line at its foot is out of view) — read out by the status line.
+  function cfgLimitNote(plan, l) {
+    cfgPlanStatus(plan, 'warn', cfgLimitText());
+    try {
+      var host = planHost();
+      var rows = host ? host.querySelectorAll('.ms-chat-planhost-line') : [];
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].getAttribute('data-uid') !== l.uid) continue;
+        var main = rows[i].querySelector('.ms-chat-planhost-main');
+        if (!main || main.querySelector('.ms-chat-planhost-limit')) return;
+        main.appendChild(el('div', { class: 'ms-chat-planhost-limit', 'aria-hidden': 'true', text: cfgLimitText() }));
+        return;
+      }
+    } catch (e) {}
+  }
 
   // „+ Gewichtsstufe“: the same product once more with the next free variant.
   function cfgAddStep(plan, src) {
     if (!src.product || plan !== cfgPlans[cfgActivePlanKey]) return;
-    if (plan.lines.length >= CFG_MAX_LINES) { cfgPlanStatus(plan, 'warn', cfgLimitText()); return; }
+    if (cfgPlanFull(plan)) { cfgLimitNote(plan, src); return; }
     var next = cfgNextVariant(plan, src.product);
     if (!next) return;
     var line = {
@@ -3806,12 +3906,14 @@
         cfgAsm.state = 'ok';
         cfgAsm.promise = null;
         cfgPickRender();
+        cfgPickSettled();
         return out;
       })
       .catch(function () {
         cfgAsm.state = 'error';
         cfgAsm.promise = null;
         cfgPickRender();
+        cfgPickSettled();
         return [];
       });
     return cfgAsm.promise;
@@ -3907,12 +4009,30 @@
 
   function cfgPickOpen() {
     cfgPick.open = true;
-    cfgPickNote('', '');
+    var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+    if (plan && cfgPlanFull(plan)) cfgPickNote('warn', cfgLimitText());
+    else cfgPickNote('', '');
     cfgPickRender();
     cfgLoadAssortment();
+    cfgPickFocus();
+  }
+  // Focus in the open picker: the search once the range is there, the retry
+  // button after a failed load, otherwise „Fertig“ (loading, empty).
+  function cfgPickFocus() {
     try {
+      var retry = cfgPick.stateEl.querySelector('.ms-chat-planpick-retry');
       if (!cfgPick.tools.hidden) cfgPick.search.focus();
+      else if (retry) retry.focus();
       else cfgPick.panel.querySelector('.ms-chat-planpick-done').focus();
+    } catch (e) {}
+  }
+  // The range arrived (or failed again): a visitor waiting in the picker
+  // moves on to the search / the new retry button. Focus elsewhere stays.
+  function cfgPickSettled() {
+    if (!cfgPick.area || !cfgPick.open) return;
+    try {
+      var ae = document.activeElement;
+      if (ae && ae !== document.body && cfgPick.panel.contains(ae)) cfgPickFocus();
     } catch (e) {}
   }
   function cfgPickClose() {
@@ -3937,6 +4057,10 @@
     cfgPick.tools.hidden = !has;
     cfgPick.listEl.hidden = !has;
     var stateEl = cfgPick.stateEl;
+    // The focused „Erneut versuchen“ is about to be rebuilt: keep the focus
+    // in the picker instead of losing it to <body>.
+    var refocus = false;
+    try { refocus = stateEl.contains(document.activeElement); } catch (e) {}
     stateEl.replaceChildren();
     stateEl.className = 'ms-chat-planpick-state';
     if (st === 'idle' || st === 'loading') {
@@ -3954,6 +4078,7 @@
     }
     if (has && !cfgPick.built) cfgPickBuild();
     if (has) { cfgPickSync(); cfgPickFilter(); }
+    if (refocus) cfgPickFocus();
   }
 
   // Role chips (Alle + the roles present) and one row per card — built once,
@@ -4037,7 +4162,7 @@
   function cfgPickAdd(row) {
     var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
     if (!plan || !plan.ready || row.busy) return;
-    if (plan.lines.length >= CFG_MAX_LINES) { cfgPickNote('warn', cfgLimitText()); return; }
+    if (cfgPlanFull(plan)) { cfgPickNote('warn', cfgLimitText()); return; }
     var card = row.card;
     row.busy = true;
     row.btn.setAttribute('aria-busy', 'true');
@@ -4048,7 +4173,7 @@
       row.li.classList.remove('ms-chat-planpick-row--busy');
       var cur = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
       if (!cur || !cur.ready) return;
-      if (cur.lines.length >= CFG_MAX_LINES) { cfgPickNote('warn', cfgLimitText()); return; }
+      if (cfgPlanFull(cur)) { cfgPickNote('warn', cfgLimitText()); return; }
       var p = prod || cfgCardProduct(card);
       var weights = card.role === 'weights';
       var v = weights ? (cfgNextVariant(cur, p) || cfgDefaultVariant(p)) : cfgDefaultVariant(p);
@@ -4132,7 +4257,7 @@
       if (byId[id]) { byId[id].quantity += l.qty; return; }
       byId[id] = { id: id, quantity: l.qty };
       items.push(byId[id]);
-      names[id] = l.product.name || '';
+      names[id] = cfgLineView(l.product, l).name;
       prices[id] = cfgUnitPrice(l.product, v) || 0;
     });
     if (!items.length) { cfgPlanStatus(plan, 'warn', L('Keine lieferbaren Produkte im Plan.', 'No available products in the plan.')); return; }
