@@ -54,15 +54,18 @@
     var CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
     // options: [id, title, subtitle?] — the persona order is Mo's (the URL
-    // index 01–06 counts in this order).
+    // index 01–06 counts in this order). „|“ in a persona title is its line
+    // break on the tiles (every title on two lines); labels elsewhere read it
+    // as a space (optionLabel). The subtitles are the backend's (Mo reads
+    // them too): mo repo, src/lib/configurator-core.mjs.
     var FIELDS = {
       persona: { label: T('Trainingsfokus', 'Training focus'), short: T('Typ', 'Type'), multi: false, required: true, options: [
-        ['pragmatic_beginner', T('Pragmatisch starten', 'Start pragmatically'), T('Kompakte Fitnesslösungen für Einsteiger und begrenzten Platz.', 'Compact fitness solutions for beginners and limited space.')],
-        ['ambitious_home_athlete', T('Ambitioniert trainieren', 'Train ambitiously'), T('Facettenreiche Fitnessgeräte in Studioqualität für zu Hause.', 'Versatile studio-quality equipment for your home.')],
-        ['strength_focused', T('Kraft und Muskeln aufbauen', 'Build strength and muscle'), T('Gezielt und progressiv stärker werden.', 'Get stronger, step by step.')],
-        ['cardio_focused', T('Gesundheit und Ausdauer fördern', 'Boost health and endurance'), T('Fit und aktiv bleiben.', 'Stay fit and active.')],
-        ['design_lifestyle', T('Design und Lifestyle leben', 'Live design and lifestyle'), T('Stilvolle Fitnessgeräte Zuhause integrieren.', 'Integrate stylish fitness equipment at home.')],
-        ['weight_loss', T('Abnehmen und fit bleiben', 'Lose weight and stay fit'), T('Mit Cardiotraining das Wohlbefinden steigern.', 'Boost your well-being with cardio.')]
+        ['pragmatic_beginner', T('Pragmatisch|starten', 'Start|pragmatically'), T('Platzsparende Fitnesslösungen für den optimalen Einstieg.', 'Space-saving fitness solutions for the ideal start.')],
+        ['ambitious_home_athlete', T('Ambitioniert|trainieren', 'Train|ambitiously'), T('Vielseitige Fitnessgeräte in erstklassiger Qualität.', 'Versatile fitness equipment in first-class quality.')],
+        ['strength_focused', T('Kraft und Muskeln|aufbauen', 'Build strength|and muscle'), T('Stärke gezielt und progressiv weiterentwickeln.', 'Develop your strength in a targeted, progressive way.')],
+        ['cardio_focused', T('Gesundheit und|Ausdauer fördern', 'Boost health|and endurance'), T('Langfristig fit, gesund und aktiv bleiben.', 'Stay fit, healthy and active for the long term.')],
+        ['design_lifestyle', T('Design und|Lifestyle leben', 'Live design|and lifestyle'), T('Stilvolle Fitnessgeräte Zuhause integrieren.', 'Integrate stylish fitness equipment at home.')],
+        ['weight_loss', T('Abnehmen und fit|bleiben', 'Lose weight|and stay fit'), T('Mit Cardiotraining das Wohlbefinden steigern.', 'Boost your well-being with cardio.')]
       ] },
       location: { label: T('Trainingsort', 'Where'), short: T('Ort', 'Where'), multi: false, required: true, options: [
         ['house', T('Haus / Keller', 'House / basement')],
@@ -139,7 +142,7 @@
     function optionLabel(key, id) {
       var f = FIELDS[key];
       if (!f) return '';
-      for (var i = 0; i < f.options.length; i++) if (f.options[i][0] === id) return f.options[i][1].replace(/\u00ad/g, '');
+      for (var i = 0; i < f.options.length; i++) if (f.options[i][0] === id) return f.options[i][1].replace(/\u00ad/g, '').replace(/\s*\|\s*/g, ' ');
       return '';
     }
     function hasOption(key, id) { return !!optionLabel(key, id); }
@@ -323,7 +326,17 @@
           text.className = 'ms-hgk-opt__text';
           var title = document.createElement('span');
           title.className = 'ms-hgk-opt__title';
-          title.textContent = o[1];
+          // „Pragmatisch|starten“ → two lines; the space keeps the words apart
+          // where the break is hidden (one tile per row on phones).
+          o[1].split('|').forEach(function (part, i) {
+            if (i) {
+              title.appendChild(document.createTextNode(' '));
+              var br = document.createElement('br');
+              br.className = 'ms-hgk-opt__br';
+              title.appendChild(br);
+            }
+            title.appendChild(document.createTextNode(part));
+          });
           text.appendChild(title);
           if (o[2]) {
             var desc = document.createElement('span');

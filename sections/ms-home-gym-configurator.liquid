@@ -10,9 +10,12 @@
   on the left with one „Alles in den Warenkorb“.
 
   Look: the backend's „Performance“ e-mail design (mo repo,
-  src/lib/email-designs/performance.ts) — everything on white, light-blue
-  accent, red main CTA, black outline secondary buttons, bordered cards.
-  The shared --hgk-* tokens are defined on .ms-hgk (…configurator.css).
+  src/lib/email-designs/performance.ts) — light-blue accent, red main CTA,
+  black outline secondary buttons, bordered white cards — with the store's
+  homepage structure: sections alternate #ffffff / #f9f9f9, headings as a
+  blue kicker over a regular-weight headline („Darf in keinem Gym fehlen. /
+  Bestseller.“), no divider lines. The shared --hgk-* tokens are defined on
+  .ms-hgk (…configurator.css).
 
   Hosts the widget fills (contract in ms-chat-widget.js → Home-Gym-Konfigurator):
     [data-ms-chat-dock]  the docked chat panel (intro below until the handover)
@@ -61,7 +64,7 @@
     <div class="ms-hgk-wrap ms-hgk-hero__inner">
       <div class="ms-hgk-hero__copy">
         {%- if section.settings.hero_intro != blank -%}
-          <p class="ms-hgk-hero__intro">{{ section.settings.hero_intro | escape | replace: ' – ', '&nbsp;– ' | newline_to_br }}</p>
+          <p class="ms-hgk-kicker ms-hgk-hero__intro{% if section.settings.hero_intro_caps %} ms-hgk-kicker--caps{% endif %}">{{ section.settings.hero_intro | escape | replace: ' – ', '&nbsp;– ' | newline_to_br }}</p>
         {%- endif -%}
         <h1 class="ms-hgk-hero__title">{{ section.settings.heading | escape }}</h1>
         <div class="ms-hgk-hero__actions">
@@ -77,17 +80,17 @@
           <div class="ms-hgk-seals__row">
             {%- if section.settings.seal_mh != blank -%}
               <div class="ms-hgk-seal" data-partner-seal="mh">
-                {{ section.settings.seal_mh | image_url: width: 520 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '260, 400, 520', sizes: '(min-width: 1200px) 220px, 180px' }}
+                {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 270px, 200px' }}
               </div>
             {%- endif -%}
             {%- if section.settings.seal_wh != blank -%}
               <div class="ms-hgk-seal" data-partner-seal="wh">
-                {{ section.settings.seal_wh | image_url: width: 520 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '260, 400, 520', sizes: '(min-width: 1200px) 220px, 180px' }}
+                {{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 270px, 200px' }}
               </div>
             {%- endif -%}
           </div>
-          {%- if section.settings.seal_caption != blank -%}
-            <p class="ms-hgk-seals__caption">{{ section.settings.seal_caption | escape }}</p>
+          {%- if section.settings.seal_note != blank -%}
+            <p class="ms-hgk-seals__caption">{{ section.settings.seal_note | escape }}</p>
           {%- endif -%}
         </div>
       {%- endif -%}
@@ -104,10 +107,10 @@
   {%- if hgk_seals -%}
     <template data-ms-hgk-seals-small>
       {%- if section.settings.seal_mh != blank -%}
-        <span class="ms-hgk-miniseal" data-partner-seal="mh">{{ section.settings.seal_mh | image_url: width: 120 | image_tag: loading: 'lazy', alt: section.settings.seal_mh_alt, widths: '60, 120', sizes: '48px' }}</span>
+        <span class="ms-hgk-miniseal" data-partner-seal="mh">{{ section.settings.seal_mh | image_url: width: 160 | image_tag: loading: 'lazy', alt: section.settings.seal_mh_alt, widths: '80, 160', sizes: '64px' }}</span>
       {%- endif -%}
       {%- if section.settings.seal_wh != blank -%}
-        <span class="ms-hgk-miniseal" data-partner-seal="wh">{{ section.settings.seal_wh | image_url: width: 120 | image_tag: loading: 'lazy', alt: section.settings.seal_wh_alt, widths: '60, 120', sizes: '48px' }}</span>
+        <span class="ms-hgk-miniseal" data-partner-seal="wh">{{ section.settings.seal_wh | image_url: width: 160 | image_tag: loading: 'lazy', alt: section.settings.seal_wh_alt, widths: '80, 160', sizes: '64px' }}</span>
       {%- endif -%}
     </template>
   {%- endif -%}
@@ -164,13 +167,10 @@
           <div class="ms-hgk-dock" data-ms-chat-dock>
             <div class="ms-hgk-intro" data-ms-hgk-intro>
               <span class="ms-chat-logo ms-hgk-intro__orb" aria-hidden="true"></span>
-              <p class="ms-hgk-intro__title">{{ section.settings.mo_title | escape }}</p>
-              <p class="ms-hgk-intro__text">{{ section.settings.mo_intro | escape }}</p>
-              <ul class="ms-hgk-intro__list" role="list">
-                <li>{% if hgk_en %}I only ask what really matters{% else %}Ich frage nur, was wirklich zählt{% endif %}</li>
-                <li>{% if hgk_en %}Your set – matched to space, goal and budget{% else %}Dein Set – passend zu Platz, Ziel und Budget{% endif %}</li>
-                <li>{% if hgk_en %}Everything into the cart with one click{% else %}Alles mit einem Klick in den Warenkorb{% endif %}</li>
-              </ul>
+              <p class="ms-hgk-intro__title">{{ section.settings.mo_hello | escape }}</p>
+              {%- if section.settings.mo_lead != blank -%}
+                <p class="ms-hgk-intro__text">{{ section.settings.mo_lead | escape }}</p>
+              {%- endif -%}
               <p class="ms-hgk-intro__hint" data-ms-hgk-intro-hint>
                 <span class="ms-hgk-intro__hint-wide">{% if hgk_en %}← Pick your basics on the left{% else %}← Wähle links deine Grundeinstellungen{% endif %}</span>
                 <span class="ms-hgk-intro__hint-narrow">{% if hgk_en %}↑ Pick your basics above{% else %}↑ Wähle oben deine Grundeinstellungen{% endif %}</span>
@@ -190,7 +190,10 @@
   {%- comment -%} ---------- How it works ---------- {%- endcomment -%}
   <div class="ms-hgk-how" id="ms-hgk-how-{{ section.id }}">
     <div class="ms-hgk-wrap">
-      <h2 class="ms-hgk-band"><span>{% if hgk_en %}How it works{% else %}So funktioniert’s{% endif %}</span></h2>
+      <div class="ms-hgk-head">
+        <p class="ms-hgk-kicker ms-hgk-kicker--caps">{% if hgk_en %}How it works{% else %}So funktioniert’s{% endif %}</p>
+        <h2 class="ms-hgk-display">{% if hgk_en %}Your home gym in three steps.{% else %}In drei Schritten zu deinem Home Gym.{% endif %}</h2>
+      </div>
       <ol class="ms-hgk-how__list" role="list">
         <li>
           <span class="ms-hgk-how__num">1</span>
@@ -215,22 +218,20 @@
   {%- if section.settings.coop_heading != blank or section.settings.partners_text != blank -%}
     <div class="ms-hgk-coop">
       <div class="ms-hgk-wrap">
-        {%- if section.settings.partners_label != blank -%}
-          <p class="ms-hgk-band"><span>{{ section.settings.partners_label | escape }}</span></p>
-        {%- endif -%}
         <div class="ms-hgk-coop__inner{% if hgk_seals %} ms-hgk-coop__inner--seals{% endif %}">
           {%- if hgk_seals -%}
             <div class="ms-hgk-coop__seals ms-hgk-seals__row">
               {%- if section.settings.seal_mh != blank -%}
-                <div class="ms-hgk-seal ms-hgk-seal--lg" data-partner-seal="mh">{{ section.settings.seal_mh | image_url: width: 520 | image_tag: loading: 'lazy', alt: section.settings.seal_mh_alt, widths: '260, 400, 520', sizes: '(min-width: 990px) 230px, 160px' }}</div>
+                <div class="ms-hgk-seal ms-hgk-seal--lg" data-partner-seal="mh">{{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'lazy', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 990px) 280px, 180px' }}</div>
               {%- endif -%}
               {%- if section.settings.seal_wh != blank -%}
-                <div class="ms-hgk-seal ms-hgk-seal--lg" data-partner-seal="wh">{{ section.settings.seal_wh | image_url: width: 520 | image_tag: loading: 'lazy', alt: section.settings.seal_wh_alt, widths: '260, 400, 520', sizes: '(min-width: 990px) 230px, 160px' }}</div>
+                <div class="ms-hgk-seal ms-hgk-seal--lg" data-partner-seal="wh">{{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'lazy', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 990px) 280px, 180px' }}</div>
               {%- endif -%}
             </div>
           {%- endif -%}
           <div class="ms-hgk-coop__copy">
-            {%- if section.settings.coop_heading != blank -%}<h2 class="ms-hgk-h2">{{ section.settings.coop_heading | escape }}</h2>{%- endif -%}
+            {%- if section.settings.partners_label != blank -%}<p class="ms-hgk-kicker ms-hgk-kicker--caps">{{ section.settings.partners_label | escape }}</p>{%- endif -%}
+            {%- if section.settings.coop_heading != blank -%}<h2 class="ms-hgk-display">{{ section.settings.coop_heading | escape }}</h2>{%- endif -%}
             {%- if section.settings.partners_text != blank -%}<div class="ms-hgk-coop__text">{{ section.settings.partners_text }}</div>{%- endif -%}
             {%- if section.settings.coop_link != blank and section.settings.coop_link_label != blank -%}
               <a class="ms-hgk-btn ms-hgk-btn--outline" href="{{ section.settings.coop_link }}">{{ section.settings.coop_link_label | escape }}</a>
@@ -268,21 +269,22 @@
     },
     { "type": "header", "content": "Kopfbereich" },
     { "type": "textarea", "id": "hero_intro", "label": "Einleitung über der Überschrift", "default": "In wenigen Schritten dein Home Gym konfigurieren – mit persönlicher KI-Beratung von Mo." },
+    { "type": "checkbox", "id": "hero_intro_caps", "label": "Einleitung in Großbuchstaben", "info": "Wie die blauen Zeilen auf der Startseite („DARF IN KEINEM GYM FEHLEN.“) – bei einem langen Satz meist ruhiger ohne.", "default": false },
     { "type": "text", "id": "heading", "label": "Überschrift", "info": "Ab Tablet-Breite einzeilig – kurz halten.", "default": "Dein Home Gym. Klar geplant." },
     { "type": "text", "id": "hero_cta", "label": "Button", "default": "Jetzt Home Gym planen" },
     { "type": "image_picker", "id": "hero_image", "label": "Bild (optional)", "info": "Hell, ohne Abdunklung: auf großen Bildschirmen rechts neben dem Text, sonst darunter. Querformat, mind. 1600 px breit." },
     { "type": "header", "content": "Empfehlungssiegel" },
-    { "type": "text", "id": "seal_caption", "label": "Text zu den Siegeln", "default": "Unser Konfigurator trägt das Empfehlungssiegel Men's und Women's Health." },
+    { "type": "text", "id": "seal_note", "label": "Text zu den Siegeln", "default": "Unser Konfigurator trägt das Empfehlungssiegel von Men's und Women's Health." },
     { "type": "image_picker", "id": "seal_mh", "label": "Siegel Men's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px. Erscheint im Kopfbereich, klein bei „Welcher Typ bist du?“ und bei den Partnern." },
     { "type": "text", "id": "seal_mh_alt", "label": "Alternativtext Men's Health", "default": "Empfehlungssiegel Men's Health" },
     { "type": "image_picker", "id": "seal_wh", "label": "Siegel Women's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px." },
     { "type": "text", "id": "seal_wh_alt", "label": "Alternativtext Women's Health", "default": "Empfehlungssiegel Women's Health" },
     { "type": "header", "content": "Mo" },
-    { "type": "text", "id": "mo_title", "label": "Begrüßung", "default": "Hallo, ich bin Mo – dein Home-Gym-Berater." },
-    { "type": "textarea", "id": "mo_intro", "label": "Einleitung", "default": "Wähle ein paar Grundeinstellungen – dann übernehme ich: Ich frage kurz nach Budget und Wünschen und stelle dir dein passendes Home Gym zusammen." },
+    { "type": "text", "id": "mo_hello", "label": "Begrüßung", "default": "Hallo, ich bin Mo." },
+    { "type": "text", "id": "mo_lead", "label": "Einleitung", "default": "Wähle deinen Trainingsfokus – ich stelle dir dein Home Gym zusammen." },
     { "type": "url", "id": "fallback_url", "label": "Link, falls Mo nicht erreichbar ist", "info": "Leer = /pages/angebotsanfrage" },
     { "type": "header", "content": "Starke Partner" },
-    { "type": "text", "id": "partners_label", "label": "Überschrift des Bereichs", "default": "Starke Partner" },
+    { "type": "text", "id": "partners_label", "label": "Blaue Zeile über dem Titel", "default": "Starke Partner" },
     { "type": "text", "id": "coop_heading", "label": "Titel", "default": "motion sports × Men's Health & Women's Health" },
     {
       "type": "richtext",
