@@ -438,9 +438,10 @@
   // ---------------------------------------------------------------------------
   // Tool names.
   // ---------------------------------------------------------------------------
-  // suggest_replies + show_gym_plan: the Home-Gym-Konfigurator's answer chips
-  // and plan (the backend offers them only in a configurator thread).
-  var VISIBLE_TOOLS = ['show_product', 'compare_products', 'add_to_cart', 'suggest_showroom', 'show_contact_form', 'offer_email_summary', 'suggest_replies', 'show_gym_plan'];
+  // suggest_replies + show_gym_plan + offer_plan_options: the
+  // Home-Gym-Konfigurator's answer chips, plan and step-by-step product
+  // options (the backend offers them only in a configurator thread).
+  var VISIBLE_TOOLS = ['show_product', 'compare_products', 'add_to_cart', 'suggest_showroom', 'show_contact_form', 'offer_email_summary', 'suggest_replies', 'show_gym_plan', 'offer_plan_options'];
   // Background tools: kept in the local history (the backend replays them) but
   // NEVER rendered — no card, no placeholder, no error. get_order_status
   // (CHAT_ORDER_STATUS.md) carries the signed-in customer's order data in its
@@ -2179,7 +2180,7 @@
 
   // The backend's consultation tools (API_CONTRACT §10): a finished turn with
   // one of these is a live product consultation.
-  var MO_CONSULT_PARTS = { 'tool-show_product': 1, 'tool-compare_products': 1, 'tool-add_to_cart': 1, 'tool-suggest_showroom': 1, 'tool-show_gym_plan': 1 };
+  var MO_CONSULT_PARTS = { 'tool-show_product': 1, 'tool-compare_products': 1, 'tool-add_to_cart': 1, 'tool-suggest_showroom': 1, 'tool-show_gym_plan': 1, 'tool-offer_plan_options': 1 };
   function hasConsultationPart(parts) {
     for (var i = 0; parts && i < parts.length; i++) {
       if (parts[i] && MO_CONSULT_PARTS[parts[i].type] === 1) return true;
@@ -2827,6 +2828,7 @@
     switch (name) {
       case 'suggest_replies': return buildReplies(input);
       case 'show_gym_plan': return buildGymPlan(input, key);
+      case 'offer_plan_options': return buildOffer(input, key);
       case 'show_product': return buildShowProduct(input);
       case 'compare_products': return buildCompare(input);
       case 'add_to_cart': return buildAddToCart(input);
@@ -2894,8 +2896,11 @@
     extra: 'Extra'
   };
   var CFG_REPLY_TOPICS = ['budget', 'wishes', 'frequency', 'space', 'equipment', 'other'];
+  var CFG_FEATURES = ['options'];
   var cfgPlans = {};          // toolCallId -> plan (this thread's rendered plans)
   var cfgPlanSeq = 0;
+  var cfgOfferGroups = {};    // toolCallId -> option group (this thread's offer_plan_options)
+  var cfgOfferSeq = 0;
   var cfgActivePlanKey = null;
   var cfgStage = 'start';     // start | questions | plan | cart
   var cfgCartBusy = false;
@@ -2976,13 +2981,18 @@
     if (c.partner === 'mh' || c.partner === 'wh') conf.partner = c.partner;
     var plan = cfgPlanForContext();
     if (plan.length) conf.plan = plan;
+    // What this widget renders beyond the first version: "options" = the
+    // step-by-step product choice (offer_plan_options). Without it (an old
+    // cached widget) the backend keeps the one-plan guide.
+    conf.features = CFG_FEATURES.slice();
     return { type: 'configurator', source: 'configurator', configurator: conf };
   }
 
   // Hold the one-per-session sign-in / opt-in popup in a configurator thread
-  // until Mo has shown a plan — the guided questions are not interrupted.
+  // until Mo has shown a plan — the guided questions (and the step-by-step
+  // choice, whose plan is the visitor's own) are not interrupted.
   function cfgGateHold() {
-    return !!(cfgActive() && !cfgActivePlanKey);
+    return !!(cfgActive() && (!cfgActivePlanKey || cfgActivePlanKey === CFG_OWN_KEY));
   }
 
   function cfgSetStage(stage) {
@@ -3021,6 +3031,9 @@
     if (c) { c.convKey = activeConversationKey || null; cfgSave(c); }
     cfgStage = 'start';
     cfgSetStage('questions');
+    // The page's plan box shows its waiting state right away (not only after
+    // a reload) — the step-by-step choice fills it pick by pick.
+    cfgRenderHost();
     cfgEmit('started', { answers: answers, partner: partner });
     return true;
   }
@@ -3039,9 +3052,27 @@
     return true;
   }
 
+  // The dock's footer: the „·“ between the disclaimer and „Feedback geben“
+  // only while all three sit on one line.
+  function cfgFooterWrap() {
+    var footer = panel && panel.querySelector('.ms-chat-footer');
+    if (!footer) return;
+    var disc = footer.querySelector('.ms-chat-disclaimer');
+    var sep = footer.querySelector('.ms-chat-footer-sep');
+    var link = footer.querySelector('.ms-chat-feedback-link');
+    if (!disc || !sep || !link) return;
+    footer.classList.remove('ms-chat-footer--wrapped');
+    var d = disc.getBoundingClientRect();
+    var s = sep.getBoundingClientRect();
+    var k = link.getBoundingClientRect();
+    if (!s.width) return;
+    var sameLine = function (a, b) { return a.top < b.bottom - 1 && b.top < a.bottom - 1; };
+    footer.classList.toggle('ms-chat-footer--wrapped', !sameLine(d, s) || !sameLine(s, k));
+  }
   function cfgApplyChrome() {
     var on = !!cfgActive();
     if (DOCK) DOCK.classList.toggle('ms-chat-dock--live', state.open);
+    if (DOCK) cfgFooterWrap();
     if (textarea) {
       // The composer is one row high: where the docked panel is too narrow
       // for the long placeholder (phones, the tablet's chat column) it would
@@ -3082,7 +3113,7 @@
       var chromeTimer = null;
       window.addEventListener('resize', function () {
         if (chromeTimer) clearTimeout(chromeTimer);
-        chromeTimer = setTimeout(function () { chromeTimer = null; cfgApplyChrome(); }, 150);
+        chromeTimer = setTimeout(function () { chromeTimer = null; cfgApplyChrome(); cfgOfferViews(); }, 150);
       });
       try {
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { cfgApplyChrome(); });
@@ -3196,8 +3227,15 @@
   // working); lines the visitor added himself („+ Produkt hinzufügen“,
   // „+ Gewichtsstufe“) carry uid 'a<n>' and added: true. The DOM and the stored
   // edits key on uid, never on ref — the same product may sit in the plan
-  // twice with different variants (weight steps).
+  // twice with different variants (weight steps). A line the visitor chose
+  // from Mo's options (offer_plan_options) also carries pick = the option
+  // group's toolCallId and pickStep = its step, so a later choice in the same
+  // group (or, for one-thing steps, in another group of the step) replaces it.
+  // Before Mo has shown a plan the picks live in the visitor's own plan
+  // (key CFG_OWN_KEY: no Mo lines, no card in the chat); a plan from Mo then
+  // takes over exactly like any newer plan.
   var CFG_MAX_LINES = 20;
+  var CFG_OWN_KEY = '#own';
   var CFG_ROLE_ORDER = ['base', 'accessory', 'weights', 'cardio', 'flooring', 'extra'];
   var CFG_ROLES_PLURAL = {
     base: L('Basisgeräte', 'Base units'),
@@ -3210,9 +3248,13 @@
   var cfgFocusNext = null;    // { uid, key } — focus target after the next host render
 
   function cfgResetPlans() {
+    var own = cfgPlans[CFG_OWN_KEY];
+    if (own && own.timer) { clearTimeout(own.timer); own.timer = null; }
     cfgPlans = {};
     cfgPlanSeq = 0;
     cfgActivePlanKey = null;
+    cfgOfferGroups = {};
+    cfgOfferSeq = 0;
   }
 
   function cfgVariantOf(p, line) {
@@ -3386,30 +3428,11 @@
         l.removed = e.removed === true;
       });
     }
-    // added[key] = [{ uid, ref, role, qty, variantId }] — the visitor's lines,
-    // after Mo's (no dedupe against Mo's lines: two lines of one product with
-    // different variants are fine).
+    // added[key] = [{ uid, ref, role, qty, variantId, pick? }] — the visitor's
+    // lines, after Mo's (no dedupe against Mo's lines: two lines of one
+    // product with different variants are fine).
     var added = c && c.added && c.added[key];
-    if (Array.isArray(added) && lines.length) {
-      added.forEach(function (a) {
-        if (cfgKeptCount(lines) >= CFG_MAX_LINES || !a || typeof a.ref !== 'string') return;
-        var aref = a.ref.trim();
-        if (!aref || aref.length > 300) return;
-        var aq = parseInt(a.qty, 10);
-        var line = {
-          uid: typeof a.uid === 'string' && /^a\d{1,6}$/.test(a.uid) && !cfgLineByUid(lines, a.uid) ? a.uid : cfgNewUid(lines),
-          ref: aref,
-          qty: aq >= 1 && aq <= 20 ? aq : 1,
-          role: CFG_ROLES[a.role] ? a.role : 'extra',
-          note: '',
-          removed: false,
-          variantId: typeof a.variantId === 'string' ? a.variantId : null,
-          product: null,
-          added: true
-        };
-        cfgInsertLine(lines, line);
-      });
-    }
+    if (lines.length) cfgRestoreAdded(lines, added);
     return {
       key: key,
       seq: ++cfgPlanSeq,
@@ -3417,24 +3440,76 @@
       summary: typeof input.summary === 'string' ? input.summary.slice(0, 500) : '',
       tips: (Array.isArray(input.tips) ? input.tips : []).filter(function (t) { return typeof t === 'string' && t.trim(); }).slice(0, 3),
       lines: lines,
-      ready: false
+      ready: false,
+      settled: false // its products have answered (or not) — see cfgPlansPending
     };
   }
 
+  // The visitor's stored lines into `lines` (up to the cap).
+  function cfgRestoreAdded(lines, added) {
+    if (!Array.isArray(added)) return;
+    added.forEach(function (a) {
+      if (cfgKeptCount(lines) >= CFG_MAX_LINES || !a || typeof a.ref !== 'string') return;
+      var aref = a.ref.trim();
+      if (!aref || aref.length > 300) return;
+      var aq = parseInt(a.qty, 10);
+      var line = {
+        uid: typeof a.uid === 'string' && /^a\d{1,6}$/.test(a.uid) && !cfgLineByUid(lines, a.uid) ? a.uid : cfgNewUid(lines),
+        ref: aref,
+        qty: aq >= 1 && aq <= 20 ? aq : 1,
+        role: CFG_ROLES[a.role] ? a.role : 'extra',
+        note: '',
+        removed: false,
+        variantId: typeof a.variantId === 'string' ? a.variantId : null,
+        product: null,
+        added: true
+      };
+      if (typeof a.pick === 'string' && a.pick && a.pick.length <= 200) {
+        line.pick = a.pick;
+        if (typeof a.step === 'string' && Object.prototype.hasOwnProperty.call(CFG_OFFER_STEPS, a.step)) line.pickStep = a.step;
+        // The option it was picked as (lines stored before had none).
+        if (typeof a.opt === 'number' && a.opt >= 0 && a.opt <= 3 && Math.floor(a.opt) === a.opt) line.pickOpt = a.opt;
+      }
+      cfgInsertLine(lines, line);
+    });
+  }
+
   // Only the active plan's edits are kept — the stored object stays small.
+  // Two exceptions, both a load gap (/api/products did not answer): the
+  // plan's own lines still waiting for their products (plan.missing) are
+  // stored as they were, and a newer plan of Mo's that could not load keeps
+  // what is stored for it — both come back once the products answer
+  // (cfgPlanRetry); an edit or a pick meanwhile must not erase them.
   function cfgSaveEdits(plan) {
     var c = cfgActive();
     if (!c) return;
     var e = {};
     var added = [];
-    plan.lines.forEach(function (l) {
-      if (l.added) added.push({ uid: l.uid, ref: l.ref, role: l.role, qty: l.qty, variantId: l.variantId || null });
+    var lines = plan.failed && plan.missing ? plan.lines.concat(plan.missing) : plan.lines;
+    lines.forEach(function (l) {
+      if (l.added) {
+        var a = { uid: l.uid, ref: l.ref, role: l.role, qty: l.qty, variantId: l.variantId || null };
+        if (l.pick) {
+          a.pick = l.pick;
+          if (l.pickStep) a.step = l.pickStep;
+          if (typeof l.pickOpt === 'number') a.opt = l.pickOpt;
+        }
+        added.push(a);
+      }
       else e[l.uid] = { qty: l.qty, variantId: l.variantId, removed: l.removed };
     });
+    var prevEdits = c.edits && typeof c.edits === 'object' ? c.edits : {};
+    var prevAdded = c.added && typeof c.added === 'object' ? c.added : {};
     c.edits = {};
     c.edits[plan.key] = e;
     c.added = {};
     if (added.length) c.added[plan.key] = added;
+    for (var k in cfgPlans) {
+      if (!Object.prototype.hasOwnProperty.call(cfgPlans, k) || k === plan.key) continue;
+      if (!cfgPlans[k].failed || cfgPlans[k].seq <= plan.seq) continue;
+      if (prevEdits[k]) c.edits[k] = prevEdits[k];
+      if (prevAdded[k]) c.added[k] = prevAdded[k];
+    }
     cfgSave(c);
   }
 
@@ -3483,9 +3558,37 @@
     cfgActivePlanKey = key;
     cfgRenderHost();
     cfgRefreshPlanCards();
+    cfgOwnPlanCard();
+    cfgOfferReconcile();
+    cfgOfferWaitOver();
     if (cfgStage !== 'cart') cfgSetStage('plan');
     var t = cfgPlanTotals(cfgPlans[key]);
     cfgEmit('plan', { items: t.count, units: t.units, total: Math.round(t.total) });
+  }
+
+  // A plan whose products have not answered yet. With moOnly, only Mo's
+  // plans (show_gym_plan) count, not the visitor's own plan.
+  function cfgPlansPending(moOnly) {
+    for (var k in cfgPlans) {
+      if (!Object.prototype.hasOwnProperty.call(cfgPlans, k)) continue;
+      if (moOnly && k === CFG_OWN_KEY) continue;
+      if (!cfgPlans[k].settled) return true;
+    }
+    return false;
+  }
+  // Nothing active once every plan of Mo's has answered (the newest one had
+  // no products, a restore): the newest plan of Mo's that has lines, else the
+  // visitor's own plan. Never while one of Mo's is still loading — the own
+  // plan would flash up empty (or stale) before Mo's newer plan.
+  function cfgPlanFallback() {
+    if (cfgActivePlanKey || cfgPlansPending(true)) return;
+    var best = null;
+    for (var k in cfgPlans) {
+      if (!Object.prototype.hasOwnProperty.call(cfgPlans, k) || k === CFG_OWN_KEY) continue;
+      if (cfgPlans[k].ready && (!best || cfgPlans[k].seq > best.seq)) best = cfgPlans[k];
+    }
+    if (best) cfgSetActivePlan(best.key);
+    else if (cfgPlans[CFG_OWN_KEY] && cfgPlans[CFG_OWN_KEY].ready) cfgSetActivePlan(CFG_OWN_KEY);
   }
 
   function buildGymPlan(input, key) {
@@ -3498,26 +3601,113 @@
     var card = el('div', { class: 'ms-chat-card ms-chat-plan', 'data-plan-key': key });
     // Mo's lines and the visitor's restored lines in one go (hydrate answers
     // per requested id, duplicates included).
-    return hydrate(plan.lines.map(function (l) { return l.ref; })).then(function (res) {
+    var refs = plan.lines.map(function (l) { return l.ref; });
+    return hydrate(refs).then(function (res) {
+      plan.settled = true;
+      // Products that did not answer (429, network): the plan lacks lines it
+      // has — no measure for the stored choices (cfgPlansFailed). Those lines
+      // wait aside (plan.missing, unknown ids are dropped): they stay stored
+      // (cfgSaveEdits) and go back in once their products answer.
+      plan.failed = cfgUnresolved(refs);
       for (var i = 0; i < plan.lines.length; i++) plan.lines[i].product = res[i] || null;
+      plan.all = plan.lines;
+      plan.missing = plan.lines.filter(function (l) { return !l.product && !(String(l.ref).trim() in productCache); });
       plan.lines = plan.lines.filter(function (l) { return !!l.product; });
-      if (!plan.lines.length) return null;
-      plan.ready = true;
-      // A plan is a product consultation (attribution token, consent-gated).
-      moAttrOnProductCard();
       plan.card = card;
-      // The newest plan of the thread is the active one — decided when its
-      // products arrive, since restored plans hydrate in any order.
-      if (cfgPlans[key] !== plan) return null; // superseded by a re-render
-      var newest = true;
-      for (var k in cfgPlans) {
-        if (Object.prototype.hasOwnProperty.call(cfgPlans, k) && cfgPlans[k].seq > plan.seq) newest = false;
+      if (plan.failed) cfgStallWatch();
+      if (!plan.lines.length) {
+        if (cfgPlans[key] === plan) { cfgPlanFallback(); cfgOfferReconcile(); cfgOfferWaitOver(); }
+        if (!plan.failed) return null;
+        // None of its products answered: an empty slot in the chat, the card
+        // goes in once they do (cfgPlanRetry).
+        plan.slot = el('div', { class: 'ms-chat-plan-slot', hidden: 'hidden' });
+        return plan.slot;
       }
-      if (newest) cfgSetActivePlan(key);
-      else if (cfgActivePlanKey !== key) cfgRefreshPlanCards();
-      fillPlanCard(card, plan);
-      return card;
+      return cfgPlanShow(plan);
     });
+  }
+
+  // A plan of Mo's with its products: shown, and active when it is the
+  // newest of the thread.
+  function cfgPlanShow(plan) {
+    var key = plan.key;
+    plan.ready = true;
+    // A plan is a product consultation (attribution token, consent-gated).
+    moAttrOnProductCard();
+    // The newest plan of the thread is the active one — decided when its
+    // products arrive, since restored plans hydrate in any order.
+    if (cfgPlans[key] !== plan) return null; // superseded by a re-render
+    var newest = true;
+    for (var k in cfgPlans) {
+      if (Object.prototype.hasOwnProperty.call(cfgPlans, k) && cfgPlans[k].seq > plan.seq) newest = false;
+    }
+    if (newest) cfgSetActivePlan(key);
+    else {
+      if (cfgActivePlanKey !== key) cfgRefreshPlanCards();
+      cfgPlanFallback();
+      cfgOfferReconcile();
+      cfgOfferWaitOver();
+    }
+    fillPlanCard(plan.card, plan);
+    return plan.card;
+  }
+
+  // A plan of Mo's whose products did not all answer asks again for the
+  // missing ones (cfgStalledRetry: every 30 s, back online, the tab visible
+  // again, a pick that had to wait). Once they answer, the lines go back in
+  // place — edits made meanwhile stay — and a plan that had none shows up.
+  function cfgPlanRetry(plan) {
+    if (!plan.failed || plan.busy || cfgPlans[plan.key] !== plan) return;
+    var refs = plan.missing.map(function (l) { return l.ref; });
+    plan.busy = true;
+    hydrate(refs).then(function (res) {
+      plan.busy = false;
+      if (!plan.failed || cfgPlans[plan.key] !== plan) return;
+      if (cfgUnresolved(refs)) { cfgStallWatch(); return; }
+      var missing = plan.missing;
+      plan.missing = [];
+      plan.failed = false;
+      for (var i = 0; i < missing.length; i++) {
+        missing[i].product = res[i] || null;
+        if (missing[i].product) cfgPlanPutBack(plan, missing[i]);
+      }
+      if (!plan.ready) {
+        var card = plan.lines.length ? cfgPlanShow(plan) : null;
+        if (card && plan.slot && plan.slot.parentNode) plan.slot.parentNode.replaceChild(card, plan.slot);
+        if (!card) { cfgPlanFallback(); cfgOfferReconcile(); cfgOfferWaitOver(); }
+        return;
+      }
+      if (plan.key === cfgActivePlanKey) {
+        cfgSaveEdits(plan);
+        cfgRenderHost();
+        var t = cfgPlanTotals(plan);
+        cfgEmit('plan', { items: t.count, units: t.units, total: Math.round(t.total) });
+      }
+      if (plan.card) fillPlanCard(plan.card, plan);
+      cfgOfferReconcile();
+      cfgOfferWaitOver();
+    });
+  }
+  // A line that waited for its product back into the plan: the visitor's
+  // next to its product (cfgInsertLine, up to the cap), Mo's right after his
+  // nearest line before it.
+  function cfgPlanPutBack(plan, l) {
+    if (l.added) {
+      if (cfgKeptCount(plan.lines) >= CFG_MAX_LINES) return;
+      if (cfgLineByUid(plan.lines, l.uid)) l.uid = cfgNewUid(plan.lines);
+      cfgInsertLine(plan.lines, l);
+      return;
+    }
+    var at = 0;
+    for (var i = plan.all.indexOf(l) - 1; i >= 0; i--) {
+      var j = plan.all[i].added ? -1 : plan.lines.indexOf(plan.all[i]);
+      if (j === -1) continue;
+      var base = cfgBaseId(plan.lines[j]);
+      at = j + 1;
+      while (at < plan.lines.length && plan.lines[at].added && cfgBaseId(plan.lines[at]) === base) at++;
+      break;
+    }
+    plan.lines.splice(at, 0, l);
   }
 
   function cfgRefreshPlanCards() {
@@ -3551,7 +3741,7 @@
       if (p.images && p.images[0]) row.appendChild(el('img', { class: 'ms-chat-plan-thumb', src: p.images[0], alt: '', loading: 'lazy' }));
       var meta = el('div', { class: 'ms-chat-plan-meta' });
       meta.appendChild(el('div', { class: 'ms-chat-plan-name', text: cfgLineView(p, l).name }));
-      var sub = CFG_ROLES[l.role] + (v && v.title && p.variants && p.variants.length > 1 ? ' · ' + v.title : '') + (l.added ? ' · ' + L('von dir ergänzt', 'added by you') : '');
+      var sub = CFG_ROLES[l.role] + (v && v.title && p.variants && p.variants.length > 1 ? ' · ' + v.title : '') + (l.added ? ' · ' + (l.pick ? L('von dir gewählt', 'your choice') : L('von dir ergänzt', 'added by you')) : '');
       meta.appendChild(el('div', { class: 'ms-chat-plan-sub', text: sub }));
       row.appendChild(meta);
       var avail = cfgLineAvailable(p, v);
@@ -3584,6 +3774,986 @@
       body.appendChild(use);
     }
     card.appendChild(body);
+  }
+
+  // ----- offer_plan_options → Mo's options, picked into the plan --------------
+  // Mo goes through the product types one by one (base, accessory, bench,
+  // weights, flooring, cardio, extra): one card per option with price, pros
+  // and cons. „Auswählen“ — for accessories several + „Übernehmen“ — puts the
+  // option's items into the page plan as the visitor's own lines (tag „Von dir
+  // gewählt“) and tells Mo („Ich nehme: …“) with the updated plan in the
+  // context. A later choice in the same group replaces that group's lines
+  // („Ich nehme stattdessen: …“). „Überspringen“ / „Andere Vorschläge“ are
+  // answer chips. The thread's choices are stored with its answers
+  // (c.picks: toolCallId -> option indices), so a reload shows them again.
+  // KPI: configurator_option_picked / _skipped / _more (ids, enums, numbers).
+  var CFG_OFFER_STEPS = { base: 'base', accessory: 'accessory', bench: 'accessory', weights: 'weights', flooring: 'flooring', cardio: 'cardio', extra: 'extra' };
+
+  function cfgClip(v, max) {
+    if (typeof v !== 'string') return '';
+    var t = v.replace(/\s+/g, ' ').trim();
+    return t.length > max ? t.slice(0, max - 1).trim() + '…' : t;
+  }
+  function cfgClipList(list, n, max) {
+    var out = [];
+    for (var i = 0; Array.isArray(list) && i < list.length && out.length < n; i++) {
+      var t = cfgClip(list[i], max);
+      if (t) out.push(t);
+    }
+    return out;
+  }
+
+  // The tool input as the widget renders it (the backend's limits).
+  function cfgOfferInput(input) {
+    var rec = input && typeof input === 'object' ? input : {};
+    var step = typeof rec.step === 'string' && Object.prototype.hasOwnProperty.call(CFG_OFFER_STEPS, rec.step) ? rec.step : 'extra';
+    var raw = Array.isArray(rec.options) ? rec.options : [];
+    var options = [];
+    for (var i = 0; i < raw.length && options.length < 4; i++) {
+      var o = raw[i];
+      if (!o || typeof o !== 'object' || !Array.isArray(o.items)) continue;
+      var items = [];
+      var seen = {};
+      for (var j = 0; j < o.items.length && items.length < 6; j++) {
+        var it = o.items[j];
+        if (!it || typeof it.productId !== 'string') continue;
+        var ref = it.productId.trim();
+        if (!ref || ref.length > 255 || /[\s,]/.test(ref)) continue;
+        var q = parseInt(it.quantity, 10);
+        q = isFinite(q) && q >= 1 ? Math.min(q, 20) : 1;
+        if (Object.prototype.hasOwnProperty.call(seen, ref)) { seen[ref].qty = Math.min(20, seen[ref].qty + q); continue; }
+        seen[ref] = { ref: ref, qty: q, product: null, name: '', url: '' };
+        items.push(seen[ref]);
+      }
+      if (!items.length) continue;
+      options.push({
+        idx: options.length,
+        rank: i + 1, // Mo's own position (KPI), whatever is left out on the way
+        items: items,
+        label: cfgClip(o.label, 60),
+        badge: cfgClip(o.badge, 24),
+        pros: cfgClipList(o.pros, 3, 90),
+        cons: cfgClipList(o.cons, 2, 90)
+      });
+    }
+    return {
+      step: step,
+      role: CFG_OFFER_STEPS[step],
+      title: cfgClip(rec.title, 80),
+      intro: cfgClip(rec.intro, 240),
+      multi: rec.multiSelect === true,
+      options: options
+    };
+  }
+
+  // Product + variant of a line or an option item (a weight step is its own).
+  function cfgItemIdent(p, line) {
+    var v = cfgVariantOf(p, line);
+    return String(p && p.id != null ? p.id : '').split('~')[0] + '~' + (v && v.id != null ? String(v.id) : '');
+  }
+
+  function cfgOfferByIdx(g, ix) {
+    for (var i = 0; i < g.shown.length; i++) { if (g.shown[i].idx === ix) return g.shown[i]; }
+    return null;
+  }
+
+  // Ids /api/products did not answer (a 429 or network error caches nothing;
+  // an unknown id is cached as null).
+  function cfgUnresolved(refs) {
+    for (var i = 0; i < refs.length; i++) { if (!(String(refs[i]).trim() in productCache)) return true; }
+    return false;
+  }
+  // hydrate(), asked again after each pause in `waits` while an id is
+  // unresolved — a short outage must not drop an option or a stored choice.
+  function cfgHydrateRetry(refs, waits) {
+    return hydrate(refs).then(function (res) {
+      if (!waits.length || !cfgUnresolved(refs)) return res;
+      return new Promise(function (resolve) { setTimeout(resolve, waits[0]); }).then(function () {
+        return cfgHydrateRetry(refs, waits.slice(1));
+      });
+    });
+  }
+  // A group that shows nothing because /api/products did not answer (not
+  // because its items are unknown or sold out) keeps an empty slot in the
+  // chat and is built again into it once the products answer (cfgStallWatch).
+  function cfgOfferStalled(g, input, refs) {
+    if (!cfgUnresolved(refs)) return null;
+    g.input = input;
+    g.slot = el('div', { class: 'ms-chat-offer-slot', hidden: 'hidden' });
+    cfgStallWatch();
+    return g.slot;
+  }
+  function cfgOfferRetry(g) {
+    var slot = g.slot;
+    g.slot = null;
+    buildOffer(g.input, g.key).then(function (node) {
+      if (node && slot.parentNode) slot.parentNode.replaceChild(node, slot);
+    }).catch(function () { /* render nothing on failure */ });
+  }
+
+  function buildOffer(input, key) {
+    var g = cfgOfferInput(input);
+    if (!g.options.length) return Promise.resolve(null);
+    g.key = key || ('offer:' + JSON.stringify(input).length);
+    // Every group of the thread is registered in the order of the
+    // conversation (a re-render of the same tool call keeps its place): a
+    // choice is checked against the plan, a swap looks at the other groups of
+    // the same step, the floating widget's plan card sits under the latest.
+    var prev = cfgOfferGroups[g.key];
+    g.seq = prev ? prev.seq : ++cfgOfferSeq;
+    g.chosen = [];
+    g.pending = [];
+    cfgOfferGroups[g.key] = g;
+    var refs = [];
+    g.options.forEach(function (o) {
+      o.items.forEach(function (it) { if (refs.indexOf(it.ref) === -1) refs.push(it.ref); });
+    });
+    return cfgHydrateRetry(refs, [1500, 4000]).then(function (res) {
+      var byRef = {};
+      for (var i = 0; i < refs.length; i++) byRef[refs[i]] = res[i] || null;
+      // An option with an unknown or sold-out item is left out.
+      g.shown = [];
+      g.options.forEach(function (o) {
+        var ok = true;
+        var total = 0;
+        var regular = 0;
+        o.items.forEach(function (it) {
+          var p = byRef[it.ref];
+          var v = p ? cfgVariantOf(p, { variantId: null }) : null;
+          if (!p || p.inStock === false || !cfgLineAvailable(p, v)) { ok = false; return; }
+          var view = cfgLineView(p, { variantId: null });
+          it.product = p;
+          it.name = view.name;
+          it.url = view.url;
+          total += cfgUnitPrice(p, v) * it.qty;
+          regular += (v ? Number(v.price) || 0 : Number(p.price) || 0) * it.qty;
+        });
+        if (!ok) return;
+        o.name = o.label || o.items[0].name;
+        o.total = Math.round(total * 100) / 100;
+        o.regular = Math.round(regular * 100) / 100;
+        g.shown.push(o);
+      });
+      if (!g.shown.length) return cfgOfferStalled(g, input, refs);
+      // Product options are a product consultation (attribution token,
+      // consent-gated) — in the step flow Mo may never show a plan.
+      moAttrOnProductCard();
+      var c = cfgActive();
+      // A thread whose configurator run has ended (an older conversation from
+      // the history) shows the options, but nothing can be chosen any more.
+      g.live = !!c;
+      var stored = c && c.picks && typeof c.picks === 'object' ? c.picks[g.key] : null;
+      g.chosen = [];
+      if (Array.isArray(stored)) {
+        stored.forEach(function (ix) { if (typeof ix === 'number' && cfgOfferByIdx(g, ix) && g.chosen.indexOf(ix) === -1) g.chosen.push(ix); });
+      }
+      g.pending = g.chosen.slice();
+      // A stored choice whose lines left the plan meanwhile is not „Gewählt“.
+      if (c && !cfgPlansPending() && !cfgPlansFailed() && cfgOfferReconcileGroup(g, cfgOfferPlanLines(), c)) cfgSave(c);
+      return cfgOfferRender(g);
+    });
+  }
+
+  function cfgOfferPriceEl(o) {
+    var box = el('div', { class: 'ms-chat-offer-price' });
+    if (o.regular > o.total + 0.004) {
+      box.appendChild(el('span', { class: 'ms-chat-offer-sale', text: cfgMoney(o.total) }));
+      box.appendChild(el('s', { class: 'ms-chat-offer-strike', text: cfgMoney(o.regular) }));
+    } else {
+      box.appendChild(el('span', { text: cfgMoney(o.total) }));
+    }
+    return box;
+  }
+
+  function cfgOfferRender(g) {
+    // ms-chat-offer is the fingerprint marker of the option group.
+    var wrap = el('div', { class: 'ms-chat-offer' + (g.multi ? ' ms-chat-offer--multi' : ''), role: 'group', 'aria-label': g.title || L('Vorschläge von Mo', 'Suggestions from Mo'), 'data-step': g.step });
+    if (g.title || g.intro) {
+      var head = el('div', { class: 'ms-chat-offer-head' });
+      if (g.title) head.appendChild(el('div', { class: 'ms-chat-offer-title', text: g.title }));
+      if (g.intro) head.appendChild(el('div', { class: 'ms-chat-offer-intro', text: g.intro }));
+      wrap.appendChild(head);
+    }
+    var list = el('ul', { class: 'ms-chat-offer-list' });
+    g.cards = [];
+    g.shown.forEach(function (o) {
+      var first = o.items[0];
+      var p = first.product;
+      var li = el('li', { class: 'ms-chat-offer-card' });
+      var thumb = el('span', { class: 'ms-chat-offer-thumb', 'aria-hidden': 'true' });
+      if (p.images && p.images[0]) thumb.appendChild(el('img', { src: p.images[0], alt: '', loading: 'lazy' }));
+      li.appendChild(thumb);
+      var info = el('div', { class: 'ms-chat-offer-info' });
+      if (o.badge) info.appendChild(el('span', { class: 'ms-chat-offer-badge', text: o.badge }));
+      if (o.items.length === 1 && first.url) {
+        var link = el('a', { class: 'ms-chat-offer-name', href: first.url, target: '_blank', rel: 'noopener noreferrer', text: o.name });
+        link.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
+        info.appendChild(link);
+      } else {
+        info.appendChild(el('span', { class: 'ms-chat-offer-name', text: o.name }));
+      }
+      info.appendChild(cfgOfferPriceEl(o));
+      li.appendChild(info);
+      // A bundle (weights: one line per step) names its items.
+      if (o.items.length > 1 || first.qty > 1) {
+        var items = el('ul', { class: 'ms-chat-offer-items', 'aria-label': L('Enthält', 'Includes') });
+        o.items.forEach(function (it) { items.appendChild(el('li', { text: it.qty + '× ' + it.name })); });
+        li.appendChild(items);
+      }
+      if (o.pros.length || o.cons.length) {
+        var pts = el('ul', { class: 'ms-chat-offer-points' });
+        o.pros.forEach(function (t) { pts.appendChild(el('li', { class: 'ms-chat-offer-pro', text: t })); });
+        o.cons.forEach(function (t) { pts.appendChild(el('li', { class: 'ms-chat-offer-con', text: t })); });
+        li.appendChild(pts);
+      }
+      var act = el('div', { class: 'ms-chat-offer-act' });
+      var btn = el('button', { class: 'ms-chat-btn ms-chat-btn--primary ms-chat-offer-choose', type: 'button' });
+      btn.addEventListener('click', function () { cfgOfferChoose(g, o); });
+      act.appendChild(btn);
+      li.appendChild(act);
+      list.appendChild(li);
+      g.cards.push({ o: o, li: li, btn: btn });
+    });
+    wrap.appendChild(list);
+    if (g.multi) {
+      g.confirm = el('button', { class: 'ms-chat-btn ms-chat-btn--primary ms-chat-offer-confirm', type: 'button' });
+      g.confirm.addEventListener('click', function () { cfgOfferConfirm(g); });
+      wrap.appendChild(g.confirm);
+    }
+    g.noteEl = el('div', { class: 'ms-chat-offer-note', role: 'status', 'aria-live': 'polite' });
+    wrap.appendChild(g.noteEl);
+    // Phones / tablets: the page plan sits below the chat — a chosen option
+    // says it is in the plan and leads there (cfgOfferView).
+    if (planHost()) {
+      g.viewEl = el('button', { class: 'ms-chat-btn ms-chat-btn--secondary ms-chat-offer-view', type: 'button', text: L('Im Plan ✓ · Plan ansehen', 'In your plan ✓ · View plan') });
+      g.viewEl.hidden = true;
+      g.viewEl.addEventListener('click', function () {
+        var host = planHost();
+        try { if (host) host.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' }); } catch (e) {}
+      });
+      wrap.appendChild(g.viewEl);
+    }
+    // Skip / other suggestions: answer chips, spent with the next message.
+    var chips = el('div', { class: 'ms-chat-replies ms-chat-offer-replies', role: 'group', 'aria-label': L('Weiter mit Mo', 'Continue with Mo') });
+    [
+      [L('Überspringen', 'Skip'), L('Diesen Schritt überspringe ich.', 'I\'ll skip this step.'), 'configurator_option_skipped'],
+      [L('Andere Vorschläge', 'Other suggestions'), L('Zeig mir bitte andere Vorschläge für diesen Schritt.', 'Please show me other options for this step.'), 'configurator_option_more']
+    ].forEach(function (d) {
+      var b = el('button', { class: 'ms-chat-reply', type: 'button', text: d[0] });
+      b.addEventListener('click', function () {
+        if (chips.classList.contains('ms-chat-replies--used')) return;
+        if (state.streaming || state.rateLocked) return;
+        chips.classList.add('ms-chat-replies--used');
+        track(d[2], { step: g.step });
+        sendMessage(d[1], null);
+      });
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+    g.el = wrap;
+    if (!g.live) chips.classList.add('ms-chat-replies--used');
+    cfgOfferSync(g);
+    cfgOwnPlanCard();
+    setTimeout(cfgSyncReplies, 0);
+    return wrap;
+  }
+
+  // Button labels and states from g.chosen (in the plan) / g.pending (multi:
+  // toggled). Toggled but not taken over yet („Übernehmen“) has its own look —
+  // only „Gewählt ✓“ is the filled blue.
+  function cfgOfferSync(g) {
+    g.cards.forEach(function (cd) {
+      var ix = cd.o.idx;
+      var chosen = g.chosen.indexOf(ix) !== -1;
+      var on = g.multi ? g.pending.indexOf(ix) !== -1 : chosen;
+      var label = !on ? L('Auswählen', 'Choose')
+        : chosen ? L('Gewählt', 'Chosen')
+        : L('Ausgewählt', 'Selected');
+      cd.li.classList.toggle('ms-chat-offer-card--on', on && chosen);
+      cd.li.classList.toggle('ms-chat-offer-card--pending', on && !chosen);
+      cd.btn.classList.toggle('ms-chat-offer-choose--on', on && chosen);
+      cd.btn.classList.toggle('ms-chat-offer-choose--pending', on && !chosen);
+      cd.btn.textContent = on ? label + ' ✓' : label;
+      cd.btn.setAttribute('aria-label', label + ': ' + cd.o.name);
+      if (g.multi) cd.btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      else if (chosen) cd.btn.setAttribute('aria-disabled', 'true');
+      else cd.btn.removeAttribute('aria-disabled');
+      cd.btn.disabled = !g.live;
+    });
+    var waiting = false;
+    if (g.confirm) {
+      var n = g.pending.length;
+      var same = n === g.chosen.length && g.pending.every(function (ix) { return g.chosen.indexOf(ix) !== -1; });
+      g.confirm.textContent = L('Übernehmen', 'Confirm') + (n ? ' (' + n + ')' : '');
+      g.confirm.disabled = !n || same || !g.live;
+      // Nothing changed since the last „Übernehmen“: nothing to confirm.
+      g.confirm.hidden = same && g.chosen.length > 0;
+      // Toggled but not in the plan yet: the group says so until
+      // „Übernehmen“ (or the toggle is undone) — a warning stays first. The
+      // button itself stays in view meanwhile (sticky, CSS).
+      var adding = g.pending.some(function (ix) { return g.chosen.indexOf(ix) === -1; });
+      var removing = g.chosen.some(function (ix) { return g.pending.indexOf(ix) === -1; });
+      waiting = g.live && (adding || removing);
+      if (waiting && (g.notePending || !g.noteEl.textContent)) {
+        cfgOfferNote(g, '', adding
+          ? L('Noch nicht im Plan – tippe auf „Übernehmen“.', 'Not in your plan yet – tap “Confirm”.')
+          : L('Noch nicht übernommen – tippe auf „Übernehmen“.', 'Not applied yet – tap “Confirm”.'));
+        g.notePending = true;
+      } else if (!waiting && g.notePending) {
+        cfgOfferNote(g, '', '');
+      }
+    }
+    g.viewOn = g.live && g.chosen.length > 0 && !waiting;
+    cfgOfferView(g);
+  }
+
+  function cfgOfferNote(g, kind, text) {
+    g.noteWait = false;
+    g.notePending = false;
+    if (!g.noteEl) return;
+    g.noteEl.className = 'ms-chat-offer-note' + (kind ? ' ms-chat-offer-note--' + kind : '');
+    g.noteEl.textContent = text || '';
+  }
+
+  // „Im Plan ✓ · Plan ansehen“ under a group with a choice, while the page
+  // plan sits below the chat (the stacked layout of phones and tablets —
+  // read from the page, so it follows its breakpoints and a rotation).
+  function cfgOfferView(g) {
+    if (g.viewEl) g.viewEl.hidden = !(g.viewOn && cfgPlanStacked());
+  }
+  function cfgPlanStacked() {
+    var host = planHost();
+    if (!host || !DOCK) return false;
+    try {
+      var h = host.getBoundingClientRect();
+      var d = DOCK.getBoundingClientRect();
+      // In the chat's column, below it (side by side the plan has a column
+      // of its own).
+      return h.width > 0 && d.height > 0 && h.left < d.right && h.right > d.left && h.top >= d.bottom - 1;
+    } catch (e) { return false; }
+  }
+  function cfgOfferViews() {
+    for (var k in cfgOfferGroups) {
+      if (Object.prototype.hasOwnProperty.call(cfgOfferGroups, k) && cfgOfferGroups[k].viewEl) cfgOfferView(cfgOfferGroups[k]);
+    }
+  }
+
+  function cfgOfferChoose(g, o) {
+    if (g.multi) {
+      var i = g.pending.indexOf(o.idx);
+      if (i === -1) g.pending.push(o.idx); else g.pending.splice(i, 1);
+      cfgOfferNote(g, '', '');
+      cfgOfferSync(g);
+      return;
+    }
+    if (g.chosen.indexOf(o.idx) !== -1) return;
+    cfgOfferPick(g, [o.idx]);
+  }
+
+  function cfgOfferConfirm(g) {
+    // In the order Mo offered them.
+    var idxs = [];
+    g.shown.forEach(function (o) { if (g.pending.indexOf(o.idx) !== -1) idxs.push(o.idx); });
+    if (idxs.length) cfgOfferPick(g, idxs);
+  }
+
+  // The picked options into the active plan — or, before Mo has shown one,
+  // into the visitor's own plan (created here, shown on the page).
+  //
+  // What a pick replaces: a re-pick in the same group replaces that group's
+  // earlier choice. In a single-select group of a step that holds one thing
+  // (base, bench, weights, flooring, cardio) it also replaces the earlier
+  // picks of the same step from every other group — Mo's „other suggestions“
+  // and a swap he offers arrive as a new group („Ich nehme stattdessen: …“,
+  // the same item set again is no swap). Accessories and extras, and
+  // multiSelect groups, add next to the picks of other groups. A picked line
+  // whose item is wanted again stays as it is (the visitor's quantity and
+  // variant). Every picked line notes its group, step and option (pickOpt).
+  function cfgOfferPick(g, idxs) {
+    if (state.streaming || state.rateLocked) return false;
+    var c = cfgActive();
+    if (!c) return false;
+    var opts = [];
+    idxs.forEach(function (ix) { var o = cfgOfferByIdx(g, ix); if (o) opts.push(o); });
+    if (!opts.length) return false;
+    var plan = cfgPickTarget();
+    if (cfgPickWaits(plan)) {
+      // The thread's plan is still loading (a reload whose products have not
+      // answered yet) or could not load (a load gap): say so, and ask for its
+      // products again right away — the pick must not land in a stand-in.
+      cfgOfferNote(g, 'warn', L('Dein Plan wird gerade noch geladen – bitte versuch es gleich noch einmal.',
+        'Your plan is still loading – please try again in a moment.'));
+      g.noteWait = true;
+      cfgStalledRetry();
+      return false;
+    }
+    var fresh = !plan;
+    if (fresh) plan = { key: CFG_OWN_KEY, seq: 0, own: true, title: '', summary: '', tips: [], lines: [], ready: true, settled: true };
+    var cross = !g.multi && g.step !== 'accessory' && g.step !== 'extra';
+    var scope = [g];
+    if (cross) {
+      for (var k in cfgOfferGroups) {
+        if (!Object.prototype.hasOwnProperty.call(cfgOfferGroups, k)) continue;
+        var og = cfgOfferGroups[k];
+        if (og !== g && og.cards && og.live && og.step === g.step) scope.push(og);
+      }
+    }
+    // A visitor's line from an earlier choice this pick replaces.
+    var inScope = function (l) {
+      if (!l.added || !l.pick) return false;
+      if (l.pick === g.key) return true;
+      if (!cross) return false;
+      var from = cfgOfferGroups[l.pick];
+      return (l.pickStep || (from ? from.step : '')) === g.step;
+    };
+    // The items of the new choice -> { o, it }: the first chosen option (in
+    // Mo's order) that holds the item.
+    var wanted = {};
+    var wants = function (id) { return Object.prototype.hasOwnProperty.call(wanted, id); };
+    opts.forEach(function (o) {
+      o.items.forEach(function (it) {
+        var id = cfgItemIdent(it.product, { variantId: null });
+        if (!wants(id)) wanted[id] = { o: o, it: it };
+      });
+    });
+    // The earlier choices go. Where Mo's plan holds one of them as his own
+    // line (he took the picks over, or it was there already), that line is
+    // marked removed — unless the new choice includes it again. „Ich nehme
+    // stattdessen“ only when something goes: another option of the group (a
+    // bigger set too), another item set from a group of the same step, an
+    // item that is not wanted again.
+    var replacing = false;
+    var before = {};
+    scope.forEach(function (sg) {
+      sg.chosen.forEach(function (ix) {
+        var po = cfgOfferByIdx(sg, ix);
+        if (!po) return;
+        if (sg === g ? idxs.indexOf(ix) === -1 : !cfgOfferSameItems(po, wanted)) replacing = true;
+        po.items.forEach(function (it) {
+          var id = cfgItemIdent(it.product, { variantId: null });
+          before[id] = 1;
+          if (!wants(id)) replacing = true;
+        });
+      });
+    });
+    // `have`: the items the plan holds outside the earlier picks (Mo's lines
+    // that go are marked removed) — an item it holds is not added twice, Mo
+    // would read a doubled quantity.
+    var drop = [];
+    var have = {};
+    plan.lines.forEach(function (l) {
+      if (inScope(l) || l.removed || !l.product) return;
+      var id = cfgItemIdent(l.product, l);
+      if (!l.added && before[id] === 1 && !wants(id)) drop.push(l);
+      else have[id] = 1;
+    });
+    // The earlier picked lines whose item is wanted again (and not held
+    // otherwise) stay, with the visitor's quantity and variant (multiSelect:
+    // also the line of an option that stays chosen when the visitor changed
+    // its variant); `got` = the items they stand for. The others go.
+    var stay = [];
+    var got = {};
+    var stays = function (l) {
+      for (var i = 0; i < stay.length; i++) { if (stay[i].l === l) return true; }
+      return false;
+    };
+    plan.lines.forEach(function (l) {
+      if (l.removed || !l.product || !inScope(l)) return;
+      var id = cfgItemIdent(l.product, l);
+      if (wants(id) && !got[id] && have[id] !== 1) { got[id] = 1; stay.push({ l: l, w: wanted[id] }); }
+    });
+    if (g.multi) {
+      plan.lines.forEach(function (l) {
+        if (l.removed || !l.product || l.pick !== g.key || stays(l)) return;
+        var from = typeof l.pickOpt === 'number' ? [l.pickOpt] : g.chosen;
+        for (var i = 0; i < from.length; i++) {
+          var o = g.chosen.indexOf(from[i]) !== -1 && idxs.indexOf(from[i]) !== -1 ? cfgOfferByIdx(g, from[i]) : null;
+          var it = o ? cfgOfferItemFor(o, l, got) : null;
+          if (!it || have[cfgItemIdent(it.product, { variantId: null })] === 1) continue;
+          got[cfgItemIdent(it.product, { variantId: null })] = 1;
+          stay.push({ l: l, w: { o: o, it: it } });
+          return;
+        }
+      });
+    } else {
+      // Single-select: the same item set picked again from a newer group of
+      // the step keeps the line with the variant and quantity the visitor
+      // set (no swap).
+      plan.lines.forEach(function (l) {
+        if (l.removed || !l.product || !inScope(l) || stays(l)) return;
+        var from = cfgOfferGroups[l.pick];
+        var po = from && typeof l.pickOpt === 'number' ? cfgOfferByIdx(from, l.pickOpt) : null;
+        if (!po || !cfgOfferSameItems(po, wanted)) return;
+        for (var i = 0; i < opts.length; i++) {
+          var it = cfgOfferItemFor(opts[i], l, got);
+          if (!it || have[cfgItemIdent(it.product, { variantId: null })] === 1) continue;
+          got[cfgItemIdent(it.product, { variantId: null })] = 1;
+          stay.push({ l: l, w: { o: opts[i], it: it } });
+          return;
+        }
+      });
+    }
+    plan.lines.forEach(function (l) {
+      if (!l.removed && l.product && inScope(l) && !stays(l) && !wants(cfgItemIdent(l.product, l))) replacing = true;
+    });
+    // A picked line still waiting for its product (a load gap) stays or goes
+    // the same way, by its ref.
+    var missing = [];
+    (plan.missing || []).forEach(function (l) {
+      if (!inScope(l)) { missing.push(l); return; }
+      for (var i = 0; i < opts.length; i++) {
+        for (var j = 0; j < opts[i].items.length; j++) {
+          var it = opts[i].items[j];
+          var id = cfgItemIdent(it.product, { variantId: null });
+          if (it.ref !== l.ref || got[id] || have[id] === 1) continue;
+          got[id] = 1;
+          stay.push({ l: l, w: { o: opts[i], it: it } });
+          missing.push(l);
+          return;
+        }
+      }
+      // multiSelect: its option may be left out of the cards during the gap
+      // — the line stays unless the visitor took that option off.
+      if (g.multi && l.pick === g.key) {
+        var off = typeof l.pickOpt === 'number' && cfgOfferByIdx(g, l.pickOpt) && g.chosen.indexOf(l.pickOpt) !== -1 && idxs.indexOf(l.pickOpt) === -1;
+        if (!off) { missing.push(l); return; }
+      }
+      replacing = true;
+    });
+    var keep = plan.lines.filter(function (l) { return !inScope(l) || stays(l); });
+    stay.forEach(function (s) { if (s.l.product) have[cfgItemIdent(s.l.product, s.l)] = 1; });
+    for (var gid in got) { if (Object.prototype.hasOwnProperty.call(got, gid)) have[gid] = 1; }
+    var add = [];
+    opts.forEach(function (o) {
+      o.items.forEach(function (it) {
+        var id = cfgItemIdent(it.product, { variantId: null });
+        if (have[id] === 1) return;
+        have[id] = 1;
+        add.push({ o: o, it: it });
+      });
+    });
+    if (cfgKeptCount(keep) - drop.length + add.length > CFG_MAX_LINES) {
+      cfgOfferNote(g, 'warn', L('Dafür ist in deinem Plan kein Platz mehr (höchstens ' + CFG_MAX_LINES + ' Positionen) – entferne zuerst eine Position.',
+        'There is no room for this in your plan (' + CFG_MAX_LINES + ' items at most) – remove an item first.'));
+      return false;
+    }
+    // What the message names and the KPI counts: a multiSelect „Übernehmen“
+    // that only adds names the options new in this action; one that takes
+    // something off names the whole new choice („Ich nehme stattdessen“).
+    var named = g.multi && !replacing ? opts.filter(function (o) { return g.chosen.indexOf(o.idx) === -1; }) : opts;
+    if (!named.length) named = opts;
+    plan.lines = keep;
+    if (plan.missing) plan.missing = missing;
+    drop.forEach(function (l) { l.removed = true; });
+    stay.forEach(function (s) {
+      // A quantity the earlier option set (not changed by the visitor)
+      // follows the new option.
+      var src = cfgOfferSourceItem(s.l);
+      if (src && src.qty === s.l.qty) s.l.qty = s.w.it.qty;
+      s.l.pick = g.key;
+      s.l.pickStep = g.step;
+      s.l.pickOpt = s.w.o.idx;
+    });
+    add.forEach(function (a) {
+      cfgInsertLine(plan.lines, {
+        uid: cfgNewUid(plan.lines),
+        ref: a.it.ref,
+        qty: a.it.qty,
+        role: g.role,
+        note: '',
+        removed: false,
+        variantId: null,
+        product: a.it.product,
+        added: true,
+        pick: g.key,
+        pickStep: g.step,
+        pickOpt: a.o.idx
+      });
+    });
+    c.picks = c.picks && typeof c.picks === 'object' ? c.picks : {};
+    // The other groups of the step show their options as „Auswählen“ again.
+    scope.forEach(function (sg) {
+      if (sg === g) return;
+      sg.chosen = [];
+      sg.pending = [];
+      delete c.picks[sg.key];
+      cfgOfferNote(sg, '', '');
+      cfgOfferSync(sg);
+    });
+    c.picks[g.key] = idxs.slice();
+    if (fresh) c.ownPlan = true;
+    cfgSave(c);
+    if (fresh) cfgPlans[CFG_OWN_KEY] = plan;
+    g.chosen = idxs.slice();
+    g.pending = idxs.slice();
+    cfgOfferNote(g, '', '');
+    cfgOfferSync(g);
+    cfgSaveEdits(plan);
+    if (cfgActivePlanKey !== plan.key) {
+      cfgSetActivePlan(plan.key);
+    } else {
+      cfgRenderHost();
+      if (plan.card) fillPlanCard(plan.card, plan);
+      cfgOwnPlanCard();
+      cfgOfferReconcile();
+      var t = cfgPlanTotals(plan);
+      cfgEmit('plan', { items: t.count, units: t.units, total: Math.round(t.total) });
+    }
+    // rank: the option's position in Mo's list (1 = his first option).
+    var count = 0;
+    named.forEach(function (o) { count += o.items.length; });
+    track('configurator_option_picked', { step: g.step, rank: named[0].rank, items: count, multi: g.multi, count: named.length });
+    var names = named.map(function (o) { return o.name.replace(/[.\s]+$/, ''); }).join(', ');
+    sendMessage((replacing ? L('Ich nehme stattdessen: ', 'Instead I\'ll take: ') : L('Ich nehme: ', 'I\'ll take: ')) + names + '.', null);
+    return true;
+  }
+  // The option holds exactly the items of `wanted` (product and variant).
+  function cfgOfferSameItems(o, wanted) {
+    var seen = {};
+    var n = 0;
+    for (var i = 0; i < o.items.length; i++) {
+      if (!o.items[i].product) return false;
+      var id = cfgItemIdent(o.items[i].product, { variantId: null });
+      if (!Object.prototype.hasOwnProperty.call(wanted, id)) return false;
+      if (!seen[id]) { seen[id] = 1; n++; }
+    }
+    for (var k in wanted) { if (Object.prototype.hasOwnProperty.call(wanted, k)) n--; }
+    return n === 0;
+  }
+  // The item of option o with the product of line l (any variant) that is
+  // not taken yet (got).
+  function cfgOfferItemFor(o, l, got) {
+    var base = cfgBaseId(l);
+    for (var i = 0; i < o.items.length; i++) {
+      var it = o.items[i];
+      if (!it.product || String(it.product.id != null ? it.product.id : it.ref).split('~')[0] !== base) continue;
+      if (got && got[cfgItemIdent(it.product, { variantId: null })]) continue;
+      return it;
+    }
+    return null;
+  }
+  // The option item a picked line came from: the option it notes (pickOpt)
+  // — a line stored before options were noted: a chosen option of its group
+  // — the same item first, else the same product.
+  function cfgOfferSourceItem(l) {
+    var og = cfgOfferGroups[l.pick];
+    if (!og || !og.shown) return null;
+    var from = typeof l.pickOpt === 'number' ? [l.pickOpt] : og.chosen;
+    var ident = l.product ? cfgItemIdent(l.product, l) : null;
+    var i, j, o;
+    for (i = 0; ident && i < from.length; i++) {
+      o = cfgOfferByIdx(og, from[i]);
+      for (j = 0; o && j < o.items.length; j++) {
+        if (o.items[j].product && cfgItemIdent(o.items[j].product, { variantId: null }) === ident) return o.items[j];
+      }
+    }
+    for (i = 0; i < from.length; i++) {
+      o = cfgOfferByIdx(og, from[i]);
+      var it = o ? cfgOfferItemFor(o, l, null) : null;
+      if (it) return it;
+    }
+    return null;
+  }
+
+  // ----- a choice follows the plan -------------------------------------------
+  // An option is „Gewählt ✓“ only while the active plan still holds one of
+  // its items: a line picked from this group (any variant — the visitor may
+  // have changed it), or any other line of the same product and variant (Mo
+  // took the pick over into his plan, or it was there already). „Entfernen“,
+  // a newer plan of Mo's without it, or a swap make it choosable again — a
+  // fresh „Ich nehme: …“. Checked only once every plan of the thread has its
+  // products (until then the stored choices stand).
+  function cfgOfferPlanLines() {
+    var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+    return plan && plan.ready ? plan.lines : [];
+  }
+  function cfgOfferInPlan(g, o, lines) {
+    for (var i = 0; i < o.items.length; i++) {
+      var it = o.items[i];
+      if (!it.product) continue;
+      var base = String(it.product.id != null ? it.product.id : it.ref).split('~')[0];
+      var ident = cfgItemIdent(it.product, { variantId: null });
+      for (var j = 0; j < lines.length; j++) {
+        var l = lines[j];
+        if (l.removed || !l.product) continue;
+        if (l.added && l.pick === g.key && cfgBaseId(l) === base) return true;
+        if (cfgItemIdent(l.product, l) === ident) return true;
+      }
+    }
+    return false;
+  }
+  // The other way round: an option not chosen whose every item the plan
+  // holds (same product and variant), at least one as a line picked from
+  // this group — an older plan taken back („Diesen Plan übernehmen“) still
+  // holds that pick, so it reads „Gewählt ✓“ again.
+  function cfgOfferPickedHere(g, o, lines) {
+    var mine = false;
+    var idents = {};
+    for (var i = 0; i < o.items.length; i++) {
+      var it = o.items[i];
+      if (!it.product) return false;
+      var ident = cfgItemIdent(it.product, { variantId: null });
+      idents[ident] = 1;
+      var hit = false;
+      for (var j = 0; j < lines.length; j++) {
+        var l = lines[j];
+        if (l.removed || !l.product || cfgItemIdent(l.product, l) !== ident) continue;
+        hit = true;
+        if (l.added && l.pick === g.key) mine = true;
+      }
+      if (!hit) return false;
+    }
+    // Single-select: every line picked from this group is one of the
+    // option's items — a smaller set inside the bigger one picked is not.
+    if (mine && !g.multi) {
+      for (var m = 0; m < lines.length; m++) {
+        var pl = lines[m];
+        if (pl.added && !pl.removed && pl.product && pl.pick === g.key && idents[cfgItemIdent(pl.product, pl)] !== 1) return false;
+      }
+    }
+    return mine;
+  }
+  // The group's choices follow the active plan: those that left it are
+  // dropped, those its picked lines hold again come back (stored in c.picks
+  // too); true when something changed.
+  function cfgOfferReconcileGroup(g, lines, c) {
+    if (!g.live) return false;
+    var next = [];
+    g.shown.forEach(function (o) {
+      if (g.chosen.indexOf(o.idx) !== -1 && cfgOfferInPlan(g, o, lines)) next.push(o.idx);
+    });
+    // Options come back only when none of the earlier choices is left (an
+    // older plan taken back): exactly the options the plan's lines picked
+    // from this group were picked as — single-select at most one. Lines
+    // stored before the option was noted on them: every option the plan
+    // holds as picked here (cfgOfferPickedHere).
+    if (!next.length) {
+      var named = {};
+      var noted = true;
+      lines.forEach(function (l) {
+        if (!l.added || l.removed || !l.product || l.pick !== g.key) return;
+        if (typeof l.pickOpt === 'number') named[l.pickOpt] = 1; else noted = false;
+      });
+      g.shown.forEach(function (o) {
+        if ((g.multi || !next.length) && (noted ? named[o.idx] === 1 : cfgOfferPickedHere(g, o, lines))) next.push(o.idx);
+      });
+    }
+    var gone = g.chosen.filter(function (ix) { return next.indexOf(ix) === -1; });
+    var back = next.filter(function (ix) { return g.chosen.indexOf(ix) === -1; });
+    if (!gone.length && !back.length) return false;
+    g.chosen = next;
+    // A taken-over option that left the plan is no longer toggled either;
+    // options toggled but not taken over yet stay toggled.
+    g.pending = g.pending.filter(function (ix) { return gone.indexOf(ix) === -1; });
+    back.forEach(function (ix) { if (g.pending.indexOf(ix) === -1) g.pending.push(ix); });
+    c.picks = c.picks && typeof c.picks === 'object' ? c.picks : {};
+    if (next.length) c.picks[g.key] = next.slice(); else delete c.picks[g.key];
+    return true;
+  }
+  // A plan of Mo's whose products did not all answer is no measure: while
+  // the active plan is one, or stands in for a newer one that failed (the
+  // fallback — an older plan or the visitor's own), the choices stand.
+  function cfgPlansFailed() {
+    var cur = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+    for (var k in cfgPlans) {
+      if (!Object.prototype.hasOwnProperty.call(cfgPlans, k)) continue;
+      var p = cfgPlans[k];
+      if (p.failed && (!cur || p === cur || p.seq > cur.seq)) return true;
+    }
+    return false;
+  }
+  // „Entfernen“ is the visitor's own word: the option the removed line came
+  // from is choosable again right away — also while a plan of Mo's could not
+  // load all its products (then cfgOfferReconcile leaves the choices alone,
+  // a missing line may only be a load gap).
+  function cfgOfferForget(l) {
+    if (!l || !l.product || !cfgPlansFailed()) return;
+    var c = cfgActive();
+    if (!c) return;
+    var lines = cfgOfferPlanLines();
+    var ident = cfgItemIdent(l.product, l);
+    var base = cfgBaseId(l);
+    var dirty = false;
+    for (var k in cfgOfferGroups) {
+      if (!Object.prototype.hasOwnProperty.call(cfgOfferGroups, k)) continue;
+      var g = cfgOfferGroups[k];
+      if (!g.cards || !g.live || !g.chosen.length) continue;
+      var next = g.chosen.filter(function (ix) {
+        var o = cfgOfferByIdx(g, ix);
+        if (!o) return false;
+        var hit = o.items.some(function (it) {
+          if (!it.product) return false;
+          if (cfgItemIdent(it.product, { variantId: null }) === ident) return true;
+          return l.added && l.pick === g.key && String(it.product.id != null ? it.product.id : it.ref).split('~')[0] === base;
+        });
+        return !hit || cfgOfferInPlan(g, o, lines);
+      });
+      if (next.length === g.chosen.length) continue;
+      var gone = g.chosen.filter(function (ix) { return next.indexOf(ix) === -1; });
+      g.chosen = next;
+      g.pending = g.pending.filter(function (ix) { return gone.indexOf(ix) === -1; });
+      c.picks = c.picks && typeof c.picks === 'object' ? c.picks : {};
+      if (next.length) c.picks[g.key] = next.slice(); else delete c.picks[g.key];
+      cfgOfferSync(g);
+      dirty = true;
+    }
+    if (dirty) cfgSave(c);
+  }
+  function cfgOfferReconcile() {
+    if (cfgPlansPending() || cfgPlansFailed()) return;
+    var c = cfgActive();
+    if (!c) return;
+    var lines = cfgOfferPlanLines();
+    var dirty = false;
+    for (var k in cfgOfferGroups) {
+      if (!Object.prototype.hasOwnProperty.call(cfgOfferGroups, k)) continue;
+      var g = cfgOfferGroups[k];
+      if (!g.cards || !cfgOfferReconcileGroup(g, lines, c)) continue;
+      dirty = true;
+      cfgOfferSync(g);
+    }
+    if (dirty) cfgSave(c);
+  }
+
+  // The floating widget (a configurator thread continued on another shop
+  // page) has no plan host: the visitor's own plan gets a chat card — lines,
+  // total, „Alles in den Warenkorb“ — under the latest option group, from
+  // the first pick on (and again after a reload). On the configurator page
+  // the plan host shows it instead. The card follows the group instead of
+  // sitting in it (the group's role=group label is not the plan's); a group
+  // just rendered is not in the chat yet — then it waits in the group and
+  // moves out right after (late).
+  function cfgOwnPlanCard(late) {
+    var plan = cfgPlans[CFG_OWN_KEY];
+    if (!plan || !plan.ready || cfgActivePlanKey !== CFG_OWN_KEY || planHost()) return;
+    if (!plan.card && !cfgKeptCount(plan.lines)) return;
+    var last = null;
+    for (var k in cfgOfferGroups) {
+      if (!Object.prototype.hasOwnProperty.call(cfgOfferGroups, k)) continue;
+      var g = cfgOfferGroups[k];
+      if (g.el && g.live && (!last || g.seq > last.seq)) last = g;
+    }
+    if (!last) return;
+    if (!plan.card) plan.card = el('div', { class: 'ms-chat-card ms-chat-plan ms-chat-offer-plan', 'data-plan-key': CFG_OWN_KEY });
+    fillPlanCard(plan.card, plan);
+    var at = last.el.parentNode;
+    if (at) {
+      if (plan.card.previousSibling !== last.el) at.insertBefore(plan.card, last.el.nextSibling);
+      return;
+    }
+    if (plan.card.parentNode !== last.el) last.el.appendChild(plan.card);
+    if (late !== true) setTimeout(function () { cfgOwnPlanCard(true); }, 0);
+  }
+
+  // The visitor's own plan of a restored thread (reload): its stored lines,
+  // active unless a plan of Mo's is (a newer plan of Mo's always wins — and
+  // while one of Mo's is still loading, the own plan waits instead of
+  // flashing up first).
+  function cfgRestoreOwnPlan() {
+    var c = cfgActive();
+    if (!c) return;
+    var added = c.added && c.added[CFG_OWN_KEY];
+    if (c.ownPlan !== true && !(Array.isArray(added) && added.length)) return;
+    var plan = { key: CFG_OWN_KEY, seq: 0, own: true, title: '', summary: '', tips: [], lines: [], ready: false, settled: false, tries: 0, timer: null, busy: false };
+    cfgRestoreAdded(plan.lines, added);
+    cfgPlans[CFG_OWN_KEY] = plan;
+    cfgOwnPlanHydrate(plan);
+  }
+  // Its products. An id /api/products did not answer (429, network) is asked
+  // again with a short backoff, then every 30 s and whenever the browser is
+  // back online or the tab visible again (cfgStallWatch): the plan is never
+  // activated without its lines — the next pick or edit would store the
+  // emptied plan and the picks would be lost. Unknown ids (null) are dropped.
+  var CFG_OWN_RETRY = [1500, 4000, 10000];
+  function cfgOwnPlanHydrate(plan) {
+    var refs = plan.lines.map(function (l) { return l.ref; });
+    plan.busy = true;
+    hydrate(refs).then(function (res) {
+      plan.busy = false;
+      if (cfgPlans[CFG_OWN_KEY] !== plan || plan.ready) return;
+      if (cfgUnresolved(refs)) {
+        if (plan.timer) return;
+        if (plan.tries < CFG_OWN_RETRY.length) {
+          plan.timer = setTimeout(function () { plan.timer = null; cfgOwnPlanHydrate(plan); }, CFG_OWN_RETRY[plan.tries]);
+          plan.tries++;
+        } else cfgStallWatch();
+        return;
+      }
+      for (var i = 0; i < plan.lines.length; i++) plan.lines[i].product = res[i] || null;
+      plan.lines = plan.lines.filter(function (l) { return !!l.product; });
+      plan.ready = true;
+      plan.settled = true;
+      cfgOfferWaitOver();
+      if (!cfgActivePlanKey && !cfgPlansPending(true)) cfgSetActivePlan(CFG_OWN_KEY);
+      else cfgOfferReconcile();
+      // Option groups that gave up meanwhile try again now.
+      cfgStalledRetry();
+    });
+  }
+  // The plan a pick goes into: the active one, else the visitor's own (null:
+  // a new own plan).
+  function cfgPickTarget() {
+    var cur = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
+    var own = cfgPlans[CFG_OWN_KEY];
+    return cur && cur.ready ? cur : (own && own.ready ? own : null);
+  }
+  // A pick waits while the thread's plan is not there yet: the own plan
+  // still without its products, or a plan of Mo's newer than the target
+  // still loading or without any of its products (a load gap) — the pick
+  // would land in a stand-in and be lost once that plan is back.
+  function cfgPickWaits(target) {
+    if (!target && cfgPlans[CFG_OWN_KEY]) return true;
+    for (var k in cfgPlans) {
+      if (!Object.prototype.hasOwnProperty.call(cfgPlans, k) || k === CFG_OWN_KEY) continue;
+      var p = cfgPlans[k];
+      if (p !== target && p.seq > (target ? target.seq : -1) && (!p.settled || (p.failed && !p.ready))) return true;
+    }
+    return false;
+  }
+  // „Dein Plan wird gerade noch geladen“ (a pick blocked by a loading plan)
+  // is over once a pick could go through — the own plan or one of Mo's has
+  // its products, or nothing is loading any more.
+  function cfgOfferWaitOver() {
+    if (cfgPickWaits(cfgPickTarget())) return;
+    for (var k in cfgOfferGroups) {
+      if (!Object.prototype.hasOwnProperty.call(cfgOfferGroups, k) || !cfgOfferGroups[k].noteWait) continue;
+      cfgOfferNote(cfgOfferGroups[k], '', '');
+      // A toggle not taken over yet says so again.
+      cfgOfferSync(cfgOfferGroups[k]);
+    }
+  }
+  // After a longer outage of /api/products: the own plan still waiting for
+  // its products, plans of Mo's that did not get them all (cfgPlanRetry) and
+  // option groups that rendered nothing (cfgOfferStalled) are asked again
+  // every 30 s, when the browser is back online and when the tab becomes
+  // visible — not only with the next pick or a reload.
+  var cfgStall = { on: false, timer: null };
+  function cfgStallWatch() {
+    if (!cfgStall.on) {
+      cfgStall.on = true;
+      window.addEventListener('online', cfgStalledRetry);
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) cfgStalledRetry(); });
+    }
+    if (!cfgStall.timer) cfgStall.timer = setTimeout(cfgStalledRetry, 30000);
+  }
+  function cfgStalledRetry() {
+    if (cfgStall.timer) { clearTimeout(cfgStall.timer); cfgStall.timer = null; }
+    var own = cfgPlans[CFG_OWN_KEY];
+    if (own && !own.ready) cfgOwnPlanRetry(own);
+    for (var p in cfgPlans) {
+      if (Object.prototype.hasOwnProperty.call(cfgPlans, p) && p !== CFG_OWN_KEY && cfgPlans[p].failed) cfgPlanRetry(cfgPlans[p]);
+    }
+    for (var k in cfgOfferGroups) {
+      if (!Object.prototype.hasOwnProperty.call(cfgOfferGroups, k)) continue;
+      var g = cfgOfferGroups[k];
+      if (g.slot && g.slot.parentNode) cfgOfferRetry(g);
+    }
+  }
+  // A pick while the own plan still waits for its products: ask right now.
+  function cfgOwnPlanRetry(plan) {
+    if (plan.ready || plan.busy) return;
+    if (plan.timer) { clearTimeout(plan.timer); plan.timer = null; }
+    cfgOwnPlanHydrate(plan);
   }
 
   // The weights hint above the plan lines: Mo names the kind of weights, the
@@ -3651,9 +4821,15 @@
     function before(n) { wrap.insertBefore(n, area); }
 
     var head = el('div', { class: 'ms-chat-planhost-head' });
-    head.appendChild(el('div', { class: 'ms-chat-plan-eyebrow', text: L('Dein Home-Gym-Plan von Mo', 'Your home-gym plan by Mo') }));
-    if (plan.title) head.appendChild(el('h3', { class: 'ms-chat-planhost-title', text: plan.title }));
-    if (plan.summary) head.appendChild(el('p', { class: 'ms-chat-planhost-summary', text: plan.summary }));
+    if (plan.own) {
+      // The visitor's own plan from the step-by-step choice: no Mo title, no
+      // summary.
+      head.appendChild(el('h3', { class: 'ms-chat-planhost-title', text: L('Dein Home-Gym-Plan', 'Your home-gym plan') }));
+    } else {
+      head.appendChild(el('div', { class: 'ms-chat-plan-eyebrow', text: L('Dein Home-Gym-Plan von Mo', 'Your home-gym plan by Mo') }));
+      if (plan.title) head.appendChild(el('h3', { class: 'ms-chat-planhost-title', text: plan.title }));
+      if (plan.summary) head.appendChild(el('p', { class: 'ms-chat-planhost-summary', text: plan.summary }));
+    }
     before(head);
 
     var hint = cfgWeightsHint(plan);
@@ -3661,6 +4837,8 @@
 
     var list = el('ul', { class: 'ms-chat-planhost-lines' });
     plan.lines.forEach(function (l) { list.appendChild(cfgHostLine(plan, l)); });
+    // The visitor's own plan can be emptied (its lines are all his own).
+    if (!plan.lines.length) list.appendChild(el('li', { class: 'ms-chat-planhost-empty', text: L('Noch nichts im Plan – wähle bei Mo aus oder füge ein Produkt hinzu.', 'Nothing in the plan yet – choose with Mo or add a product.') }));
     before(list);
 
     cfgPickRender();
@@ -3729,7 +4907,7 @@
     var main = el('div', { class: 'ms-chat-planhost-main' });
     var tags = el('div', { class: 'ms-chat-planhost-tags' });
     tags.appendChild(el('span', { class: 'ms-chat-planhost-role ms-chat-planhost-role--' + l.role, text: CFG_ROLES[l.role] }));
-    if (l.added) tags.appendChild(el('span', { class: 'ms-chat-planhost-tag', text: L('Von dir ergänzt', 'Added by you') }));
+    if (l.added) tags.appendChild(el('span', { class: 'ms-chat-planhost-tag', text: l.pick ? L('Von dir gewählt', 'Your choice') : L('Von dir ergänzt', 'Added by you') }));
     main.appendChild(tags);
     var name = el('a', { class: 'ms-chat-planhost-name', href: view.url || '#', target: '_blank', rel: 'noopener noreferrer', text: view.name });
     name.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
@@ -3795,12 +4973,12 @@
         var after = plan.lines[idx + 1] || plan.lines[idx - 1] || null;
         plan.lines.splice(idx, 1);
         cfgFocusNext = after ? { uid: after.uid, key: 'toggle' } : { uid: '#add' };
-        cfgPlanEdited(plan, 'remove');
+        cfgPlanEdited(plan, 'remove', l);
         return;
       }
       if (l.removed && cfgPlanFull(plan)) { cfgLimitNote(plan, l); return; }
       l.removed = !l.removed;
-      cfgPlanEdited(plan, l.removed ? 'remove' : 'restore');
+      cfgPlanEdited(plan, l.removed ? 'remove' : 'restore', l);
     });
     side.appendChild(toggle);
     li.appendChild(side);
@@ -3850,11 +5028,14 @@
     cfgPlanEdited(plan, 'add_step');
   }
 
-  function cfgPlanEdited(plan, action) {
+  function cfgPlanEdited(plan, action, line) {
     cfgSaveEdits(plan);
     track('configurator_plan_edited', { action: action });
     cfgRenderHost();
     if (plan.card) fillPlanCard(plan.card, plan);
+    // „Entfernen“ of a chosen option's line makes it choosable again.
+    if (action === 'remove') cfgOfferForget(line);
+    cfgOfferReconcile();
     var t = cfgPlanTotals(plan);
     cfgEmit('plan', { items: t.count, units: t.units, total: Math.round(t.total) });
   }
@@ -3964,7 +5145,9 @@
     return box;
   }
 
-  // The persistent „+ Produkt hinzufügen“ area of the plan host.
+  // The persistent „+ Produkt hinzufügen“ area of the plan host. Its search
+  // is always there: an empty query shows the curated assortment, 2+
+  // characters search the whole shop (cfgFind).
   function cfgPickArea() {
     if (cfgPick.area) return cfgPick.area;
     var area = el('div', { class: 'ms-chat-planhost-addarea' });
@@ -3979,7 +5162,8 @@
     var head = el('div', { class: 'ms-chat-planpick-head' });
     var headText = el('div', { class: 'ms-chat-planpick-headtext' });
     headText.appendChild(el('div', { class: 'ms-chat-planpick-kicker', text: L('Produkt hinzufügen', 'Add a product') }));
-    headText.appendChild(el('div', { class: 'ms-chat-planpick-title', text: L('Aus dem Home-Gym-Sortiment', 'From the home-gym range') }));
+    var titleEl = el('div', { class: 'ms-chat-planpick-title', text: L('Aus dem Home-Gym-Sortiment', 'From the home-gym range') });
+    headText.appendChild(titleEl);
     head.appendChild(headText);
     var done = el('button', { class: 'ms-chat-planpick-done', type: 'button', text: L('Fertig', 'Done') });
     done.addEventListener('click', cfgPickClose);
@@ -3987,11 +5171,12 @@
     pick.appendChild(head);
 
     var tools = el('div', { class: 'ms-chat-planpick-tools' });
-    var search = el('input', { class: 'ms-chat-planpick-search', type: 'search', placeholder: L('Produkt suchen …', 'Search products …'), 'aria-label': L('Sortiment durchsuchen', 'Search the range'), autocomplete: 'off', enterkeyhint: 'search', maxlength: '80' });
-    search.addEventListener('input', function () { cfgPick.query = search.value; cfgPickFilter(); });
+    var search = el('input', { class: 'ms-chat-planpick-search', type: 'search', placeholder: L('Im ganzen Shop suchen …', 'Search the whole shop …'), 'aria-label': L('Produkte im ganzen Shop suchen', 'Search products in the whole shop'), autocomplete: 'off', enterkeyhint: 'search', maxlength: '80' });
+    search.addEventListener('input', function () { cfgPick.query = search.value; cfgPickQueryChanged(); });
     search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
     tools.appendChild(search);
     var roles = el('div', { class: 'ms-chat-planpick-roles', role: 'group', 'aria-label': L('Nach Kategorie filtern', 'Filter by category') });
+    roles.hidden = true;
     tools.appendChild(roles);
     pick.appendChild(tools);
 
@@ -4000,7 +5185,11 @@
     var note = el('div', { class: 'ms-chat-planpick-note', role: 'status', 'aria-live': 'polite' });
     pick.appendChild(note);
     var list = el('ul', { class: 'ms-chat-planpick-list', 'aria-label': L('Produkte', 'Products') });
+    list.hidden = true;
     pick.appendChild(list);
+    var slist = el('ul', { class: 'ms-chat-planpick-list ms-chat-planpick-list--search', 'aria-label': L('Suchergebnisse', 'Search results') });
+    slist.hidden = true;
+    pick.appendChild(slist);
     pick.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { e.stopPropagation(); cfgPickClose(); }
     });
@@ -4009,12 +5198,14 @@
     cfgPick.area = area;
     cfgPick.openBtn = openBtn;
     cfgPick.panel = pick;
+    cfgPick.titleEl = titleEl;
     cfgPick.tools = tools;
     cfgPick.search = search;
     cfgPick.rolesEl = roles;
     cfgPick.stateEl = stateEl;
     cfgPick.noteEl = note;
     cfgPick.listEl = list;
+    cfgPick.slistEl = slist;
     return area;
   }
 
@@ -4027,23 +5218,22 @@
     cfgLoadAssortment();
     cfgPickFocus();
   }
-  // Focus in the open picker: the search once the range is there, the retry
-  // button after a failed load, otherwise „Fertig“ (loading, empty).
+  // Focus in the open picker: the search — it works even while the range
+  // loads, failed or is empty.
   function cfgPickFocus() {
-    try {
-      var retry = cfgPick.stateEl.querySelector('.ms-chat-planpick-retry');
-      if (!cfgPick.tools.hidden) cfgPick.search.focus();
-      else if (retry) retry.focus();
-      else cfgPick.panel.querySelector('.ms-chat-planpick-done').focus();
-    } catch (e) {}
+    try { cfgPick.search.focus(); } catch (e) {}
   }
-  // The range arrived (or failed again): a visitor waiting in the picker
-  // moves on to the search / the new retry button. Focus elsewhere stays.
+  // A load settled (range or search). A visitor who had pressed „Erneut
+  // versuchen“ (focus parked on the search meanwhile) gets the new retry
+  // button when it failed again. Focus elsewhere stays.
   function cfgPickSettled() {
-    if (!cfgPick.area || !cfgPick.open) return;
+    if (!cfgPick.area || !cfgPick.open || !cfgPick.retryFocus) return;
+    if (cfgAsm.state === 'loading' || cfgFind.state === 'loading') return;
+    cfgPick.retryFocus = false;
     try {
-      var ae = document.activeElement;
-      if (ae && ae !== document.body && cfgPick.panel.contains(ae)) cfgPickFocus();
+      if (document.activeElement !== cfgPick.search) return;
+      var retry = cfgPick.stateEl.querySelector('.ms-chat-planpick-retry');
+      if (retry) retry.focus();
     } catch (e) {}
   }
   function cfgPickClose() {
@@ -4057,50 +5247,161 @@
     cfgPick.noteEl.textContent = text || '';
   }
 
+  // ----- whole-shop search (GET /api/configurator/search) ----------------------
+  // 2–80 characters, debounced ~250 ms; every query change bumps cfgFind.seq,
+  // so only the latest request's answer is ever shown (an older one is
+  // aborted where AbortController exists, ignored otherwise).
+  var cfgFind = { q: '', state: 'idle', results: [], rows: [], seq: 0, timer: null, ctrl: null };
+
+  function cfgPickTerm() {
+    return String(cfgPick.query || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  }
+  function cfgFindAbort() {
+    if (!cfgFind.ctrl) return;
+    try { cfgFind.ctrl.abort(); } catch (e) {}
+    cfgFind.ctrl = null;
+  }
+  function cfgPickQueryChanged() {
+    var q = cfgPickTerm();
+    if (q.length < 2) q = '';
+    if (q === cfgFind.q && cfgFind.state !== 'error') { cfgPickRender(); return; }
+    if (cfgFind.timer) { clearTimeout(cfgFind.timer); cfgFind.timer = null; }
+    cfgFindAbort();
+    var seq = ++cfgFind.seq;
+    cfgFind.q = q;
+    if (!q) { cfgFind.state = 'idle'; cfgPickRender(); return; }
+    cfgFind.state = 'loading';
+    cfgPickRender();
+    cfgFind.timer = setTimeout(function () { cfgFind.timer = null; cfgFindRun(q, seq); }, 250);
+  }
+  function cfgFindRetry() {
+    if (!cfgFind.q) return;
+    cfgFindAbort();
+    var seq = ++cfgFind.seq;
+    cfgFind.state = 'loading';
+    cfgPickRender();
+    cfgFindRun(cfgFind.q, seq);
+  }
+  function cfgFindRun(q, seq) {
+    if (seq !== cfgFind.seq) return;
+    var ctrl = null;
+    try { ctrl = typeof AbortController === 'function' ? new AbortController() : null; } catch (e) { ctrl = null; }
+    cfgFind.ctrl = ctrl;
+    var init = { method: 'GET', headers: { 'x-ms-session': sid } };
+    if (ctrl) init.signal = ctrl.signal;
+    fetch(API_BASE + '/api/configurator/search?q=' + encodeURIComponent(q) + '&limit=12', init)
+      .then(function (res) {
+        if (!res.ok) throw new Error('search ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (seq !== cfgFind.seq) return;
+        if (!data || data.ok !== true || !Array.isArray(data.products)) throw new Error('search: invalid payload');
+        var out = [];
+        for (var i = 0; i < data.products.length && out.length < 12; i++) {
+          var card = cfgCleanCard(data.products[i]);
+          if (card) out.push(card);
+        }
+        cfgFind.ctrl = null;
+        cfgFind.results = out;
+        cfgFind.state = 'ok';
+        cfgFindBuild();
+        cfgPickRender();
+        cfgPickSettled();
+      })
+      .catch(function () {
+        if (seq !== cfgFind.seq) return; // superseded (or aborted) — the newer query decides
+        cfgFind.ctrl = null;
+        cfgFind.state = 'error';
+        cfgPickRender();
+        cfgPickSettled();
+      });
+  }
+  function cfgFindBuild() {
+    if (!cfgPick.slistEl) return;
+    cfgFind.rows.forEach(function (r) { if (r.timer) clearTimeout(r.timer); });
+    cfgPick.slistEl.replaceChildren();
+    cfgFind.rows = cfgFind.results.map(function (card) {
+      var row = cfgPickRow(card);
+      cfgPick.slistEl.appendChild(row.li);
+      return row;
+    });
+  }
+
   function cfgPickRender() {
     if (!cfgPick.area) return;
     cfgPick.openBtn.hidden = cfgPick.open;
     cfgPick.openBtn.setAttribute('aria-expanded', cfgPick.open ? 'true' : 'false');
     cfgPick.panel.hidden = !cfgPick.open;
     if (!cfgPick.open) return;
-    var st = cfgAsm.state;
-    var has = st === 'ok' && cfgAsm.products.length > 0;
-    cfgPick.tools.hidden = !has;
-    cfgPick.listEl.hidden = !has;
-    var stateEl = cfgPick.stateEl;
-    // The focused „Erneut versuchen“ is about to be rebuilt: keep the focus
-    // in the picker instead of losing it to <body>.
-    var refocus = false;
-    try { refocus = stateEl.contains(document.activeElement); } catch (e) {}
-    stateEl.replaceChildren();
-    stateEl.className = 'ms-chat-planpick-state';
-    if (st === 'idle' || st === 'loading') {
-      stateEl.classList.add('ms-chat-planpick-state--loading');
-      stateEl.appendChild(el('span', { class: 'ms-chat-planpick-spinner', 'aria-hidden': 'true' }));
-      stateEl.appendChild(el('span', { text: L('Sortiment wird geladen …', 'Loading the range …') }));
-    } else if (st === 'error') {
-      stateEl.classList.add('ms-chat-planpick-state--error');
-      stateEl.appendChild(el('span', { text: L('Das Sortiment konnte gerade nicht geladen werden.', 'The range could not be loaded right now.') }));
-      var retry = el('button', { class: 'ms-chat-planpick-retry', type: 'button', text: L('Erneut versuchen', 'Try again') });
-      retry.addEventListener('click', function () { cfgLoadAssortment(); });
-      stateEl.appendChild(retry);
-    } else if (!has) {
-      stateEl.appendChild(el('span', { text: L('Für den Konfigurator ist noch kein Sortiment hinterlegt.', 'No range has been set up for the configurator yet.') }));
-    }
-    if (has && !cfgPick.built) cfgPickBuild();
-    if (has) { cfgPickSync(); cfgPickFilter(); }
-    if (refocus) cfgPickFocus();
+    // A search covers the whole shop, not only the curated range — and so
+    // does the picker whose range is empty or could not load (only the
+    // search is left there).
+    var wholeShop = !!cfgFind.q || cfgAsm.state === 'error' || (cfgAsm.state === 'ok' && !cfgAsm.products.length);
+    if (cfgPick.titleEl) cfgPick.titleEl.textContent = wholeShop ? L('Aus dem ganzen Shop', 'From the whole shop') : L('Aus dem Home-Gym-Sortiment', 'From the home-gym range');
+    if (cfgAsm.state === 'ok' && cfgAsm.products.length && !cfgPick.built) cfgPickBuild();
+    cfgPickChips();
+    cfgPickSync();
+    cfgPickFilter();
   }
 
-  // Role chips (Alle + the roles present) and one row per card — built once,
-  // filtering only shows / hides rows.
+  // One curated row per card — built once, filtering only shows / hides rows.
   function cfgPickBuild() {
     cfgPick.built = true;
+    cfgPick.listEl.replaceChildren();
+    cfgPick.rows = cfgAsm.products.map(function (card) {
+      var row = cfgPickRow(card);
+      cfgPick.listEl.appendChild(row.li);
+      return row;
+    });
+  }
+
+  // A picker row (curated assortment or search result).
+  function cfgPickRow(card) {
+    var li = el('li', { class: 'ms-chat-planpick-row' + (card.inStock ? '' : ' ms-chat-planpick-row--na') });
+    var thumb = el('span', { class: 'ms-chat-planpick-thumb', 'aria-hidden': 'true' });
+    if (card.images[0]) thumb.appendChild(el('img', { src: card.images[0], alt: '', loading: 'lazy' }));
+    li.appendChild(thumb);
+    var meta = el('div', { class: 'ms-chat-planpick-meta' });
+    meta.appendChild(el('span', { class: 'ms-chat-planpick-role', text: CFG_ROLES[card.role] }));
+    meta.appendChild(el('span', { class: 'ms-chat-planpick-name', text: card.name }));
+    meta.appendChild(cfgCardPriceEl(card));
+    li.appendChild(meta);
+    var act = el('div', { class: 'ms-chat-planpick-act' });
+    var inPlan = el('span', { class: 'ms-chat-planpick-inplan', text: L('Im Plan', 'In plan') });
+    inPlan.hidden = true;
+    act.appendChild(inPlan);
+    var row = { card: card, li: li, inPlan: inPlan, btn: null, busy: false, timer: null };
+    if (card.inStock) {
+      var btn = el('button', { class: 'ms-chat-planpick-add', type: 'button', 'aria-label': L('Hinzufügen: ', 'Add: ') + card.name });
+      btn.appendChild(el('span', { class: 'ms-chat-planpick-add-label', text: L('Hinzufügen', 'Add') }));
+      btn.addEventListener('click', function () { cfgPickAdd(row); });
+      act.appendChild(btn);
+      row.btn = btn;
+    } else {
+      act.appendChild(el('span', { class: 'ms-chat-planpick-soldout', text: L('Ausverkauft', 'Sold out') }));
+    }
+    li.appendChild(act);
+    return row;
+  }
+
+  // Role chips (Alle + the roles of the list that is shown: the range, or
+  // while search results are shown only theirs) — rebuilt only when that set
+  // changes; a chosen role the shown list does not have goes back to „Alle“,
+  // so a chip picked in the range never hides every search result. While a
+  // search loads, chips and role stay — the rows still shown belong to the
+  // previous query, the new results decide.
+  function cfgPickChips() {
+    if (cfgFind.state === 'loading' && cfgPick.chipSig != null) return;
     var present = {};
-    cfgAsm.products.forEach(function (c) { present[c.role] = 1; });
+    if (cfgPickShowFound()) cfgFind.results.forEach(function (c) { present[c.role] = 1; });
+    else if (cfgAsm.state === 'ok') cfgAsm.products.forEach(function (c) { present[c.role] = 1; });
     var chips = [{ id: 'all', label: L('Alle', 'All') }];
     CFG_ROLE_ORDER.forEach(function (r) { if (present[r]) chips.push({ id: r, label: CFG_ROLES_PLURAL[r] }); });
     if (!present[cfgPick.role]) cfgPick.role = 'all';
+    var sig = chips.map(function (ch) { return ch.id; }).join(',');
+    if (sig === cfgPick.chipSig) return;
+    cfgPick.chipSig = sig;
     cfgPick.rolesEl.replaceChildren();
     cfgPick.chips = [];
     if (chips.length > 2) {
@@ -4112,62 +5413,107 @@
       });
     }
     cfgPick.rolesEl.hidden = chips.length <= 2;
-    cfgPick.listEl.replaceChildren();
-    cfgPick.rows = cfgAsm.products.map(function (card) {
-      var li = el('li', { class: 'ms-chat-planpick-row' + (card.inStock ? '' : ' ms-chat-planpick-row--na') });
-      var thumb = el('span', { class: 'ms-chat-planpick-thumb', 'aria-hidden': 'true' });
-      if (card.images[0]) thumb.appendChild(el('img', { src: card.images[0], alt: '', loading: 'lazy' }));
-      li.appendChild(thumb);
-      var meta = el('div', { class: 'ms-chat-planpick-meta' });
-      meta.appendChild(el('span', { class: 'ms-chat-planpick-role', text: CFG_ROLES[card.role] }));
-      meta.appendChild(el('span', { class: 'ms-chat-planpick-name', text: card.name }));
-      meta.appendChild(cfgCardPriceEl(card));
-      li.appendChild(meta);
-      var act = el('div', { class: 'ms-chat-planpick-act' });
-      var inPlan = el('span', { class: 'ms-chat-planpick-inplan', text: L('Im Plan', 'In plan') });
-      inPlan.hidden = true;
-      act.appendChild(inPlan);
-      var row = { card: card, li: li, inPlan: inPlan, btn: null, busy: false, timer: null, key: (card.name + ' ' + card.category).toLowerCase() };
-      if (card.inStock) {
-        var btn = el('button', { class: 'ms-chat-planpick-add', type: 'button', 'aria-label': L('Hinzufügen: ', 'Add: ') + card.name });
-        btn.appendChild(el('span', { class: 'ms-chat-planpick-add-label', text: L('Hinzufügen', 'Add') }));
-        btn.addEventListener('click', function () { cfgPickAdd(row); });
-        act.appendChild(btn);
-        row.btn = btn;
-      } else {
-        act.appendChild(el('span', { class: 'ms-chat-planpick-soldout', text: L('Ausverkauft', 'Sold out') }));
-      }
-      li.appendChild(act);
-      cfgPick.listEl.appendChild(li);
-      return row;
-    });
   }
 
+  // Search results are shown (also the previous ones while the next query
+  // loads), not the curated range.
+  function cfgPickShowFound() {
+    return cfgPickTerm().length >= 2 && (cfgFind.state === 'ok' || (cfgFind.state === 'loading' && cfgFind.rows.length > 0));
+  }
+  // Shows the curated list (filtered by role and a 1-character query; while
+  // a search is pending also by its words — an instant preview) or the search
+  // results (filtered by role), and the state line.
   function cfgPickFilter() {
-    if (!cfgPick.built) return;
-    var words = String(cfgPick.query || '').toLowerCase().split(/\s+/).filter(Boolean);
+    if (!cfgPick.area) return;
+    var term = cfgPickTerm();
+    var searching = term.length >= 2;
+    var showFound = cfgPickShowFound();
+    var rows = showFound ? cfgFind.rows : cfgPick.rows;
+    var words = showFound ? [] : term.toLowerCase().split(/\s+/).filter(Boolean);
     var shown = 0;
-    cfgPick.rows.forEach(function (r) {
+    rows.forEach(function (r) {
       var ok = cfgPick.role === 'all' || r.card.role === cfgPick.role;
       for (var i = 0; ok && i < words.length; i++) { if (r.card.name.toLowerCase().indexOf(words[i]) === -1) ok = false; }
       r.li.hidden = !ok;
       if (ok) shown++;
     });
+    cfgPick.listEl.hidden = showFound || !shown;
+    cfgPick.slistEl.hidden = !showFound || !shown;
     (cfgPick.chips || []).forEach(function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-role') === cfgPick.role ? 'true' : 'false');
     });
+
     var stateEl = cfgPick.stateEl;
+    // A focused „Erneut versuchen“ is about to be rebuilt: keep the focus in
+    // the picker instead of losing it to <body>.
+    var refocus = false;
+    try { refocus = stateEl.contains(document.activeElement); } catch (e) {}
+    stateEl.replaceChildren();
     stateEl.className = 'ms-chat-planpick-state';
-    stateEl.textContent = shown ? '' : L('Keine passenden Produkte gefunden.', 'No matching products found.');
+    var st = cfgAsm.state;
+    var retry = null;
+    if (searching && cfgFind.state === 'loading') {
+      cfgPickStateText(stateEl, 'loading', L('Suche …', 'Searching …'));
+    } else if (searching && cfgFind.state === 'error') {
+      cfgPickStateText(stateEl, 'error', L('Die Suche hat gerade nicht geklappt.', 'The search did not work right now.'));
+      retry = cfgFindRetry;
+    } else if (searching) {
+      if (!shown) cfgPickStateText(stateEl, '', L('Nichts gefunden – versuch einen anderen Begriff oder frag Mo.', 'Nothing found – try another word or ask Mo.'));
+    } else if (st === 'idle' || st === 'loading') {
+      cfgPickStateText(stateEl, 'loading', L('Sortiment wird geladen …', 'Loading the range …'));
+    } else if (st === 'error') {
+      cfgPickStateText(stateEl, 'error', L('Das Sortiment konnte gerade nicht geladen werden.', 'The range could not be loaded right now.'));
+      retry = function () { cfgLoadAssortment(); };
+    } else if (!cfgAsm.products.length) {
+      cfgPickStateText(stateEl, '', L('Suche nach Produkten aus dem ganzen Shop.', 'Search for products from the whole shop.'));
+    } else if (!shown) {
+      cfgPickStateText(stateEl, '', L('Keine passenden Produkte gefunden.', 'No matching products found.'));
+    }
+    if (retry) {
+      var rb = el('button', { class: 'ms-chat-planpick-retry', type: 'button', text: L('Erneut versuchen', 'Try again') });
+      rb.addEventListener('click', retry);
+      stateEl.appendChild(rb);
+    }
+    if (refocus) {
+      try {
+        var nb = stateEl.querySelector('.ms-chat-planpick-retry');
+        if (nb) nb.focus();
+        else { cfgPick.retryFocus = true; cfgPick.search.focus(); }
+      } catch (e) {}
+    }
+  }
+  function cfgPickStateText(stateEl, kind, text) {
+    if (kind) stateEl.classList.add('ms-chat-planpick-state--' + kind);
+    if (kind === 'loading') stateEl.appendChild(el('span', { class: 'ms-chat-planpick-spinner', 'aria-hidden': 'true' }));
+    stateEl.appendChild(el('span', { text: text }));
   }
 
   // "Im Plan" on the rows whose product the active plan holds.
   function cfgPickSync() {
-    if (!cfgPick.built) return;
     var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
     var inPlan = {};
     if (plan) plan.lines.forEach(function (l) { if (!l.removed && l.product) inPlan[cfgBaseId(l)] = 1; });
-    cfgPick.rows.forEach(function (r) { r.inPlan.hidden = !inPlan[r.card.id] || !!r.timer; });
+    var mark = function (r) { r.inPlan.hidden = !inPlan[r.card.id] || !!r.timer; };
+    cfgPick.rows.forEach(mark);
+    cfgFind.rows.forEach(mark);
+  }
+
+  // A weights product in single weight steps — every variant one weight
+  // („5 kg“, „2,5 kg“, „10 lb“, also after an option like „ATX / 5 kg“; a
+  // bare „8“ when the name gives the unit) and no set or pair in its name
+  // (Hantelsatz, Komplettsatz, Hantelset, … Paar): a step is bought twice.
+  var CFG_SET_RE = /s[aä]tz|\bsets?\b|hantelset|komplett|paar/i;
+  var CFG_ONE_WEIGHT_RE = /^\d+(?:[.,]\d+)?\s*(kg|lbs?)?(?:\s*[-–]\s*[^\d]+)?$/i;
+  function cfgSoldInPairs(p) {
+    var name = String(p && p.name || '');
+    var vs = cfgVariants(p);
+    if (vs.length < 2 || CFG_SET_RE.test(name)) return false;
+    var unit = /\d\s*(kg|lbs?)\b/i.test(name);
+    for (var i = 0; i < vs.length; i++) {
+      var m = String(vs[i].title || '').split('/').pop().replace(/^\s+|\s+$/g, '').match(CFG_ONE_WEIGHT_RE);
+      if (!m || (!m[1] && !unit)) return false;
+    }
+    return true;
   }
 
   function cfgPickAdd(row) {
@@ -4187,6 +5533,9 @@
       if (cfgPlanFull(cur)) { cfgPickNote('warn', cfgLimitText()); return; }
       var p = prod || cfgCardProduct(card);
       var weights = card.role === 'weights';
+      // Plates and dumbbells in steps come in pairs; a single product filed
+      // under weights (a set, an adjustable kettlebell, a machine) once.
+      var pairs = weights && cfgSoldInPairs(p);
       var v = weights ? (cfgNextVariant(cur, p) || cfgDefaultVariant(p)) : cfgDefaultVariant(p);
       var vid = v && v.id != null ? String(v.id) : null;
       // The same product and variant the visitor already added: one more of
@@ -4198,12 +5547,12 @@
         if (String(lv && lv.id != null ? lv.id : '') === String(vid || '')) same = l;
       });
       if (same) {
-        same.qty = Math.min(20, same.qty + (weights ? 2 : 1));
+        same.qty = Math.min(20, same.qty + (pairs ? 2 : 1));
       } else {
         cfgInsertLine(cur.lines, {
           uid: cfgNewUid(cur.lines),
           ref: card.id,
-          qty: weights ? 2 : 1,
+          qty: pairs ? 2 : 1,
           role: card.role,
           note: '',
           removed: false,
@@ -4358,7 +5707,9 @@
     backdrop = el('div', { class: 'ms-chat-backdrop', 'aria-hidden': 'true' });
     backdrop.addEventListener('click', closePanel);
 
-    panel = el('div', { class: 'ms-chat-panel', role: 'dialog', 'aria-label': L('AI Fitnessberater', 'AI fitness advisor'), 'aria-modal': 'false' });
+    // Docked on the configurator page Mo is the home-gym advisor (the
+    // client's wording); everywhere else the fitness advisor as before.
+    panel = el('div', { class: 'ms-chat-panel', role: 'dialog', 'aria-label': DOCK ? L('KI-Home-Gym-Berater', 'AI home-gym advisor') : L('AI Fitnessberater', 'AI fitness advisor'), 'aria-modal': 'false' });
 
     var header = el('div', { class: 'ms-chat-header' });
     // The "Mo" wordmark is intentionally omitted from the header so the action
@@ -4371,7 +5722,7 @@
       dockTitle.appendChild(logoEl('ms-chat-docktitle-logo'));
       var dockText = el('div', { class: 'ms-chat-docktitle-text' });
       dockText.appendChild(el('div', { class: 'ms-chat-docktitle-name' }, ['Mo', el('span', { class: 'ms-chat-docktitle-long', text: L(' – Dein Home-Gym-Berater', ' – your home-gym advisor') })]));
-      dockText.appendChild(el('div', { class: 'ms-chat-docktitle-status', text: L('Online · KI-Fitnessberater', 'Online · AI fitness advisor') }));
+      dockText.appendChild(el('div', { class: 'ms-chat-docktitle-status', text: L('Online · KI-Home-Gym-Berater', 'Online · AI home-gym advisor') }));
       dockTitle.appendChild(dockText);
       header.appendChild(dockTitle);
     }
@@ -4486,9 +5837,11 @@
     // entry point. Deliberately quiet (a small text link) so it never competes
     // with the composer; opens the short feedback card in the message area.
     var footer = el('div', { class: 'ms-chat-footer' });
-    footer.appendChild(el('span', { class: 'ms-chat-disclaimer', text: L('KI-Fitnessberater – Antworten können Fehler enthalten', 'AI fitness advisor – answers may contain errors') }));
+    footer.appendChild(el('span', { class: 'ms-chat-disclaimer', text: DOCK ? L('KI-Home-Gym-Berater – Antworten können Fehler enthalten', 'AI home-gym advisor – answers may contain errors') : L('KI-Fitnessberater – Antworten können Fehler enthalten', 'AI fitness advisor – answers may contain errors') }));
     footer.appendChild(el('span', { class: 'ms-chat-footer-sep', 'aria-hidden': 'true', text: '·' }));
-    var feedbackLink = el('button', { class: 'ms-chat-feedback-link', type: 'button', text: FEEDBACK_COPY.entry, title: FEEDBACK_COPY.entryAria, 'aria-label': FEEDBACK_COPY.entryAria });
+    // The dock names the home-gym advisor like its header and disclaimer.
+    var feedbackAria = DOCK ? L('Feedback zum Home-Gym-Berater geben', 'Give feedback on the home-gym advisor') : FEEDBACK_COPY.entryAria;
+    var feedbackLink = el('button', { class: 'ms-chat-feedback-link', type: 'button', text: FEEDBACK_COPY.entry, title: feedbackAria, 'aria-label': feedbackAria });
     feedbackLink.addEventListener('click', function () { openFeedbackCard(); });
     footer.appendChild(feedbackLink);
     inputbar.appendChild(footer);
@@ -4730,6 +6083,16 @@
 
   function scrollToBottom() {
     requestAnimationFrame(function () { messagesEl.scrollTop = messagesEl.scrollHeight; });
+  }
+  // The element's top at the top of the message list (or the bottom, when
+  // everything below it fits).
+  function scrollToStart(node) {
+    requestAnimationFrame(function () {
+      try {
+        var top = messagesEl.scrollTop + node.getBoundingClientRect().top - messagesEl.getBoundingClientRect().top - 12;
+        messagesEl.scrollTop = Math.min(top, messagesEl.scrollHeight - messagesEl.clientHeight);
+      } catch (e) { messagesEl.scrollTop = messagesEl.scrollHeight; }
+    });
   }
 
   function updateInputState() {
@@ -5464,7 +6827,12 @@
     }
     buildToolCard(name, input, key).then(function (cardEl) {
       holder.node.replaceChildren();
-      if (cardEl) { holder.node.appendChild(cardEl); scrollToBottom(); }
+      if (!cardEl) return;
+      holder.node.appendChild(cardEl);
+      // A live option group is often taller than the chat: start at Mo's
+      // reply (text, step title, first option) instead of its last card.
+      if (ctx.live && name === 'offer_plan_options') scrollToStart(ctx.row);
+      else scrollToBottom();
     }).catch(function () { /* render nothing on failure */ });
   }
 
@@ -5490,6 +6858,7 @@
       if (m.role === 'user') renderUserMessage(m);
       else if (m.role === 'assistant') renderRestoredAssistant(m);
     }
+    cfgRestoreOwnPlan();
     scrollToBottom();
   }
 
@@ -5694,7 +7063,7 @@
     // drop the generating placeholder FIRST so its avatar never coexists with
     // the new row's own avatar (a tool-first reply removed typing only after an
     // async card build, briefly showing two avatars).
-    function ensureCtx() { if (!ctx) { removeTyping(); ctx = newAssistantCtx(); } return ctx; }
+    function ensureCtx() { if (!ctx) { removeTyping(); ctx = newAssistantCtx(); ctx.live = true; } return ctx; }
 
     function rollback() {
       // Remove optimistic user message + assistant scaffolding; restore input.
