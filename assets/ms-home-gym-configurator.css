@@ -6,11 +6,12 @@
  *
  * Look: the „Performance“ e-mail design of the Mo backend
  * (mo repo, src/lib/email-designs/performance.ts) — light-blue accent
- * (kickers, badges, selected states), red main CTA, black outline secondary
- * buttons, white cards with a light border — in the store's homepage
- * structure: sections alternate #ffffff / #f9f9f9, headings are a blue
- * kicker over a regular-weight headline („Darf in keinem Gym fehlen. /
- * Bestseller.“), no divider lines. Font: the theme's.
+ * (kickers, selected states), white cards with a light border — in the
+ * store's homepage structure: sections alternate #ffffff / #f9f9f9, headings
+ * are a blue kicker over a regular-weight headline („Darf in keinem Gym
+ * fehlen. / Bestseller.“), no divider lines, and the homepage's pill buttons
+ * („MOTION SPORTS – Learn more“). No red anywhere except error text.
+ * Font: the theme's.
  */
 
 .ms-hgk {
@@ -18,7 +19,6 @@
   --hgk-blue: #008ccb;
   --hgk-blue-tint: #eaf6fc;
   --hgk-blue-tint-2: #f5fafd;
-  --hgk-red: #e30613;
   --hgk-ink: #111111;
   --hgk-text: #333333;
   --hgk-muted: #555555;
@@ -29,8 +29,15 @@
   /* Page only. */
   --hgk-blue-rgb: 0 140 203;
   --hgk-rule: #cfcfcf;
-  --hgk-red-hover: #c40511;
+  --hgk-pill: 64px;
   --hgk-sticky-top: 112px;
+  /* Step badges 01 / 02 / 03. */
+  --hgk-step-1: #008ccb;
+  --hgk-step-2: #1f2933;
+  --hgk-step-3: #00577f;
+  /* Image hero: the photo's dark wall, a light blue that reads on it. */
+  --hgk-hero-dark: #161617;
+  --hgk-blue-light: #7ccdf2;
   --hgk-heading-font: var(--font-heading-family, inherit);
   /* The homepage's section tones and headline colour. */
   --hgk-band: #f9f9f9;
@@ -86,32 +93,74 @@
 }
 .ms-hgk-head { display: flex; flex-direction: column; gap: 8px; margin: 0 0 clamp(24px, 3vw, 36px); }
 
-/* ---------- Buttons ---------- */
+/* ---------- Buttons ----------
+   Like the homepage's „MOTION SPORTS – Learn more“: a black pill that turns
+   blue and lifts on hover while a light shine sweeps over it. The shine is
+   ::before at z-index -1 inside the button's own stacking context (z-index 0),
+   so it runs between the background and the label. */
 .ms-hgk-btn {
+  position: relative;
+  z-index: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 48px;
-  padding: 0 24px;
-  border: 1px solid transparent;
-  border-radius: var(--hgk-btn-radius);
+  padding: 16px 40px;
+  border: 2px solid #000;
+  border-radius: var(--hgk-pill);
+  background: #000;
+  color: #fff;
   font-family: var(--button-font-family, inherit);
-  font-size: 0.8125rem;
-  font-weight: 700;
-  letter-spacing: 0.2px;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
   line-height: 1.2;
-  text-transform: uppercase;
+  text-align: center;
+  text-transform: none;
   text-decoration: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: all 0.3s ease;
 }
-.ms-hgk-btn svg { width: 18px; height: 18px; }
-.ms-hgk-btn--lg { min-height: 54px; padding: 0 30px; font-size: 0.875rem; }
-.ms-hgk-btn--red { background: var(--hgk-red); border-color: var(--hgk-red); color: #fff; }
-.ms-hgk-btn--red:hover { background: var(--hgk-red-hover); border-color: var(--hgk-red-hover); color: #fff; }
-.ms-hgk-btn--outline { background: #fff; border-color: var(--hgk-ink); color: var(--hgk-ink); }
-.ms-hgk-btn--outline:hover { background: var(--hgk-ink); color: #fff; }
+.ms-hgk-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+.ms-hgk-btn svg { width: 18px; height: 18px; transition: transform 0.3s ease; }
+.ms-hgk-btn:hover:not(:disabled)::before { left: 100%; }
+.ms-hgk-btn--primary:hover:not(:disabled) {
+  background: #008ccb;
+  border-color: #008ccb;
+  color: #fff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 140, 203, 0.3);
+}
+.ms-hgk-btn--secondary { background: #fff; border-color: #000; color: #000; box-shadow: none; }
+.ms-hgk-btn--secondary:hover {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+.ms-hgk-btn:disabled {
+  background: #e9e9e9;
+  border-color: #e9e9e9;
+  color: #8a8a8a;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+.ms-hgk-btn:disabled::before { display: none; }
 .ms-hgk-btn:focus-visible { outline: 2px solid var(--hgk-blue); outline-offset: 3px; }
 .ms-hgk-link {
   border: 0;
@@ -127,12 +176,20 @@
 }
 .ms-hgk-link:hover { color: var(--hgk-ink); }
 
-/* ---------- Hero ---------- */
+/* ---------- Hero ----------
+   Without an image: white, copy left, seals right (≥ 1200 px) or below.
+   With an image (.ms-hgk-hero--image): phones get the photo on top (16:10)
+   and copy + seals below on white; from 750 px a dark banner — the photo on
+   the right fading into the wall colour on the left, a dark gradient from the
+   left under white copy, the seals overlapping the banner's bottom edge on
+   the right with the caption beside them on white. The photo box starts at
+   ~30 % of the content width, so the centred rack of a 16:9 studio shot stays
+   clear of the copy; object-position is the theme editor's focal point. */
 .ms-hgk-hero { background: #fff; }
 .ms-hgk-hero__inner {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "copy" "seals" "media";
+  grid-template-areas: "copy" "seals";
   gap: 28px;
   align-items: center;
   padding-top: clamp(32px, 4.6vw, 64px);
@@ -161,17 +218,23 @@
   text-wrap: balance;
 }
 .ms-hgk-hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.ms-hgk-hero__cta:hover svg { transform: translateY(2px); }
 .ms-hgk-hero__seals { grid-area: seals; }
-.ms-hgk-hero__media { grid-area: media; min-width: 0; }
+
+/* The photo (phones: on top, 16:10). */
+.ms-hgk-hero__banner { position: relative; }
+.ms-hgk-hero__media { background: var(--hgk-hero-dark); }
 .ms-hgk-hero__media img {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 10;
   object-fit: cover;
-  border-radius: var(--hgk-radius);
-  background: #f2f2f2;
+  object-position: var(--hgk-focal, 50% 50%);
 }
+.ms-hgk-hero--image .ms-hgk-hero__inner { padding-top: 28px; padding-bottom: 36px; }
+.ms-hgk-hero--image.ms-hgk-hero--seals .ms-hgk-hero__inner { padding-bottom: 0; }
+.ms-hgk-hero__foot { padding-top: 28px; padding-bottom: 36px; }
 
 /* Seals: large, no tile — the round seal itself is the eye-catcher. */
 .ms-hgk-seals { --hgk-seal: 200px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; }
@@ -190,14 +253,113 @@
   font-weight: 700;
   line-height: 1.5;
   color: var(--hgk-ink);
+  text-wrap: balance;
 }
 .ms-hgk[data-active-partner="mh"] [data-partner-seal="mh"],
 .ms-hgk[data-active-partner="wh"] [data-partner-seal="wh"] { order: -1; }
 .ms-hgk[data-active-partner="mh"] .ms-hgk-seal[data-partner-seal="mh"],
 .ms-hgk[data-active-partner="wh"] .ms-hgk-seal[data-partner-seal="wh"] { transform: scale(1.06); }
 
+@media (min-width: 750px) {
+  .ms-hgk-hero--image {
+    /* Where the photo box starts (share of the content width), how far its
+       left edge fades, how wide the copy may run, the seal size. */
+    --hgk-media-at: 0.38;
+    --hgk-media-fade: 42%;
+    --hgk-copy-w: 41vw;
+    --hgk-hero-seal: 160px;
+  }
+  .ms-hgk-hero__banner {
+    display: flex;
+    align-items: center;
+    min-height: clamp(520px, 44vw, 680px);
+    overflow: hidden;
+    background: var(--hgk-hero-dark);
+    isolation: isolate;
+  }
+  .ms-hgk-hero__banner::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.5) 30%, rgba(0, 0, 0, 0) 60%);
+    pointer-events: none;
+  }
+  .ms-hgk-hero__media {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: max(calc(max(0px, (100% - 1440px) / 2) + min(100%, 1440px) * var(--hgk-media-at)), calc(100% - 1560px));
+    z-index: 0;
+    background: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--hgk-media-fade));
+    mask-image: linear-gradient(90deg, transparent 0, #000 var(--hgk-media-fade));
+  }
+  .ms-hgk-hero__media img { height: 100%; aspect-ratio: auto; }
+  .ms-hgk-hero--image .ms-hgk-hero__inner,
+  .ms-hgk-hero--image.ms-hgk-hero--seals .ms-hgk-hero__inner {
+    position: relative;
+    z-index: 2;
+    padding-top: clamp(40px, 5vw, 72px);
+    padding-bottom: clamp(40px, 5vw, 72px);
+  }
+  .ms-hgk-hero--image .ms-hgk-hero__copy { max-width: var(--hgk-copy-w); }
+  .ms-hgk-hero--image .ms-hgk-hero__intro { color: var(--hgk-blue-light); text-shadow: 0 1px 2px rgb(0 0 0 / 40%); }
+  .ms-hgk-hero--image .ms-hgk-hero__title {
+    font-size: clamp(1.9rem, 4.2vw, 2.4rem);
+    color: #fff;
+    text-shadow: 0 2px 14px rgb(0 0 0 / 35%);
+  }
+  /* The blue variant of the pill on the dark photo. */
+  .ms-hgk-hero--image .ms-hgk-hero__cta { background: #008ccb; border-color: #008ccb; color: #fff; white-space: nowrap; }
+  .ms-hgk-hero--image .ms-hgk-hero__cta:hover {
+    background: #fff;
+    border-color: #fff;
+    color: #111;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 140, 203, 0.3);
+  }
+  .ms-hgk-hero--image .ms-hgk-hero__cta:focus-visible { outline-color: #fff; }
+  /* Seals half on the photo, half on the white below; caption beside them. */
+  .ms-hgk-hero__foot { position: relative; z-index: 3; padding-top: 0; padding-bottom: clamp(28px, 3vw, 44px); }
+  .ms-hgk-hero--image .ms-hgk-hero__seals {
+    --hgk-seal: var(--hgk-hero-seal);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: calc(var(--hgk-seal) / 2) auto;
+    column-gap: clamp(20px, 2.4vw, 36px);
+    row-gap: 0;
+    margin-top: calc(var(--hgk-seal) / -2);
+  }
+  .ms-hgk-hero--image .ms-hgk-seals__row { grid-column: 2; grid-row: 1 / 3; }
+  .ms-hgk-hero--image .ms-hgk-seals__caption {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: end;
+    align-self: center;
+    max-width: 44ch;
+    padding-top: 10px;
+    text-align: right;
+  }
+  .ms-hgk-hero--image .ms-hgk-seal img { filter: drop-shadow(0 10px 22px rgb(0 0 0 / 30%)); }
+}
+@media (min-width: 750px) and (max-width: 989px) {
+  /* The narrow copy column: the compact pill keeps the CTA on one line. */
+  .ms-hgk-hero--image .ms-hgk-hero__cta { padding: 14px 28px; }
+}
 @media (min-width: 990px) {
   .ms-hgk-hero__title { font-size: 3.4rem; white-space: nowrap; text-wrap: nowrap; }
+  .ms-hgk-hero--image {
+    --hgk-media-at: 0.3;
+    --hgk-copy-w: min(662px, calc(54vw - 118px));
+    --hgk-hero-seal: clamp(168px, 15vw, 224px);
+  }
+  /* One line (fitTitle in the page JS shrinks a longer text from the editor). */
+  .ms-hgk-hero--image .ms-hgk-hero__title { font-size: clamp(1.7rem, calc(3.62vw - 8px), 2.75rem); }
 }
 @media (min-width: 1200px) {
   /* Seals on the right of the copy, caption under them. */
@@ -214,18 +376,6 @@
   }
   .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-seals__caption { max-width: 34ch; }
   .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-hero__title { font-size: clamp(2.6rem, 3.6vw, 3.4rem); }
-  /* With a picture: copy + seals on the left, the picture on the right. */
-  .ms-hgk-hero--image .ms-hgk-hero__inner {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr);
-    grid-template-areas: "copy media" "seals media";
-    column-gap: 56px;
-    row-gap: 28px;
-    align-content: center;
-  }
-  .ms-hgk-hero--image .ms-hgk-hero__copy { align-self: end; }
-  .ms-hgk-hero--image .ms-hgk-hero__seals { align-self: start; --hgk-seal: 180px; }
-  .ms-hgk-hero--image .ms-hgk-hero__title { font-size: clamp(2.4rem, 3.3vw, 2.95rem); }
-  .ms-hgk-hero--image .ms-hgk-hero__media img { aspect-ratio: 4 / 3.4; }
 }
 
 /* ---------- Stage ---------- */
@@ -266,23 +416,52 @@
   margin: 0 6px;
   background: var(--hgk-rule);
 }
-.ms-hgk-steps__num {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
+/* No numbers: a hollow dot (to do), a blue target dot (current), a tick (done). */
+.ms-hgk-steps__dot {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 2px solid var(--hgk-rule);
   border-radius: 999px;
-  border: 1.5px solid var(--hgk-rule);
   background: #fff;
-  font-weight: 700;
-  font-size: 0.85rem;
-  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 .ms-hgk-steps__item.is-current { color: var(--hgk-ink); font-weight: 700; }
-.ms-hgk-steps__item.is-current .ms-hgk-steps__num { background: var(--hgk-blue); border-color: var(--hgk-blue); color: #fff; box-shadow: 0 0 0 5px var(--hgk-blue-tint); }
+.ms-hgk-steps__item.is-current .ms-hgk-steps__dot {
+  border-color: var(--hgk-blue);
+  background: var(--hgk-blue);
+  box-shadow: inset 0 0 0 3px #fff, 0 0 0 5px var(--hgk-blue-tint);
+}
 .ms-hgk-steps__item.is-done { color: var(--hgk-ink); }
-.ms-hgk-steps__item.is-done .ms-hgk-steps__num { background: var(--hgk-blue-tint); border-color: var(--hgk-blue); color: var(--hgk-blue); }
+.ms-hgk-steps__item.is-done .ms-hgk-steps__dot {
+  border-color: var(--hgk-blue);
+  background: var(--hgk-blue) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 6 9 17l-5-5' fill='none' stroke='%23ffffff' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 10px no-repeat;
+}
 .ms-hgk-steps__item.is-done::after { background: var(--hgk-blue); }
+/* Set by the page JS when the four labels do not fit in the row: only the
+   current label stays visible (as on phones, see ≤ 680 px); the others stay
+   readable for screen readers, so no list item is empty. */
+.ms-hgk-steps--compact .ms-hgk-steps__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.ms-hgk-steps--compact .ms-hgk-steps__item.is-current .ms-hgk-steps__label,
+.ms-hgk-steps--compact .ms-hgk-steps__item[data-step="cart"].is-done .ms-hgk-steps__label {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+}
 
 .ms-hgk-grid {
   display: grid;
@@ -296,7 +475,7 @@
 
 /* ---------- Form ---------- */
 .ms-hgk-form { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: var(--hgk-sticky-top); }
-.ms-hgk-form__groups { display: flex; flex-direction: column; gap: 14px; }
+.ms-hgk-form__groups { display: flex; flex-direction: column; gap: 36px; }
 .ms-hgk-note { padding: 16px; border: 1px solid var(--hgk-line); border-radius: var(--hgk-radius); background: var(--hgk-soft); }
 .ms-hgk-card {
   container-type: inline-size;
@@ -308,18 +487,47 @@
   border-radius: var(--hgk-radius);
   background: #fff;
 }
-.ms-hgk-card__head { display: flex; align-items: flex-start; gap: 14px; }
-.ms-hgk-card__icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
+.ms-hgk-card__head { display: flex; align-items: center; gap: 16px; }
+/* Step badge: an arrow-shaped tag „SCHRITT“ / „01“ in the step's colour. The
+   shape is ::before (clip-path), so the done tick may overlap the corner. */
+.ms-hgk-card__badge {
+  --hgk-badge: var(--hgk-step-1);
+  position: relative;
+  z-index: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
   flex: 0 0 auto;
-  border-radius: var(--hgk-radius);
-  background: var(--hgk-blue-tint);
-  color: var(--hgk-blue);
+  min-width: 74px;
+  height: 56px;
+  padding: 0 24px 0 13px;
+  color: #fff;
+  line-height: 1;
 }
-.ms-hgk-card__icon svg { width: 22px; height: 22px; }
+.ms-hgk-card__badge::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: -1;
+  border-radius: 6px 0 0 6px;
+  background: var(--hgk-badge);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+}
+.ms-hgk-card__badge--02 { --hgk-badge: var(--hgk-step-2); }
+.ms-hgk-card__badge--03 { --hgk-badge: var(--hgk-step-3); }
+.ms-hgk-card__badge-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.ms-hgk-card__badge-num {
+  font-family: var(--hgk-heading-font);
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
 .ms-hgk-card__titles { flex: 1 1 auto; min-width: 0; }
 .ms-hgk-card__title {
   margin: 0;
@@ -330,20 +538,25 @@
   letter-spacing: -0.01em;
   text-transform: none;
   color: var(--hgk-ink);
+  text-wrap: balance;
 }
 /* Both are <p>: `.ms-hgk p { margin: 0 }` (0,1,1) would win over one class. */
-.ms-hgk .ms-hgk-card__sub { margin-top: 4px; font-size: 0.85rem; line-height: 1.45; color: var(--hgk-muted); }
+.ms-hgk .ms-hgk-card__sub { margin-top: 4px; font-size: 0.85rem; line-height: 1.45; color: var(--hgk-muted); text-wrap: balance; }
 .ms-hgk-card__seals { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .ms-hgk-miniseal { display: block; width: 64px; height: 64px; }
 .ms-hgk-miniseal img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* The done tick on the badge's cut-off top corner (clear of the label). */
 .ms-hgk-card__done {
+  position: absolute;
+  top: -8px;
+  right: -8px;
   display: grid;
   place-items: center;
   width: 22px;
   height: 22px;
-  flex: 0 0 auto;
   border-radius: 999px;
   background: var(--hgk-blue);
+  box-shadow: 0 0 0 2px #fff;
   color: #fff;
   opacity: 0;
   transform: scale(0.6);
@@ -429,11 +642,27 @@
   .ms-hgk-opts--persona { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @container (max-width: 439.98px) {
-  .ms-hgk-card__icon { display: none; }
   .ms-hgk-card__title { font-size: 1.05rem; }
   .ms-hgk-miniseal { width: 52px; height: 52px; }
 }
+/* Narrow persona card: badge and seals on one row, the title under them.
+   Below ~460 px of content the badge and the two seals leave the title too
+   little room („Welcher Typ bist / du?“); 480 keeps a margin for the font. */
+@container (max-width: 479.98px) {
+  .ms-hgk-card--seals .ms-hgk-card__head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "badge seals" "titles titles";
+    align-items: center;
+    gap: 14px 12px;
+  }
+  .ms-hgk-card--seals .ms-hgk-card__badge { grid-area: badge; }
+  .ms-hgk-card--seals .ms-hgk-card__seals { grid-area: seals; justify-self: end; }
+  .ms-hgk-card--seals .ms-hgk-card__titles { grid-area: titles; }
+}
 @container (max-width: 359.98px) {
+  .ms-hgk-card__badge { min-width: 66px; height: 50px; padding: 0 22px 0 11px; }
+  .ms-hgk-card__badge-num { font-size: 1.4rem; }
   .ms-hgk-opts--persona { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .ms-hgk-opt--rich { flex-direction: row; align-items: center; gap: 14px; min-height: 0; padding: 14px 38px 14px 14px; }
   .ms-hgk-opt--rich .ms-hgk-opt__title { padding-right: 0; }
@@ -443,31 +672,9 @@
 
 .ms-hgk-form__footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .ms-hgk-form__hint { min-height: 1.2em; font-size: 0.82rem; color: var(--hgk-muted); text-align: center; }
-.ms-hgk-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 58px;
-  padding: 0 24px;
-  border: 1px solid var(--hgk-red);
-  border-radius: var(--hgk-btn-radius);
-  background: var(--hgk-red);
-  color: #fff;
-  font-family: var(--button-font-family, inherit);
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-.ms-hgk-cta svg { width: 20px; height: 20px; transition: transform 0.2s ease; }
-.ms-hgk-cta:hover:not(:disabled) { background: var(--hgk-red-hover); border-color: var(--hgk-red-hover); }
+/* „Weiter – Mo berät mich“: the primary pill (.ms-hgk-btn--primary), centred. */
+.ms-hgk-cta { align-self: center; min-width: min(100%, 300px); }
 .ms-hgk-cta:hover:not(:disabled) svg { transform: translateX(3px); }
-.ms-hgk-cta:disabled { background: #f0f0f0; border-color: var(--hgk-line); color: #8a8a8a; cursor: not-allowed; }
-.ms-hgk-cta:focus-visible { outline: 2px solid var(--hgk-ink); outline-offset: 3px; }
 .ms-hgk-form [data-ms-hgk-cancel] { align-self: center; }
 
 /* ---------- Profile (after the handover) ---------- */
@@ -511,7 +718,7 @@
 }
 .ms-hgk-plan[data-state="ready"] .ms-hgk-plan__waiting { display: none; }
 .ms-hgk-plan__title { margin-bottom: 4px; font-family: var(--hgk-heading-font); font-size: 1.02rem; font-weight: 800; color: var(--hgk-ink); }
-.ms-hgk-plan__text { font-size: 0.86rem; line-height: 1.5; color: var(--hgk-muted); }
+.ms-hgk-plan__text { font-size: 0.86rem; line-height: 1.5; color: var(--hgk-muted); text-wrap: balance; }
 .ms-hgk-plan__pulse {
   flex: 0 0 auto;
   width: 12px;
@@ -624,10 +831,6 @@
 @media (max-width: 1199px) {
   .ms-hgk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.95fr); }
 }
-@media (min-width: 681px) and (max-width: 1199px) {
-  /* The picture under the copy stays a flat band. */
-  .ms-hgk-hero__media img { aspect-ratio: 3 / 1; }
-}
 @media (max-width: 989px) {
   .ms-hgk-seals { --hgk-seal: 180px; }
   /* Mobile order: answers → Mo → plan (the plan follows the chat). */
@@ -650,19 +853,46 @@
      the hero headline keeps its own size. */
   .ms-hgk .ms-hgk-hero__title { font-size: clamp(2rem, 8.6vw, 2.6rem) !important; }
 }
+@media (min-width: 750px) and (max-width: 768px) {
+  .ms-hgk .ms-hgk-hero--image .ms-hgk-hero__title { font-size: clamp(1.9rem, 4.2vw, 2.4rem) !important; }
+}
+@media (max-width: 749px) {
+  .ms-hgk-form__groups { gap: 28px; }
+  /* Compact progress row: from 681 px all four labels fit in it. */
+  .ms-hgk-steps { gap: 6px; }
+  .ms-hgk-steps__item { gap: 8px; font-size: 0.82rem; }
+  .ms-hgk-steps__item:not(:last-child)::after { min-width: 10px; margin: 0 2px; }
+}
 @media (max-width: 680px) {
   .ms-hgk-seals { --hgk-seal: min(180px, calc((100vw - 46px) / 2)); }
   .ms-hgk-seals__caption { max-width: none; flex: 1 1 100%; }
   .ms-hgk-hero__actions, .ms-hgk-hero__actions .ms-hgk-btn { width: 100%; }
+  .ms-hgk-cta { align-self: stretch; }
   .ms-hgk-card { padding: 16px; }
   .ms-hgk-opts--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ms-hgk-opts--3 .ms-hgk-opt { font-size: 0.74rem; }
-  .ms-hgk-steps { gap: 6px; }
-  .ms-hgk-steps__item { gap: 8px; font-size: 0.82rem; }
-  .ms-hgk-steps__item:not(:last-child)::after { min-width: 10px; margin: 0 2px; }
-  .ms-hgk-steps__num { width: 30px; height: 30px; }
-  .ms-hgk-steps__label { display: none; }
-  .ms-hgk-steps__item.is-current .ms-hgk-steps__label { display: inline; }
+  .ms-hgk-steps__dot { width: 16px; height: 16px; }
+  /* Only the current label is shown (same rules as .ms-hgk-steps--compact). */
+  .ms-hgk-steps__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .ms-hgk-steps__item.is-current .ms-hgk-steps__label,
+  .ms-hgk-steps__item[data-step="cart"].is-done .ms-hgk-steps__label {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+  }
   .ms-hgk-intro { padding: 32px 20px 52px; }
   .ms-hgk-coop__seals { --hgk-seal: min(180px, calc((100vw - 46px) / 2)); }
   .ms-hgk-how__list { gap: 12px; }
@@ -670,7 +900,20 @@
   .ms-hgk-how__num { grid-row: span 2; margin-bottom: 0; }
 }
 
+@media (max-width: 374.98px) {
+  /* Small phones: the pill keeps its look with less side padding, so the
+     hero CTA and „Weiter – Mo berät mich“ stay on one line down to 320 px
+     (a longer label like „Änderungen an Mo senden“ wraps evenly). */
+  .ms-hgk-btn { padding: 16px 20px; }
+  .ms-hgk-btn > span { text-wrap: balance; }
+  /* Room for the longest current label („Grundeinstellungen“). */
+  .ms-hgk-steps { gap: 4px; }
+  .ms-hgk-steps__item:not(:last-child)::after { min-width: 6px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ms-hgk-btn, .ms-hgk-opt, .ms-hgk-cta, .ms-hgk-cta svg, .ms-hgk-seal, .ms-hgk-card__done, .ms-hgk-steps__num { transition: none; }
+  .ms-hgk-btn, .ms-hgk-btn svg, .ms-hgk-opt, .ms-hgk-seal, .ms-hgk-card__done, .ms-hgk-steps__dot { transition: none; }
+  .ms-hgk .ms-hgk-btn:hover, .ms-hgk .ms-hgk-btn:hover svg { transform: none; }
+  .ms-hgk-btn::before { display: none; }
   .ms-hgk-plan__pulse { animation: none; }
 }

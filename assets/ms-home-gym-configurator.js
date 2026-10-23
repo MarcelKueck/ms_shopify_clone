@@ -26,7 +26,6 @@
 
     // ----- vocabulary (ids = backend configurator-core.mjs) -----------------
     var ICON = {
-      target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
       pragmatic_beginner: '<circle cx="12" cy="14.5" r="6"/><path d="M8.6 9.7 8.1 7.6A2 2 0 0 1 10 5h4a2 2 0 0 1 1.9 2.6l-.5 2.1"/>',
       ambitious_home_athlete: '<path d="M6 21V3M18 21V3M4 21h4M16 21h4M3 9h18M8.5 7v4M15.5 7v4"/>',
       strength_focused: '<path d="M2 12h20"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/>',
@@ -91,10 +90,11 @@
       ] }
     };
     var FIELD_KEYS = ['persona', 'location', 'space', 'training', 'level'];
+    // step: the card's badge „SCHRITT 01“ (colour per step in the CSS).
     var GROUPS = [
-      { key: 'who', icon: 'target', title: T('Welcher Typ bist du?', 'What type are you?'), sub: T('Wähle deinen Trainingsfokus aus.', 'Choose your training focus.'), fields: ['persona'], seals: true },
-      { key: 'where', icon: 'house', title: T('Trainingsort & Platz', 'Place & space'), sub: T('Wo und wie viel Fläche?', 'Where, and how much room?'), fields: ['location', 'space'] },
-      { key: 'how', icon: 'free_weights', title: T('Training & Niveau', 'Training & level'), sub: T('Wie trainierst du am liebsten?', 'How do you like to train?'), fields: ['training', 'level'] }
+      { key: 'who', step: '01', title: T('Welcher Typ bist du?', 'What type are you?'), sub: T('Wähle deinen Trainingsfokus aus.', 'Choose your training focus.'), fields: ['persona'], seals: true },
+      { key: 'where', step: '02', title: T('Trainingsort & Platz', 'Place & space'), sub: T('Wo und wie viel Fläche?', 'Where, and how much room?'), fields: ['location', 'space'] },
+      { key: 'how', step: '03', title: T('Training & Niveau', 'Training & level'), sub: T('Wie trainierst du am liebsten?', 'How do you like to train?'), fields: ['training', 'level'] }
     ];
     var REQUIRED = ['persona', 'location', 'space', 'level'];
     // URL parameter names → field. The persona has two strengths: its own
@@ -274,7 +274,11 @@
       card.setAttribute('data-group', g.key);
       var head = document.createElement('div');
       head.className = 'ms-hgk-card__head';
-      head.innerHTML = '<span class="ms-hgk-card__icon">' + svg(g.icon) + '</span>';
+      // The step badge („SCHRITT“ + „01“); the done tick sits on its corner.
+      var badge = document.createElement('span');
+      badge.className = 'ms-hgk-card__badge ms-hgk-card__badge--' + g.step;
+      badge.innerHTML = '<span class="ms-hgk-card__badge-label">' + T('Schritt', 'Step') + '</span><span class="ms-hgk-card__badge-num">' + g.step + '</span>';
+      head.appendChild(badge);
       var titles = document.createElement('div');
       titles.className = 'ms-hgk-card__titles';
       var h = document.createElement('h3');
@@ -287,11 +291,14 @@
       titles.appendChild(sub);
       head.appendChild(titles);
       var seals = g.seals ? smallSeals() : null;
-      if (seals) head.appendChild(seals);
+      if (seals) {
+        head.appendChild(seals);
+        card.className += ' ms-hgk-card--seals';
+      }
       var done = document.createElement('span');
       done.className = 'ms-hgk-card__done';
       done.innerHTML = CHECK;
-      head.appendChild(done);
+      badge.appendChild(done);
       card.appendChild(head);
       g.fields.forEach(function (key) {
         var f = FIELDS[key];
@@ -451,6 +458,15 @@
         items[i].classList.toggle('is-current', si === idx && stage !== 'cart');
         if (si === idx) items[i].setAttribute('aria-current', 'step'); else items[i].removeAttribute('aria-current');
       }
+      fitSteps();
+    }
+    // The progress labels are never cut off: when the four labels do not fit
+    // in the row (e.g. a wider theme font), only the current one stays visible,
+    // as on phones (CSS: .ms-hgk-steps--compact).
+    function fitSteps() {
+      if (!stepsEl) return;
+      stepsEl.classList.remove('ms-hgk-steps--compact');
+      if (stepsEl.scrollWidth > stepsEl.clientWidth + 1) stepsEl.classList.add('ms-hgk-steps--compact');
     }
     var extras = {}; // topic -> answer text from Mo's chips (budget / wishes)
     function renderProfile() {
@@ -660,11 +676,12 @@
     }
     fitTitle();
     var fitTimer = null;
+    function fitAll() { fitTitle(); fitSteps(); }
     window.addEventListener('resize', function () {
       clearTimeout(fitTimer);
-      fitTimer = setTimeout(fitTitle, 80);
+      fitTimer = setTimeout(fitAll, 80);
     });
-    try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTitle); } catch (e) {}
+    try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll); } catch (e) {}
 
     // Smooth in-page links of the hero.
     var links = root.querySelectorAll('[data-ms-hgk-scroll]');

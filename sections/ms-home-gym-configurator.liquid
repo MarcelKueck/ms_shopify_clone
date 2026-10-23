@@ -6,16 +6,20 @@
   picks a few basics („Welcher Typ bist du? / Trainingsort & Platz / Training
   & Niveau“), „Weiter – Mo berät mich“ hands them to Mo
   (window.MS_CHAT.configurator.start of ms-chat-widget.js), Mo asks for budget
-  and wishes with answer chips and builds the plan; the editable plan appears
-  on the left with one „Alles in den Warenkorb“.
+  and wishes with answer chips, then offers the equipment step by step; every
+  pick lands in the editable plan on the left with one „Alles in den Warenkorb“.
 
   Look: the backend's „Performance“ e-mail design (mo repo,
-  src/lib/email-designs/performance.ts) — light-blue accent, red main CTA,
-  black outline secondary buttons, bordered white cards — with the store's
-  homepage structure: sections alternate #ffffff / #f9f9f9, headings as a
-  blue kicker over a regular-weight headline („Darf in keinem Gym fehlen. /
-  Bestseller.“), no divider lines. The shared --hgk-* tokens are defined on
-  .ms-hgk (…configurator.css).
+  src/lib/email-designs/performance.ts) — light-blue accent, bordered white
+  cards — with the store's homepage structure: sections alternate
+  #ffffff / #f9f9f9, headings as a blue kicker over a regular-weight headline
+  („Darf in keinem Gym fehlen. / Bestseller.“), no divider lines, and the
+  homepage's pill buttons („MOTION SPORTS – Learn more“: black, blue on
+  hover; no red anywhere). With a hero image (setting hero_image, focal point
+  from the theme editor) the hero is a dark image banner with the copy on the
+  left and the seals overlapping its bottom edge; without one it stays white.
+  The answer cards carry the step badges SCHRITT 01–03. The shared --hgk-*
+  tokens are defined on .ms-hgk (…configurator.css).
 
   Hosts the widget fills (contract in ms-chat-widget.js → Home-Gym-Konfigurator):
     [data-ms-chat-dock]  the docked chat panel (intro below until the handover)
@@ -48,7 +52,49 @@
     assign hgk_seals = true
   endif
   assign hgk_fallback = section.settings.fallback_url | default: '/pages/angebotsanfrage'
+  assign hgk_img = section.settings.hero_image
+  assign hgk_has_img = false
+  if hgk_img != blank
+    assign hgk_has_img = true
+  endif
 -%}
+
+{%- capture hgk_hero_copy -%}
+  <div class="ms-hgk-hero__copy">
+    {%- if section.settings.hero_intro != blank -%}
+      <p class="ms-hgk-kicker ms-hgk-hero__intro{% if section.settings.hero_intro_caps %} ms-hgk-kicker--caps{% endif %}">{{ section.settings.hero_intro | escape | replace: ' – ', '&nbsp;– ' | newline_to_br }}</p>
+    {%- endif -%}
+    <h1 class="ms-hgk-hero__title">{{ section.settings.heading | escape }}</h1>
+    <div class="ms-hgk-hero__actions">
+      <a class="ms-hgk-btn ms-hgk-btn--primary ms-hgk-hero__cta" href="#ms-hgk-start-{{ section.id }}" data-ms-hgk-scroll>
+        <span>{{ section.settings.hero_cta | default: 'Jetzt Home Gym planen' | escape }}</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
+{%- endcapture -%}
+
+{%- capture hgk_hero_seals -%}
+  {%- if hgk_seals -%}
+    <div class="ms-hgk-seals ms-hgk-hero__seals">
+      <div class="ms-hgk-seals__row">
+        {%- if section.settings.seal_mh != blank -%}
+          <div class="ms-hgk-seal" data-partner-seal="mh">
+            {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 270px, 200px' }}
+          </div>
+        {%- endif -%}
+        {%- if section.settings.seal_wh != blank -%}
+          <div class="ms-hgk-seal" data-partner-seal="wh">
+            {{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 270px, 200px' }}
+          </div>
+        {%- endif -%}
+      </div>
+      {%- if section.settings.seal_note != blank -%}
+        <p class="ms-hgk-seals__caption">{{ section.settings.seal_note | escape }}</p>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+{%- endcapture -%}
 
 <section
   class="ms-hgk"
@@ -59,48 +105,39 @@
   data-mo="{% if hgk_mo_on %}on{% else %}off{% endif %}"
   data-fallback-url="{{ hgk_fallback }}"
 >
-  {%- comment -%} ---------- Hero ---------- {%- endcomment -%}
-  <div class="ms-hgk-hero{% if section.settings.hero_image != blank %} ms-hgk-hero--image{% endif %}{% if hgk_seals %} ms-hgk-hero--seals{% endif %}">
-    <div class="ms-hgk-wrap ms-hgk-hero__inner">
-      <div class="ms-hgk-hero__copy">
-        {%- if section.settings.hero_intro != blank -%}
-          <p class="ms-hgk-kicker ms-hgk-hero__intro{% if section.settings.hero_intro_caps %} ms-hgk-kicker--caps{% endif %}">{{ section.settings.hero_intro | escape | replace: ' – ', '&nbsp;– ' | newline_to_br }}</p>
-        {%- endif -%}
-        <h1 class="ms-hgk-hero__title">{{ section.settings.heading | escape }}</h1>
-        <div class="ms-hgk-hero__actions">
-          <a class="ms-hgk-btn ms-hgk-btn--red ms-hgk-btn--lg" href="#ms-hgk-start-{{ section.id }}" data-ms-hgk-scroll>
-            {{ section.settings.hero_cta | default: 'Jetzt Home Gym planen' | escape }}
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </a>
+  {%- comment -%}
+    ---------- Hero ----------
+    With an image: a dark banner (the photo on the right, fading into the dark
+    on the left; copy on the left over a gradient), the seals overlapping its
+    bottom edge on the right with the caption on white. Phones: the photo on
+    top, the copy and the seals below on white. Without an image: white hero,
+    copy left, seals right.
+    sizes = the width the photo is drawn at (object-fit: cover, …configurator.css):
+    phones 16:10 box → a 16:9 photo is 111 % of the screen wide; from 750 px the
+    banner is clamp(520px, 44vw, 680px) tall → 925 px, then 44vw × 16/9 ≈ 79vw,
+    then 1210 px, and from ~1840 px the photo box itself (50vw + 288 px) is wider.
+  {%- endcomment -%}
+  <div class="ms-hgk-hero{% if hgk_has_img %} ms-hgk-hero--image{% endif %}{% if hgk_seals %} ms-hgk-hero--seals{% endif %}">
+    {%- if hgk_has_img -%}
+      <div class="ms-hgk-hero__banner">
+        <div class="ms-hgk-hero__media" style="--hgk-focal: {{ hgk_img.presentation.focal_point }};">
+          {{ hgk_img | image_url: width: 2400 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '750, 1100, 1500, 1800, 2400', sizes: '(min-width: 1840px) calc(50vw + 290px), (min-width: 1545px) 1210px, (min-width: 1180px) 79vw, (min-width: 750px) 925px, 112vw', alt: hgk_img.alt, class: 'ms-hgk-hero__img' }}
+        </div>
+        <div class="ms-hgk-wrap ms-hgk-hero__inner">
+          {{ hgk_hero_copy }}
         </div>
       </div>
-
       {%- if hgk_seals -%}
-        <div class="ms-hgk-seals ms-hgk-hero__seals">
-          <div class="ms-hgk-seals__row">
-            {%- if section.settings.seal_mh != blank -%}
-              <div class="ms-hgk-seal" data-partner-seal="mh">
-                {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 270px, 200px' }}
-              </div>
-            {%- endif -%}
-            {%- if section.settings.seal_wh != blank -%}
-              <div class="ms-hgk-seal" data-partner-seal="wh">
-                {{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 270px, 200px' }}
-              </div>
-            {%- endif -%}
-          </div>
-          {%- if section.settings.seal_note != blank -%}
-            <p class="ms-hgk-seals__caption">{{ section.settings.seal_note | escape }}</p>
-          {%- endif -%}
+        <div class="ms-hgk-wrap ms-hgk-hero__foot">
+          {{ hgk_hero_seals }}
         </div>
       {%- endif -%}
-
-      {%- if section.settings.hero_image != blank -%}
-        <div class="ms-hgk-hero__media">
-          {{ section.settings.hero_image | image_url: width: 1600 | image_tag: loading: 'eager', fetchpriority: 'high', sizes: '(min-width: 1200px) 40vw, 100vw', widths: '600, 900, 1200, 1600', alt: '' }}
-        </div>
-      {%- endif -%}
-    </div>
+    {%- else -%}
+      <div class="ms-hgk-wrap ms-hgk-hero__inner">
+        {{ hgk_hero_copy }}
+        {{ hgk_hero_seals }}
+      </div>
+    {%- endif -%}
   </div>
 
   {%- comment -%} Small seals for the header of the „Welcher Typ bist du?“ card (cloned by the page JS). {%- endcomment -%}
@@ -119,10 +156,10 @@
   <div class="ms-hgk-stage" id="ms-hgk-start-{{ section.id }}">
     <div class="ms-hgk-wrap">
       <ol class="ms-hgk-steps" data-ms-hgk-steps aria-label="{% if hgk_en %}Progress{% else %}Fortschritt{% endif %}">
-        <li class="ms-hgk-steps__item is-current" data-step="start"><span class="ms-hgk-steps__num">1</span><span class="ms-hgk-steps__label">{% if hgk_en %}Your basics{% else %}Grundeinstellungen{% endif %}</span></li>
-        <li class="ms-hgk-steps__item" data-step="questions"><span class="ms-hgk-steps__num">2</span><span class="ms-hgk-steps__label">{% if hgk_en %}Mo asks{% else %}Anforderungen{% endif %}</span></li>
-        <li class="ms-hgk-steps__item" data-step="plan"><span class="ms-hgk-steps__num">3</span><span class="ms-hgk-steps__label">{% if hgk_en %}Your plan{% else %}Empfehlung{% endif %}</span></li>
-        <li class="ms-hgk-steps__item" data-step="cart"><span class="ms-hgk-steps__num">4</span><span class="ms-hgk-steps__label">{% if hgk_en %}Done{% else %}Fertig{% endif %}</span></li>
+        <li class="ms-hgk-steps__item is-current" data-step="start"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Basics{% else %}Grundeinstellungen{% endif %}</span></li>
+        <li class="ms-hgk-steps__item" data-step="questions"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Advice from Mo{% else %}Beratung mit Mo{% endif %}</span></li>
+        <li class="ms-hgk-steps__item" data-step="plan"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Your plan{% else %}Dein Plan{% endif %}</span></li>
+        <li class="ms-hgk-steps__item" data-step="cart"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Cart{% else %}Warenkorb{% endif %}</span></li>
       </ol>
 
       <div class="ms-hgk-grid">
@@ -133,9 +170,9 @@
             </div>
             <div class="ms-hgk-form__footer">
               <p class="ms-hgk-form__hint" data-ms-hgk-hint aria-live="polite"></p>
-              <button type="submit" class="ms-hgk-cta" data-ms-hgk-cta disabled>
+              <button type="submit" class="ms-hgk-btn ms-hgk-btn--primary ms-hgk-cta" data-ms-hgk-cta disabled>
                 <span data-ms-hgk-cta-label>{% if hgk_en %}Next – Mo advises me{% else %}Weiter – Mo berät mich{% endif %}</span>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
               <button type="button" class="ms-hgk-link" data-ms-hgk-cancel hidden>{% if hgk_en %}Cancel{% else %}Abbrechen{% endif %}</button>
             </div>
@@ -157,7 +194,7 @@
               <span class="ms-hgk-plan__pulse" aria-hidden="true"></span>
               <div>
                 <p class="ms-hgk-plan__title">{% if hgk_en %}Your home-gym plan{% else %}Dein Home-Gym-Plan{% endif %}</p>
-                <p class="ms-hgk-plan__text">{% if hgk_en %}Answer Mo's questions – your plan with every product, price and total appears right here.{% else %}Beantworte Mos Fragen – dein Plan mit allen Produkten, Preisen und der Gesamtsumme erscheint genau hier.{% endif %}</p>
+                <p class="ms-hgk-plan__text">{% if hgk_en %}Choose your equipment with Mo step by step&nbsp;– your plan comes together right&nbsp;here.{% else %}Wähle bei Mo Schritt für Schritt deine Geräte aus&nbsp;– dein Plan entsteht genau&nbsp;hier.{% endif %}</p>
               </div>
             </div>
           </div>
@@ -179,7 +216,7 @@
                 {%- if hgk_en -%}Mo is not available right now.{%- else -%}Mo ist gerade nicht erreichbar.{%- endif %}
                 <a href="{{ hgk_fallback }}">{% if hgk_en %}Ask our team instead{% else %}Frag stattdessen unser Team{% endif %}</a>
               </p>
-              <p class="ms-hgk-intro__legal">{% if hgk_en %}AI fitness advisor · free and without obligation{% else %}KI-Fitnessberater · kostenlos & unverbindlich{% endif %}</p>
+              <p class="ms-hgk-intro__legal">{% if hgk_en %}AI home-gym advisor · free and without obligation{% else %}KI-Home-Gym-Berater · kostenlos &amp; unverbindlich{% endif %}</p>
             </div>
           </div>
         </div>
@@ -208,14 +245,14 @@
         <li>
           <span class="ms-hgk-how__num">3</span>
           <p class="ms-hgk-how__title">{% if hgk_en %}Get your plan{% else %}Plan bekommen{% endif %}</p>
-          <p class="ms-hgk-how__text">{% if hgk_en %}Your set with matching accessories – adjust it and add everything to the cart.{% else %}Dein Set mit passendem Zubehör – anpassen und alles in den Warenkorb legen.{% endif %}</p>
+          <p class="ms-hgk-how__text">{% if hgk_en %}Mo presents matching equipment step by step – you choose, everything goes into your plan and into the cart with one click.{% else %}Mo stellt dir Schritt für Schritt passende Geräte vor – du wählst aus, alles landet in deinem Plan und mit einem Klick im Warenkorb.{% endif %}</p>
         </li>
       </ol>
     </div>
   </div>
 
   {%- comment -%} ---------- Partners ---------- {%- endcomment -%}
-  {%- if section.settings.coop_heading != blank or section.settings.partners_text != blank -%}
+  {%- if section.settings.coop_heading != blank or section.settings.partners_copy != blank -%}
     <div class="ms-hgk-coop">
       <div class="ms-hgk-wrap">
         <div class="ms-hgk-coop__inner{% if hgk_seals %} ms-hgk-coop__inner--seals{% endif %}">
@@ -232,9 +269,9 @@
           <div class="ms-hgk-coop__copy">
             {%- if section.settings.partners_label != blank -%}<p class="ms-hgk-kicker ms-hgk-kicker--caps">{{ section.settings.partners_label | escape }}</p>{%- endif -%}
             {%- if section.settings.coop_heading != blank -%}<h2 class="ms-hgk-display">{{ section.settings.coop_heading | escape }}</h2>{%- endif -%}
-            {%- if section.settings.partners_text != blank -%}<div class="ms-hgk-coop__text">{{ section.settings.partners_text }}</div>{%- endif -%}
+            {%- if section.settings.partners_copy != blank -%}<div class="ms-hgk-coop__text">{{ section.settings.partners_copy }}</div>{%- endif -%}
             {%- if section.settings.coop_link != blank and section.settings.coop_link_label != blank -%}
-              <a class="ms-hgk-btn ms-hgk-btn--outline" href="{{ section.settings.coop_link }}">{{ section.settings.coop_link_label | escape }}</a>
+              <a class="ms-hgk-btn ms-hgk-btn--secondary" href="{{ section.settings.coop_link }}">{{ section.settings.coop_link_label | escape }}</a>
             {%- endif -%}
           </div>
         </div>
@@ -272,7 +309,7 @@
     { "type": "checkbox", "id": "hero_intro_caps", "label": "Einleitung in Großbuchstaben", "info": "Wie die blauen Zeilen auf der Startseite („DARF IN KEINEM GYM FEHLEN.“) – bei einem langen Satz meist ruhiger ohne.", "default": false },
     { "type": "text", "id": "heading", "label": "Überschrift", "info": "Ab Tablet-Breite einzeilig – kurz halten.", "default": "Dein Home Gym. Klar geplant." },
     { "type": "text", "id": "hero_cta", "label": "Button", "default": "Jetzt Home Gym planen" },
-    { "type": "image_picker", "id": "hero_image", "label": "Bild (optional)", "info": "Hell, ohne Abdunklung: auf großen Bildschirmen rechts neben dem Text, sonst darunter. Querformat, mind. 1600 px breit." },
+    { "type": "image_picker", "id": "hero_image", "label": "Bild (optional)", "info": "Großes Bild im Kopfbereich: der Text steht links auf einem dunklen Verlauf, die Siegel ragen unten rechts über die Bildkante. Querformat (16:9), mind. 2000 px breit, Motiv eher mittig/rechts – den Fokuspunkt aufs Hauptmotiv setzen. Auf dem Handy steht das Bild über dem Text. Ohne Bild bleibt der Kopfbereich weiß." },
     { "type": "header", "content": "Empfehlungssiegel" },
     { "type": "text", "id": "seal_note", "label": "Text zu den Siegeln", "default": "Unser Konfigurator trägt das Empfehlungssiegel von Men's und Women's Health." },
     { "type": "image_picker", "id": "seal_mh", "label": "Siegel Men's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px. Erscheint im Kopfbereich, klein bei „Welcher Typ bist du?“ und bei den Partnern." },
@@ -288,9 +325,9 @@
     { "type": "text", "id": "coop_heading", "label": "Titel", "default": "motion sports × Men's Health & Women's Health" },
     {
       "type": "richtext",
-      "id": "partners_text",
+      "id": "partners_copy",
       "label": "Text",
-      "default": "<p>Ob Einsteiger, ambitionierter Home-Athlet oder professioneller Kraftsportler – jeder Mensch trainiert anders und hat individuelle Ansprüche. Deshalb entwickeln wir gemeinsam mit dir dein persönliches Home Gym: mit erstklassigem Fitness-Equipment, professioneller Beratung und Lösungen, die perfekt zu deinen Zielen, deinem Platzangebot und deinem Alltag passen.</p><p>Auch Men’s Health und Women’s Health vertrauen auf unsere Expertise und empfehlen motion sports als Partner für die individuelle Home-Gym-Planung. Denn uns verbindet die Überzeugung, dass erfolgreiches Training zu Hause mit einer persönlichen Beratung und der richtigen Ausstattung beginnt. Gemeinsam möchten wir dir helfen, das Beste aus deinem Home Gym herauszuholen.</p><p>Und so einfach geht’s: Du verrätst uns, wie du trainieren möchtest und was dir wichtig ist. Mo, unser KI-Fitnessberater, unterstützt dich dabei, dein individuelles Home Gym zusammenzustellen. Dabei stehen wir dir jederzeit auch persönlich zur Seite – online oder direkt in unserem Showroom bei München.</p>"
+      "default": "<p>Ob Einsteiger, ambitionierter Home-Athlet oder professioneller Kraftsportler – jeder Mensch trainiert anders und hat individuelle Ansprüche. Deshalb entwickeln wir gemeinsam mit dir dein persönliches Home Gym: mit erstklassigem Fitness-Equipment, professioneller Beratung und Lösungen, die perfekt zu deinen Zielen, deinem Platzangebot und deinem Alltag passen.</p><p>Auch Men’s Health und Women’s Health vertrauen auf unsere Expertise und empfehlen motion sports als Partner für die individuelle Home-Gym-Planung. Denn uns verbindet die Überzeugung, dass erfolgreiches Training zu Hause mit einer persönlichen Beratung und der richtigen Ausstattung beginnt. Gemeinsam möchten wir dir helfen, das Beste aus deinem Home Gym herauszuholen.</p><p>Und so einfach geht’s: Du verrätst uns, wie du trainieren möchtest und was dir wichtig ist. Mo, unser KI-Home-Gym-Berater, unterstützt dich dabei, dein individuelles Home Gym zusammenzustellen. Dabei stehen wir dir jederzeit auch persönlich zur Seite – online oder direkt in unserem Showroom bei München.</p>"
     },
     { "type": "text", "id": "coop_link_label", "label": "Link-Text (optional)" },
     { "type": "url", "id": "coop_link", "label": "Link (optional)" }
