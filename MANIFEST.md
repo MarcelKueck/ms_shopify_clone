@@ -12,7 +12,46 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-22 b, latest) — Konfigurator, zweite Feedback-Runde: Struktur wie die Startseite
+## ⭐ Session update (2026-10-23, latest) — Konfigurator, dritte Feedback-Runde: Foto-Hero, Buttons wie die Startseite, Mo Schritt für Schritt
+
+Anna's and Lucas's third round. Upload **after the mo backend is deployed** (it brings the step-by-step
+consultation and `GET /api/configurator/search`) — the backend alone changes nothing visible, the old
+widget keeps the one-plan flow until this upload.
+
+- **Hero with Anna's photo:** new setting **„Bild (optional)“** (`hero_image`). Upload the photo in the
+  theme editor (section „Home-Gym-Konfigurator“) and set the focal point on the rack. From 750 px a dark
+  banner with the photo from about a third of the width, the seals on its lower edge; on phones the photo
+  on top. Without a photo the white hero stays.
+- **Buttons like the homepage's „MOTION SPORTS – Learn more“:** black pill, blue on hover with a lift, a
+  glow and a shine; blue on the photo; outline pills as secondary — on the page, in the page plan and in
+  the docked Mo. **No red** any more (only error text).
+- **Steps:** badges SCHRITT 01 / 02 / 03 (blue, anthracite, dark blue), more space between the cards;
+  the progress bar with dots and „Grundeinstellungen / Beratung mit Mo / Dein Plan / Warenkorb“.
+- **Mo Schritt für Schritt:** Mo offers 2–3 products per type (Basisgerät, Zubehör, Hantelbank,
+  Gewichte, Bodenschutz) with pros and cons; „Auswählen“ puts them into the plan („Von dir gewählt“),
+  „Überspringen“ / „Andere Vorschläge“ under every group; a new pick in the same step replaces the old
+  one (accessories add up).
+- **„+ Produkt hinzufügen“ searches the whole shop** (always visible search field).
+- **„KI-Home-Gym-Berater“** in „Starke Partner“ (new setting `partners_copy` replaces `partners_text`),
+  under Mo's panel and in the docked Mo's header and footer.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (photo hero, badges, progress labels, buttons; new setting ids `hero_image`, `partners_copy`; `partners_text` removed) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | **MODIFIED** (step badges) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (hero, buttons, badges, spacing, progress) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.js` | **MODIFIED** (option cards, picks into the plan, whole-shop search, dock texts) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.css` | **MODIFIED** (option cards, homepage buttons in plan + dock) | ✅ Yes — replace the whole file |
+| `templates/page.home-gym-mo.json` | **MODIFIED** (new id, for new installs only) | ❌ **No — do NOT upload** (it would drop the uploaded seals and the photo). |
+
+The floating widget on every other page is unchanged (it only renders Mo's option cards when a
+configurator chat is continued there). After the upload: theme editor → „Bild (optional)“ → the photo +
+focal point; then check `/pages/home-gym-konfigurator-1` on desktop and phone and run one consultation.
+`npm run verify:widget` (mo repo) should report `konfigurator-2026-10-23`.
+
+---
+
+## ⭐ Session update (2026-10-22 b) — Konfigurator, zweite Feedback-Runde: Struktur wie die Startseite
 
 Anna's second round. Upload any time (the mo backend deploy only updates Mo's copy of the persona
 subtitles; the two are independent).
