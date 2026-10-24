@@ -12,7 +12,44 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-23, latest) — Konfigurator, dritte Feedback-Runde: Foto-Hero, Buttons wie die Startseite, Mo Schritt für Schritt
+## ⭐ Session update (2026-10-24, latest) — Konfigurator: fehlende Angaben rot markiert, Konfigurator-Rabatt (vorbereitet, aus)
+
+Feedback from outside motion sports: a tester forgot the m² answer and could not continue. Plus the idea
+of a configurator discount — built complete but **switched off**; the operator decides in the Mo admin.
+
+**Nothing of the 2026-10-23 round has been uploaded yet: upload these three files together with the
+2026-10-23 files** (so: the section, the page JS/CSS from here, plus `assets/ms-chat-widget.js` and
+`assets/ms-chat-widget.css` from 2026-10-23 — five files), after the mo backend deploy.
+
+- **Fehlende Angaben:** „Weiter – Mo berät mich“ stays clickable while answers are open (same grey
+  look). A click outlines every step card with an open answer in red, shows a line at the field
+  („Bitte wähle deine Fläche aus.“), scrolls to the first one below the header and puts the focus on its
+  first tile. Outline and line disappear as soon as the answer is picked. „Noch offen: …“ under the
+  button as before; the edit mode („Ändere eine Angabe …“) and „Mo ist gerade nicht erreichbar“ are
+  unchanged. KPI `configurator_validation_blocked`.
+- **Konfigurator-Rabatt (off by default):** with the discount switched on in the Mo admin (Konfigurator
+  → „Mo im Konfigurator“ → Konfigurator-Rabatt) the page shows a pop-up once per browser and code —
+  right after the handover or when the first product lands in the plan — with the code, „Code kopieren“,
+  „Rabatt aktivieren“ (Shopify's `/discount/<code>`; the checkout deducts it once the conditions are met)
+  and the conditions in full; afterwards a slim banner above the plan keeps the code. An offer without
+  conditions is not shown. **Create the code in Shopify (Rabatte) with the same value and conditions
+  first, then switch it on in the admin.** Switched off (or before the backend deploy) the page shows
+  nothing of it.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (header comment only; no new setting) | ✅ Yes — replace the whole file (with the 2026-10-23 files) |
+| `assets/ms-home-gym-configurator.js` | **MODIFIED** (validation, offer pop-up + banner) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (red outline + error line, pop-up, banner) | ✅ Yes — replace the whole file |
+| `assets/ms-chat-widget.js` / `.css` | unchanged since 2026-10-23 — **not uploaded yet** | ✅ Yes — the 2026-10-23 versions |
+| `templates/page.home-gym-mo.json` | unchanged | ❌ **No — do NOT upload** (it would drop the uploaded seals and the photo). |
+
+After the upload: open `/pages/home-gym-konfigurator-1`, click „Weiter – Mo berät mich“ without the m²
+answer (the card turns red, the line names it), then run one consultation.
+
+---
+
+## Session update (2026-10-23) — Konfigurator, dritte Feedback-Runde: Foto-Hero, Buttons wie die Startseite, Mo Schritt für Schritt
 
 Anna's and Lucas's third round. Upload **after the mo backend is deployed** (it brings the step-by-step
 consultation and `GET /api/configurator/search`) — the backend alone changes nothing visible, the old
