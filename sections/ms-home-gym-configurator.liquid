@@ -28,6 +28,14 @@
   Answer ids are the backend's vocabulary (mo repo, src/lib/configurator-core.mjs);
   the personas are Mo's own customer personas.
 
+  „Weiter – Mo berät mich“ stays clickable while answers are open; a click
+  outlines the cards with open answers in the error colour, names the field
+  („Bitte wähle deine Fläche aus.“) and moves to the first one. The
+  Konfigurator-Rabatt (pop-up + banner above the plan) comes entirely from the
+  Mo backend (admin: Konfigurator → „Mo im Konfigurator“, off by default;
+  GET /api/configurator/offer) and is built by the page JS — no section setting,
+  no markup without an offer.
+
   Promotional links can preselect answers and the partner:
     ?partner=mh|wh  (or utm_source containing menshealth / womenshealth)
     ?persona=strength_focused&location=house&space=xs&level=rookie&training=free_weights,cardio

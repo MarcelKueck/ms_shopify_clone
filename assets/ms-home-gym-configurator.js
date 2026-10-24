@@ -11,6 +11,12 @@
  * „Ich bin …“ / „Ich will …“ ids still map, see LEGACY_PERSONA). KPI goes
  * through MS_CHAT.configurator.track (ids and enums only); the page view is
  * sent only with Shopify analytics consent.
+ *
+ * Missing answers: „Weiter – Mo berät mich“ stays clickable (aria-disabled,
+ * the disabled look); a click outlines every card with an open answer, shows
+ * the line at the field and moves to the first one. Konfigurator-Rabatt: the
+ * backend's offer (GET /api/configurator/offer, switched off by default) as a
+ * pop-up once per browser and code, then a banner above the plan.
  */
 (function () {
   'use strict';
@@ -51,6 +57,7 @@
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICON[name] || '') + '</svg>';
     }
     var CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var ALERT = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5v5.5M12 16.5v.01" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 
     // options: [id, title, subtitle?] — the persona order is Mo's (the URL
     // index 01–06 counts in this order). „|“ in a persona title is its line
@@ -58,7 +65,7 @@
     // as a space (optionLabel). The subtitles are the backend's (Mo reads
     // them too): mo repo, src/lib/configurator-core.mjs.
     var FIELDS = {
-      persona: { label: T('Trainingsfokus', 'Training focus'), short: T('Typ', 'Type'), multi: false, required: true, options: [
+      persona: { label: T('Trainingsfokus', 'Training focus'), short: T('Typ', 'Type'), multi: false, required: true, error: T('Bitte wähle deinen Trainingsfokus aus.', 'Please choose your training focus.'), options: [
         ['pragmatic_beginner', T('Pragmatisch|starten', 'Start|pragmatically'), T('Platzsparende Fitnesslösungen für den optimalen Einstieg.', 'Space-saving fitness solutions for the ideal start.')],
         ['ambitious_home_athlete', T('Ambitioniert|trainieren', 'Train|ambitiously'), T('Vielseitige Fitnessgeräte in erstklassiger Qualität.', 'Versatile fitness equipment in first-class quality.')],
         ['strength_focused', T('Kraft und Muskeln|aufbauen', 'Build strength|and muscle'), T('Stärke gezielt und progressiv weiterentwickeln.', 'Develop your strength in a targeted, progressive way.')],
@@ -66,12 +73,12 @@
         ['design_lifestyle', T('Design und|Lifestyle leben', 'Live design|and lifestyle'), T('Stilvolle Fitnessgeräte Zuhause integrieren.', 'Integrate stylish fitness equipment at home.')],
         ['weight_loss', T('Abnehmen und fit|bleiben', 'Lose weight|and stay fit'), T('Mit Cardiotraining das Wohlbefinden steigern.', 'Boost your well-being with cardio.')]
       ] },
-      location: { label: T('Trainingsort', 'Where'), short: T('Ort', 'Where'), multi: false, required: true, options: [
+      location: { label: T('Trainingsort', 'Where'), short: T('Ort', 'Where'), multi: false, required: true, error: T('Bitte wähle deinen Trainingsort aus.', 'Please choose where you train.'), options: [
         ['house', T('Haus / Keller', 'House / basement')],
         ['apartment', T('Wohnung (Mietobjekt)', 'Flat (rented)')],
         ['garage', T('Garage / Outdoor', 'Garage / outdoor')]
       ] },
-      space: { label: T('Platz', 'Space'), short: T('Platz', 'Space'), multi: false, required: true, options: [
+      space: { label: T('Platz', 'Space'), short: T('Platz', 'Space'), multi: false, required: true, error: T('Bitte wähle deine Fläche aus.', 'Please choose your space.'), options: [
         ['xs', T('bis 6 m²', 'up to 6 m²')],
         ['s', '6–10 m²'],
         ['m', '10–20 m²'],
@@ -83,7 +90,7 @@
         ['cardio', 'Cardio'],
         ['functional', T('Functional & Body­weight', 'Functional & bodyweight')]
       ] },
-      level: { label: T('Niveau', 'Level'), short: T('Niveau', 'Level'), multi: false, required: true, options: [
+      level: { label: T('Niveau', 'Level'), short: T('Niveau', 'Level'), multi: false, required: true, error: T('Bitte wähle dein Niveau aus.', 'Please choose your level.'), options: [
         ['rookie', T('Einsteiger:in', 'Beginner')],
         ['intermediate', T('Fortgeschritten', 'Intermediate')],
         ['pro', T('Profi', 'Advanced')]
@@ -133,11 +140,15 @@
     var dock = root.querySelector('[data-ms-chat-dock]');
     var fallbackEl = root.querySelector('[data-ms-hgk-fallback]');
     var introHint = root.querySelector('[data-ms-hgk-intro-hint]');
+    var planHost = root.querySelector('[data-ms-chat-plan]');
     if (!form || !groupsEl) return;
+    var uid = root.id || 'ms-hgk';
 
     // ----- small helpers -----------------------------------------------------
     function ssGet(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } }
     function ssSet(k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) {} }
+    function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
+    function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} }
     function api() { return window.MS_CHAT && window.MS_CHAT.configurator ? window.MS_CHAT.configurator : null; }
     function optionLabel(key, id) {
       var f = FIELDS[key];
@@ -267,11 +278,15 @@
       return box.querySelector('img') ? box : null;
     }
     var optButtons = {};
+    var cardEls = {};   // group key -> card
+    var fieldEls = {};  // field key -> fieldset
+    var errEls = {};    // field key -> its error line („Bitte wähle …“)
     groupsEl.innerHTML = '';
     GROUPS.forEach(function (g) {
       var card = document.createElement('div');
       card.className = 'ms-hgk-card ms-hgk-card--' + g.key;
       card.setAttribute('data-group', g.key);
+      cardEls[g.key] = card;
       var head = document.createElement('div');
       head.className = 'ms-hgk-card__head';
       // The step badge („SCHRITT“ + „01“); the done tick sits on its corner.
@@ -318,6 +333,21 @@
           lg.textContent = g.title;
         }
         fs.appendChild(lg);
+        fieldEls[key] = fs;
+        // The line under the label, shown after a click on „Weiter“ while the
+        // answer is open (aria-describedby of the fieldset then).
+        if (f.required && f.error) {
+          var err = document.createElement('p');
+          err.className = 'ms-hgk-field__error';
+          err.id = uid + '-err-' + key;
+          err.hidden = true;
+          err.innerHTML = ALERT;
+          var errText = document.createElement('span');
+          errText.textContent = f.error;
+          err.appendChild(errText);
+          fs.appendChild(err);
+          errEls[key] = err;
+        }
         var grid = document.createElement('div');
         grid.className = 'ms-hgk-opts ms-hgk-opts--' + (key === 'persona' ? 'persona' : f.options.length + (key === 'training' ? ' ms-hgk-opts--compact' : ''));
         optButtons[key] = [];
@@ -391,8 +421,13 @@
       return REQUIRED.filter(function (k) { return !answers[k]; });
     }
 
-    var mode = 'start'; // start | live | edit
+    var mode = 'start'; // start | live | edit | unavailable
     var sentAnswers = null;
+    // Fields that were open at the last blocked click and are still open: their
+    // card is outlined, their line shown. Answering removes a field; only the
+    // next click adds fields again.
+    var flagged = {};
+    function answered(k) { return FIELDS[k].multi ? answers[k].length > 0 : !!answers[k]; }
 
     function paint() {
       var k, i;
@@ -411,18 +446,85 @@
         if (card) card.classList.toggle('is-complete', complete);
       });
       var miss = missing();
-      var ready = !miss.length && mode !== 'unavailable';
-      if (mode === 'edit') ready = !miss.length && changedFields().length > 0;
-      cta.disabled = !ready;
-      if (mode === 'edit') {
-        hintEl.textContent = !changedFields().length ? T('Ändere eine Angabe – Mo passt die Empfehlung an.', 'Change an answer – Mo adapts the recommendation.') : '';
-      } else if (mode === 'unavailable') {
+      var changed = mode === 'edit' ? changedFields().length : 0;
+      // `disabled` only where a click has nothing to show: Mo unavailable, or
+      // the edit mode before an answer changed. Open answers keep the button
+      // clickable (aria-disabled, same look) — the click marks them.
+      var off = mode === 'unavailable' || (mode === 'edit' && !miss.length && !changed);
+      cta.disabled = off;
+      if (!off && miss.length) cta.setAttribute('aria-disabled', 'true');
+      else cta.removeAttribute('aria-disabled');
+      if (mode === 'unavailable') {
         hintEl.textContent = T('Mo ist gerade nicht erreichbar.', 'Mo is not available right now.');
       } else if (miss.length) {
         hintEl.textContent = T('Noch offen: ', 'Still open: ') + miss.map(function (m) { return FIELDS[m].short; }).join(', ');
+      } else if (mode === 'edit') {
+        hintEl.textContent = !changed ? T('Ändere eine Angabe – Mo passt die Empfehlung an.', 'Change an answer – Mo adapts the recommendation.') : '';
       } else {
         hintEl.textContent = T('Perfekt – Mo übernimmt ab hier.', 'Perfect – Mo takes it from here.');
       }
+      paintErrors();
+    }
+
+    function paintErrors() {
+      FIELD_KEYS.forEach(function (k) {
+        if (flagged[k] && answered(k)) delete flagged[k];
+        var on = !!flagged[k];
+        var err = errEls[k];
+        var fs = fieldEls[k];
+        if (err) err.hidden = !on;
+        if (!fs) return;
+        if (on && err) {
+          fs.setAttribute('aria-invalid', 'true');
+          fs.setAttribute('aria-describedby', err.id);
+        } else {
+          fs.removeAttribute('aria-invalid');
+          fs.removeAttribute('aria-describedby');
+        }
+      });
+      GROUPS.forEach(function (g) {
+        var bad = g.fields.some(function (k) { return !!flagged[k]; });
+        if (cardEls[g.key]) cardEls[g.key].classList.toggle('is-invalid', bad);
+      });
+    }
+
+    // A click on „Weiter“ with open answers: outline their cards, show the
+    // lines, announce them once (one alert per click, not one per field), move
+    // to the first open card (below the sticky header) and focus its first
+    // option.
+    var alertEl = document.createElement('p');
+    alertEl.className = 'ms-hgk-sr';
+    alertEl.setAttribute('role', 'alert');
+    form.appendChild(alertEl);
+    var alertTimer = null;
+    hintEl.id = hintEl.id || uid + '-hint';
+    cta.setAttribute('aria-describedby', hintEl.id);
+    function blockMissing() {
+      var miss = missing();
+      flagged = {};
+      miss.forEach(function (k) { flagged[k] = true; });
+      paint();
+      clearTimeout(alertTimer);
+      alertEl.textContent = '';
+      var msg = miss.map(function (k) { return FIELDS[k].error; }).join(' ');
+      alertTimer = setTimeout(function () { alertEl.textContent = msg; }, 60);
+      track('configurator_validation_blocked', { fields: miss.join(',') });
+      var card = null;
+      var target = null;
+      for (var i = 0; i < GROUPS.length && !target; i++) {
+        for (var j = 0; j < GROUPS[i].fields.length; j++) {
+          var k = GROUPS[i].fields[j];
+          if (flagged[k] && optButtons[k] && optButtons[k][0]) { card = cardEls[GROUPS[i].key]; target = optButtons[k][0]; break; }
+        }
+      }
+      if (!card) return;
+      try {
+        var r = card.getBoundingClientRect();
+        var margin = parseFloat(window.getComputedStyle(card).scrollMarginTop) || 0;
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        if (!(r.top >= margin - 1 && r.bottom <= vh)) card.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+      } catch (err) {}
+      try { target.focus({ preventScroll: true }); } catch (err) { try { target.focus(); } catch (err2) {} }
     }
 
     function changedFields() {
@@ -490,6 +592,7 @@
 
     function setMode(next) {
       mode = next;
+      flagged = {};
       var live = next === 'live';
       form.hidden = live;
       profile.hidden = !live;
@@ -505,6 +608,7 @@
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       if (cta.disabled) return;
+      if (missing().length) { blockMissing(); return; }
       var a = api();
       if (!a) { showUnavailable(); return; }
       if (mode === 'edit') {
@@ -536,6 +640,8 @@
       setMode('live');
       setStep('questions');
       showDock();
+      offerHandedOver = true;
+      maybeOffer();
     });
     cancelBtn.addEventListener('click', function () {
       if (sentAnswers) { answers = JSON.parse(JSON.stringify(sentAnswers)); saveDraft(); }
@@ -570,6 +676,10 @@
     });
 
     function reset() {
+      offerHandedOver = false;
+      offerPlanSeen = false;
+      clearTimeout(offerTimer);
+      offerTimer = null;
       startedTracked = false;
       ssSet('ms-hgk-started', '0');
       sentAnswers = null;
@@ -612,6 +722,9 @@
           break;
         case 'stage':
           if (d.stage) setStep(d.stage);
+          break;
+        case 'plan':
+          if (Number(d.items) >= 1 && !offerPlanSeen) { offerPlanSeen = true; maybeOffer(); }
           break;
         case 'reply':
           if ((d.topic === 'budget' || d.topic === 'wishes') && d.values && d.values.length) {
@@ -694,6 +807,331 @@
         try { target.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' }); } catch (err) { target.scrollIntoView(); }
       });
     }
+
+    // ----- Konfigurator-Rabatt ---------------------------------------------------
+    // The operator's offer from the Mo backend (admin: Konfigurator → „Mo im
+    // Konfigurator“ → Konfigurator-Rabatt; off by default). GET
+    // {apiBase}/api/configurator/offer once per load → { ok, offer: null |
+    // { code, title, text, terms, trigger } }. Nothing is rendered without an
+    // offer (or when the request fails). trigger "start": ~1 s after the
+    // handover; "plan": when the first product lands in the plan. The pop-up
+    // shows once per browser and code (localStorage ms-hgk-discount-<code> =
+    // shown | activated), then a slim banner above the plan keeps the code.
+    // „Rabatt aktivieren“ calls Shopify's /discount/<code>, which stores the
+    // code for the checkout.
+    var offer = null;
+    var offerState = null;        // null | 'shown' | 'activated'
+    var offerHandedOver = false;  // a handover happened on this page view
+    var offerPlanSeen = false;    // the plan reported ≥ 1 line
+    var offerTimer = null;
+    var offerTries = 0;
+    var offerOpen = false;
+    var offerBusy = false;
+    var offerFailed = false;
+    var offerDialog = null;
+    var offerBar = null;
+    var offerLastFocus = null;
+    var offerEls = {};
+    var OFFER_DELAY = { start: 1000, plan: 1200 };
+
+    function cleanText(v, max) {
+      return typeof v === 'string' ? v.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').slice(0, max) : '';
+    }
+    // Fails closed: without a valid code, a title and the conditions (stated in
+    // full — API_CONTRACT §3c: terms never "") there is no offer.
+    function cleanOffer(o) {
+      if (!o || typeof o !== 'object') return null;
+      var code = cleanText(o.code, 40);
+      var title = cleanText(o.title, 60);
+      var terms = cleanText(o.terms, 200);
+      if (!/^[A-Za-z0-9_-]{3,40}$/.test(code) || !title || !terms) return null;
+      return { code: code, title: title, text: cleanText(o.text, 200), terms: terms, trigger: o.trigger === 'plan' ? 'plan' : 'start' };
+    }
+    function offerKey() { return 'ms-hgk-discount-' + offer.code; }
+    function readOfferState() {
+      var v = lsGet(offerKey());
+      return v === 'shown' || v === 'activated' ? v : null;
+    }
+    function loadOffer() {
+      if (root.getAttribute('data-mo') !== 'on' || typeof window.fetch !== 'function') return;
+      var cfg = window.MS_CHAT_CONFIG || {};
+      var base = typeof cfg.apiBase === 'string' ? cfg.apiBase.replace(/\/+$/, '') : '';
+      if (!base) return;
+      try {
+        window.fetch(base + '/api/configurator/offer', { method: 'GET' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (body) {
+            var o = body && body.ok === true ? cleanOffer(body.offer) : null;
+            if (!o) return;
+            offer = o;
+            offerState = readOfferState();
+            if (offerState) renderOfferBar();
+            maybeOffer();
+          })
+          .catch(function () {});
+      } catch (e) {}
+    }
+
+    function maybeOffer() {
+      if (!offer || offerState || offerOpen || offerTimer) return;
+      if (offer.trigger === 'plan' ? !offerPlanSeen : !offerHandedOver) return;
+      offerTimer = setTimeout(openOffer, OFFER_DELAY[offer.trigger]);
+    }
+    // Not over Mo's own pop-up (sign-in / newsletter gate in the dock) and not
+    // while the visitor is typing a message: try again a little later.
+    function offerWait() {
+      if (document.querySelector('.ms-chat-gate')) return true;
+      var ae = document.activeElement;
+      return !!(ae && ae.tagName === 'TEXTAREA' && dock && dock.contains(ae) && ae.value);
+    }
+    function openOffer() {
+      offerTimer = null;
+      if (!offer || offerState || offerOpen) return;
+      if (offerWait() && offerTries < 90) {
+        offerTries++;
+        offerTimer = setTimeout(openOffer, 1000);
+        return;
+      }
+      offerState = 'shown';
+      lsSet(offerKey(), 'shown');
+      renderOfferBar();
+      var d = buildOfferDialog();
+      if (!d || typeof d.showModal !== 'function') return; // no <dialog>: the banner alone
+      offerLastFocus = document.activeElement;
+      try { d.showModal(); } catch (e) { return; }
+      offerOpen = true;
+      try { offerEls.box.focus({ preventScroll: true }); } catch (e) {}
+      track('configurator_discount_shown', { trigger: offer.trigger });
+    }
+
+    function el(tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text) n.textContent = text;
+      return n;
+    }
+    var TAG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>';
+    var CLOSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
+    // The pop-up: a modal <dialog> (top layer — above the sticky header and any
+    // theme stacking context; the page behind it is inert, Esc closes).
+    function buildOfferDialog() {
+      if (offerDialog) return offerDialog;
+      var d = document.createElement('dialog');
+      if (typeof d.showModal !== 'function') return null;
+      d.className = 'ms-hgk-offer';
+      d.setAttribute('aria-labelledby', uid + '-offer-title');
+      // Described by the text and the conditions, so both are read on opening.
+      d.setAttribute('aria-describedby', (offer.text ? uid + '-offer-text ' : '') + uid + '-offer-terms');
+      var box = el('div', 'ms-hgk-offer__box');
+      box.setAttribute('tabindex', '-1');
+      var close = el('button', 'ms-hgk-offer__close');
+      close.type = 'button';
+      close.setAttribute('aria-label', T('Schließen', 'Close'));
+      close.innerHTML = CLOSE_ICON;
+      close.addEventListener('click', function () { d.close(); });
+      box.appendChild(close);
+      box.appendChild(el('p', 'ms-hgk-kicker ms-hgk-offer__kicker', T('Dein Konfigurator-Vorteil', 'Your configurator benefit')));
+      var title = el('h2', 'ms-hgk-offer__title', offer.title);
+      title.id = uid + '-offer-title';
+      box.appendChild(title);
+      if (offer.text) {
+        var text = el('p', 'ms-hgk-offer__text', offer.text);
+        text.id = uid + '-offer-text';
+        box.appendChild(text);
+      }
+      var codeRow = el('div', 'ms-hgk-offer__code');
+      var codeBox = el('div', 'ms-hgk-offer__codebox');
+      codeBox.appendChild(el('span', 'ms-hgk-offer__codelabel', T('Dein Code', 'Your code')));
+      var codeValue = el('span', 'ms-hgk-offer__codevalue', offer.code);
+      codeBox.appendChild(codeValue);
+      codeRow.appendChild(codeBox);
+      var copy = el('button', 'ms-hgk-btn ms-hgk-btn--secondary ms-hgk-offer__copy');
+      copy.type = 'button';
+      var copyLabel = el('span', '', T('Code kopieren', 'Copy code'));
+      copy.appendChild(copyLabel);
+      copy.addEventListener('click', function () { copyCode(copy, copyLabel, codeValue); });
+      codeRow.appendChild(copy);
+      box.appendChild(codeRow);
+      var activate = el('button', 'ms-hgk-btn ms-hgk-btn--primary ms-hgk-offer__activate');
+      activate.type = 'button';
+      var activateLabel = el('span', '', T('Rabatt aktivieren', 'Activate discount'));
+      activate.appendChild(activateLabel);
+      activate.addEventListener('click', activateOffer);
+      box.appendChild(activate);
+      // Shopify stores any code; whether it applies is checked at the checkout.
+      var done = el('p', 'ms-hgk-offer__done', T('Aktiviert ✓ – wird an der Kasse abgezogen, sobald die Bedingungen erfüllt sind.', 'Activated ✓ – deducted at checkout once the conditions are met.'));
+      done.setAttribute('tabindex', '-1');
+      box.appendChild(done);
+      var fail = el('p', 'ms-hgk-offer__error', T('Das hat nicht geklappt – gib den Code einfach an der Kasse ein.', 'That did not work – just enter the code at checkout.'));
+      fail.setAttribute('role', 'alert');
+      box.appendChild(fail);
+      var terms = el('p', 'ms-hgk-offer__terms', offer.terms);
+      terms.id = uid + '-offer-terms';
+      box.appendChild(terms);
+      d.appendChild(box);
+      // Backdrop: a click whose press and release both land outside the box.
+      var downOutside = false;
+      d.addEventListener('mousedown', function (e) { downOutside = e.target === d; });
+      d.addEventListener('click', function (e) {
+        if (e.target === d && (downOutside || e.detail === 0)) d.close();
+        downOutside = false;
+      });
+      d.addEventListener('close', function () {
+        offerOpen = false;
+        track('configurator_discount_closed', {});
+        restoreOfferFocus();
+      });
+      offerEls.box = box;
+      offerEls.activate = activate;
+      offerEls.activateLabel = activateLabel;
+      offerEls.done = done;
+      offerEls.fail = fail;
+      root.appendChild(d);
+      offerDialog = d;
+      paintOffer();
+      return d;
+    }
+    function focusable(n) {
+      if (!n || n === document.body || !n.focus || !document.documentElement.contains(n)) return false;
+      if (n.disabled || n.closest && n.closest('[hidden], [inert]')) return false;
+      return !!(n.offsetWidth || n.offsetHeight || (n.getClientRects && n.getClientRects().length));
+    }
+    function restoreOfferFocus() {
+      var target = focusable(offerLastFocus) ? offerLastFocus : offerBar;
+      offerLastFocus = null;
+      if (!target) return;
+      try { target.focus({ preventScroll: true }); } catch (e) {}
+    }
+
+    // The banner directly above the plan host (it follows the plan on phones).
+    function renderOfferBar() {
+      if (offerBar || !offer || !planHost || !planHost.parentNode) return;
+      var bar = el('div', 'ms-hgk-offerbar');
+      bar.setAttribute('role', 'group');
+      bar.setAttribute('aria-label', T('Konfigurator-Vorteil', 'Configurator benefit'));
+      bar.setAttribute('tabindex', '-1');
+      var icon = el('span', 'ms-hgk-offerbar__icon');
+      icon.innerHTML = TAG_ICON;
+      bar.appendChild(icon);
+      // Grid (…configurator.css): icon | line | action, the conditions under
+      // the line; on phones the action sits next to „Bedingungen“.
+      var line = el('p', 'ms-hgk-offerbar__line');
+      line.appendChild(el('strong', '', T('Konfigurator-Vorteil: ', 'Configurator benefit: ')));
+      line.appendChild(el('span', '', offer.title));
+      line.appendChild(el('span', 'ms-hgk-offerbar__sep', ' · '));
+      var code = el('span', 'ms-hgk-offerbar__code', 'Code\u00a0');
+      code.appendChild(el('b', 'ms-hgk-offerbar__codevalue', offer.code));
+      line.appendChild(code);
+      bar.appendChild(line);
+      var terms = el('details', 'ms-hgk-offerbar__terms');
+      terms.appendChild(el('summary', '', T('Bedingungen', 'Conditions')));
+      terms.appendChild(el('p', '', offer.terms));
+      bar.appendChild(terms);
+      var fail = el('p', 'ms-hgk-offerbar__error', T('Nicht geklappt – gib den Code an der Kasse ein.', 'Did not work – enter the code at checkout.'));
+      fail.setAttribute('role', 'alert');
+      bar.appendChild(fail);
+      var act = el('div', 'ms-hgk-offerbar__action');
+      var btn = el('button', 'ms-hgk-link ms-hgk-offerbar__activate', T('Aktivieren', 'Activate'));
+      btn.type = 'button';
+      btn.addEventListener('click', activateOffer);
+      act.appendChild(btn);
+      var status = el('span', 'ms-hgk-offerbar__status', T('Aktiviert ✓', 'Activated ✓'));
+      status.setAttribute('tabindex', '-1');
+      act.appendChild(status);
+      bar.appendChild(act);
+      offerEls.barBtn = btn;
+      offerEls.barStatus = status;
+      offerEls.barFail = fail;
+      planHost.parentNode.insertBefore(bar, planHost);
+      offerBar = bar;
+      paintOffer();
+    }
+
+    function paintOffer() {
+      var on = offerState === 'activated';
+      if (offerEls.activate) {
+        offerEls.activate.hidden = on;
+        offerEls.activate.setAttribute('aria-busy', offerBusy ? 'true' : 'false');
+        offerEls.activateLabel.textContent = offerBusy ? T('Wird aktiviert …', 'Activating …') : T('Rabatt aktivieren', 'Activate discount');
+        offerEls.done.hidden = !on;
+        offerEls.fail.hidden = !offerFailed || on;
+      }
+      if (offerEls.barBtn) {
+        offerEls.barBtn.hidden = on;
+        offerEls.barBtn.textContent = offerBusy ? T('Wird aktiviert …', 'Activating …') : T('Aktivieren', 'Activate');
+        offerEls.barStatus.hidden = !on;
+        offerEls.barFail.hidden = !offerFailed || on;
+      }
+      if (offerBar) offerBar.classList.toggle('is-active', on);
+    }
+    function activateOffer() {
+      if (!offer || offerBusy || offerState === 'activated') return;
+      offerBusy = true;
+      offerFailed = false;
+      paintOffer();
+      var finish = function (ok) {
+        var ae = document.activeElement;
+        offerBusy = false;
+        if (ok) {
+          offerState = 'activated';
+          lsSet(offerKey(), 'activated');
+          track('configurator_discount_activated', {});
+        } else {
+          offerFailed = true;
+        }
+        paintOffer();
+        // The pressed button is gone after the activation: keep focus nearby.
+        if (ok && ae === offerEls.activate) { try { offerEls.done.focus({ preventScroll: true }); } catch (e) {} }
+        if (ok && ae === offerEls.barBtn) { try { offerEls.barStatus.focus({ preventScroll: true }); } catch (e) {} }
+      };
+      try {
+        // redirect 'manual': the 302 (which sets the cookie) is the answer —
+        // no need to download the home page it points to.
+        window.fetch('/discount/' + encodeURIComponent(offer.code), { credentials: 'same-origin', redirect: 'manual' })
+          .then(function (r) { finish(!!(r && (r.ok || r.type === 'opaqueredirect'))); }, function () { finish(false); });
+      } catch (e) { finish(false); }
+    }
+
+    function copyCode(btn, label, codeValue) {
+      var shown = function (ok) {
+        if (ok) {
+          label.textContent = T('Kopiert ✓', 'Copied ✓');
+          track('configurator_discount_copied', {});
+          setTimeout(function () { label.textContent = T('Code kopieren', 'Copy code'); }, 2500);
+          return;
+        }
+        // No clipboard: select the code so it can be copied by hand.
+        try { window.getSelection().selectAllChildren(codeValue); } catch (e) {}
+      };
+      var fallback = function () {
+        var ok = false;
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = offer.code;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.top = '0';
+          ta.style.left = '0';
+          ta.style.opacity = '0';
+          // Inside the dialog: the page behind the modal is inert.
+          (offerDialog && offerOpen ? offerDialog : document.body).appendChild(ta);
+          ta.select();
+          ok = document.execCommand('copy');
+          ta.parentNode.removeChild(ta);
+          btn.focus({ preventScroll: true });
+        } catch (e) {}
+        return ok;
+      };
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(offer.code).then(function () { shown(true); }, function () { shown(fallback()); });
+          return;
+        }
+      } catch (e) {}
+      shown(fallback());
+    }
+    loadOffer();
 
     // The widget may have booted before this script (state() answers then).
     var already = api() && api().state ? api().state() : null;
