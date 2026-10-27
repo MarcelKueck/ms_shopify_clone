@@ -1446,6 +1446,8 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
 /* Quick-checkout (add_to_cart) / showroom / contact heading */
 .ms-chat-card-msg { font-weight: 700; color: rgb(var(--msc-heading)); }
 .ms-chat-checkout-name { font-weight: 600; color: rgb(var(--msc-heading)); min-width: 0; overflow-wrap: anywhere; }
+/* „Paarweise“ under „2× …“: the checkout link carries the rule minimum. */
+.ms-chat-checkout-unit { font-size: 0.75rem; font-weight: 600; color: rgb(var(--msc-fg) / 75%); }
 /* Compact product row (thumb + name + price) — shared by the show_product
    card and the quick-checkout rows, with the CTA button below. */
 .ms-chat-checkout-item { display: flex; align-items: center; gap: 10px; max-width: 100%; }
@@ -2104,6 +2106,8 @@ h6.ms-chat-md-h { font-size: 0.88rem; }
 a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: underline; }
 .ms-chat-offer-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-weight: 800; font-size: 0.95rem; color: rgb(var(--msc-heading)); }
 .ms-chat-offer-strike { font-size: 0.78rem; font-weight: 400; color: var(--msc-muted); }
+/* Flooring: the area an option covers („Deckt ca. 12 m²“, since 2026-10-27). */
+.ms-chat-offer-cover { font-size: 0.78rem; font-weight: 600; line-height: 1.4; color: var(--msc-muted); }
 .ms-chat-offer-items {
   list-style: none;
   margin: 0;
@@ -2190,12 +2194,24 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 .ms-chat-root--dock .ms-chat-offer-confirm { align-self: flex-start; }
 
 /* ---------- Editable plan on the configurator page ----------
-   Framed like the e-mail's set card: white, 2px light-blue frame, blue
-   kicker and short rule under the title, item rows with #e5e5e5 dividers,
-   role labels as small blue pills, stepper / variant in the black outline
-   look, the buttons homepage pills (below). Red only for error text. */
+   Round 6 (client review 2026-10-27): the plan box is the page's dark blue —
+   --hgk-navy, the client-approved „SCHRITT 03“ colour the page defines on
+   its section root (fallback: the same #00577f) — with white text, so it
+   stands apart from „Deine Angaben“ and the light chat. The page frames the
+   box ([data-ms-chat-plan]: border, shadow, the waiting state); everything
+   the widget renders in it is styled here: white text, light-blue accents
+   (kicker, „Paarweise“, the base pill), white-outline controls (stepper,
+   variant), the on-dark buttons (primary #008ccb → white, secondary white
+   outline → white fill) and white focus rings. The product picker opens as
+   a light inset card (product photos on white, dense rows) in the light
+   styling with the black homepage pills. Contrast on #00577f: white 7.9:1,
+   90 % / 80 % white ≥ 5.5:1, the light blue #9bd9f5 5.1:1, the warning
+   #ffc4bd 5.2:1; control outlines (75 % white) 4.7:1. Red only for error
+   text. The chat's plan card stays light. */
 .ms-chat-planhost {
+  /* light (the picker card) */
   --mscp-blue: var(--hgk-blue, #008ccb);
+  --mscp-blue-text: var(--hgk-blue-on-tint, #00709f);
   --mscp-tint: var(--hgk-blue-tint, #eaf6fc);
   --mscp-tint-2: var(--hgk-blue-tint-2, #f5fafd);
   --mscp-error: rgb(var(--msc-danger));
@@ -2206,9 +2222,20 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   --mscp-soft: var(--hgk-soft, #f9f9f9);
   --mscp-radius: var(--hgk-radius, 7px);
   --mscp-btn-radius: var(--hgk-btn-radius, 3px);
-  background: #fff;
-  color: var(--mscp-text);
-  border: 2px solid var(--mscp-blue);
+  /* on the dark blue */
+  --mscp-navy: var(--hgk-navy, #00577f);
+  --mscp-on: #ffffff;
+  --mscp-on-text: rgb(255 255 255 / 90%);
+  --mscp-on-muted: rgb(255 255 255 / 80%);
+  --mscp-on-edge: rgb(255 255 255 / 75%);
+  --mscp-on-line: rgb(255 255 255 / 18%);
+  --mscp-on-soft: rgb(255 255 255 / 9%);
+  --mscp-on-hover: rgb(255 255 255 / 14%);
+  --mscp-accent: #9bd9f5;
+  --mscp-warn: #ffc4bd;
+  --mscp-ok: #b5f0cf;
+  background: var(--mscp-navy);
+  color: var(--mscp-on-text);
   border-radius: calc(var(--mscp-radius) + 3px);
   padding: 26px 28px 24px;
   animation: ms-chat-planhost-in 0.45s cubic-bezier(.22, .61, .36, 1);
@@ -2224,14 +2251,14 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 .ms-chat-planhost button { font-family: inherit; }
 .ms-chat-planhost button:focus-visible,
 .ms-chat-planhost select:focus-visible,
-.ms-chat-planhost a:focus-visible { outline: 2px solid var(--mscp-blue); outline-offset: 2px; }
+.ms-chat-planhost a:focus-visible { outline: 2px solid var(--mscp-on); outline-offset: 2px; }
 .ms-chat-planhost-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
 .ms-chat-planhost .ms-chat-plan-eyebrow {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--mscp-blue);
+  color: var(--mscp-accent);
 }
 .ms-chat-planhost-title {
   margin: 0;
@@ -2240,9 +2267,9 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  color: var(--mscp-ink);
+  color: var(--mscp-on);
 }
-.ms-chat-planhost-summary { margin: 2px 0 0; font-size: 0.92rem; line-height: 1.55; color: var(--mscp-text); }
+.ms-chat-planhost-summary { margin: 2px 0 0; font-size: 0.92rem; line-height: 1.55; color: var(--mscp-on-text); }
 /* Both are <p>: inside the page's .ms-hgk section its `.ms-hgk p { margin: 0 }`
    (0,1,1) would win over a single class. */
 .ms-chat-planhost .ms-chat-planhost-summary { margin: 2px 0 0; }
@@ -2253,9 +2280,10 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   position: relative;
   margin: 0 0 14px;
   padding: 12px 16px 12px 46px;
+  border: 1px solid var(--mscp-on-line);
   border-radius: var(--mscp-radius);
-  background: var(--mscp-tint);
-  color: var(--mscp-ink);
+  background: var(--mscp-on-soft);
+  color: var(--mscp-on);
   font-size: 0.84rem;
   line-height: 1.5;
 }
@@ -2267,8 +2295,8 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   width: 20px;
   height: 20px;
   border-radius: 999px;
-  background: var(--mscp-blue);
-  color: #fff;
+  background: var(--mscp-accent);
+  color: var(--mscp-navy);
   font-size: 12px;
   font-weight: 800;
   font-style: normal;
@@ -2282,8 +2310,8 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   padding: 0;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--mscp-line);
-  border-bottom: 1px solid var(--mscp-line);
+  border-top: 1px solid var(--mscp-on-line);
+  border-bottom: 1px solid var(--mscp-on-line);
 }
 .ms-chat-planhost-line {
   display: grid;
@@ -2291,19 +2319,21 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   gap: 16px;
   align-items: center;
   padding: 16px 0;
-  border-top: 1px solid var(--mscp-line);
+  border-top: 1px solid var(--mscp-on-line);
 }
 .ms-chat-planhost-line:first-child { border-top: 0; }
-.ms-chat-planhost-empty { padding: 18px 0; font-size: 0.88rem; line-height: 1.5; color: var(--mscp-muted); }
+.ms-chat-planhost-empty { padding: 18px 0; font-size: 0.88rem; line-height: 1.5; color: var(--mscp-on-muted); }
+/* A removed line is dimmed — not the limit note its „Wieder hinzufügen“ may
+   show (an active message, ≥ 4.5:1 on navy). */
 .ms-chat-planhost-line--removed .ms-chat-planhost-thumb,
-.ms-chat-planhost-line--removed .ms-chat-planhost-main { opacity: 0.4; }
+.ms-chat-planhost-line--removed .ms-chat-planhost-main > :not(.ms-chat-planhost-limit) { opacity: 0.45; }
 .ms-chat-planhost-line--removed .ms-chat-planhost-name { text-decoration: line-through; }
+/* Product photos on a white tile. */
 .ms-chat-planhost-thumb {
   display: block;
   width: 84px;
   height: 84px;
   border-radius: var(--mscp-radius);
-  border: 1px solid var(--mscp-line);
   background: #fff;
   overflow: hidden;
 }
@@ -2322,54 +2352,64 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   padding: 3px 9px;
   border-radius: 30px;
 }
-.ms-chat-planhost-role { background: var(--mscp-tint); color: var(--mscp-blue); border: 1px solid transparent; }
-.ms-chat-planhost-role--base { background: var(--mscp-blue); color: #fff; }
-.ms-chat-planhost-tag { background: var(--mscp-tint-2); border: 1px dashed var(--mscp-blue); color: var(--mscp-ink); }
+.ms-chat-planhost-role { background: var(--mscp-on-hover); color: var(--mscp-on); border: 1px solid transparent; }
+.ms-chat-planhost-role--base { background: var(--mscp-accent); color: var(--mscp-navy); }
+/* „Von dir gewählt / ergänzt“ */
+.ms-chat-planhost-tag { background: transparent; border: 1px dashed var(--mscp-accent); color: var(--mscp-on); }
 .ms-chat-planhost-name {
   font-weight: 700;
   font-size: 0.95rem;
   line-height: 1.3;
-  color: var(--mscp-ink);
+  color: var(--mscp-on);
   text-decoration: none;
 }
-.ms-chat-planhost-name:hover { color: var(--mscp-blue); text-decoration: underline; }
-.ms-chat-planhost-note { font-size: 0.8rem; color: var(--mscp-muted); line-height: 1.45; }
-.ms-chat-planhost-limit { font-size: 0.8rem; font-weight: 600; line-height: 1.45; color: var(--mscp-error); }
+.ms-chat-planhost-name:hover { color: var(--mscp-accent); text-decoration: underline; }
+.ms-chat-planhost-note { font-size: 0.8rem; color: var(--mscp-on-muted); line-height: 1.45; }
+/* The product's rule next to the stepper: „Paarweise“, „Deckt ca. 12 m²“. */
+.ms-chat-planhost-rule { font-size: 0.78rem; font-weight: 700; line-height: 1.4; color: var(--mscp-accent); }
+.ms-chat-planhost-limit { font-size: 0.8rem; font-weight: 600; line-height: 1.45; color: var(--mscp-warn); }
+.ms-chat-planhost .ms-chat-soldout-badge { background: var(--mscp-on); color: var(--mscp-navy); }
 .ms-chat-planhost-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; max-width: 100%; }
+/* Variant: a white-outline select; the opened list keeps the system's light
+   look (explicit colours — some browsers paint it in the select's). */
 .ms-chat-planhost-variant {
   -webkit-appearance: none;
   appearance: none;
   max-width: 100%;
   min-height: 34px;
   padding: 6px 30px 6px 10px;
-  border: 1px solid var(--mscp-ink);
+  border: 1px solid var(--mscp-on-edge);
   border-radius: var(--mscp-btn-radius);
-  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23111111' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center / 10px 7px;
-  color: var(--mscp-ink);
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center / 10px 7px;
+  color: var(--mscp-on);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
+.ms-chat-planhost-variant:hover { border-color: var(--mscp-on); background-color: var(--mscp-on-hover); }
+.ms-chat-planhost-variant option { color: #111111; background-color: #ffffff; }
 .ms-chat-planhost-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.ms-chat-planhost-price { font-weight: 800; font-size: 1rem; white-space: nowrap; color: var(--mscp-ink); }
+.ms-chat-planhost-price { font-weight: 800; font-size: 1rem; white-space: nowrap; color: var(--mscp-on); }
 .ms-chat-planhost-toggle {
   border: 0;
   background: none;
   padding: 2px 0;
   font-size: 0.75rem;
-  color: var(--mscp-muted);
+  color: var(--mscp-on-muted);
   text-decoration: underline;
   cursor: pointer;
 }
-.ms-chat-planhost-toggle:hover { color: var(--mscp-ink); }
-.ms-chat-planhost-line--removed .ms-chat-planhost-toggle { color: var(--mscp-blue); font-weight: 700; }
+.ms-chat-planhost-toggle:hover { color: var(--mscp-on); }
+.ms-chat-planhost-line--removed .ms-chat-planhost-toggle { color: var(--mscp-accent); font-weight: 700; }
+/* Quantity stepper: white outline; it moves by the product's step. */
 .ms-chat-qty {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--mscp-ink, rgb(var(--msc-fg)));
+  border: 1px solid var(--mscp-on-edge, rgb(var(--msc-fg)));
   border-radius: var(--mscp-btn-radius, 3px);
-  background: #fff;
+  background: transparent;
   overflow: hidden;
 }
 .ms-chat-qty-btn {
@@ -2377,17 +2417,21 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   height: 34px;
   border: 0;
   background: transparent;
-  color: var(--mscp-ink, rgb(var(--msc-fg)));
+  color: var(--mscp-on, rgb(var(--msc-fg)));
   font: inherit;
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
+  transition: background-color 0.15s ease;
 }
-.ms-chat-qty-btn:hover:not(:disabled) { background: var(--mscp-tint-2, var(--msc-surface)); }
-.ms-chat-qty-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.ms-chat-qty-val { min-width: 26px; text-align: center; font-weight: 800; font-size: 0.85rem; color: var(--mscp-ink, inherit); }
+.ms-chat-qty-btn:hover:not(:disabled) { background: var(--mscp-on-hover, var(--msc-surface)); }
+.ms-chat-qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+/* The stepper clips its buttons (overflow): the focus ring sits inside. */
+.ms-chat-planhost .ms-chat-qty-btn:focus-visible { outline-offset: -4px; }
+.ms-chat-qty-val { min-width: 26px; text-align: center; font-weight: 800; font-size: 0.85rem; color: var(--mscp-on, inherit); }
 
-/* „+ Produkt hinzufügen“ and the inline product picker. */
+/* „+ Produkt hinzufügen“ and the inline product picker — a light inset card
+   on the dark blue, everything in it in the light styling. */
 .ms-chat-planhost-addarea { margin-top: 16px; }
 .ms-chat-planhost-addbtn { width: 100%; }
 .ms-chat-planhost-addbtn-plus { font-size: 20px; font-weight: 400; line-height: 1; margin-top: -2px; letter-spacing: 0; }
@@ -2396,10 +2440,12 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   flex-direction: column;
   gap: 12px;
   padding: 18px;
-  border: 1px solid var(--mscp-line);
   border-radius: var(--mscp-radius);
   background: var(--mscp-soft);
+  color: var(--mscp-text);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 24%);
 }
+.ms-chat-planhost .ms-chat-planpick button:focus-visible { outline-color: var(--mscp-blue); }
 .ms-chat-planpick-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ms-chat-planpick-headtext { min-width: 0; }
 .ms-chat-planpick-kicker {
@@ -2407,7 +2453,7 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--mscp-blue);
+  color: var(--mscp-blue-text);
 }
 .ms-chat-planpick-title {
   margin-top: 3px;
@@ -2424,7 +2470,7 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   width: 100%;
   min-height: 44px;
   padding: 10px 14px 10px 40px;
-  border: 1px solid #cfcfcf;
+  border: 1px solid #8f8f8f;
   border-radius: var(--mscp-btn-radius);
   background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23555555' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 13px center / 17px 17px;
   color: var(--mscp-ink);
@@ -2433,6 +2479,7 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 }
 .ms-chat-planpick-search::placeholder { color: var(--mscp-muted); opacity: 1; }
 .ms-chat-planpick-search:focus { outline: none; border-color: var(--mscp-blue); box-shadow: 0 0 0 3px var(--mscp-tint); }
+.ms-chat-planpick-search:focus-visible { outline: 2px solid var(--mscp-blue); outline-offset: 1px; }
 .ms-chat-planpick-roles { display: flex; flex-wrap: wrap; gap: 6px; }
 .ms-chat-planpick-chip {
   min-height: 32px;
@@ -2447,8 +2494,8 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
-.ms-chat-planpick-chip:hover { border-color: var(--mscp-blue); color: var(--mscp-blue); }
-.ms-chat-planpick-chip[aria-pressed="true"] { background: var(--mscp-blue); border-color: var(--mscp-blue); color: #fff; }
+.ms-chat-planpick-chip:hover { border-color: var(--mscp-blue-text); color: var(--mscp-blue-text); }
+.ms-chat-planpick-chip[aria-pressed="true"] { background: var(--mscp-blue-text); border-color: var(--mscp-blue-text); color: #fff; }
 .ms-chat-planpick-state {
   display: flex;
   flex-wrap: wrap;
@@ -2470,7 +2517,7 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 }
 @keyframes ms-chat-planpick-spin { to { transform: rotate(360deg); } }
 .ms-chat-planpick-note { font-size: 0.8rem; font-weight: 600; color: var(--mscp-ink); }
-.ms-chat-planpick-note--ok { color: var(--mscp-blue); }
+.ms-chat-planpick-note--ok { color: var(--mscp-blue-text); }
 .ms-chat-planpick-note--warn { color: var(--mscp-error); }
 .ms-chat-planpick-list {
   list-style: none;
@@ -2509,7 +2556,7 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
-  color: var(--mscp-blue);
+  color: var(--mscp-blue-text);
 }
 .ms-chat-planpick-name {
   font-size: 0.86rem;
@@ -2522,10 +2569,10 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   overflow: hidden;
 }
 .ms-chat-planpick-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 0.82rem; font-weight: 800; color: var(--mscp-ink); }
-.ms-chat-planpick-sale { color: var(--mscp-blue); }
+.ms-chat-planpick-sale { color: var(--mscp-blue-text); }
 .ms-chat-planpick-strike { font-size: 0.75rem; font-weight: 400; color: var(--mscp-muted); }
 .ms-chat-planpick-act { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.ms-chat-planpick-inplan { font-size: 11px; font-weight: 700; color: var(--mscp-blue); white-space: nowrap; }
+.ms-chat-planpick-inplan { font-size: 11px; font-weight: 700; color: var(--mscp-blue-text); white-space: nowrap; }
 .ms-chat-planpick-inplan::before { content: "✓ "; }
 .ms-chat-planpick-soldout {
   font-size: 10px;
@@ -2552,22 +2599,22 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   font-weight: 800;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: var(--mscp-ink);
+  color: var(--mscp-on);
   white-space: nowrap;
 }
 .ms-chat-planhost-tips {
   list-style: none;
   margin: 0;
   padding: 14px 16px;
-  border: 1px solid var(--mscp-line);
+  border: 1px solid var(--mscp-on-line);
   border-radius: var(--mscp-radius);
-  background: var(--mscp-soft);
+  background: var(--mscp-on-soft);
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-size: 0.84rem;
   line-height: 1.5;
-  color: var(--mscp-text);
+  color: var(--mscp-on-text);
 }
 .ms-chat-planhost-tips li { position: relative; padding-left: 18px; }
 .ms-chat-planhost-tips li::before {
@@ -2578,12 +2625,12 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: var(--mscp-blue);
+  background: var(--mscp-accent);
 }
 .ms-chat-planhost-foot {
   margin-top: 20px;
   padding-top: 18px;
-  border-top: 1px solid var(--mscp-line);
+  border-top: 1px solid var(--mscp-on-line);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2594,16 +2641,20 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
-  color: var(--mscp-muted);
+  color: var(--mscp-on-muted);
 }
-.ms-chat-planhost-sum-value { font-weight: 800; font-size: 1.75rem; letter-spacing: -0.02em; color: var(--mscp-ink); }
-.ms-chat-planhost-legal { font-size: 0.75rem; color: var(--mscp-muted); margin-top: -6px; }
+.ms-chat-planhost-sum-value { font-weight: 800; font-size: 1.75rem; letter-spacing: -0.02em; color: var(--mscp-on); }
+.ms-chat-planhost-legal { font-size: 0.75rem; color: var(--mscp-on-muted); margin-top: -6px; }
 /* ---------- Buttons on the configurator page (plan + dock) ----------
-   The homepage's „MOTION SPORTS – Learn more“ pill (round 4, no red): the
-   black primary turns blue with a lift, a blue glow and a shine on hover;
-   the secondary is the same pill with a black outline that fills black.
-   Page plan and docked chat only — the floating widget on every other page
-   keeps its buttons. Compact contexts use 12px 28px. */
+   The homepage's „MOTION SPORTS – Learn more“ pill (round 4, no red). On a
+   light background the black primary turns blue with a lift, a blue glow
+   and a shine on hover; the secondary is the same pill with a black outline
+   that fills black. On the plan's dark blue (round 6) the „on dark“
+   variants: the primary #008ccb turns white with black text (same lift,
+   glow and shine), the secondary white outline fills white with dark-blue
+   text; disabled is a dimmed translucent pill, focus a white ring. Page
+   plan and docked chat only — the floating widget on every other page keeps
+   its buttons. Compact contexts use 12px 28px. */
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout,
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--secondary,
 .ms-chat-root--dock .ms-chat-card .ms-chat-btn--product,
@@ -2644,8 +2695,6 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--secondary,
 .ms-chat-root--dock .ms-chat-card .ms-chat-btn--product,
 .ms-chat-root--dock .ms-chat-offer-view,
-.ms-chat-planhost .ms-chat-planhost-addbtn,
-.ms-chat-planhost .ms-chat-planhost-step,
 .ms-chat-planhost .ms-chat-planpick-done,
 .ms-chat-planhost .ms-chat-planpick-retry,
 .ms-chat-planhost .ms-chat-planpick-add { background: #ffffff; }
@@ -2659,12 +2708,18 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 .ms-chat-planhost .ms-chat-planhost-step { min-height: 34px; padding: 6px 18px; font-size: 13px; letter-spacing: 1px; }
 /* „Im Plan ✓ · Plan ansehen“ under a chosen option: small, below „Auswählen“. */
 .ms-chat-root--dock .ms-chat-offer-view { min-height: 34px; padding: 6px 18px; font-size: 13px; letter-spacing: 1px; }
-/* Primary: black, the shine sweeps across on hover. */
+/* Primary: black on light, the brand blue on the plan's dark blue; the shine
+   sweeps across on hover. */
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout,
 .ms-chat-root--dock .ms-chat-offer-choose,
-.ms-chat-root--dock .ms-chat-offer-confirm,
-.ms-chat-planhost .ms-chat-planhost-add {
+.ms-chat-root--dock .ms-chat-offer-confirm {
   background: #000000;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.ms-chat-planhost .ms-chat-planhost-add {
+  background: #008ccb;
+  border-color: #008ccb;
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -2684,11 +2739,17 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 }
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout:hover:not(:disabled),
 .ms-chat-root--dock .ms-chat-offer-choose:hover:not(:disabled),
-.ms-chat-root--dock .ms-chat-offer-confirm:hover:not(:disabled),
-.ms-chat-planhost .ms-chat-planhost-add:hover:not(:disabled) {
+.ms-chat-root--dock .ms-chat-offer-confirm:hover:not(:disabled) {
   background: #008ccb;
   border-color: #008ccb;
   color: #ffffff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 140, 203, 0.3);
+}
+.ms-chat-planhost .ms-chat-planhost-add:hover:not(:disabled) {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111111;
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(0, 140, 203, 0.3);
 }
@@ -2696,12 +2757,11 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 .ms-chat-root--dock .ms-chat-offer-choose:hover:not(:disabled)::before,
 .ms-chat-root--dock .ms-chat-offer-confirm:hover:not(:disabled)::before,
 .ms-chat-planhost .ms-chat-planhost-add:hover:not(:disabled)::before { left: 100%; }
-/* Secondary: the outline fills black. */
+/* Secondary: the black outline fills black — on the dark blue the white
+   outline fills white. */
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--secondary:hover,
 .ms-chat-root--dock .ms-chat-card .ms-chat-btn--product:hover,
 .ms-chat-root--dock .ms-chat-offer-view:hover,
-.ms-chat-planhost .ms-chat-planhost-addbtn:hover:not(:disabled),
-.ms-chat-planhost .ms-chat-planhost-step:hover:not(:disabled),
 .ms-chat-planhost .ms-chat-planpick-done:hover,
 .ms-chat-planhost .ms-chat-planpick-retry:hover,
 .ms-chat-planhost .ms-chat-planpick-add:hover:not(:disabled) {
@@ -2710,6 +2770,20 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   color: #ffffff;
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+.ms-chat-planhost .ms-chat-planhost-addbtn,
+.ms-chat-planhost .ms-chat-planhost-step {
+  background: transparent;
+  border-color: #ffffff;
+  color: #ffffff;
+}
+.ms-chat-planhost .ms-chat-planhost-addbtn:hover:not(:disabled),
+.ms-chat-planhost .ms-chat-planhost-step:hover:not(:disabled) {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: var(--mscp-navy);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 /* A chosen option and a product just added: blue, no hover change. */
 .ms-chat-root--dock .ms-chat-offer-choose.ms-chat-offer-choose--on,
@@ -2737,13 +2811,21 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout:disabled,
 .ms-chat-root--dock .ms-chat-offer-choose:disabled,
 .ms-chat-root--dock .ms-chat-offer-confirm:disabled,
-.ms-chat-planhost .ms-chat-planhost-add:disabled,
-.ms-chat-planhost .ms-chat-planhost-addbtn:disabled,
-.ms-chat-planhost .ms-chat-planhost-step:disabled,
 .ms-chat-planhost .ms-chat-planpick-add:disabled {
   background: #e9e9e9;
   border-color: #e9e9e9;
   color: #8a8a8a;
+  box-shadow: none;
+  transform: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.ms-chat-planhost .ms-chat-planhost-add:disabled,
+.ms-chat-planhost .ms-chat-planhost-addbtn:disabled,
+.ms-chat-planhost .ms-chat-planhost-step:disabled {
+  background: rgb(255 255 255 / 14%);
+  border-color: transparent;
+  color: rgb(255 255 255 / 62%);
   box-shadow: none;
   transform: none;
   opacity: 1;
@@ -2761,6 +2843,9 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
 .ms-chat-root--dock .ms-chat-plan .ms-chat-btn:focus-visible,
 .ms-chat-root--dock .ms-chat-card .ms-chat-btn--product:focus-visible,
 .ms-chat-root--dock .ms-chat-offer .ms-chat-btn:focus-visible { outline: 2px solid #008ccb; outline-offset: 3px; }
+.ms-chat-planhost .ms-chat-planhost-add:focus-visible,
+.ms-chat-planhost .ms-chat-planhost-addbtn:focus-visible,
+.ms-chat-planhost .ms-chat-planhost-step:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--checkout,
   .ms-chat-root--dock .ms-chat-plan .ms-chat-btn--secondary,
@@ -2780,9 +2865,9 @@ a.ms-chat-offer-name:hover { color: rgb(var(--msc-secondary)); text-decoration: 
   .ms-chat-planhost .ms-chat-planhost-add::before { display: none; }
 }
 
-.ms-chat-planhost-status { font-size: 0.82rem; min-height: 1.2em; }
-.ms-chat-planhost-status--ok { color: rgb(var(--msc-success)); font-weight: 600; }
-.ms-chat-planhost-status--warn { color: var(--mscp-error); }
+.ms-chat-planhost-status { font-size: 0.82rem; min-height: 1.2em; color: var(--mscp-on); }
+.ms-chat-planhost-status--ok { color: var(--mscp-ok); font-weight: 600; }
+.ms-chat-planhost-status--warn { color: var(--mscp-warn); }
 
 @media (max-width: 640px) {
   .ms-chat-planhost { padding: 20px 16px 18px; }

@@ -808,6 +808,7 @@
             var prods = (data && data.products) || [];
             for (var j = 0; j < batch.length; j++) {
               productCache[batch[j]] = prods[j] != null ? prods[j] : null;
+              cfgNoteRules(prods[j]);
             }
           });
         })
@@ -1717,6 +1718,12 @@
       : n.toLocaleString('de-DE') + ' €';
   }
 
+  // The prices of q units (a line total, rounded to cents) — for priceNode.
+  function priceTimes(product, q) {
+    var times = function (v) { var n = Number(v); return v != null && isFinite(n) ? Math.round(n * q * 100) / 100 : v; };
+    return { price: times(product.price), salePrice: times(product.salePrice) };
+  }
+
   function priceNode(product) {
     var wrap = el('div', { class: 'ms-chat-price' });
     if (product.salePrice != null && product.salePrice !== product.price) {
@@ -2250,6 +2257,7 @@
         if (data) {
           for (var j = 0; j < ids.length; j++) {
             if (!(ids[j] in productCache)) productCache[ids[j]] = prods[j] != null ? prods[j] : null;
+            cfgNoteRules(prods[j]);
           }
         }
         var resolved = prods.filter(function (p) { return !!p; });
@@ -2261,15 +2269,20 @@
         if (input.message) body.appendChild(el('div', { class: 'ms-chat-card-msg', text: input.message }));
 
         // One row per product (thumb + name + price), so the shopper sees exactly
-        // what the single checkout click buys.
+        // what the single checkout click buys. Since 2026-10-27 the cartUrl
+        // carries each product's rule minimum (/api/products: resolveProductRules
+        // ().min — a pair of plates goes in as 2): such a row names the quantity
+        // („2× …“, „Paarweise“) and its price is the line total.
         resolved.forEach(function (p) {
+          var q = p.rules && typeof p.rules.min === 'number' && p.rules.min > 1 ? Math.floor(p.rules.min) : 1;
           var item = el('div', { class: 'ms-chat-checkout-item' });
           if (p.images && p.images[0]) {
             item.appendChild(el('img', { class: 'ms-chat-checkout-thumb', src: p.images[0], alt: p.name || '', loading: 'lazy' }));
           }
           var meta = el('div', { class: 'ms-chat-checkout-meta' });
-          meta.appendChild(el('span', { class: 'ms-chat-checkout-name', text: p.name || L('Produkt', 'Product') }));
-          meta.appendChild(priceNode(p));
+          meta.appendChild(el('span', { class: 'ms-chat-checkout-name', text: (q > 1 ? q + '× ' : '') + (p.name || L('Produkt', 'Product')) }));
+          if (q > 1 && p.rules.step === 2) meta.appendChild(el('span', { class: 'ms-chat-checkout-unit', text: L('Paarweise', 'In pairs') }));
+          meta.appendChild(priceNode(q > 1 ? priceTimes(p, q) : p));
           // The server-built cartUrl EXCLUDES sold-out products — mark them so
           // the listed rows match what the checkout click actually contains.
           if (p.inStock === false) meta.appendChild(el('span', { class: 'ms-chat-soldout-note', text: L('Ausverkauft — nicht im Warenkorb', 'Sold out — not in cart') }));
@@ -2317,30 +2330,101 @@
       .catch(function () { return null; });
   }
 
-  function buildShowroom(input) {
-    var ids = input.productIds || [];
-    return hydrate(ids).then(function (res) {
-      var prods = res.filter(function (p) { return !!p; });
-      if (prods.length < 1) return null;
-      var names = prods.map(function (p) { return p.name; }).join(', ');
-
-      var card = el('div', { class: 'ms-chat-card' });
-      var body = el('div', { class: 'ms-chat-card-body' });
-      var head = el('div', { class: 'ms-chat-card-head' });
-      head.appendChild(icon('pin'));
-      head.appendChild(el('span', { text: L('Showroom in Gröbenzell bei München', 'Showroom in Gröbenzell near Munich') }));
-      body.appendChild(head);
-      body.appendChild(el('div', { class: 'ms-chat-card-text', text: L('Möchtest du ', 'Would you like to test ') + names + L(' vor dem Kauf testen? Besuche unseren Showroom!', ' before buying? Visit our showroom!') }));
-
-      var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: SHOWROOM_URL, target: '_blank', rel: 'noopener noreferrer' });
-      btn.appendChild(el('span', { text: L('Showroom ansehen', 'View showroom') }));
-      btn.appendChild(icon('external'));
-      btn.addEventListener('click', function () { track('showroom_clicked', { productIds: prods.map(function (p) { return p.id; }) }); });
-      body.appendChild(btn);
-      body.appendChild(el('div', { class: 'ms-chat-caption', text: L('Terminvereinbarung erforderlich', 'Appointment required') }));
-      card.appendChild(body);
-      return card;
+  // suggest_showroom (since 2026-10-27): only the products that stand in the
+  // showroom — the tool result's inShowroom, or showroom: true from
+  // /api/products — and nothing when none does (the result's ok: false).
+  // A backend whose showroom list is unknown right now (showroomKnown:
+  // false; or products with rules but no showroom flag) gets a card without
+  // product names — the team confirms what is on display.
+  // A backend before that (no showroom field, no rules, a result of just
+  // { ok }): every product, as before. The result follows the call in the
+  // same stream; a live card waits for it (at most 3 s, or until the turn
+  // ends), a restored one has it stored with the turn.
+  var showroomOut = {};   // toolCallId -> the call's result (null: none / an error)
+  var showroomWait = {};  // toolCallId -> callbacks of cards waiting for it
+  function showroomResult(id, out) {
+    if (!id) return;
+    showroomOut[id] = out && typeof out === 'object' ? out : null;
+    var w = showroomWait[id];
+    delete showroomWait[id];
+    for (var i = 0; w && i < w.length; i++) w[i]();
+  }
+  // A finished (or broken) turn: no result comes any more.
+  function showroomTurnOver() {
+    for (var id in showroomWait) {
+      if (Object.prototype.hasOwnProperty.call(showroomWait, id)) showroomResult(id, showroomOut[id]);
+    }
+  }
+  function showroomResultFor(id, live) {
+    if (!id || Object.prototype.hasOwnProperty.call(showroomOut, id) || !live || !state.streaming) return Promise.resolve(id ? showroomOut[id] : undefined);
+    return new Promise(function (resolve) {
+      var done = false;
+      var fin = function () { if (!done) { done = true; resolve(showroomOut[id]); } };
+      (showroomWait[id] = showroomWait[id] || []).push(fin);
+      setTimeout(fin, 3000);
     });
+  }
+  // The backend's showroom list is unknown right now: its result says so (Mo
+  // was told not to promise a particular product), or — no list in the
+  // result (none came, or a restored turn of a backend before) — the
+  // products carry rules (a backend since 2026-10-27 sends them on every
+  // product) but no showroom flag (sent only while the list is known).
+  function showroomUnknown(prods, res) {
+    if (res && res.showroomKnown === false) return true;
+    if (res && (res.showroomKnown === true || Array.isArray(res.inShowroom))) return false;
+    if (prods.some(function (p) { return typeof p.showroom === 'boolean'; })) return false;
+    return prods.some(function (p) { return !!p.rules && typeof p.rules === 'object'; });
+  }
+  function showroomPick(prods, out) {
+    var res = out && typeof out === 'object' ? out : null;
+    if (res && res.ok === false) return [];
+    var listed = res && Array.isArray(res.inShowroom) ? res.inShowroom : null;
+    // /api/products sends showroom: true / false only while the list is known.
+    var known = !!listed || prods.some(function (p) { return typeof p.showroom === 'boolean'; });
+    if (!known) return prods;
+    var inList = {};
+    (listed || []).forEach(function (x) { if (typeof x === 'string') inList[x.trim().split('~')[0]] = 1; });
+    return prods.filter(function (p) {
+      return p.showroom === true || inList[String(p.id != null ? p.id : '').split('~')[0]] === 1;
+    });
+  }
+
+  function buildShowroom(input, key, live) {
+    var ids = Array.isArray(input.productIds) ? input.productIds : [];
+    return hydrate(ids).then(function (res) {
+      var found = res.filter(function (p) { return !!p; });
+      if (found.length < 1) return null;
+      return showroomResultFor(key, live).then(function (out) {
+        var res = out && typeof out === 'object' ? out : null;
+        if (res && res.ok === false) return null;
+        if (showroomUnknown(found, res)) return showroomCard(found, true);
+        return showroomCard(showroomPick(found, res));
+      });
+    });
+  }
+  // anon: the showroom list is unknown — the card names no product.
+  function showroomCard(prods, anon) {
+    if (prods.length < 1) return null;
+    var names = prods.map(function (p) { return p.name; }).join(', ');
+
+    var card = el('div', { class: 'ms-chat-card' });
+    var body = el('div', { class: 'ms-chat-card-body' });
+    var head = el('div', { class: 'ms-chat-card-head' });
+    head.appendChild(icon('pin'));
+    head.appendChild(el('span', { text: L('Showroom in Gröbenzell bei München', 'Showroom in Gröbenzell near Munich') }));
+    body.appendChild(head);
+    body.appendChild(el('div', { class: 'ms-chat-card-text', text: anon
+      ? L('Besuche unseren Showroom – welche Geräte dort ausgestellt sind, bestätigt dir das Team bei der Terminvereinbarung.', 'Visit our showroom – the team confirms which equipment is on display when you book your visit.')
+      : L('Möchtest du ', 'Would you like to test ') + names + L(' vor dem Kauf testen? Besuche unseren Showroom!', ' before buying? Visit our showroom!') }));
+
+    var btn = el('a', { class: 'ms-chat-btn ms-chat-btn--primary', href: SHOWROOM_URL, target: '_blank', rel: 'noopener noreferrer' });
+    btn.appendChild(el('span', { text: L('Showroom ansehen', 'View showroom') }));
+    btn.appendChild(icon('external'));
+    btn.addEventListener('click', function () { track('showroom_clicked', { productIds: prods.map(function (p) { return p.id; }) }); });
+    body.appendChild(btn);
+    body.appendChild(el('div', { class: 'ms-chat-caption', text: L('Terminvereinbarung erforderlich', 'Appointment required') }));
+    card.appendChild(body);
+    return card;
   }
 
   var REASON_LABELS = {
@@ -2824,7 +2908,7 @@
     return card;
   }
 
-  function buildToolCard(name, input, key) {
+  function buildToolCard(name, input, key, live) {
     switch (name) {
       case 'suggest_replies': return buildReplies(input);
       case 'show_gym_plan': return buildGymPlan(input, key);
@@ -2832,7 +2916,7 @@
       case 'show_product': return buildShowProduct(input);
       case 'compare_products': return buildCompare(input);
       case 'add_to_cart': return buildAddToCart(input);
-      case 'suggest_showroom': return buildShowroom(input);
+      case 'suggest_showroom': return buildShowroom(input, key, live);
       case 'show_contact_form': return buildContactForm(input);
       case 'offer_email_summary':
         // Signed-in (tier 3): the email comes from the account, so never show
@@ -2896,7 +2980,7 @@
     extra: 'Extra'
   };
   var CFG_REPLY_TOPICS = ['budget', 'wishes', 'frequency', 'space', 'equipment', 'other'];
-  var CFG_FEATURES = ['options'];
+  var CFG_FEATURES = ['options', 'rules'];
   var cfgPlans = {};          // toolCallId -> plan (this thread's rendered plans)
   var cfgPlanSeq = 0;
   var cfgOfferGroups = {};    // toolCallId -> option group (this thread's offer_plan_options)
@@ -2923,6 +3007,9 @@
   }
 
   // Keep only known ids (the vocabulary is the backend's configurator-core.mjs).
+  // The visitor's own note from the page's optional step 04 („Gibt es etwas,
+  // das wir in deinem Fall beachten sollten?“) rides along as `note` — free
+  // text, never an answer of its own: a note alone is no configurator state.
   function cfgSanitize(raw) {
     if (!raw || typeof raw !== 'object') return null;
     var out = {};
@@ -2946,7 +3033,33 @@
       out[k] = picked;
       if (k === 'training' && picked.length) known++;
     }
+    var note = cfgCleanNote(raw.note);
+    if (note) out.note = note;
     return known ? out : null;
+  }
+
+  // The note as Mo gets it (context.configurator.note; the backend's
+  // sanitizeConfiguratorNote and the page's noteClean are the same rule):
+  // plain text, control and invisible format characters out — the joiners
+  // U+200C / U+200D stay (emoji and scripts need them) — spaces, tabs and
+  // U+2028 / U+2029 collapsed to one space, line breaks kept but single, at
+  // most CFG_NOTE_MAX characters; empty → ''.
+  var CFG_NOTE_MAX = 500;
+  function cfgCleanNote(v) {
+    if (typeof v !== 'string') return '';
+    var t = v.replace(/\r\n?/g, '\n')
+      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u00ad\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, '')
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/ ?\n ?/g, '\n')
+      .replace(/\n{2,}/g, '\n')
+      .trim();
+    if (t.length > CFG_NOTE_MAX) {
+      t = t.slice(0, CFG_NOTE_MAX);
+      // Never half a surrogate pair (an emoji cut in two).
+      if (/[\ud800-\udbff]$/.test(t)) t = t.slice(0, -1);
+      t = t.trim();
+    }
+    return t;
   }
 
   function cfgLoad() {
@@ -2982,8 +3095,11 @@
     var plan = cfgPlanForContext();
     if (plan.length) conf.plan = plan;
     // What this widget renders beyond the first version: "options" = the
-    // step-by-step product choice (offer_plan_options). Without it (an old
-    // cached widget) the backend keeps the one-plan guide.
+    // step-by-step product choice (offer_plan_options); "rules" (since
+    // 2026-10-27) = it normalises Mo's quantities by the product rules and
+    // sizes one floor product to his floor area, as the backend reports in
+    // `adjusted`. Without them (an old cached widget) the backend keeps the
+    // one-plan guide / tells Mo to put the final quantities into his input.
     conf.features = CFG_FEATURES.slice();
     return { type: 'configurator', source: 'configurator', configurator: conf };
   }
@@ -3014,6 +3130,9 @@
     // Signed in, startNewChat already minted the new thread's key; otherwise
     // the first turn mints it (updated below).
     cfgSave({ v: 1, answers: answers, partner: partner, convKey: activeConversationKey || null, edits: {}, startedAt: Date.now() });
+    // note: whether the visitor wrote something in step 04 („written“) or
+    // went on without („skipped“, also an old page without the step) — never
+    // the text itself (personal data, it lives only in the request context).
     track('configurator_handover', {
       persona: answers.persona || '',
       location: answers.location || '',
@@ -3021,7 +3140,8 @@
       training: (answers.training || []).join(','),
       level: answers.level || '',
       partner: partner || '',
-      prefilled: !!meta.prefilled
+      prefilled: !!meta.prefilled,
+      note: answers.note && meta.note !== 'skipped' ? 'written' : 'skipped'
     });
     openPanel(true);
     cfgApplyChrome();
@@ -3327,6 +3447,122 @@
     for (i = 0; i < vs.length; i++) { if (vs[i].available !== false) return vs[i]; }
     return vs[0] || null;
   }
+
+  // ----- product rules (since 2026-10-27) --------------------------------------
+  // /api/products and the picker's cards carry the quantity rules the backend
+  // checks Mo's plans against (product-rules.mjs): rules: { step?, min?, max?,
+  // coverageM2? } — only what differs from the default (step 1, min 1, no
+  // max, no coverage; {} = one by one) — and showroom: true / false while the
+  // backend knows its showroom list. A coverageM2 means „sized to the room“.
+  // The plan follows them: lines from Mo's input and from his options are
+  // normalised (up to the step, at least min, at most max — Mo's text names
+  // the same quantities, the tool result told him), the stepper moves by the
+  // step and never below min, „+ Produkt hinzufügen“ adds min, the cart gets
+  // the same quantities, and a plan stored before is normalised when it
+  // comes back. A backend before that sends neither field: quantities stay
+  // as they are (1–20) and only the round-4 rule of thumb (cfgSoldInPairs)
+  // decides what „Hinzufügen“ adds.
+  // cfgRulesOn: a product or card of this page load carried one of the
+  // fields — the backend knows rules, a product without them has none.
+  // A plan line holds at most CFG_MAX_QTY units, a floor product (one with
+  // coverage) CFG_FLOOR_MAX_QTY — a whole room in small tiles (the backend's
+  // RULE_LIMITS lineMax / floorLineMax). Raw quantities (Mo's input, the
+  // stored plan) are clamped to CFG_FLOOR_MAX_QTY first and normalised by
+  // their product's rules (cfgNormQty) before they are shown or carted.
+  var CFG_MAX_QTY = 20;
+  var CFG_FLOOR_MAX_QTY = 200;
+  // A variant that is no tile — a connector, tape, a ramp, an edge piece of a
+  // puzzle system — covers nothing (byte for byte the backend's
+  // product-rules.mjs NON_TILE_VARIANT).
+  var CFG_NON_TILE = /verbinder|frog|clip|connector|kleber|klebeband|\btape\b|rampe|\brechts\b|\blinks\b|\bgerade\b|abschluss|kantenleiste/i;
+  var cfgRulesOn = false;
+  function cfgNoteRules(p) {
+    if (cfgRulesOn || !p || typeof p !== 'object') return;
+    if ((p.rules && typeof p.rules === 'object') || typeof p.showroom === 'boolean') cfgRulesOn = true;
+  }
+  function cfgWhole(v, lo, hi) {
+    var n = typeof v === 'number' ? v : NaN;
+    return isFinite(n) && Math.floor(n) === n && n >= lo && n <= hi ? n : 0;
+  }
+  // { step, min, max, cover, known } the way the backend resolves and
+  // normalises (product-rules.mjs normalizeQuantity) — for variant v of the
+  // product when given (a line's chosen variant, an option item's ref): min
+  // and max are multiples of step within a plan line's 1–20 (a floor
+  // product's 1–200), the smaller quantity wins a conflict; cover = m² one
+  // unit covers (0: none — also for a variant that is no tile); known = the
+  // backend sent rules (or knows them and this product has none).
+  function cfgRulesOf(p, v) {
+    var r = p && p.rules && typeof p.rules === 'object' && !Array.isArray(p.rules) ? p.rules : null;
+    var cover = r && typeof r.coverageM2 === 'number' && isFinite(r.coverageM2) && r.coverageM2 > 0 && r.coverageM2 <= 10000 ? r.coverageM2 : 0;
+    if (cover && v && CFG_NON_TILE.test(String(v.title || ''))) cover = 0;
+    var line = cover ? CFG_FLOOR_MAX_QTY : CFG_MAX_QTY;
+    var step = Math.min((r && cfgWhole(r.step, 1, 100000)) || 1, line);
+    var max = (r && cfgWhole(r.max, 1, 100000)) || 0;
+    var cap = max ? Math.min(max, line) : line;
+    if (step > cap) step = 1;
+    var min = (r && cfgWhole(r.min, 1, 100000)) || step;
+    var lo = Math.min(Math.ceil(min / step) * step, Math.max(1, Math.floor(cap / step) * step));
+    var hi = Math.max(lo, Math.floor(cap / step) * step);
+    return { step: step, min: lo, max: hi, cover: cover, known: !!r || cfgRulesOn };
+  }
+  // A quantity as the rules of the product (its variant v) allow it (no
+  // rules: 1–20 as before).
+  function cfgNormQty(p, q, v) {
+    var r = cfgRulesOf(p, v);
+    var n = Math.floor(Number(q));
+    if (!isFinite(n) || n < 1) n = r.min;
+    n = Math.ceil(n / r.step) * r.step;
+    return Math.min(r.max, Math.max(r.min, n));
+  }
+  // The rules of a plan line or an option item: its product with the line's
+  // variant (an item: its ref's, else the default one).
+  function cfgItemRules(x) { return cfgRulesOf(x.product, cfgVariantOf(x.product, x)); }
+  // A floor product sized to Mo's floor area (areaM2 / floorAreaM2) like the
+  // backend's validateLines (rule „Raumfläche“): only when exactly ONE of the
+  // items covers an area — it gets ceil(area / coverage) units (its step /
+  // min / max respected). With two (a drop zone under the rack plus mats for
+  // the rest) Mo computes the pieces himself and nothing is resized.
+  // items: plan lines or option items ({ product, qty[, variantId] }).
+  function cfgSizeTiles(items, area) {
+    if (!(area > 0)) return;
+    var tiles = items.filter(function (x) { return x.product && cfgItemRules(x).cover > 0; });
+    if (tiles.length !== 1) return;
+    var t = tiles[0];
+    var needed = Math.max(1, Math.ceil(area / cfgItemRules(t).cover - 1e-9));
+    t.qty = cfgNormQty(t.product, needed, cfgVariantOf(t.product, t));
+  }
+  // A floor area from Mo's input as the backend accepts it (m², > 0, ≤ 500,
+  // two decimals), else 0.
+  function cfgArea(v) {
+    var n = typeof v === 'number' ? v : (typeof v === 'string' ? Number(v.replace(',', '.')) : NaN);
+    return isFinite(n) && n > 0 && n <= 500 ? Math.round(n * 100) / 100 : 0;
+  }
+  // „12“ / „2,5“ (en: „2.5“) — one decimal at most.
+  function cfgM2(n) {
+    var x = Math.round(n * 10) / 10;
+    var s = x % 1 === 0 ? String(x) : x.toFixed(1);
+    return (LOCALE === 'en' ? s : s.replace('.', ',')) + '\u00a0m²';
+  }
+  // „deckt ca. 12 m²“ for qty units of a product (its variant v) with
+  // coverage, else ''.
+  function cfgCoverText(p, qty, v) {
+    var cover = cfgRulesOf(p, v).cover;
+    return cover && qty > 0 ? L('deckt ca. ', 'covers approx. ') + cfgM2(cover * qty) : '';
+  }
+  // The rule a plan line explains next to its stepper: „Paarweise“, „In 3er-
+  // Schritten“, „Mindestens 4“ — and the area its quantity covers (none for
+  // a chosen variant that is no tile: v).
+  function cfgRuleText(p, qty, v) {
+    var r = cfgRulesOf(p, v);
+    var parts = [];
+    if (r.step === 2) parts.push(L('Paarweise', 'In pairs'));
+    else if (r.step > 2) parts.push(L('In ' + r.step + 'er-Schritten', 'In steps of ' + r.step));
+    if (r.min > r.step) parts.push(L('mindestens ' + r.min, 'at least ' + r.min));
+    var cover = cfgCoverText(p, qty, v);
+    if (cover) parts.push(cover);
+    var t = parts.join(' · ');
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+  }
   // The first available variant of the product that no (kept) line of the
   // plan uses yet — the next weight step — or null.
   // The next free variant of a product. With a source line („+ Gewichtsstufe“
@@ -3386,6 +3622,16 @@
     if (at === -1) lines.push(line); else lines.splice(at + 1, 0, line);
   }
 
+  // A product ref in Mo's tool input (a catalog id or handle~variantId) as
+  // the backend takes it, after trim(): byte for byte configurator-core.mjs
+  // PRODUCT_REF_RE — 1 to 255 characters (CONFIGURATOR_LIMITS.productIdMax),
+  // no whitespace, no comma. A ref the backend drops from the plan
+  // (normalizePlanItems) and the options (normalizeOfferOptions) is no line
+  // or item here either, so the page holds exactly the lines Mo's tool result
+  // names; a comma would also split /api/products' ids and shift the answers
+  // of the whole batch.
+  var CFG_REF_RE = /^[^\s,]{1,255}$/;
+
   // The plan from the tool input, with the visitor's edits and added lines
   // of this thread.
   function cfgMakePlan(input, key) {
@@ -3394,18 +3640,23 @@
     var seen = {};
     // Mo's lines: up to 20 (the backend's PLAN_MAX_ITEMS, the same as the
     // page plan's cap — a full plan from Mo leaves no room until the visitor
-    // removes a line).
+    // removes a line). Two lines of one ref are one line, their quantities
+    // summed (the backend's normalizePlanItems; the product's rules apply
+    // once it is known — cfgNormLine). inQty keeps that input quantity: the
+    // floor area sizes from it again when a late line answers (cfgSizePlan).
     for (var i = 0; i < items.length && lines.length < CFG_MAX_LINES; i++) {
       var it = items[i];
       if (!it || typeof it.productId !== 'string') continue;
       var ref = it.productId.trim();
-      if (!ref || seen[ref]) continue;
-      seen[ref] = 1;
+      if (!CFG_REF_RE.test(ref)) continue;
       var q = parseInt(it.quantity, 10);
-      lines.push({
+      q = isFinite(q) && q >= 1 ? Math.min(q, CFG_FLOOR_MAX_QTY) : 1;
+      if (Object.prototype.hasOwnProperty.call(seen, ref)) { seen[ref].qty = seen[ref].inQty = Math.min(CFG_FLOOR_MAX_QTY, seen[ref].inQty + q); continue; }
+      lines.push(seen[ref] = {
         uid: ref,
         ref: ref,
-        qty: isFinite(q) && q >= 1 ? Math.min(q, 20) : 1,
+        qty: q,
+        inQty: q,
         role: CFG_ROLES[it.role] ? it.role : 'extra',
         note: typeof it.note === 'string' ? it.note.slice(0, 160) : '',
         removed: false,
@@ -3416,14 +3667,20 @@
     }
     var c = cfgLoad();
     // edits[key][uid] = { qty, variantId, removed } — Mo's lines (uid = ref,
-    // the shape stored before uids existed).
+    // the shape stored before uids existed). Something stored means the
+    // visitor changed this plan (only his edits and picks store it —
+    // cfgSaveEdits): its quantities (his, or the ones shown then) are never
+    // sized to the floor area again, only normalised (cfgNormLine; up to 200
+    // for a floor product).
     var edits = c && c.edits && c.edits[key];
+    var edited = false;
     if (edits && typeof edits === 'object') {
       lines.forEach(function (l) {
         var e = edits[l.uid];
         if (!e || typeof e !== 'object') return;
+        edited = true;
         var eq = parseInt(e.qty, 10);
-        if (eq >= 1 && eq <= 20) l.qty = eq;
+        if (eq >= 1 && eq <= CFG_FLOOR_MAX_QTY) l.qty = eq;
         if (typeof e.variantId === 'string') l.variantId = e.variantId;
         l.removed = e.removed === true;
       });
@@ -3439,10 +3696,35 @@
       title: typeof input.title === 'string' ? input.title.slice(0, 120) : '',
       summary: typeof input.summary === 'string' ? input.summary.slice(0, 500) : '',
       tips: (Array.isArray(input.tips) ? input.tips : []).filter(function (t) { return typeof t === 'string' && t.trim(); }).slice(0, 3),
+      // The floor area Mo sized the flooring for (since 2026-10-27).
+      area: cfgArea(input.floorAreaM2),
+      // The visitor changed the plan (stored edits or lines of his own; from
+      // now on set by cfgSaveEdits): Mo's quantities are no longer sized.
+      edited: edited || lines.some(function (l) { return l.added; }),
       lines: lines,
       ready: false,
       settled: false // its products have answered (or not) — see cfgPlansPending
     };
+  }
+
+  // A line's quantity once its product is known follows the rules of the
+  // product with the line's variant — Mo's input, the visitor's stored lines
+  // and edits of an older widget alike.
+  function cfgNormLine(l) {
+    if (l.product) l.qty = cfgNormQty(l.product, l.qty, cfgVariantOf(l.product, l));
+  }
+  // Mo's floor tiles sized to his floor area like the backend's validateLines
+  // on his input: each of his lines from his input quantity (by the rules of
+  // its product and variant), then exactly one coverage line sized — with
+  // two or more none is. Runs when his products answer and again when late
+  // lines come back (cfgPlanRetry) with every line known by then, so a tile
+  // sized while a second one was still missing is not sized any more. Never
+  // in a plan the visitor changed (plan.edited): its quantities stay.
+  function cfgSizePlan(plan) {
+    if (!plan.area || plan.edited) return;
+    var mo = plan.lines.filter(function (l) { return !l.added && !!l.product; });
+    mo.forEach(function (l) { l.qty = cfgNormQty(l.product, l.inQty, cfgVariantOf(l.product, l)); });
+    cfgSizeTiles(mo, plan.area);
   }
 
   // The visitor's stored lines into `lines` (up to the cap).
@@ -3456,7 +3738,7 @@
       var line = {
         uid: typeof a.uid === 'string' && /^a\d{1,6}$/.test(a.uid) && !cfgLineByUid(lines, a.uid) ? a.uid : cfgNewUid(lines),
         ref: aref,
-        qty: aq >= 1 && aq <= 20 ? aq : 1,
+        qty: aq >= 1 && aq <= CFG_FLOOR_MAX_QTY ? aq : 1,
         role: CFG_ROLES[a.role] ? a.role : 'extra',
         note: '',
         removed: false,
@@ -3480,7 +3762,10 @@
   // stored as they were, and a newer plan of Mo's that could not load keeps
   // what is stored for it — both come back once the products answer
   // (cfgPlanRetry); an edit or a pick meanwhile must not erase them.
+  // Only the visitor's edits and picks store a plan (a late answer only one
+  // he changed already): what is stored is his, never sized again.
   function cfgSaveEdits(plan) {
+    plan.edited = true;
     var c = cfgActive();
     if (!c) return;
     var e = {};
@@ -3527,8 +3812,9 @@
   }
 
   // The plan as Mo should see it: [{ id, qty, added?: true }]. Two lines that
-  // resolve to the same id are one item (quantities summed, max 20); an item
-  // is `added` only when every line behind it is the visitor's own.
+  // resolve to the same id are one item (quantities summed, at most what one
+  // line of that product holds — 20, a floor product 200); an item is
+  // `added` only when every line behind it is the visitor's own.
   function cfgPlanForContext() {
     var plan = cfgActivePlanKey && cfgPlans[cfgActivePlanKey];
     if (!plan) return [];
@@ -3541,7 +3827,7 @@
       var id = v && v.id != null && Array.isArray(l.product.variants) && l.product.variants.length > 1 ? base + '~' + v.id : base;
       var hit = byId[id];
       if (hit) {
-        hit.qty = Math.min(20, hit.qty + l.qty);
+        hit.qty = Math.min(cfgRulesOf(l.product, v).max, hit.qty + l.qty);
         if (!l.added) delete hit.added;
         return;
       }
@@ -3609,7 +3895,11 @@
       // wait aside (plan.missing, unknown ids are dropped): they stay stored
       // (cfgSaveEdits) and go back in once their products answer.
       plan.failed = cfgUnresolved(refs);
-      for (var i = 0; i < plan.lines.length; i++) plan.lines[i].product = res[i] || null;
+      for (var i = 0; i < plan.lines.length; i++) {
+        plan.lines[i].product = res[i] || null;
+        cfgNormLine(plan.lines[i]);
+      }
+      cfgSizePlan(plan);
       plan.all = plan.lines;
       plan.missing = plan.lines.filter(function (l) { return !l.product && !(String(l.ref).trim() in productCache); });
       plan.lines = plan.lines.filter(function (l) { return !!l.product; });
@@ -3656,6 +3946,9 @@
   // missing ones (cfgStalledRetry: every 30 s, back online, the tab visible
   // again, a pick that had to wait). Once they answer, the lines go back in
   // place — edits made meanwhile stay — and a plan that had none shows up.
+  // A plan the visitor has not changed is then sized again from Mo's input
+  // with every line it has now (cfgSizePlan), and nothing of it is stored: a
+  // late answer never turns Mo's quantities into the visitor's edits.
   function cfgPlanRetry(plan) {
     if (!plan.failed || plan.busy || cfgPlans[plan.key] !== plan) return;
     var refs = plan.missing.map(function (l) { return l.ref; });
@@ -3669,8 +3962,10 @@
       plan.failed = false;
       for (var i = 0; i < missing.length; i++) {
         missing[i].product = res[i] || null;
+        cfgNormLine(missing[i]);
         if (missing[i].product) cfgPlanPutBack(plan, missing[i]);
       }
+      cfgSizePlan(plan);
       if (!plan.ready) {
         var card = plan.lines.length ? cfgPlanShow(plan) : null;
         if (card && plan.slot && plan.slot.parentNode) plan.slot.parentNode.replaceChild(card, plan.slot);
@@ -3678,7 +3973,7 @@
         return;
       }
       if (plan.key === cfgActivePlanKey) {
-        cfgSaveEdits(plan);
+        if (plan.edited) cfgSaveEdits(plan);
         cfgRenderHost();
         var t = cfgPlanTotals(plan);
         cfgEmit('plan', { items: t.count, units: t.units, total: Math.round(t.total) });
@@ -3818,10 +4113,12 @@
         var it = o.items[j];
         if (!it || typeof it.productId !== 'string') continue;
         var ref = it.productId.trim();
-        if (!ref || ref.length > 255 || /[\s,]/.test(ref)) continue;
+        if (!CFG_REF_RE.test(ref)) continue;
+        // Clamped like the backend's normalizeOfferOptions (200: it does not
+        // know the product); its rules apply once it is known (buildOffer).
         var q = parseInt(it.quantity, 10);
-        q = isFinite(q) && q >= 1 ? Math.min(q, 20) : 1;
-        if (Object.prototype.hasOwnProperty.call(seen, ref)) { seen[ref].qty = Math.min(20, seen[ref].qty + q); continue; }
+        q = isFinite(q) && q >= 1 ? Math.min(q, CFG_FLOOR_MAX_QTY) : 1;
+        if (Object.prototype.hasOwnProperty.call(seen, ref)) { seen[ref].qty = Math.min(CFG_FLOOR_MAX_QTY, seen[ref].qty + q); continue; }
         seen[ref] = { ref: ref, qty: q, product: null, name: '', url: '' };
         items.push(seen[ref]);
       }
@@ -3842,6 +4139,8 @@
       title: cfgClip(rec.title, 80),
       intro: cfgClip(rec.intro, 240),
       multi: rec.multiSelect === true,
+      // The floor area the flooring options are sized for (since 2026-10-27).
+      area: cfgArea(rec.areaM2),
       options: options
     };
   }
@@ -3917,6 +4216,7 @@
         var ok = true;
         var total = 0;
         var regular = 0;
+        var cover = 0;
         o.items.forEach(function (it) {
           var p = byRef[it.ref];
           var v = p ? cfgVariantOf(p, { variantId: null }) : null;
@@ -3925,13 +4225,24 @@
           it.product = p;
           it.name = view.name;
           it.url = view.url;
-          total += cfgUnitPrice(p, v) * it.qty;
-          regular += (v ? Number(v.price) || 0 : Number(p.price) || 0) * it.qty;
+          // The quantities the plan will hold — by the rules of the product
+          // and its ref's variant (pairs …), one floor product sized to Mo's
+          // floor area: the card's price and item list, the pick and the
+          // cart all use them.
+          it.qty = cfgNormQty(p, it.qty, v);
         });
         if (!ok) return;
+        cfgSizeTiles(o.items, g.area);
+        o.items.forEach(function (it) {
+          var v = cfgVariantOf(it.product, { variantId: null });
+          cover += cfgRulesOf(it.product, v).cover * it.qty;
+          total += cfgUnitPrice(it.product, v) * it.qty;
+          regular += (v ? Number(v.price) || 0 : Number(it.product.price) || 0) * it.qty;
+        });
         o.name = o.label || o.items[0].name;
         o.total = Math.round(total * 100) / 100;
         o.regular = Math.round(regular * 100) / 100;
+        o.cover = cover;
         g.shown.push(o);
       });
       if (!g.shown.length) return cfgOfferStalled(g, input, refs);
@@ -3993,6 +4304,8 @@
         info.appendChild(el('span', { class: 'ms-chat-offer-name', text: o.name }));
       }
       info.appendChild(cfgOfferPriceEl(o));
+      // Flooring: the area the option covers („Deckt ca. 12 m²“).
+      if (o.cover > 0) info.appendChild(el('span', { class: 'ms-chat-offer-cover', text: L('Deckt ca. ', 'Covers approx. ') + cfgM2(o.cover) }));
       li.appendChild(info);
       // A bundle (weights: one line per step) names its items.
       if (o.items.length > 1 || first.qty > 1) {
@@ -4347,9 +4660,9 @@
     drop.forEach(function (l) { l.removed = true; });
     stay.forEach(function (s) {
       // A quantity the earlier option set (not changed by the visitor)
-      // follows the new option.
+      // follows the new option (by the rules of the line's variant).
       var src = cfgOfferSourceItem(s.l);
-      if (src && src.qty === s.l.qty) s.l.qty = s.w.it.qty;
+      if (src && src.qty === s.l.qty) s.l.qty = s.l.product ? cfgNormQty(s.l.product, s.w.it.qty, cfgVariantOf(s.l.product, s.l)) : s.w.it.qty;
       s.l.pick = g.key;
       s.l.pickStep = g.step;
       s.l.pickOpt = s.w.o.idx;
@@ -4679,7 +4992,10 @@
         } else cfgStallWatch();
         return;
       }
-      for (var i = 0; i < plan.lines.length; i++) plan.lines[i].product = res[i] || null;
+      for (var i = 0; i < plan.lines.length; i++) {
+        plan.lines[i].product = res[i] || null;
+        cfgNormLine(plan.lines[i]);
+      }
       plan.lines = plan.lines.filter(function (l) { return !!l.product; });
       plan.ready = true;
       plan.settled = true;
@@ -4913,6 +5229,10 @@
     name.addEventListener('click', function () { track('product_cta_clicked', { productId: p.id, samePage: false }); });
     main.appendChild(name);
     if (l.note) main.appendChild(el('div', { class: 'ms-chat-planhost-note', text: l.note }));
+    // Why the stepper jumps by two („Paarweise“) / what the flooring covers
+    // (by the chosen variant: a connector or an edge piece covers nothing).
+    var rule = l.removed ? '' : cfgRuleText(p, l.qty, v);
+    if (rule) main.appendChild(el('div', { class: 'ms-chat-planhost-rule', text: rule }));
     if (!avail) main.appendChild(el('span', { class: 'ms-chat-soldout-badge', text: L('Aktuell nicht lieferbar', 'Currently unavailable') }));
 
     var vs = cfgVariants(p);
@@ -4927,6 +5247,8 @@
       });
       sel.addEventListener('change', function () {
         l.variantId = sel.value;
+        // A floor tile's line holds up to 200, a connector's 20.
+        l.qty = cfgNormQty(p, l.qty, cfgVariantOf(p, l));
         cfgPlanEdited(plan, 'variant');
       });
       opts.appendChild(sel);
@@ -4951,14 +5273,18 @@
 
     var side = el('div', { class: 'ms-chat-planhost-side' });
     if (!l.removed) {
+      // The product's rules: steps of `step` (pairs: 2), never below its
+      // minimum or above its maximum — up to 200 for a floor tile (no rules:
+      // 1–20 as before).
+      var rr = cfgRulesOf(p, v);
       var qty = el('div', { class: 'ms-chat-qty', role: 'group', 'aria-label': L('Menge', 'Quantity') });
-      var minus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '−', 'data-focus': 'minus', 'aria-label': L('Weniger', 'Fewer') });
+      var minus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '−', 'data-focus': 'minus', 'aria-label': rr.step > 1 ? L(rr.step + ' weniger', rr.step + ' fewer') : L('Weniger', 'Fewer') });
       var val = el('span', { class: 'ms-chat-qty-val', text: String(l.qty), 'aria-live': 'polite' });
-      var plus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '+', 'data-focus': 'plus', 'aria-label': L('Mehr', 'More') });
-      minus.disabled = l.qty <= 1;
-      plus.disabled = l.qty >= 20;
-      minus.addEventListener('click', function () { if (l.qty > 1) { l.qty--; cfgPlanEdited(plan, 'qty'); } });
-      plus.addEventListener('click', function () { if (l.qty < 20) { l.qty++; cfgPlanEdited(plan, 'qty'); } });
+      var plus = el('button', { class: 'ms-chat-qty-btn', type: 'button', text: '+', 'data-focus': 'plus', 'aria-label': rr.step > 1 ? L(rr.step + ' mehr', rr.step + ' more') : L('Mehr', 'More') });
+      minus.disabled = l.qty - rr.step < rr.min;
+      plus.disabled = l.qty + rr.step > rr.max;
+      minus.addEventListener('click', function () { if (l.qty - rr.step >= rr.min) { l.qty = cfgNormQty(p, l.qty - rr.step, v); cfgPlanEdited(plan, 'qty'); } });
+      plus.addEventListener('click', function () { if (l.qty + rr.step <= rr.max) { l.qty = cfgNormQty(p, l.qty + rr.step, v); cfgPlanEdited(plan, 'qty'); } });
       qty.appendChild(minus); qty.appendChild(val); qty.appendChild(plus);
       side.appendChild(qty);
       side.appendChild(el('div', { class: 'ms-chat-planhost-price', text: avail ? cfgMoney(Math.round(cfgUnitPrice(p, v) * l.qty * 100) / 100) : '—' }));
@@ -5015,7 +5341,7 @@
     var line = {
       uid: cfgNewUid(plan.lines),
       ref: cfgBaseId(src),
-      qty: src.qty,
+      qty: cfgNormQty(src.product, src.qty, next),
       role: 'weights',
       note: '',
       removed: false,
@@ -5051,6 +5377,11 @@
   function cfgCleanCard(c) {
     if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !c.id.trim() || typeof c.name !== 'string') return null;
     var num = function (x) { var n = Number(x); return typeof x === 'number' && isFinite(n) ? n : undefined; };
+    cfgNoteRules(c);
+    // The card's product rules (since 2026-10-27; see cfgRulesOf).
+    var rules = c.rules && typeof c.rules === 'object' && !Array.isArray(c.rules)
+      ? { step: num(c.rules.step), min: num(c.rules.min), max: num(c.rules.max), coverageM2: num(c.rules.coverageM2) }
+      : undefined;
     var vs = Array.isArray(c.variants) ? c.variants.filter(function (v) { return v && typeof v === 'object'; }).slice(0, 100).map(function (v) {
       return {
         id: v.id != null && v.id !== '' ? String(v.id) : null,
@@ -5073,7 +5404,9 @@
       images: (Array.isArray(c.images) ? c.images : []).filter(function (s) { return typeof s === 'string' && s; }).slice(0, 1),
       shopifyUrl: typeof c.shopifyUrl === 'string' ? c.shopifyUrl : '',
       inStock: c.inStock !== false,
-      variants: vs
+      variants: vs,
+      rules: rules,
+      showroom: typeof c.showroom === 'boolean' ? c.showroom : undefined
     };
   }
 
@@ -5124,7 +5457,9 @@
       images: card.images.slice(),
       shopifyUrl: card.shopifyUrl,
       inStock: card.inStock,
-      variants: card.variants.slice()
+      variants: card.variants.slice(),
+      rules: card.rules,
+      showroom: card.showroom
     };
   }
 
@@ -5533,11 +5868,17 @@
       if (cfgPlanFull(cur)) { cfgPickNote('warn', cfgLimitText()); return; }
       var p = prod || cfgCardProduct(card);
       var weights = card.role === 'weights';
-      // Plates and dumbbells in steps come in pairs; a single product filed
-      // under weights (a set, an adjustable kettlebell, a machine) once.
-      var pairs = weights && cfgSoldInPairs(p);
+      // What „Hinzufügen“ adds: the product's minimum by its rules (pairs: 2)
+      // and one more step for a line already there. A backend without rules:
+      // the round-4 rule of thumb — plates and dumbbells in steps come in
+      // pairs; a single product filed under weights (a set, an adjustable
+      // kettlebell, a machine) once.
       var v = weights ? (cfgNextVariant(cur, p) || cfgDefaultVariant(p)) : cfgDefaultVariant(p);
       var vid = v && v.id != null ? String(v.id) : null;
+      var rules = cfgRulesOf(p, v);
+      var pairs = !rules.known && weights && cfgSoldInPairs(p);
+      var first = rules.known ? rules.min : (pairs ? 2 : 1);
+      var more = rules.known ? rules.step : (pairs ? 2 : 1);
       // The same product and variant the visitor already added: one more of
       // it instead of a second identical row.
       var same = null;
@@ -5547,12 +5888,13 @@
         if (String(lv && lv.id != null ? lv.id : '') === String(vid || '')) same = l;
       });
       if (same) {
-        same.qty = Math.min(20, same.qty + (pairs ? 2 : 1));
+        // One more step, up to what the line holds (20, a floor tile 200).
+        same.qty = cfgNormQty(p, same.qty + more, v);
       } else {
         cfgInsertLine(cur.lines, {
           uid: cfgNewUid(cur.lines),
           ref: card.id,
-          qty: pairs ? 2 : 1,
+          qty: cfgNormQty(p, first, v),
           role: card.role,
           note: '',
           removed: false,
@@ -5614,8 +5956,11 @@
       if (!cfgLineAvailable(l.product, v) || !v) return;
       var id = parseInt(v.id, 10);
       if (!isFinite(id)) return;
-      if (byId[id]) { byId[id].quantity += l.qty; return; }
-      byId[id] = { id: id, quantity: l.qty };
+      // The quantity the line shows — by the rules of its product and
+      // variant (pairs …, a floor tile up to 200).
+      var q = cfgNormQty(l.product, l.qty, v);
+      if (byId[id]) { byId[id].quantity += q; return; }
+      byId[id] = { id: id, quantity: q };
       items.push(byId[id]);
       names[id] = cfgLineView(l.product, l).name;
       prices[id] = cfgUnitPrice(l.product, v) || 0;
@@ -6816,6 +7161,8 @@
 
     var key = part.toolCallId || (name + ':' + JSON.stringify(input));
     var inputKey = JSON.stringify(input);
+    // A restored showroom card decides with its stored result (showroomPick).
+    if (name === 'suggest_showroom' && part.output !== undefined) showroomResult(key, part.output);
     var holder = ctx.tools[key];
     if (holder) {
       if (holder.inputKey === inputKey) return; // unchanged -> no re-render
@@ -6825,7 +7172,7 @@
       ctx.tools[key] = holder;
       ctx.content.appendChild(holder.node);
     }
-    buildToolCard(name, input, key).then(function (cardEl) {
+    buildToolCard(name, input, key, !!ctx.live).then(function (cardEl) {
       holder.node.replaceChildren();
       if (!cardEl) return;
       holder.node.appendChild(cardEl);
@@ -7086,6 +7433,8 @@
       if (finished) return;
       finished = true;
       removeTyping();
+      // A showroom card still waiting for its result decides now.
+      showroomTurnOver();
       // Flush any Markdown token withheld during streaming, in case the stream
       // closed without a trailing text-end (the run is complete now).
       if (ctx && ctx.activeText && ctx.activeText.node) {
@@ -7295,6 +7644,8 @@
                 ev.output && ev.output.consentCopy) {
               seedConsentCopy(ev.output.consentCopy);
             }
+            // The showroom card shows only what the result says is there.
+            if (ev.toolCallId && toolNames[ev.toolCallId] === 'suggest_showroom') showroomResult(ev.toolCallId, ev.output);
             // Persist the output on the accumulated HISTORY part (renderless
             // — accumulatePart only, never feedCanonical).
             if (ev.toolCallId && toolNames[ev.toolCallId]) {
@@ -7302,6 +7653,7 @@
             }
             return;
           case 'tool-output-error':
+            if (ev.toolCallId && toolNames[ev.toolCallId] === 'suggest_showroom') showroomResult(ev.toolCallId, null);
             return;
 
           // --- Error event. ---
@@ -9657,8 +10009,11 @@
     window.MS_CHAT = window.MS_CHAT || {};
     window.MS_CHAT.openWithProduct = openWithProduct;
     window.MS_CHAT.openEmailSummary = openCaptureForm;
+    // version 2 (since 2026-10-27): the note (answers.note / meta.note) and
+    // the product rules are supported — a version-1 widget drops the note, so
+    // the page offers its step 04 only from version 2 on.
     window.MS_CHAT.configurator = {
-      version: 1,
+      version: 2,
       dock: !!DOCK,
       start: cfgStart,
       update: cfgUpdate,
