@@ -12,7 +12,51 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-24, latest) — Konfigurator: fehlende Angaben rot markiert, Konfigurator-Rabatt (vorbereitet, aus)
+## ⭐ Session update (2026-10-27, latest) — Konfigurator: Siegel oben rechts, Plan in Dunkelblau, Schritt „Deine Hinweise“, Produkt-Regeln und Showroom
+
+The client's second review. Upload **right after the mo backend is deployed** (it brings the note in
+Mo's context, the product rules in `/api/products` and the showroom list; until this upload the live
+widget's „Zur Kasse“ card shows one plate's price while its link already holds the pair — so upload
+within minutes, mo `docs/ROLLOUT_TODO.md` item 16.1). **Upload the two widget files first, then the
+three page files** (the new page with the old widget would skip step 04 until the widget arrives).
+
+- **Siegel im Hero:** both seals large in one block with the sentence above (regular weight) — top right
+  inside the hero (default) or bottom right: new theme-editor setting **„Position der Siegel im Kopfbereich“**
+  (`seal_position`, „Oben rechts“ / „Unten rechts“). Below 1200 px the block sits under the headline.
+- **„Dein Home-Gym-Plan“** in dark blue with white text (page container + the plan Mo and the visitor
+  build); „Deine Angaben“ and the chat stay light.
+- **„Ändern“ / „Neu starten“** are outline buttons.
+- **Zeitleiste** in its own card above the chat (same edges), five steps.
+- **Schritt 04 „Deine Hinweise“** (optional): after the basics „Weiter“ opens a text field („Gibt es
+  etwas, das wir in deinem Fall beachten sollten?“); „Weiter – Mo berät mich“ hands over with the text,
+  „Überspringen“ without it. Mo gets the note in its context.
+- **Produkt-Regeln:** quantities in the plan follow the backend's rules (plates and single dumbbells in
+  pairs, the stepper moves by 2; flooring sized for the room — up to 200 pieces per floor line, and only
+  when the plan has one floor product); the „Zur Kasse“ card of the floating widget shows „2×“ for a
+  pair. The showroom card only names products that are really in the showroom; while Mo does not know
+  the showroom list yet (app permission `read_themes`, mo `docs/ROLLOUT_TODO.md` item 16.3) it invites
+  to the showroom without naming products.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-chat-widget.js` | **MODIFIED** (note in the context, product rules, showroom card, plan on navy) | ✅ Yes — replace the whole file (first) |
+| `assets/ms-chat-widget.css` | **MODIFIED** (plan on navy, rule hints) | ✅ Yes — replace the whole file (second) |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (seal block, timeline card, step 04; new setting `seal_position`) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | **MODIFIED** (step 04, five-step timeline, seal block) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (hero, navy plan container, pills, timeline card, step 04) | ✅ Yes — replace the whole file |
+| `templates/page.home-gym-mo.json` | **MODIFIED** (new id `seal_position`, for new installs only) | ❌ **No — do NOT upload** (it would drop the uploaded seals and the photo); the setting's default „Oben rechts“ applies without it. |
+
+The floating widget on every other page is unchanged except for the showroom card (above) and the „2×“
+of pairs in the „Zur Kasse“ card. After the upload: theme editor → section „Home-Gym-Konfigurator“ →
+„Position der Siegel im Kopfbereich“ shows „Oben rechts“; check the page on desktop and phone and run one
+consultation with a note. `npm run verify:widget` (mo repo) should report „✔ Widget-Build: Widget mit der
+Konfigurator-Runde vom 27.10. …“ and „✔ Konfigurator mit Schritt 04 „Deine Hinweise“ …“, and — once the
+page has its new URL (mo `docs/ROLLOUT_TODO.md` item 16.4) — „✔ Konfigurator unter
+/pages/home-gym-konfigurator“ plus the 301 from `/pages/home-gym-konfigurator-1`.
+
+---
+
+## ⭐ Session update (2026-10-24) — Konfigurator: fehlende Angaben rot markiert, Konfigurator-Rabatt (vorbereitet, aus)
 
 Feedback from outside motion sports: a tester forgot the m² answer and could not continue. Plus the idea
 of a configurator discount — built complete but **switched off**; the operator decides in the Mo admin.
