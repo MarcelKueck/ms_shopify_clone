@@ -11,7 +11,9 @@
  * are a blue kicker over a regular-weight headline („Darf in keinem Gym
  * fehlen. / Bestseller.“), no divider lines, and the homepage's pill buttons
  * („MOTION SPORTS – Learn more“). No red anywhere except errors: the error
- * text and the outline of a card with an open answer (--hgk-error).
+ * text and the outline of a card with an open answer (--hgk-error). The plan
+ * box is the one dark block of the stage: --hgk-navy (the „SCHRITT 03“ blue,
+ * read by ms-chat-widget.css as var(--hgk-navy, #00577f)).
  * Font: the theme's.
  */
 
@@ -36,10 +38,15 @@
   --hgk-blue-on-tint: #00709f;
   /* Errors only: the line at an open answer, its card's outline, error text. */
   --hgk-error: #b42318;
-  /* Step badges 01 / 02 / 03. */
+  /* Step badges 01 / 02 / 03 (04, the optional note, uses --hgk-muted). */
   --hgk-step-1: #008ccb;
   --hgk-step-2: #1f2933;
   --hgk-step-3: #00577f;
+  /* The plan box (left column): the client-approved „SCHRITT 03“ blue.
+     Shared with ms-chat-widget.css — keep the name. White on it: 7.9:1. */
+  --hgk-navy: var(--hgk-step-3);
+  /* The side padding of .ms-hgk-wrap (the hero geometry reuses it). */
+  --hgk-pad: clamp(16px, 4vw, 48px);
   /* Image hero: the photo's dark wall, a light blue that reads on it. */
   --hgk-hero-dark: #161617;
   --hgk-blue-light: #7ccdf2;
@@ -71,8 +78,8 @@
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
-  padding-left: clamp(16px, 4vw, 48px);
-  padding-right: clamp(16px, 4vw, 48px);
+  padding-left: var(--hgk-pad);
+  padding-right: var(--hgk-pad);
 }
 
 /* Headings as on the homepage: a blue kicker („DARF IN KEINEM GYM FEHLEN.“)
@@ -150,13 +157,18 @@
   box-shadow: 0 8px 20px rgba(0, 140, 203, 0.3);
 }
 .ms-hgk-btn--secondary { background: #fff; border-color: #000; color: #000; box-shadow: none; }
-.ms-hgk-btn--secondary:hover {
+.ms-hgk-btn--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: #000;
   border-color: #000;
   color: #fff;
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
+/* Compact outline pills („Ändern“ / „Neu starten“ in „Deine Angaben“): the
+   secondary look at a smaller size, so they never compete with the CTA. */
+.ms-hgk-btn--sm { gap: 8px; padding: 8px 20px; font-size: 13px; letter-spacing: 1px; }
+/* The quieter one („Neu starten“): a light outline until hovered. */
+.ms-hgk-btn--quiet { border-color: #c4c4c4; color: var(--hgk-text); }
 /* Disabled look; aria-disabled (answers still open) keeps the click, which
    marks the open answers — the pointer stays, and so does the full opacity
    (the theme's main.css fades every button[aria-disabled="true"] to 0.6). */
@@ -188,15 +200,26 @@
 .ms-hgk-link:hover { color: var(--hgk-ink); }
 
 /* ---------- Hero ----------
-   Without an image: white, copy left, seals right (≥ 1200 px) or below.
-   With an image (.ms-hgk-hero--image): phones get the photo on top (16:10)
-   and copy + seals below on white; from 750 px a dark banner — the photo on
-   the right fading into the wall colour on the left, a dark gradient from the
-   left under white copy, the seals overlapping the banner's bottom edge on
-   the right with the caption beside them on white. The photo box starts at
-   ~30 % of the content width, so the centred rack of a 16:9 studio shot stays
-   clear of the copy; object-position is the theme editor's focal point. */
-.ms-hgk-hero { background: #fff; }
+   Mobile first: the copy, then the seal block (the sentence over both seals
+   in one panel — a light card on white). Without an image the hero stays
+   white; from 1200 px the seal block stands right of the copy (top, or bottom
+   with .ms-hgk-hero--seals-bottom).
+   With an image (.ms-hgk-hero--image): phones get the photo on top (16:10,
+   focal point) and copy + seal block below on white. From 750 px a dark
+   banner: white copy on the left over a dark gradient and the seal block as
+   dark glass — under the copy up to 1199 px, from 1200 px inside the banner
+   at the top right (bottom right with the modifier). The photo keeps its own
+   aspect ratio at the banner's full height and is shifted so that its focal
+   point (theme editor; the rack) lands in the free room between the copy
+   column and the seal block; its edges fade into the banner's dark. The one
+   modifier class switches the seal block between top and bottom. */
+.ms-hgk-hero {
+  /* Seal block geometry (also read by the photo placement from 750 px). */
+  --hgk-seal: 190px;
+  --hgk-seal-gap: 12px;
+  --hgk-box-px: 14px;
+  background: #fff;
+}
 .ms-hgk-hero__inner {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -230,7 +253,48 @@
 }
 .ms-hgk-hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
 .ms-hgk-hero__cta:hover svg { transform: translateY(2px); }
-.ms-hgk-hero__seals { grid-area: seals; }
+
+/* The seal block: sentence (regular weight) over the two seals, one panel.
+   Phones: full width, the seals share it (≈ 41 % of a 390 px screen each). */
+.ms-hgk-sealbox {
+  grid-area: seals;
+  justify-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px var(--hgk-box-px) var(--hgk-box-px);
+  border: 1px solid var(--hgk-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 12px 32px rgb(0 0 0 / 7%);
+}
+.ms-hgk .ms-hgk-sealbox__note {
+  max-width: calc(2 * var(--hgk-seal) + var(--hgk-seal-gap));
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--hgk-ink);
+  text-align: center;
+  text-wrap: balance;
+}
+.ms-hgk-seals__row { display: flex; gap: clamp(12px, 1.4vw, 20px); }
+.ms-hgk-sealbox__row { justify-content: center; gap: var(--hgk-seal-gap); max-width: 100%; }
+.ms-hgk-seal { width: var(--hgk-seal); aspect-ratio: 1; flex: 0 0 auto; transition: transform 0.2s ease; }
+/* In the block the seals may shrink to share a narrow row (phones). */
+.ms-hgk-sealbox .ms-hgk-seal { width: auto; flex: 0 1 var(--hgk-seal); min-width: 0; }
+.ms-hgk-seal img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 12%));
+}
+.ms-hgk[data-active-partner="mh"] [data-partner-seal="mh"],
+.ms-hgk[data-active-partner="wh"] [data-partner-seal="wh"] { order: -1; }
+.ms-hgk[data-active-partner="mh"] .ms-hgk-seal[data-partner-seal="mh"],
+.ms-hgk[data-active-partner="wh"] .ms-hgk-seal[data-partner-seal="wh"] { transform: scale(1.06); }
 
 /* The photo (phones: on top, 16:10). */
 .ms-hgk-hero__banner { position: relative; }
@@ -244,46 +308,40 @@
   object-position: var(--hgk-focal, 50% 50%);
 }
 .ms-hgk-hero--image .ms-hgk-hero__inner { padding-top: 28px; padding-bottom: 36px; }
-.ms-hgk-hero--image.ms-hgk-hero--seals .ms-hgk-hero__inner { padding-bottom: 0; }
-.ms-hgk-hero__foot { padding-top: 28px; padding-bottom: 36px; }
-
-/* Seals: large, no tile — the round seal itself is the eye-catcher. */
-.ms-hgk-seals { --hgk-seal: 200px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; }
-.ms-hgk-seals__row { display: flex; gap: clamp(12px, 1.4vw, 20px); }
-.ms-hgk-seal { width: var(--hgk-seal); aspect-ratio: 1; flex: 0 0 auto; transition: transform 0.2s ease; }
-.ms-hgk-seal img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 12%));
-}
-.ms-hgk-seals__caption {
-  max-width: 30ch;
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.5;
-  color: var(--hgk-ink);
-  text-wrap: balance;
-}
-.ms-hgk[data-active-partner="mh"] [data-partner-seal="mh"],
-.ms-hgk[data-active-partner="wh"] [data-partner-seal="wh"] { order: -1; }
-.ms-hgk[data-active-partner="mh"] .ms-hgk-seal[data-partner-seal="mh"],
-.ms-hgk[data-active-partner="wh"] .ms-hgk-seal[data-partner-seal="wh"] { transform: scale(1.06); }
 
 @media (min-width: 750px) {
+  /* Every width-relative size of the hero from here on is a multiple of
+     --hgk-u: 1 % of the hero's own width (1cqi, the hero is the size
+     container) — not of the window (vw), which also counts a classic
+     scrollbar (Windows: 17 px), so copy, rack and seal block would no longer
+     fit side by side. Browsers without container units keep 1vw. The side
+     gutter (--hgk-pad) stays the page's, so the copy lines up with the
+     stage below. */
+  .ms-hgk-hero {
+    --hgk-u: 1vw;
+    --hgk-seal: clamp(150px, calc(13 * var(--hgk-u) + 30px), 190px);
+  }
+  .ms-hgk-sealbox { justify-self: start; }
   .ms-hgk-hero--image {
-    /* Where the photo box starts (share of the content width), how far its
-       left edge fades, how wide the copy may run, the seal size. */
-    --hgk-media-at: 0.38;
-    --hgk-media-fade: 42%;
-    --hgk-copy-w: 41vw;
-    --hgk-hero-seal: 160px;
+    /* Content left edge, copy column, seal block width, the column the copy
+       and the seal block share (up to 1199 px), and where the photo's focal
+       point lands: the middle of the room right of that column. Percentages
+       resolve against the banner (the full width). */
+    --hgk-cl: calc(max(0px, (100% - 1440px) / 2) + var(--hgk-pad));
+    --hgk-copy-w: calc(41 * var(--hgk-u));
+    --hgk-box-w: calc(2 * var(--hgk-seal) + var(--hgk-seal-gap) + 2 * var(--hgk-box-px) + 2px);
+    --hgk-col-w: max(var(--hgk-copy-w), var(--hgk-box-w));
+    --hgk-focus-at: calc((var(--hgk-cl) + var(--hgk-col-w) + 100% - var(--hgk-pad)) / 2);
+    /* …and lands 2.65 % of the photo's width right of that middle: the rack
+       of the live photo sits at 31–58 % of its width, so a focal point set on
+       the rack (≈ 45 %) and Shopify's default (50 %, nothing set) both keep
+       it clear of the copy and the seal block. */
+    --hgk-focal-bias: 2.65;
   }
   .ms-hgk-hero__banner {
     display: flex;
     align-items: center;
-    min-height: clamp(520px, 44vw, 680px);
+    min-height: clamp(520px, calc(44 * var(--hgk-u)), 680px);
     overflow: hidden;
     background: var(--hgk-hero-dark);
     isolation: isolate;
@@ -299,29 +357,32 @@
     background: linear-gradient(90deg, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.5) 30%, rgba(0, 0, 0, 0) 60%);
     pointer-events: none;
   }
+  /* The photo at its own aspect ratio, the full banner height; its focal
+     point (x, less the bias) at --hgk-focus-at; both edges fade into the
+     banner's dark. Up to 1199 px the page JS (fitPhoto) clamps it so that it
+     always covers the free room right of the copy column. */
   .ms-hgk-hero__media {
     position: absolute;
     top: 0;
-    right: 0;
-    bottom: 0;
-    left: max(calc(max(0px, (100% - 1440px) / 2) + min(100%, 1440px) * var(--hgk-media-at)), calc(100% - 1560px));
+    left: var(--hgk-focus-at);
     z-index: 0;
+    width: auto;
+    height: 100%;
+    aspect-ratio: var(--hgk-img-ar, 16 / 9);
     background: none;
-    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--hgk-media-fade));
-    mask-image: linear-gradient(90deg, transparent 0, #000 var(--hgk-media-fade));
+    transform: translateX(calc((var(--hgk-focal-x, 50) - var(--hgk-focal-bias, 0)) * -1%));
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 32%, #000 86%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 32%, #000 86%, transparent 100%);
   }
   .ms-hgk-hero__media img { height: 100%; aspect-ratio: auto; }
-  .ms-hgk-hero--image .ms-hgk-hero__inner,
-  .ms-hgk-hero--image.ms-hgk-hero--seals .ms-hgk-hero__inner {
-    position: relative;
-    z-index: 2;
-    padding-top: clamp(40px, 5vw, 72px);
-    padding-bottom: clamp(40px, 5vw, 72px);
+  .ms-hgk-hero--image .ms-hgk-hero__inner {
+    padding-top: clamp(40px, calc(5 * var(--hgk-u)), 72px);
+    padding-bottom: clamp(40px, calc(5 * var(--hgk-u)), 72px);
   }
-  .ms-hgk-hero--image .ms-hgk-hero__copy { max-width: var(--hgk-copy-w); }
+  .ms-hgk-hero--image .ms-hgk-hero__copy { position: relative; z-index: 2; max-width: var(--hgk-copy-w); }
   .ms-hgk-hero--image .ms-hgk-hero__intro { color: var(--hgk-blue-light); text-shadow: 0 1px 2px rgb(0 0 0 / 40%); }
   .ms-hgk-hero--image .ms-hgk-hero__title {
-    font-size: clamp(1.9rem, 4.2vw, 2.4rem);
+    font-size: clamp(1.9rem, calc(4.2 * var(--hgk-u)), 2.4rem);
     color: #fff;
     text-shadow: 0 2px 14px rgb(0 0 0 / 35%);
   }
@@ -335,28 +396,26 @@
     box-shadow: 0 8px 20px rgba(0, 140, 203, 0.3);
   }
   .ms-hgk-hero--image .ms-hgk-hero__cta:focus-visible { outline-color: #fff; }
-  /* Seals half on the photo, half on the white below; caption beside them. */
-  .ms-hgk-hero__foot { position: relative; z-index: 3; padding-top: 0; padding-bottom: clamp(28px, 3vw, 44px); }
-  .ms-hgk-hero--image .ms-hgk-hero__seals {
-    --hgk-seal: var(--hgk-hero-seal);
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: calc(var(--hgk-seal) / 2) auto;
-    column-gap: clamp(20px, 2.4vw, 36px);
-    row-gap: 0;
-    margin-top: calc(var(--hgk-seal) / -2);
+  /* On the photo the seal block is dark glass: white sentence, hairline. */
+  .ms-hgk-hero--image .ms-hgk-sealbox {
+    position: relative;
+    z-index: 2;
+    border-color: rgb(255 255 255 / 22%);
+    background: rgb(12 13 15 / 48%);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    backdrop-filter: blur(14px) saturate(1.2);
+    box-shadow: 0 20px 48px rgb(0 0 0 / 32%), inset 0 1px 0 rgb(255 255 255 / 8%);
   }
-  .ms-hgk-hero--image .ms-hgk-seals__row { grid-column: 2; grid-row: 1 / 3; }
-  .ms-hgk-hero--image .ms-hgk-seals__caption {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: end;
-    align-self: center;
-    max-width: 44ch;
-    padding-top: 10px;
-    text-align: right;
+  .ms-hgk-hero--image .ms-hgk-sealbox__note { color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / 35%); }
+  .ms-hgk-hero--image .ms-hgk-seal img { filter: drop-shadow(0 10px 22px rgb(0 0 0 / 35%)); }
+}
+/* The hero as the size container behind --hgk-u. Its own box is unchanged
+   (a full-width block; the photo and the seal block are positioned in the
+   banner, which stays their containing block). */
+@supports (width: 1cqi) {
+  @media (min-width: 750px) {
+    .ms-hgk-hero { container-type: inline-size; --hgk-u: 1cqi; }
   }
-  .ms-hgk-hero--image .ms-hgk-seal img { filter: drop-shadow(0 10px 22px rgb(0 0 0 / 30%)); }
 }
 @media (min-width: 750px) and (max-width: 989px) {
   /* The narrow copy column: the compact pill keeps the CTA on one line. */
@@ -364,29 +423,83 @@
 }
 @media (min-width: 990px) {
   .ms-hgk-hero__title { font-size: 3.4rem; white-space: nowrap; text-wrap: nowrap; }
-  .ms-hgk-hero--image {
-    --hgk-media-at: 0.3;
-    --hgk-copy-w: min(662px, calc(54vw - 118px));
-    --hgk-hero-seal: clamp(168px, 15vw, 224px);
-  }
+  /* A headline from the editor too long for one line even at fitTitle's
+     smallest size (page JS): balanced lines instead of running into the photo. */
+  .ms-hgk-hero__title.ms-hgk-hero__title--wrap { white-space: normal; text-wrap: balance; }
+  /* The seal block under the copy fills the copy column (≈ 185 px each). */
+  .ms-hgk-hero { --hgk-seal: clamp(180px, calc(16 * var(--hgk-u) + 20px), 200px); }
+  .ms-hgk-hero--image { --hgk-copy-w: min(662px, calc(54 * var(--hgk-u) - 118px)); }
   /* One line (fitTitle in the page JS shrinks a longer text from the editor). */
-  .ms-hgk-hero--image .ms-hgk-hero__title { font-size: clamp(1.7rem, calc(3.62vw - 8px), 2.75rem); }
+  .ms-hgk-hero--image .ms-hgk-hero__title { font-size: clamp(1.7rem, calc(3.62 * var(--hgk-u) - 8px), 2.75rem); }
 }
 @media (min-width: 1200px) {
-  /* Seals on the right of the copy, caption under them. */
+  /* Seal block on the right of the copy: large seals — 200 px at 1200,
+     240 px at 1440, 256 px from 1536. */
+  .ms-hgk-hero--seals {
+    --hgk-seal: clamp(200px, calc(100 * var(--hgk-u) / 6), 256px);
+    --hgk-seal-gap: 14px;
+    --hgk-box-px: 18px;
+  }
   .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-hero__inner {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas: "copy seals";
     gap: 56px;
   }
-  .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-seals {
-    --hgk-seal: clamp(220px, 18vw, 270px);
-    flex-direction: column;
-    gap: 18px;
-    text-align: center;
+  .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-sealbox { align-self: start; }
+  .ms-hgk-hero--seals-bottom:not(.ms-hgk-hero--image) .ms-hgk-sealbox { align-self: end; }
+  .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-hero__title { font-size: clamp(2.6rem, calc(3.6 * var(--hgk-u)), 3.4rem); }
+  /* Image: three zones — copy | the photo's focal point | seal block (top or
+     bottom right inside the banner; beyond 1440 px it moves on towards the
+     window edge, aligned with an 1800 px container, so the photo keeps its
+     room). The banner height sets the photo's (and the rack's) size; the
+     headline size sets the copy column, so it is held small enough that
+     copy, rack and seal block sit side by side from 1200 px (the rack of the
+     live photo ≈ 0.47 × the banner height wide): 25.5 px at 1200, 34 px at
+     1440–1536, then up to 40 px at 1920. With a classic scrollbar this
+     layout starts at a hero of ~1183 px: the headline and the banner keep
+     shrinking below their 1200 px sizes (the floors are never reached), the
+     headline a little faster there (the 6 × term), as the seals stay at
+     200 px. */
+  .ms-hgk-hero--image {
+    --hgk-title: clamp(24px, min(calc(3.5 * var(--hgk-u) - 16.5px), calc(6 * var(--hgk-u) - 46.5px), max(34px, calc(1.6 * var(--hgk-u) + 9.5px))), 40px);
+    --hgk-copy-w: calc(var(--hgk-title) * 14.8);
+    --hgk-hero-h: clamp(510px, calc(25 * var(--hgk-u) + 220px), 610px);
+    --hgk-box-r: max(var(--hgk-pad), calc((100% - 1800px) / 2 + var(--hgk-pad)));
+    --hgk-box-y: clamp(28px, calc(2.8 * var(--hgk-u)), 48px);
+    --hgk-banner-h: max(var(--hgk-hero-h), calc(var(--hgk-seal) + 2 * var(--hgk-box-y) + 150px));
+    --hgk-focus-at: calc((var(--hgk-cl) + var(--hgk-copy-w) + 100% - var(--hgk-box-r) - var(--hgk-box-w)) / 2);
   }
-  .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-seals__caption { max-width: 34ch; }
-  .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-hero__title { font-size: clamp(2.6rem, 3.6vw, 3.4rem); }
+  /* No seal block: the room right of the copy is wide, the headline keeps
+     its larger size. */
+  .ms-hgk-hero--image:not(.ms-hgk-hero--seals) {
+    --hgk-title: clamp(1.9rem, calc(2.2 * var(--hgk-u) + 6px), 2.5rem);
+    --hgk-focus-at: calc((var(--hgk-cl) + var(--hgk-copy-w) + 100% - var(--hgk-pad)) / 2);
+  }
+  .ms-hgk-hero--image .ms-hgk-hero__banner { min-height: var(--hgk-banner-h); }
+  /* The photo's left edge, clamped on both sides: a photo narrower than the
+     banner stays inside it, a wider one always covers it — a focal point near
+     the photo's edge never leaves half the banner dark. Its width is the
+     banner height × its aspect ratio (a taller banner crops it, cover). */
+  .ms-hgk-hero--image .ms-hgk-hero__media {
+    --hgk-media-w: calc(var(--hgk-banner-h) * var(--hgk-img-ar, 1.7778));
+    left: clamp(min(0px, 100% - var(--hgk-media-w)), calc(var(--hgk-focus-at) - (var(--hgk-focal-x, 50) - var(--hgk-focal-bias, 0)) * var(--hgk-media-w) / 100), max(0px, 100% - var(--hgk-media-w)));
+    width: var(--hgk-media-w);
+    aspect-ratio: auto;
+    transform: none;
+  }
+  .ms-hgk-hero--image .ms-hgk-hero__title { font-size: var(--hgk-title); }
+  .ms-hgk-hero--image .ms-hgk-sealbox {
+    position: absolute;
+    top: var(--hgk-box-y);
+    right: var(--hgk-box-r);
+    width: var(--hgk-box-w);
+  }
+  .ms-hgk-hero--image.ms-hgk-hero--seals-bottom .ms-hgk-sealbox { top: auto; bottom: var(--hgk-box-y); }
+}
+@media (min-width: 1440px) {
+  /* 240 px seals from a 1440 px window, also when a classic scrollbar
+     leaves the hero a little narrower. */
+  .ms-hgk-hero--seals { --hgk-seal: clamp(240px, calc(100 * var(--hgk-u) / 6), 256px); }
 }
 
 /* ---------- Stage ---------- */
@@ -396,38 +509,70 @@
   scroll-margin-top: var(--hgk-sticky-top);
 }
 
+/* ---------- Timeline ----------
+   Its own card above Mo, with the chat's edges (right column; up to 989 px
+   the first thing of the configurator, full width). Five steps — start →
+   notes → questions → plan → cart — as dots with the label under each: a
+   hollow dot (to do), a blue target dot (current), a tick (done); the line
+   between two dots turns blue once the step before is done. The first label
+   starts at the card's left edge, the last ends at its right edge. When the
+   five labels do not fit on one line (narrow column, phones, a wider theme
+   font: the page JS measures) .ms-hgk-steps--compact keeps only the current
+   label, under its dot, with the dots evenly spread — never a cut label. */
+.ms-hgk-timeline {
+  padding: 14px 16px 12px;
+  border: 1px solid var(--hgk-line);
+  border-radius: var(--hgk-radius);
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
 .ms-hgk-steps {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  /* Room for the current step's ring inside the scroll box; the negative
-     margin keeps the steps aligned with the cards. */
-  margin: -6px -6px 22px;
+  align-items: flex-start;
+  /* Room for the current dot's ring inside the clip box. */
+  margin: -6px;
   padding: 6px;
   list-style: none;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
 }
-.ms-hgk-steps::-webkit-scrollbar { display: none; }
 .ms-hgk-steps__item {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  flex: 1 1 0;
-  min-width: max-content;
-  color: var(--hgk-muted);
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-.ms-hgk-steps__item:not(:last-child)::after {
-  content: "";
+  gap: 7px;
+  /* Each step as wide as its label plus an equal share of the rest; at
+     least 14 px between two labels. */
   flex: 1 1 auto;
-  min-width: 18px;
-  height: 1px;
-  margin: 0 6px;
-  background: var(--hgk-rule);
+  min-width: min-content;
+  padding: 0 7px;
+  color: var(--hgk-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
 }
-/* No numbers: a hollow dot (to do), a blue target dot (current), a tick (done). */
+.ms-hgk-steps__item:first-child { align-items: flex-start; padding-left: 0; text-align: left; }
+.ms-hgk-steps__item:last-child { align-items: flex-end; padding-right: 0; text-align: right; }
+.ms-hgk-steps__label { display: block; white-space: nowrap; }
+/* Each step draws its half of the line: left of its dot (::before), right
+   of it (::after); 4 px clear of the dot. */
+.ms-hgk-steps__item::before,
+.ms-hgk-steps__item::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--hgk-rule);
+  transition: background-color 0.25s ease;
+}
+.ms-hgk-steps__item::before { left: 0; right: calc(50% + 13px); }
+.ms-hgk-steps__item::after { left: calc(50% + 13px); right: 0; }
+.ms-hgk-steps__item:first-child::before,
+.ms-hgk-steps__item:last-child::after { display: none; }
+.ms-hgk-steps__item:first-child::after { left: 22px; }
+.ms-hgk-steps__item:last-child::before { right: 22px; }
 .ms-hgk-steps__dot {
   display: block;
   width: 18px;
@@ -449,10 +594,15 @@
   border-color: var(--hgk-blue);
   background: var(--hgk-blue) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 6 9 17l-5-5' fill='none' stroke='%23ffffff' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 10px no-repeat;
 }
-.ms-hgk-steps__item.is-done::after { background: var(--hgk-blue); }
-/* Set by the page JS when the four labels do not fit in the row: only the
-   current label stays visible (as on phones, see ≤ 680 px); the others stay
-   readable for screen readers, so no list item is empty. */
+.ms-hgk-steps__item.is-done::after,
+.ms-hgk-steps__item.is-done + .ms-hgk-steps__item::before { background: var(--hgk-blue); }
+/* Compact: the dots evenly spread (the end steps count half), only the
+   current label (and „Warenkorb“ once done) visible under its dot — left-
+   aligned at the first, right-aligned at the last; the others stay readable
+   for screen readers, so no list item is empty. */
+.ms-hgk-steps--compact .ms-hgk-steps__item { flex: 2 1 0; min-width: 18px; padding: 0 0 22px; }
+.ms-hgk-steps--compact .ms-hgk-steps__item:first-child,
+.ms-hgk-steps--compact .ms-hgk-steps__item:last-child { flex-grow: 1; }
 .ms-hgk-steps--compact .ms-hgk-steps__label {
   position: absolute;
   width: 1px;
@@ -466,13 +616,26 @@
 }
 .ms-hgk-steps--compact .ms-hgk-steps__item.is-current .ms-hgk-steps__label,
 .ms-hgk-steps--compact .ms-hgk-steps__item[data-step="cart"].is-done .ms-hgk-steps__label {
-  position: static;
-  width: auto;
+  top: 25px;
+  right: auto;
+  left: 50%;
+  width: max-content;
   height: auto;
   margin: 0;
   overflow: visible;
   clip: auto;
+  transform: translateX(-50%);
 }
+/* The end steps: the label runs inwards from the dot (same weight as the
+   rules above, so they win). */
+.ms-hgk-steps--compact .ms-hgk-steps__item:first-child.is-current .ms-hgk-steps__label { left: 0; transform: none; }
+.ms-hgk-steps--compact .ms-hgk-steps__item:last-child.is-current .ms-hgk-steps__label,
+.ms-hgk-steps--compact .ms-hgk-steps__item:last-child[data-step="cart"].is-done .ms-hgk-steps__label { left: auto; right: 0; transform: none; }
+
+/* Timeline + Mo: one column that sticks under the header as a unit (from
+   990 px). On a window too short for both, the page JS sets
+   .ms-hgk--side-loose: the timeline scrolls away, the chat sticks alone. */
+.ms-hgk-side { display: flex; flex-direction: column; gap: 12px; }
 
 .ms-hgk-grid {
   display: grid;
@@ -698,11 +861,83 @@
   .ms-hgk-opt--rich[aria-pressed="true"]::after { top: 50%; margin-top: -9px; right: 12px; }
 }
 
+/* ---------- Step 04: the optional note ----------
+   Shown after „Weiter“ (and in the edit mode): badge „SCHRITT 04“ in the
+   page's grey (--hgk-muted, white text 7.5:1), a small „optional“ tag, the
+   question as the label of a textarea (≤ 500 characters, counter). Never
+   red. */
+.ms-hgk-card__badge--04 { --hgk-badge: var(--hgk-muted); }
+.ms-hgk-card--note { animation: ms-hgk-card-in 0.35s ease; }
+@keyframes ms-hgk-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.ms-hgk .ms-hgk-card__tag {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 9px;
+  border: 1px solid var(--hgk-rule);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hgk-muted);
+}
+.ms-hgk-card__title label { cursor: pointer; }
+.ms-hgk-notefield { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ms-hgk-notefield__input {
+  display: block;
+  width: 100%;
+  min-height: 116px;
+  margin: 0;
+  padding: 12px 14px;
+  /* The field's edge 3:1 on white (WCAG 1.4.11). */
+  border: 1px solid #949494;
+  border-radius: var(--hgk-radius);
+  background: #fff;
+  color: var(--hgk-ink);
+  font: inherit;
+  /* 16 px: iOS does not zoom into the field. */
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+  box-shadow: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ms-hgk-notefield__input::placeholder { color: #6b6b6b; opacity: 1; }
+.ms-hgk-notefield__input:hover { border-color: #6b6b6b; }
+.ms-hgk-notefield__input:focus { outline: 2px solid var(--hgk-blue); outline-offset: 1px; border-color: var(--hgk-blue); }
+.ms-hgk .ms-hgk-notefield__count {
+  align-self: flex-end;
+  font-size: 0.75rem;
+  color: var(--hgk-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ms-hgk .ms-hgk-notefield__count.is-max { color: var(--hgk-ink); font-weight: 700; }
+/* Narrow card: the badge over the question (full width); the field tall
+   enough for the whole placeholder (it wraps to 5–6 lines on phones). */
+@container (max-width: 479.98px) {
+  .ms-hgk-card--note .ms-hgk-card__head { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .ms-hgk-notefield__input { min-height: 148px; }
+}
+@container (max-width: 399.98px) {
+  .ms-hgk-notefield__input { min-height: 172px; }
+}
+/* 320 px screens: the placeholder wraps to 7 lines (Montserrat 16 px). */
+@container (max-width: 299.98px) {
+  .ms-hgk-notefield__input { min-height: 196px; }
+}
+
 .ms-hgk-form__footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .ms-hgk-form__hint { min-height: 1.2em; font-size: 0.82rem; color: var(--hgk-muted); text-align: center; }
-/* „Weiter – Mo berät mich“: the primary pill (.ms-hgk-btn--primary), centred. */
-.ms-hgk-cta { align-self: center; min-width: min(100%, 300px); }
+/* „Weiter“ / „Weiter – Mo berät mich“ (primary pill) and, on step 04,
+   „Überspringen“ (secondary pill) next to it; centred, stacked on phones. */
+.ms-hgk-form__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; }
+.ms-hgk-cta { min-width: min(100%, 300px); }
 .ms-hgk-cta:hover:not(:disabled):not([aria-disabled="true"]) svg { transform: translateX(3px); }
+.ms-hgk-skip { min-width: min(100%, 180px); }
 .ms-hgk-form [data-ms-hgk-cancel] { align-self: center; }
 
 /* ---------- Profile (after the handover) ---------- */
@@ -712,9 +947,17 @@
   border-radius: var(--hgk-radius);
   background: #fff;
 }
-.ms-hgk-profile__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.ms-hgk-profile__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
 .ms-hgk-profile__title { font-family: var(--hgk-heading-font); font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em; color: var(--hgk-ink); }
-.ms-hgk-profile__actions { display: flex; gap: 16px; }
+/* „Ändern“ / „Neu starten“: compact outline pills (.ms-hgk-btn--sm). */
+.ms-hgk-profile__actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .ms-hgk-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .ms-hgk-chip {
   display: inline-flex;
@@ -730,36 +973,49 @@
 }
 .ms-hgk-chip svg { width: 16px; height: 16px; color: var(--hgk-blue); }
 .ms-hgk-chip--mo { border-color: transparent; background: var(--hgk-blue-tint); }
+/* The visitor's note (step 04): one line, the rest behind „Ändern“. */
+.ms-hgk-chip--note { max-width: 100%; min-width: 0; }
+.ms-hgk-chip--note span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ---------- Plan host (the plan itself: ms-chat-widget.css) ---------- */
-.ms-hgk-plan { background: transparent; scroll-margin-top: calc(var(--hgk-sticky-top) + 12px); }
+/* ---------- Plan host (the plan itself: ms-chat-widget.css) ----------
+   „Dein Home-Gym-Plan“ is the one dark block of the stage: --hgk-navy with
+   white text in every state — the waiting placeholder below, and the
+   widget's plan (.ms-chat-planhost: the same navy at the same radius, its
+   own padding). The page draws the box: radius and shadow (no border on the
+   light band). White on the navy 7.9:1, the 86 % text ≥ 6:1, the pulse in
+   the widget's light blue (#9bd9f5). */
+.ms-hgk-plan {
+  border-radius: calc(var(--hgk-radius) + 3px);
+  background: var(--hgk-navy);
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(0 35 52 / 14%), 0 18px 40px -16px rgb(0 35 52 / 45%);
+  scroll-margin-top: calc(var(--hgk-sticky-top) + 12px);
+}
 .ms-hgk-plan[data-state="empty"] { display: none; }
 .ms-hgk-plan[data-state="ready"] { margin-top: 4px; }
 .ms-hgk-plan__waiting {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  padding: 22px;
-  border: 1px dashed rgb(var(--hgk-blue-rgb) / 45%);
-  border-radius: var(--hgk-radius);
-  background: var(--hgk-blue-tint-2);
+  padding: 24px 26px;
+  border-radius: inherit;
 }
 .ms-hgk-plan[data-state="ready"] .ms-hgk-plan__waiting { display: none; }
-.ms-hgk-plan__title { margin-bottom: 4px; font-family: var(--hgk-heading-font); font-size: 1.02rem; font-weight: 800; color: var(--hgk-ink); }
-.ms-hgk-plan__text { font-size: 0.86rem; line-height: 1.5; color: var(--hgk-muted); text-wrap: balance; }
+.ms-hgk .ms-hgk-plan__title { margin-bottom: 4px; font-family: var(--hgk-heading-font); font-size: 1.05rem; font-weight: 800; color: #fff; }
+.ms-hgk-plan__text { font-size: 0.88rem; line-height: 1.55; color: rgb(255 255 255 / 86%); text-wrap: balance; }
 .ms-hgk-plan__pulse {
   flex: 0 0 auto;
   width: 12px;
   height: 12px;
-  margin-top: 5px;
+  margin-top: 6px;
   border-radius: 999px;
-  background: var(--hgk-blue);
-  box-shadow: 0 0 0 0 rgb(var(--hgk-blue-rgb) / 60%);
+  background: #9bd9f5;
+  box-shadow: 0 0 0 0 rgb(155 217 245 / 60%);
   animation: ms-hgk-pulse 1.8s ease-out infinite;
 }
 @keyframes ms-hgk-pulse {
-  0% { box-shadow: 0 0 0 0 rgb(var(--hgk-blue-rgb) / 55%); }
-  80%, 100% { box-shadow: 0 0 0 14px rgb(var(--hgk-blue-rgb) / 0%); }
+  0% { box-shadow: 0 0 0 0 rgb(155 217 245 / 55%); }
+  80%, 100% { box-shadow: 0 0 0 14px rgb(155 217 245 / 0%); }
 }
 
 /* ---------- Konfigurator-Rabatt ----------
@@ -911,14 +1167,35 @@
 .ms-hgk .ms-hgk-offer__error { font-size: 0.82rem; font-weight: 700; color: var(--hgk-error); }
 .ms-hgk .ms-hgk-offer__terms { font-size: 0.75rem; line-height: 1.5; color: var(--hgk-muted); }
 
-/* ---------- Dock (Mo) ---------- */
+/* ---------- Dock (Mo) ----------
+   From 990 px under the timeline in the sticky .ms-hgk-side: the chat takes
+   the window height below the header minus the timeline card
+   (--hgk-tl-space = its height + the gap, measured by the page JS). */
 .ms-hgk-dock {
-  position: sticky;
-  top: var(--hgk-sticky-top);
-  height: min(860px, calc(100vh - var(--hgk-sticky-top) - 24px));
-  height: min(860px, calc(100dvh - var(--hgk-sticky-top) - 24px));
-  min-height: 580px;
+  position: relative;
+  height: min(860px, calc(100vh - var(--hgk-sticky-top) - 24px - var(--hgk-tl-space, 88px)));
+  height: min(860px, calc(100dvh - var(--hgk-sticky-top) - 24px - var(--hgk-tl-space, 88px)));
+  min-height: 520px;
   scroll-margin-top: var(--hgk-sticky-top);
+}
+@media (min-width: 990px) {
+  .ms-hgk-side {
+    position: sticky;
+    top: var(--hgk-sticky-top);
+    scroll-margin-top: var(--hgk-sticky-top);
+  }
+  /* Too short a window for timeline + chat: the chat sticks alone (in the
+     whole column — the wrapper steps aside, so the column is its range). */
+  .ms-hgk--side-loose .ms-hgk-side { display: contents; }
+  .ms-hgk--side-loose .ms-hgk-timeline { margin-bottom: 12px; }
+  .ms-hgk--side-loose .ms-hgk-dock {
+    position: sticky;
+    top: var(--hgk-sticky-top);
+    height: min(860px, calc(100vh - var(--hgk-sticky-top) - 24px));
+    height: min(860px, calc(100dvh - var(--hgk-sticky-top) - 24px));
+    /* Fits the short window (the composer stays reachable while it sticks). */
+    min-height: 440px;
+  }
 }
 /* Before the handover: the „Frag Mo“ panel of the e-mail. */
 .ms-hgk-intro {
@@ -958,6 +1235,7 @@
   font-size: 0.84rem;
   font-weight: 700;
   color: var(--hgk-ink);
+  text-wrap: balance;
 }
 .ms-hgk-intro__hint-narrow { display: none; }
 .ms-hgk-intro__fallback { font-size: 0.88rem; color: var(--hgk-error); }
@@ -1009,14 +1287,18 @@
   .ms-hgk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.95fr); }
 }
 @media (max-width: 989px) {
-  .ms-hgk-seals { --hgk-seal: 180px; }
-  /* Mobile order: answers → Mo → plan (the plan follows the chat). */
+  /* Mobile order: timeline → answers → Mo → plan (the plan follows the
+     chat). The timeline is the first thing of the configurator, full width
+     (= the chat's width here). */
   .ms-hgk-grid { display: flex; flex-direction: column; align-items: stretch; }
-  .ms-hgk-left { display: contents; }
+  .ms-hgk-left,
+  .ms-hgk-right,
+  .ms-hgk-side { display: contents; }
+  .ms-hgk-timeline { order: 0; }
   .ms-hgk-form, .ms-hgk-profile { order: 1; }
-  .ms-hgk-right { order: 2; }
+  .ms-hgk-dock { order: 2; }
   .ms-hgk-plan, .ms-hgk-offerbar { order: 3; }
-  .ms-hgk-dock { position: relative; top: auto; height: min(720px, 82svh); min-height: 520px; }
+  .ms-hgk-dock { height: min(720px, 82svh); min-height: 520px; }
   /* Until the handover the intro takes only the room it needs. */
   .ms-hgk-dock:not(.ms-chat-dock--live) { height: auto; min-height: 0; }
   .ms-hgk-dock:not(.ms-chat-dock--live) .ms-hgk-intro { height: auto; }
@@ -1035,41 +1317,15 @@
 }
 @media (max-width: 749px) {
   .ms-hgk-form__groups { gap: 28px; }
-  /* Compact progress row: from 681 px all four labels fit in it. */
-  .ms-hgk-steps { gap: 6px; }
-  .ms-hgk-steps__item { gap: 8px; font-size: 0.82rem; }
-  .ms-hgk-steps__item:not(:last-child)::after { min-width: 10px; margin: 0 2px; }
 }
 @media (max-width: 680px) {
-  .ms-hgk-seals { --hgk-seal: min(180px, calc((100vw - 46px) / 2)); }
-  .ms-hgk-seals__caption { max-width: none; flex: 1 1 100%; }
   .ms-hgk-hero__actions, .ms-hgk-hero__actions .ms-hgk-btn { width: 100%; }
-  .ms-hgk-cta { align-self: stretch; }
+  /* „Weiter“ / „Weiter – Mo berät mich“ and „Überspringen“: full width, stacked. */
+  .ms-hgk-form__actions { flex-direction: column; align-items: stretch; }
   .ms-hgk-card { padding: 16px; }
   .ms-hgk-opts--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ms-hgk-opts--3 .ms-hgk-opt { font-size: 0.74rem; }
-  .ms-hgk-steps__dot { width: 16px; height: 16px; }
-  /* Only the current label is shown (same rules as .ms-hgk-steps--compact). */
-  .ms-hgk-steps__label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  .ms-hgk-steps__item.is-current .ms-hgk-steps__label,
-  .ms-hgk-steps__item[data-step="cart"].is-done .ms-hgk-steps__label {
-    position: static;
-    width: auto;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    clip: auto;
-  }
+  .ms-hgk-timeline { padding: 12px 14px 10px; }
   .ms-hgk-intro { padding: 32px 20px 52px; }
   .ms-hgk-coop__seals { --hgk-seal: min(180px, calc((100vw - 46px) / 2)); }
   .ms-hgk-how__list { gap: 12px; }
@@ -1091,16 +1347,15 @@
   /* Small phones: the pill keeps its look with less side padding, so the
      hero CTA and „Weiter – Mo berät mich“ stay on one line down to 320 px
      (a longer label like „Änderungen an Mo senden“ wraps evenly). */
-  .ms-hgk-btn { padding: 16px 20px; }
+  .ms-hgk-btn:not(.ms-hgk-btn--sm) { padding: 16px 20px; }
   .ms-hgk-btn > span { text-wrap: balance; }
-  /* Room for the longest current label („Grundeinstellungen“). */
-  .ms-hgk-steps { gap: 4px; }
-  .ms-hgk-steps__item:not(:last-child)::after { min-width: 6px; }
+  /* The seal block: a little more room for the two seals. */
+  .ms-hgk-hero { --hgk-box-px: 10px; --hgk-seal-gap: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ms-hgk-btn, .ms-hgk-btn svg, .ms-hgk-opt, .ms-hgk-seal, .ms-hgk-card, .ms-hgk-card__done, .ms-hgk-steps__dot { transition: none; }
-  .ms-hgk-offer[open] { animation: none; }
+  .ms-hgk-btn, .ms-hgk-btn svg, .ms-hgk-opt, .ms-hgk-seal, .ms-hgk-card, .ms-hgk-card__done, .ms-hgk-steps__dot, .ms-hgk-steps__item::before, .ms-hgk-steps__item::after, .ms-hgk-notefield__input { transition: none; }
+  .ms-hgk-offer[open], .ms-hgk-card--note { animation: none; }
   .ms-hgk .ms-hgk-btn:hover, .ms-hgk .ms-hgk-btn:hover svg { transform: none; }
   .ms-hgk-btn::before { display: none; }
   .ms-hgk-plan__pulse { animation: none; }

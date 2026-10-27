@@ -12,11 +12,20 @@
  * through MS_CHAT.configurator.track (ids and enums only); the page view is
  * sent only with Shopify analytics consent.
  *
- * Missing answers: „Weiter – Mo berät mich“ stays clickable (aria-disabled,
- * the disabled look); a click outlines every card with an open answer, shows
- * the line at the field and moves to the first one. Konfigurator-Rabatt: the
- * backend's offer (GET /api/configurator/offer, switched off by default) as a
- * pop-up once per browser and code, then a banner above the plan.
+ * Page stages (the timeline): start → notes → questions → plan → cart. With
+ * the basics complete „Weiter“ opens step 04 — an optional free-text note
+ * („Gibt es etwas, das wir in deinem Fall beachten sollten?“, ≤ 500
+ * characters); „Weiter – Mo berät mich“ hands over with the note
+ * (answers.note, meta.note "written"), „Überspringen“ without it (meta.note
+ * "skipped"). The edit mode shows step 04 again; a changed note is a change
+ * („Hinweis: …“); „Neu starten“ clears it. The widget's own stages stay
+ * questions / plan / cart.
+ *
+ * Missing answers: „Weiter“ stays clickable (aria-disabled, the disabled
+ * look); a click outlines every card with an open answer, shows the line at
+ * the field and moves to the first one. Konfigurator-Rabatt: the backend's
+ * offer (GET /api/configurator/offer, switched off by default) as a pop-up
+ * once per browser and code, then a banner above the plan.
  */
 (function () {
   'use strict';
@@ -51,7 +60,8 @@
       functional: '<circle cx="13" cy="4" r="2"/><path d="M4 17l4-1 2-4 4 3v5M10 12l2-4 5 2 3-2"/>',
       rookie: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.4 5.1-6"/>',
       intermediate: '<path d="M18 20V10M12 20V4M6 20v-6"/>',
-      pro: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>'
+      pro: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+      note: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M14 8l2 2"/>'
     };
     function svg(name) {
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICON[name] || '') + '</svg>';
@@ -104,6 +114,17 @@
       { key: 'how', step: '03', title: T('Training & Niveau', 'Training & level'), sub: T('Wie trainierst du am liebsten?', 'How do you like to train?'), fields: ['training', 'level'] }
     ];
     var REQUIRED = ['persona', 'location', 'space', 'level'];
+    // Step 04: the visitor's own note before the consultation (optional). Mo
+    // gets it as answers.note (the widget's cfgSanitize and the backend clean
+    // it the same way as noteClean below).
+    var NOTE_MAX = 500;
+    var NOTE = {
+      step: '04',
+      tag: T('optional', 'optional'),
+      title: T('Gibt es etwas, das wir in deinem Fall beachten sollten?', 'Is there anything we should keep in mind in your case?'),
+      sub: T('Mo berücksichtigt deinen Hinweis bei jeder Empfehlung.', 'Mo takes your note into account in every recommendation.'),
+      placeholder: T('z.\u00a0B. Deckenhöhe nur 2,20\u00a0m · Hantelbank ist schon vorhanden · Knieprobleme – bitte gelenkschonend · möglichst leise (Mietwohnung)', 'e.g. ceiling height only 2.20\u00a0m · I already have a bench · knee problems – please joint-friendly · as quiet as possible (rented flat)')
+    };
     // URL parameter names → field. The persona has two strengths: its own
     // names (rank 1) beat the old goal names (rank 2) when a link has both.
     var ALIASES = {
@@ -133,6 +154,7 @@
     var cta = root.querySelector('[data-ms-hgk-cta]');
     var ctaLabel = root.querySelector('[data-ms-hgk-cta-label]');
     var cancelBtn = root.querySelector('[data-ms-hgk-cancel]');
+    var skipBtn = root.querySelector('[data-ms-hgk-skip]');
     var hintEl = root.querySelector('[data-ms-hgk-hint]');
     var profile = root.querySelector('[data-ms-hgk-profile]');
     var chipsEl = root.querySelector('[data-ms-hgk-chips]');
@@ -141,8 +163,25 @@
     var fallbackEl = root.querySelector('[data-ms-hgk-fallback]');
     var introHint = root.querySelector('[data-ms-hgk-intro-hint]');
     var planHost = root.querySelector('[data-ms-chat-plan]');
+    var sideEl = root.querySelector('[data-ms-hgk-side]');
     if (!form || !groupsEl) return;
     var uid = root.id || 'ms-hgk';
+    // Mo's intro hint (two spans: wide „← Wähle links …“, narrow „↑ Wähle
+    // oben …“): while step 04 is open it points at the note instead; the
+    // texts from the section otherwise (read once here).
+    var hintWide = introHint && introHint.querySelector('.ms-hgk-intro__hint-wide');
+    var hintNarrow = introHint && introHint.querySelector('.ms-hgk-intro__hint-narrow');
+    var HINT_TEXT = { wide: hintWide ? hintWide.textContent : '', narrow: hintNarrow ? hintNarrow.textContent : '' };
+    var HINT_NOTES = {
+      wide: T('← Noch ein optionaler Hinweis, dann übernimmt Mo', '← One optional note, then Mo takes over'),
+      narrow: T('↑ Noch ein optionaler Hinweis, dann übernimmt Mo', '↑ One optional note, then Mo takes over')
+    };
+    function paintIntroHint(onNotes) {
+      var w = onNotes ? HINT_NOTES.wide : HINT_TEXT.wide;
+      var n = onNotes ? HINT_NOTES.narrow : HINT_TEXT.narrow;
+      if (hintWide && hintWide.textContent !== w) hintWide.textContent = w;
+      if (hintNarrow && hintNarrow.textContent !== n) hintNarrow.textContent = n;
+    }
 
     // ----- small helpers -----------------------------------------------------
     function ssGet(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } }
@@ -150,6 +189,15 @@
     function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} }
     function api() { return window.MS_CHAT && window.MS_CHAT.configurator ? window.MS_CHAT.configurator : null; }
+    // Step 04 needs a widget that takes the note: MS_CHAT.configurator
+    // version 2 (since 2026-10-27). An older one (the files uploaded one at a
+    // time) drops it — then „Weiter“ hands over directly, as in round 5.
+    // Before the widget has loaded the step is offered (the handover checks
+    // again).
+    function notesStep() {
+      var a = api();
+      return !a || Number(a.version) >= 2;
+    }
     function optionLabel(key, id) {
       var f = FIELDS[key];
       if (!f) return '';
@@ -157,6 +205,27 @@
       return '';
     }
     function hasOption(key, id) { return !!optionLabel(key, id); }
+    // The note as Mo gets it — the same cleaning as the widget's cfgCleanNote
+    // and the backend's sanitizeConfiguratorNote (identical for any input):
+    // control and invisible format characters out (the joiners U+200C/U+200D
+    // stay — emoji and scripts need them), spaces collapsed (tabs and
+    // U+2028/2029 too), single line breaks kept, trimmed, ≤ 500 characters
+    // (never half an emoji).
+    function noteClean(v) {
+      if (typeof v !== 'string') return '';
+      var t = v.replace(/\r\n?/g, '\n')
+        .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u00ad\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, '')
+        .replace(/[^\S\n]+/g, ' ')
+        .replace(/ ?\n ?/g, '\n')
+        .replace(/\n{2,}/g, '\n')
+        .replace(/^\s+|\s+$/g, '');
+      if (t.length > NOTE_MAX) {
+        t = t.slice(0, NOTE_MAX);
+        if (/[\ud800-\udbff]$/.test(t)) t = t.slice(0, -1);
+        t = t.replace(/\s+$/, '');
+      }
+      return t;
+    }
     function analyticsAllowed() {
       try {
         var cp = window.Shopify && window.Shopify.customerPrivacy;
@@ -199,7 +268,7 @@
 
     // ----- answers: URL prefill > draft --------------------------------------
     function emptyAnswers() {
-      return { persona: null, location: null, space: null, training: [], level: null };
+      return { persona: null, location: null, space: null, training: [], level: null, note: '' };
     }
     var answers = emptyAnswers();
     var prefilled = false;
@@ -242,6 +311,8 @@
       });
       var list = Array.isArray(src.training) ? src.training : [];
       out.training = FIELDS.training.options.map(function (o) { return o[0]; }).filter(function (id) { return list.indexOf(id) !== -1; });
+      // The note as typed (the draft) or as Mo has it (the widget's thread).
+      out.note = typeof src.note === 'string' ? src.note.slice(0, NOTE_MAX) : '';
       return out;
     }
     (function () {
@@ -392,6 +463,90 @@
       groupsEl.appendChild(card);
     });
 
+    // Step 04 — the optional note: shown after „Weiter“ (basics complete)
+    // and in the edit mode. The question is the textarea's label; the
+    // counter is visible, a live region speaks only near the limit.
+    var noteCard = document.createElement('div');
+    noteCard.className = 'ms-hgk-card ms-hgk-card--note';
+    noteCard.setAttribute('data-group', 'note');
+    noteCard.hidden = true;
+    var noteHead = document.createElement('div');
+    noteHead.className = 'ms-hgk-card__head';
+    var noteBadge = document.createElement('span');
+    noteBadge.className = 'ms-hgk-card__badge ms-hgk-card__badge--' + NOTE.step;
+    noteBadge.innerHTML = '<span class="ms-hgk-card__badge-label">' + T('Schritt', 'Step') + '</span><span class="ms-hgk-card__badge-num">' + NOTE.step + '</span>';
+    noteHead.appendChild(noteBadge);
+    var noteTitles = document.createElement('div');
+    noteTitles.className = 'ms-hgk-card__titles';
+    var noteTag = document.createElement('span');
+    noteTag.className = 'ms-hgk-card__tag';
+    noteTag.textContent = NOTE.tag;
+    noteTitles.appendChild(noteTag);
+    var noteH = document.createElement('h3');
+    noteH.className = 'ms-hgk-card__title';
+    var noteLabel = document.createElement('label');
+    noteLabel.setAttribute('for', uid + '-note');
+    noteLabel.textContent = NOTE.title;
+    noteH.appendChild(noteLabel);
+    noteTitles.appendChild(noteH);
+    var noteSub = document.createElement('p');
+    noteSub.className = 'ms-hgk-card__sub';
+    noteSub.id = uid + '-note-sub';
+    noteSub.textContent = NOTE.sub;
+    noteTitles.appendChild(noteSub);
+    noteHead.appendChild(noteTitles);
+    noteCard.appendChild(noteHead);
+    var noteField = document.createElement('div');
+    noteField.className = 'ms-hgk-notefield';
+    var noteInput = document.createElement('textarea');
+    noteInput.className = 'ms-hgk-notefield__input';
+    noteInput.id = uid + '-note';
+    noteInput.name = 'note';
+    noteInput.rows = 4;
+    noteInput.setAttribute('maxlength', String(NOTE_MAX));
+    noteInput.setAttribute('autocomplete', 'off');
+    noteInput.placeholder = NOTE.placeholder;
+    noteInput.setAttribute('aria-describedby', noteSub.id + ' ' + uid + '-note-count');
+    noteField.appendChild(noteInput);
+    var noteCount = document.createElement('p');
+    noteCount.className = 'ms-hgk-notefield__count';
+    noteCount.id = uid + '-note-count';
+    noteField.appendChild(noteCount);
+    var noteLive = document.createElement('p');
+    noteLive.className = 'ms-hgk-sr';
+    noteLive.setAttribute('aria-live', 'polite');
+    noteField.appendChild(noteLive);
+    noteCard.appendChild(noteField);
+    groupsEl.appendChild(noteCard);
+    var noteLiveAt = null; // the last limit announced (50 / 20 / 0 characters left)
+    function paintNoteCount() {
+      var n = noteInput.value.length;
+      var left = NOTE_MAX - n;
+      noteCount.innerHTML = '';
+      var vis = document.createElement('span');
+      vis.setAttribute('aria-hidden', 'true');
+      vis.textContent = n + '/' + NOTE_MAX;
+      noteCount.appendChild(vis);
+      var sr = document.createElement('span');
+      sr.className = 'ms-hgk-sr';
+      sr.textContent = T(n + ' von ' + NOTE_MAX + ' Zeichen', n + ' of ' + NOTE_MAX + ' characters');
+      noteCount.appendChild(sr);
+      noteCount.classList.toggle('is-max', left <= 0);
+      var at = left <= 0 ? 0 : left <= 20 ? 20 : left <= 50 ? 50 : null;
+      if (at !== noteLiveAt) {
+        noteLiveAt = at;
+        noteLive.textContent = at === null ? ''
+          : at === 0 ? T('Maximal ' + NOTE_MAX + ' Zeichen erreicht.', 'Maximum of ' + NOTE_MAX + ' characters reached.')
+          : T('Noch ' + left + ' Zeichen.', left + ' characters left.');
+      }
+    }
+    // The textarea shows the current note (draft, Mo's thread, a restore).
+    function syncNoteInput() {
+      var v = answers.note || '';
+      if (noteInput.value !== v) noteInput.value = v;
+      paintNoteCount();
+    }
+
     // configurator_started: once per configurator run — the first answer picked,
     // or the handover itself when the answers came prefilled from the link.
     // „Neu starten“ begins a new run (reset() clears the flag).
@@ -422,6 +577,9 @@
     }
 
     var mode = 'start'; // start | live | edit | unavailable
+    // Step 04 is open (mode start): the page stage „notes“. Kept for a reload
+    // of the same tab (sessionStorage ms-hgk-notes).
+    var notesOpen = false;
     var sentAnswers = null;
     // Fields that were open at the last blocked click and are still open: their
     // card is outlined, their line shown. Answering removes a field; only the
@@ -447,6 +605,18 @@
       });
       var miss = missing();
       var changed = mode === 'edit' ? changedFields().length : 0;
+      var withNotes = notesStep();
+      var onNotes = mode === 'start' && notesOpen && withNotes;
+      // Step 04: after „Weiter“, and in the edit mode (the current note) —
+      // not with an older widget, which drops the note.
+      noteCard.hidden = !(onNotes || (mode === 'edit' && withNotes));
+      paintIntroHint(onNotes);
+      // „Weiter“ (to step 04) → „Weiter – Mo berät mich“ (the handover; at
+      // once with an older widget) → „Änderungen an Mo senden“ (edit mode).
+      var label = mode === 'edit' ? T('Änderungen an Mo senden', 'Send changes to Mo')
+        : onNotes || !withNotes ? T('Weiter – Mo berät mich', 'Continue – Mo advises me')
+          : T('Weiter', 'Continue');
+      if (ctaLabel.textContent !== label) ctaLabel.textContent = label;
       // `disabled` only where a click has nothing to show: Mo unavailable, or
       // the edit mode before an answer changed. Open answers keep the button
       // clickable (aria-disabled, same look) — the click marks them.
@@ -454,14 +624,23 @@
       cta.disabled = off;
       if (!off && miss.length) cta.setAttribute('aria-disabled', 'true');
       else cta.removeAttribute('aria-disabled');
+      // „Überspringen“ (step 04 only) hands over without the note — the same
+      // check for open answers as the CTA.
+      if (skipBtn) {
+        skipBtn.hidden = !onNotes;
+        if (onNotes && miss.length) skipBtn.setAttribute('aria-disabled', 'true');
+        else skipBtn.removeAttribute('aria-disabled');
+      }
       if (mode === 'unavailable') {
         hintEl.textContent = T('Mo ist gerade nicht erreichbar.', 'Mo is not available right now.');
       } else if (miss.length) {
         hintEl.textContent = T('Noch offen: ', 'Still open: ') + miss.map(function (m) { return FIELDS[m].short; }).join(', ');
       } else if (mode === 'edit') {
         hintEl.textContent = !changed ? T('Ändere eine Angabe – Mo passt die Empfehlung an.', 'Change an answer – Mo adapts the recommendation.') : '';
-      } else {
+      } else if (onNotes || !withNotes) {
         hintEl.textContent = T('Perfekt – Mo übernimmt ab hier.', 'Perfect – Mo takes it from here.');
+      } else {
+        hintEl.textContent = T('Perfekt – noch ein optionaler Hinweis, dann übernimmt Mo.', 'Perfect – one optional note, then Mo takes over.');
       }
       paintErrors();
     }
@@ -535,21 +714,30 @@
         var b = FIELDS[k].multi ? (sentAnswers[k] || []).join(',') : (sentAnswers[k] || '');
         if (a !== b) out.push(k);
       });
+      // The note counts as a change once its cleaned text differs.
+      if (noteClean(answers.note) !== noteClean(sentAnswers.note)) out.push('note');
       return out;
     }
 
-    function payload() {
-      return {
+    // MS_CHAT.configurator.start(answers, meta) / update(answers, msg): the
+    // basics plus the note (answers.note, cleaned, only when there is one;
+    // withNote false = „Überspringen“).
+    function payload(withNote) {
+      var out = {
         persona: answers.persona,
         location: answers.location,
         space: answers.space,
         training: answers.training.slice(),
         level: answers.level
       };
+      var note = withNote === false ? '' : noteClean(answers.note);
+      if (note) out.note = note;
+      return out;
     }
 
     // ----- stepper + profile -------------------------------------------------
-    var STEPS = ['start', 'questions', 'plan', 'cart'];
+    // The page stages; the widget reports questions / plan / cart.
+    var STEPS = ['start', 'notes', 'questions', 'plan', 'cart'];
     function setStep(stage) {
       var idx = STEPS.indexOf(stage);
       if (idx === -1) return;
@@ -562,20 +750,42 @@
       }
       fitSteps();
     }
-    // The progress labels are never cut off: when the four labels do not fit
-    // in the row (e.g. a wider theme font), only the current one stays visible,
-    // as on phones (CSS: .ms-hgk-steps--compact).
+    // The timeline labels are never cut off: when the five labels do not fit
+    // under their dots (a narrow column or phone, a wider theme font), only
+    // the current one stays visible (CSS: .ms-hgk-steps--compact).
     function fitSteps() {
       if (!stepsEl) return;
       stepsEl.classList.remove('ms-hgk-steps--compact');
       if (stepsEl.scrollWidth > stepsEl.clientWidth + 1) stepsEl.classList.add('ms-hgk-steps--compact');
+      fitSide();
+    }
+    // Timeline + Mo stick together under the header (CSS .ms-hgk-side, from
+    // 990 px): the chat's height leaves room for the timeline card
+    // (--hgk-tl-space). A window too short for both (the chat would fall below
+    // DOCK_MIN) gets .ms-hgk--side-loose: the timeline scrolls away, the chat
+    // sticks alone at its old height.
+    var DOCK_MIN = 520;
+    function fitSide() {
+      var tl = stepsEl && stepsEl.parentNode;
+      if (!tl || !sideEl) return;
+      try {
+        var h = tl.getBoundingClientRect().height;
+        if (!h) return;
+        var gap = parseFloat(window.getComputedStyle(sideEl).rowGap);
+        if (!(gap >= 0)) gap = 12;
+        var space = Math.ceil(h + gap);
+        root.style.setProperty('--hgk-tl-space', space + 'px');
+        var top = parseFloat(window.getComputedStyle(root).getPropertyValue('--hgk-sticky-top')) || 112;
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        root.classList.toggle('ms-hgk--side-loose', vh - top - 24 - space < DOCK_MIN);
+      } catch (e) {}
     }
     var extras = {}; // topic -> answer text from Mo's chips (budget / wishes)
     function renderProfile() {
       chipsEl.innerHTML = '';
-      function chip(iconName, text, mo) {
+      function chip(iconName, text, mod) {
         var li = document.createElement('li');
-        li.className = 'ms-hgk-chip' + (mo ? ' ms-hgk-chip--mo' : '');
+        li.className = 'ms-hgk-chip' + (mod ? ' ms-hgk-chip--' + mod : '');
         li.innerHTML = iconName ? svg(iconName) : '';
         var s = document.createElement('span');
         s.textContent = text;
@@ -586,8 +796,10 @@
         if (answers[k]) chip(answers[k], optionLabel(k, answers[k]));
       });
       answers.training.forEach(function (id) { chip(id, optionLabel('training', id)); });
-      if (extras.budget) chip(null, T('Budget: ', 'Budget: ') + extras.budget, true);
-      if (extras.wishes) chip(null, T('Wünsche: ', 'Wishes: ') + extras.wishes, true);
+      var note = noteClean(answers.note);
+      if (note) chip('note', T('Hinweis: ', 'Note: ') + note.replace(/\n/g, ' / '), 'note');
+      if (extras.budget) chip(null, T('Budget: ', 'Budget: ') + extras.budget, 'mo');
+      if (extras.wishes) chip(null, T('Wünsche: ', 'Wishes: ') + extras.wishes, 'mo');
     }
 
     function setMode(next) {
@@ -597,44 +809,135 @@
       form.hidden = live;
       profile.hidden = !live;
       cancelBtn.hidden = next !== 'edit';
-      ctaLabel.textContent = next === 'edit'
-        ? T('Änderungen an Mo senden', 'Send changes to Mo')
-        : T('Weiter – Mo berät mich', 'Next – Mo advises me');
+      if (next !== 'start') setNotesOpen(false);
+      syncNoteInput();
       if (live) renderProfile();
       paint();
     }
+    function setNotesOpen(on) {
+      notesOpen = !!on;
+      ssSet('ms-hgk-notes', notesOpen ? '1' : '0');
+    }
 
-    // ----- handover ------------------------------------------------------------
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
+    // ----- step 04 + handover --------------------------------------------------
+    // „Weiter“ (basics complete) opens step 04; „Weiter – Mo berät mich“ hands
+    // over with the note, „Überspringen“ without it; in the edit mode the CTA
+    // sends the changes. Ctrl/Cmd + Enter in the note = the CTA.
+    function onSubmit() {
       if (cta.disabled) return;
       if (missing().length) { blockMissing(); return; }
+      if (mode === 'edit') { sendChanges(); return; }
+      if (mode !== 'start') return;
+      // An older widget takes no note: no step 04, the handover at once.
+      if (!notesStep()) { handover(false); return; }
+      if (!notesOpen) { openNotes(); return; }
+      handover(true);
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      onSubmit();
+    });
+    if (skipBtn) {
+      skipBtn.addEventListener('click', function () {
+        if (mode !== 'start' || !notesOpen) return;
+        if (missing().length) { blockMissing(); return; }
+        handover(false);
+      });
+    }
+    noteInput.addEventListener('input', function () {
+      answers.note = noteInput.value;
+      saveDraft();
+      paintNoteCount();
+      paint();
+    });
+    noteInput.addEventListener('keydown', function (e) {
+      if ((e.key === 'Enter' || e.keyCode === 13) && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        onSubmit();
+      }
+    });
+
+    // configurator_note_step: once per run, when the visitor reaches step 04
+    // (not when a reload restores it). „Neu starten“ / a new run clears it.
+    var noteStepTracked = false;
+    function openNotes() {
+      setNotesOpen(true);
+      trackStarted(); // a prefilled run starts here at the latest
+      setStep('notes');
+      syncNoteInput();
+      paint();
+      if (!noteStepTracked && ssGet('ms-hgk-notestep') !== '1') {
+        noteStepTracked = true;
+        ssSet('ms-hgk-notestep', '1');
+        track('configurator_note_step', { prefilled: prefilled });
+      }
+      // The card appears where the button was (it pushes the buttons down):
+      // scroll just enough to show the card and its buttons — the end of the
+      // form at the bottom of the window; never the card's top under the
+      // sticky header — and put the cursor into the note.
+      try {
+        // The card's layout top (its entry animation still shifts the box):
+        // it is the last thing in the card list.
+        var top = groupsEl.getBoundingClientRect().bottom - noteCard.offsetHeight;
+        var foot = form.querySelector('.ms-hgk-form__footer') || noteCard;
+        var fb = foot.getBoundingClientRect().bottom;
+        var margin = parseFloat(window.getComputedStyle(noteCard).scrollMarginTop) || 0;
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var by = 0;
+        if (!(top >= margin - 1 && fb <= vh)) {
+          by = fb - (vh - 16);
+          if (top - by < margin) by = top - margin;
+        }
+        // From 990 px the timeline (now at „Deine Hinweise“) and Mo stick
+        // together next to the form (Mo alone in a short window), but the
+        // end of the column pushes them up when the form ends mid-window:
+        // then scroll up until they sit below the header again — as far as
+        // the form's end stays in the window.
+        var unit = dockTarget();
+        var ucs = unit && window.getComputedStyle(unit);
+        if (ucs && ucs.position === 'sticky' && sideEl) {
+          var col = sideEl.parentNode.getBoundingClientRect();
+          var unitH = unit.getBoundingClientRect().height;
+          var stick = parseFloat(ucs.top) || 0;
+          // Its place in the flow: the column's top, or (Mo alone) below
+          // the timeline.
+          var nat = col.top;
+          if (unit !== sideEl && stepsEl) {
+            var tlBox = stepsEl.parentNode;
+            nat = tlBox.getBoundingClientRect().bottom + (parseFloat(window.getComputedStyle(tlBox).marginBottom) || 0);
+          }
+          // Where its top lands after scrolling by `by`.
+          var unitTop = Math.max(nat - by, Math.min(stick, col.bottom - by - unitH));
+          var up = Math.min(stick - unitTop, vh - 16 - (fb - by));
+          if (up > 0) by -= up;
+        }
+        if (by) window.scrollBy({ top: by, left: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      } catch (err) {}
+      try { noteInput.focus({ preventScroll: true }); } catch (err) { try { noteInput.focus(); } catch (err2) {} }
+    }
+
+    function handover(withNote) {
       var a = api();
       if (!a) { showUnavailable(); return; }
-      if (mode === 'edit') {
-        var changed = changedFields();
-        var parts = changed.map(function (k) {
-          var text = FIELDS[k].multi
-            ? answers[k].map(function (id) { return optionLabel(k, id); }).join(', ') || T('keine Angabe', 'none')
-            : optionLabel(k, answers[k]);
-          return FIELDS[k].label + ': ' + text;
-        });
-        var msg = T('Ich habe meine Angaben geändert – ', 'I changed my answers – ') + parts.join('; ') + T('. Bitte passe deine Empfehlung an.', '. Please adapt your recommendation.');
-        if (!a.update(payload(), msg)) {
-          hintEl.textContent = T('Mo antwortet gerade – bitte gleich nochmal.', 'Mo is replying – please try again in a moment.');
-          return;
-        }
-        track('configurator_answers_changed', { fields: changed.join(',') });
-        sentAnswers = JSON.parse(JSON.stringify(answers));
-        setMode('live');
-        showDock();
-        return;
-      }
+      var note = withNote ? noteClean(answers.note) : '';
       trackStarted();
-      if (!a.start(payload(), { partner: partner, prefilled: prefilled })) {
+      // meta.note: "written" with a note, "skipped" without (also „Weiter – Mo
+      // berät mich“ with an empty note) — the widget's configurator_handover.
+      if (!a.start(payload(withNote), { partner: partner, prefilled: prefilled, note: note ? 'written' : 'skipped' })) {
         hintEl.textContent = T('Mo ist gerade ausgelastet – bitte in ein paar Sekunden nochmal.', 'Mo is busy – please try again in a few seconds.');
         return;
       }
+      // A handed-over run: the widget's next 'ready' (its thread ended) may
+      // start a new one (see 'ready' below).
+      ssSet('ms-hgk-handed', '1');
+      // What Mo has: the cleaned note, or none after „Überspringen“ — and
+      // none when the widget did not take it (an older widget drops it), so
+      // „Deine Angaben“ and the edit mode never show a note Mo never got.
+      var st = null;
+      try { st = a.state ? a.state() : null; } catch (e) {}
+      if (note && !(st && st.answers && st.answers.note)) note = '';
+      answers.note = note;
+      saveDraft();
       sentAnswers = JSON.parse(JSON.stringify(answers));
       extras = {};
       setMode('live');
@@ -642,7 +945,53 @@
       showDock();
       offerHandedOver = true;
       maybeOffer();
-    });
+    }
+
+    // The update message names every change; the note in quotes, cut so the
+    // whole text stays within the widget's 600 characters (Mo gets the full
+    // note in the context anyway).
+    var MSG_MAX = 600;
+    function changeMessage(changed) {
+      var head = T('Ich habe meine Angaben geändert – ', 'I changed my answers – ');
+      var tail = T('. Bitte passe deine Empfehlung an.', '. Please adapt your recommendation.');
+      var parts = [];
+      changed.forEach(function (k) {
+        if (k === 'note') return;
+        var text = FIELDS[k].multi
+          ? answers[k].map(function (id) { return optionLabel(k, id); }).join(', ') || T('keine Angabe', 'none')
+          : optionLabel(k, answers[k]);
+        parts.push(FIELDS[k].label + ': ' + text);
+      });
+      if (changed.indexOf('note') !== -1) {
+        var label = T('Hinweis: ', 'Note: ');
+        var note = noteClean(answers.note).replace(/\n/g, ' / ');
+        if (!note) {
+          parts.push(label + T('entfernt', 'removed'));
+        } else {
+          var open = T('„', '“');
+          var close = T('“', '”');
+          var room = MSG_MAX - (head + parts.concat([label + open + close]).join('; ') + tail).length;
+          if (note.length > room) note = note.slice(0, Math.max(0, room - 1)).replace(/\s+$/, '') + '…';
+          parts.push(label + open + note + close);
+        }
+      }
+      return head + parts.join('; ') + tail;
+    }
+    function sendChanges() {
+      var a = api();
+      if (!a) { showUnavailable(); return; }
+      var changed = changedFields();
+      if (!a.update(payload(), changeMessage(changed))) {
+        hintEl.textContent = T('Mo antwortet gerade – bitte gleich nochmal.', 'Mo is replying – please try again in a moment.');
+        return;
+      }
+      track('configurator_answers_changed', { fields: changed.join(',') });
+      answers.note = noteClean(answers.note);
+      saveDraft();
+      sentAnswers = JSON.parse(JSON.stringify(answers));
+      setMode('live');
+      showDock();
+    }
     cancelBtn.addEventListener('click', function () {
       if (sentAnswers) { answers = JSON.parse(JSON.stringify(sentAnswers)); saveDraft(); }
       setMode('live');
@@ -650,18 +999,29 @@
     });
     // Hiding the long form shortens the page above the visitor's scroll
     // position, so at every width Mo would end up above the viewport. Bring
-    // the dock to its resting place below the sticky header (scroll-margin-top
-    // in the CSS; it is the header height + 16 px) unless it is already fully
-    // in view. The delay lets the widget switch the dock to its live height.
+    // Mo to its resting place below the sticky header (scroll-margin-top in
+    // the CSS; it is the header height + 16 px) unless it is already fully in
+    // view — from 990 px together with the timeline above it (the sticky
+    // .ms-hgk-side), on phones the chat itself. The delay lets the widget
+    // switch the dock to its live height.
+    function dockTarget() {
+      try {
+        var cs = sideEl && window.getComputedStyle(sideEl);
+        // Not on phones and not in a short window (the wrapper has no box then).
+        if (cs && cs.position === 'sticky' && cs.display !== 'contents') return sideEl;
+      } catch (e) {}
+      return dock;
+    }
     function showDock() {
       if (!dock) return;
       setTimeout(function () {
         try {
-          var r = dock.getBoundingClientRect();
-          var margin = parseFloat(window.getComputedStyle(dock).scrollMarginTop) || 0;
+          var t = dockTarget();
+          var r = t.getBoundingClientRect();
+          var margin = parseFloat(window.getComputedStyle(t).scrollMarginTop) || 0;
           var vh = window.innerHeight || document.documentElement.clientHeight;
           if (r.top >= margin - 16 && r.bottom <= vh) return;
-          dock.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+          t.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
         } catch (err) {}
       }, 120);
     }
@@ -675,6 +1035,8 @@
       else reset();
     });
 
+    // A new run („Neu starten“, the thread ended): back to the basics; the
+    // answers stay picked, the note is cleared.
     function reset() {
       offerHandedOver = false;
       offerPlanSeen = false;
@@ -682,9 +1044,16 @@
       offerTimer = null;
       startedTracked = false;
       ssSet('ms-hgk-started', '0');
+      noteStepTracked = false;
+      ssSet('ms-hgk-notestep', '0');
+      ssSet('ms-hgk-handed', '0');
+      answers.note = '';
+      saveDraft();
       sentAnswers = null;
       extras = {};
       setMode('start');
+      setNotesOpen(false);
+      paint();
       setStep('start');
     }
     function reducedMotion() {
@@ -697,10 +1066,24 @@
       switch (d.type) {
         case 'ready':
           clearTimeout(unavailableTimer);
-          // No configurator thread to restore: whatever ran before (in this tab,
-          // maybe ended on another page) is over — the next start is a new run.
-          startedTracked = false;
-          ssSet('ms-hgk-started', '0');
+          // No configurator thread to restore. After a real handover in this
+          // tab the thread has ended (maybe on another page): the next start
+          // is a new run. A reload in the middle of a run (before the
+          // handover) keeps its flags — nothing is counted twice.
+          if (ssGet('ms-hgk-handed') === '1') {
+            ssSet('ms-hgk-handed', '0');
+            startedTracked = false;
+            ssSet('ms-hgk-started', '0');
+            noteStepTracked = false;
+            ssSet('ms-hgk-notestep', '0');
+          }
+          // An older widget takes no note: step 04 (restored after a reload)
+          // closes again, „Weiter“ hands over at once.
+          if (mode === 'start' && notesOpen && !notesStep()) {
+            setNotesOpen(false);
+            setStep('start');
+          }
+          paint();
           flushTrack();
           trackView();
           break;
@@ -772,24 +1155,70 @@
     window.addEventListener('resize', measureHeader);
 
     // The hero headline stays on ONE line from 990 px up (CSS: nowrap + a size
-    // that fits the default text). A longer text from the theme editor is
-    // scaled down to the column instead of running out of it.
+    // that fits the default text, „Dein Home Gym. Klar geplant.“ — the client
+    // wants it on one line). A longer text from the theme editor is scaled
+    // down to the column, to TITLE_MIN at the least (≈ 10 % under the smallest
+    // CSS size, 24.5 px at a 1200 px window with a scrollbar, so the default
+    // text never wraps); a text that does not fit even then wraps into
+    // balanced lines at its CSS size (…--wrap) instead of running into the
+    // photo.
     var heroTitle = root.querySelector('.ms-hgk-hero__title');
+    var TITLE_MIN = 22;
     function fitTitle() {
       if (!heroTitle) return;
       heroTitle.style.fontSize = '';
+      heroTitle.classList.remove('ms-hgk-hero__title--wrap');
       try {
         if (!window.matchMedia('(min-width: 990px)').matches) return;
         var avail = heroTitle.parentNode.clientWidth;
         var need = heroTitle.scrollWidth;
         if (!avail || need <= avail) return;
         var size = parseFloat(window.getComputedStyle(heroTitle).fontSize) || 0;
-        if (size) heroTitle.style.fontSize = Math.max(24, Math.floor(size * avail / need * 0.98)) + 'px';
+        if (!size) return;
+        var fit = Math.floor(size * avail / need * 0.98);
+        if (fit >= TITLE_MIN) { heroTitle.style.fontSize = fit + 'px'; return; }
+        heroTitle.classList.add('ms-hgk-hero__title--wrap');
+        // Still too wide (one word longer than the column): scale it down.
+        need = heroTitle.scrollWidth;
+        if (need > avail) heroTitle.style.fontSize = Math.floor(size * avail / need * 0.98) + 'px';
       } catch (e) {}
     }
     fitTitle();
+    // The hero photo from 750 to 1199 px (…configurator.css clamps it from
+    // 1200 px; below, the banner's height follows its content, so CSS cannot
+    // know the photo's width): its left edge is clamped so that the photo
+    // always covers the free room right of the copy column (or stays inside
+    // it, when narrower) — a focal point near the photo's edge never leaves
+    // that room half dark. The usual placement (focal point 45–50 %) is
+    // already inside the range and stays as it is.
+    var heroBanner = root.querySelector('.ms-hgk-hero__banner');
+    var heroMedia = heroBanner && heroBanner.querySelector('.ms-hgk-hero__media');
+    function fitPhoto() {
+      if (!heroMedia) return;
+      heroMedia.style.left = '';
+      heroMedia.style.transform = '';
+      try {
+        if (window.matchMedia('(min-width: 1200px)').matches || !window.matchMedia('(min-width: 750px)').matches) return;
+        var b = heroBanner.getBoundingClientRect();
+        var m = heroMedia.getBoundingClientRect();
+        if (!b.width || !m.width) return;
+        var room = 0; // the right edge of the copy column (copy, seal block under it)
+        var parts = heroBanner.querySelectorAll('.ms-hgk-hero__copy, .ms-hgk-sealbox');
+        for (var i = 0; i < parts.length; i++) room = Math.max(room, parts[i].getBoundingClientRect().right - b.left);
+        var left = m.left - b.left;
+        var lo = Math.min(room, b.width - m.width);
+        var hi = Math.max(room, b.width - m.width);
+        var to = Math.min(hi, Math.max(lo, left));
+        if (Math.abs(to - left) < 1) return;
+        heroMedia.style.left = Math.round(to) + 'px';
+        heroMedia.style.transform = 'none';
+      } catch (e) {}
+    }
+    fitPhoto();
     var fitTimer = null;
-    function fitAll() { fitTitle(); fitSteps(); }
+    // Also once the web fonts are in: the theme's header may grow with them
+    // (a wrapped menu), and the sticky offset follows.
+    function fitAll() { measureHeader(); fitTitle(); fitPhoto(); fitSteps(); }
     window.addEventListener('resize', function () {
       clearTimeout(fitTimer);
       fitTimer = setTimeout(fitAll, 80);
@@ -1134,15 +1563,22 @@
     loadOffer();
 
     // The widget may have booted before this script (state() answers then).
+    // Otherwise the basics — or step 04 again, if this tab was there before a
+    // reload (and the basics are still complete).
     var already = api() && api().state ? api().state() : null;
     if (already && already.answers) {
       answers = normalizeAnswers(already.answers);
       sentAnswers = JSON.parse(JSON.stringify(answers));
       setMode('live');
       setStep(already.stage || 'questions');
+    } else if (mode === 'unavailable') {
+      setMode('unavailable');
+      setStep('start');
     } else {
       setMode('start');
-      setStep('start');
+      setNotesOpen(ssGet('ms-hgk-notes') === '1' && !missing().length && notesStep());
+      paint();
+      setStep(notesOpen ? 'notes' : 'start');
     }
     if (api()) { flushTrack(); trackView(); }
   }

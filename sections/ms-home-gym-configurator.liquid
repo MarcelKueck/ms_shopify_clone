@@ -2,12 +2,16 @@
   Home-Gym-Konfigurator mit Mo — Men's Health / Women's Health cooperation.
 
   The landing page of the cooperation: hero with the partner seals, the
-  configurator (left, ≤ 50 %) and Mo docked next to it (right). The visitor
-  picks a few basics („Welcher Typ bist du? / Trainingsort & Platz / Training
-  & Niveau“), „Weiter – Mo berät mich“ hands them to Mo
-  (window.MS_CHAT.configurator.start of ms-chat-widget.js), Mo asks for budget
-  and wishes with answer chips, then offers the equipment step by step; every
-  pick lands in the editable plan on the left with one „Alles in den Warenkorb“.
+  configurator (left, ≤ 50 %) and Mo docked next to it (right) under the
+  five-step timeline. The visitor picks a few basics („Welcher Typ bist du? /
+  Trainingsort & Platz / Training & Niveau“), „Weiter“ opens the optional step
+  04 („Gibt es etwas, das wir in deinem Fall beachten sollten?“ — a free-text
+  note of ≤ 500 characters), „Weiter – Mo berät mich“ (or „Überspringen“)
+  hands everything to Mo (window.MS_CHAT.configurator.start of
+  ms-chat-widget.js; the note travels as answers.note). Mo asks for budget and
+  wishes with answer chips, then offers the equipment step by step; every
+  pick lands in the editable plan on the left (dark blue box) with one „Alles
+  in den Warenkorb“.
 
   Look: the backend's „Performance“ e-mail design (mo repo,
   src/lib/email-designs/performance.ts) — light-blue accent, bordered white
@@ -17,9 +21,12 @@
   homepage's pill buttons („MOTION SPORTS – Learn more“: black, blue on
   hover; no red anywhere). With a hero image (setting hero_image, focal point
   from the theme editor) the hero is a dark image banner with the copy on the
-  left and the seals overlapping its bottom edge; without one it stays white.
-  The answer cards carry the step badges SCHRITT 01–03. The shared --hgk-*
-  tokens are defined on .ms-hgk (…configurator.css).
+  left and the seal block (the sentence over both seals, one glass panel)
+  inside it at the top right — or bottom right (setting seal_position); the
+  photo is placed so that its focal point sits between the copy and the seal
+  block. Without an image the hero stays white. The answer cards carry the
+  step badges SCHRITT 01–04. The shared --hgk-* tokens are defined on .ms-hgk
+  (…configurator.css); --hgk-navy (the „SCHRITT 03“ blue) is the plan box.
 
   Hosts the widget fills (contract in ms-chat-widget.js → Home-Gym-Konfigurator):
     [data-ms-chat-dock]  the docked chat panel (intro below until the handover)
@@ -28,9 +35,9 @@
   Answer ids are the backend's vocabulary (mo repo, src/lib/configurator-core.mjs);
   the personas are Mo's own customer personas.
 
-  „Weiter – Mo berät mich“ stays clickable while answers are open; a click
-  outlines the cards with open answers in the error colour, names the field
-  („Bitte wähle deine Fläche aus.“) and moves to the first one. The
+  „Weiter“ stays clickable while answers are open; a click outlines the cards
+  with open answers in the error colour, names the field („Bitte wähle deine
+  Fläche aus.“) and moves to the first one. The
   Konfigurator-Rabatt (pop-up + banner above the plan) comes entirely from the
   Mo backend (admin: Konfigurator → „Mo im Konfigurator“, off by default;
   GET /api/configurator/offer) and is built by the page JS — no section setting,
@@ -65,6 +72,12 @@
   if hgk_img != blank
     assign hgk_has_img = true
   endif
+  assign hgk_seal_bottom = false
+  if hgk_seals and section.settings.seal_position == 'bottom'
+    assign hgk_seal_bottom = true
+  endif
+  assign hgk_focal_x = hgk_img.presentation.focal_point.x | default: 50
+  assign hgk_img_ar = hgk_img.aspect_ratio | default: 1.7778
 -%}
 
 {%- capture hgk_hero_copy -%}
@@ -82,24 +95,30 @@
   </div>
 {%- endcapture -%}
 
+{%- comment -%}
+  The seal block: the sentence over both seals in one panel (dark glass on
+  the photo, a light card on white). sizes = the seal width in
+  …configurator.css (--hgk-seal): ≤ 256 px from 1200 px, ≤ 200 px from 750 px,
+  ~41 % of the screen on phones.
+{%- endcomment -%}
 {%- capture hgk_hero_seals -%}
   {%- if hgk_seals -%}
-    <div class="ms-hgk-seals ms-hgk-hero__seals">
-      <div class="ms-hgk-seals__row">
+    <div class="ms-hgk-sealbox">
+      {%- if section.settings.seal_note != blank -%}
+        <p class="ms-hgk-sealbox__note">{{ section.settings.seal_note | escape }}</p>
+      {%- endif -%}
+      <div class="ms-hgk-seals__row ms-hgk-sealbox__row">
         {%- if section.settings.seal_mh != blank -%}
           <div class="ms-hgk-seal" data-partner-seal="mh">
-            {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 270px, 200px' }}
+            {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
           </div>
         {%- endif -%}
         {%- if section.settings.seal_wh != blank -%}
           <div class="ms-hgk-seal" data-partner-seal="wh">
-            {{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 270px, 200px' }}
+            {{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
           </div>
         {%- endif -%}
       </div>
-      {%- if section.settings.seal_note != blank -%}
-        <p class="ms-hgk-seals__caption">{{ section.settings.seal_note | escape }}</p>
-      {%- endif -%}
     </div>
   {%- endif -%}
 {%- endcapture -%}
@@ -115,31 +134,31 @@
 >
   {%- comment -%}
     ---------- Hero ----------
-    With an image: a dark banner (the photo on the right, fading into the dark
-    on the left; copy on the left over a gradient), the seals overlapping its
-    bottom edge on the right with the caption on white. Phones: the photo on
-    top, the copy and the seals below on white. Without an image: white hero,
-    copy left, seals right.
-    sizes = the width the photo is drawn at (object-fit: cover, …configurator.css):
-    phones 16:10 box → a 16:9 photo is 111 % of the screen wide; from 750 px the
-    banner is clamp(520px, 44vw, 680px) tall → 925 px, then 44vw × 16/9 ≈ 79vw,
-    then 1210 px, and from ~1840 px the photo box itself (50vw + 288 px) is wider.
+    With an image: a dark banner — the copy on the left over a gradient, the
+    seal block inside the banner at the top right (seal_position „Unten
+    rechts“: bottom right; one modifier class, ms-hgk-hero--seals-bottom) and
+    the photo, at its own aspect ratio and the full banner height, placed so
+    that its focal point (theme editor) lands between the copy and the seal
+    block: the rack stays visible. Up to 1199 px the seal block stands under
+    the copy and the photo fills the room to the right. Phones: the photo on
+    top (16:10, focal point), the copy and the seal block below on white.
+    Without an image: white hero, copy left, seal block right (from 1200 px)
+    or below.
+    sizes = the width the photo is drawn at (…configurator.css): its height ×
+    its aspect ratio — 1085 px from 1600 px, 1030 px at 1440, ≤ 1100 px from
+    750 px; phones: the 16:10 box crops a 16:9 photo to 111 % of the screen.
   {%- endcomment -%}
-  <div class="ms-hgk-hero{% if hgk_has_img %} ms-hgk-hero--image{% endif %}{% if hgk_seals %} ms-hgk-hero--seals{% endif %}">
+  <div class="ms-hgk-hero{% if hgk_has_img %} ms-hgk-hero--image{% endif %}{% if hgk_seals %} ms-hgk-hero--seals{% endif %}{% if hgk_seal_bottom %} ms-hgk-hero--seals-bottom{% endif %}">
     {%- if hgk_has_img -%}
       <div class="ms-hgk-hero__banner">
-        <div class="ms-hgk-hero__media" style="--hgk-focal: {{ hgk_img.presentation.focal_point }};">
-          {{ hgk_img | image_url: width: 2400 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '750, 1100, 1500, 1800, 2400', sizes: '(min-width: 1840px) calc(50vw + 290px), (min-width: 1545px) 1210px, (min-width: 1180px) 79vw, (min-width: 750px) 925px, 112vw', alt: hgk_img.alt, class: 'ms-hgk-hero__img' }}
+        <div class="ms-hgk-hero__media" style="--hgk-focal: {{ hgk_img.presentation.focal_point }}; --hgk-focal-x: {{ hgk_focal_x }}; --hgk-img-ar: {{ hgk_img_ar }};">
+          {{ hgk_img | image_url: width: 2400 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '750, 1100, 1500, 1800, 2400', sizes: '(min-width: 750px) 1100px, 112vw', alt: hgk_img.alt, class: 'ms-hgk-hero__img' }}
         </div>
         <div class="ms-hgk-wrap ms-hgk-hero__inner">
           {{ hgk_hero_copy }}
-        </div>
-      </div>
-      {%- if hgk_seals -%}
-        <div class="ms-hgk-wrap ms-hgk-hero__foot">
           {{ hgk_hero_seals }}
         </div>
-      {%- endif -%}
+      </div>
     {%- else -%}
       <div class="ms-hgk-wrap ms-hgk-hero__inner">
         {{ hgk_hero_copy }}
@@ -160,16 +179,17 @@
     </template>
   {%- endif -%}
 
-  {%- comment -%} ---------- Configurator stage ---------- {%- endcomment -%}
+  {%- comment -%}
+    ---------- Configurator stage ----------
+    The timeline (five steps, page stages start → notes → questions → plan →
+    cart) sits in its own card above Mo — same edges as the chat; timeline and
+    chat stick together under the header (…configurator.css: .ms-hgk-side).
+    Up to 989 px (one column) it is the first thing of the configurator.
+    Step 04 (the note) is built by the page JS after card 03; „Überspringen“
+    hands over without a note.
+  {%- endcomment -%}
   <div class="ms-hgk-stage" id="ms-hgk-start-{{ section.id }}">
     <div class="ms-hgk-wrap">
-      <ol class="ms-hgk-steps" data-ms-hgk-steps aria-label="{% if hgk_en %}Progress{% else %}Fortschritt{% endif %}">
-        <li class="ms-hgk-steps__item is-current" data-step="start"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Basics{% else %}Grundeinstellungen{% endif %}</span></li>
-        <li class="ms-hgk-steps__item" data-step="questions"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Advice from Mo{% else %}Beratung mit Mo{% endif %}</span></li>
-        <li class="ms-hgk-steps__item" data-step="plan"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Your plan{% else %}Dein Plan{% endif %}</span></li>
-        <li class="ms-hgk-steps__item" data-step="cart"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Cart{% else %}Warenkorb{% endif %}</span></li>
-      </ol>
-
       <div class="ms-hgk-grid">
         <div class="ms-hgk-left">
           <form class="ms-hgk-form" data-ms-hgk-form novalidate>
@@ -178,10 +198,13 @@
             </div>
             <div class="ms-hgk-form__footer">
               <p class="ms-hgk-form__hint" data-ms-hgk-hint aria-live="polite"></p>
-              <button type="submit" class="ms-hgk-btn ms-hgk-btn--primary ms-hgk-cta" data-ms-hgk-cta disabled>
-                <span data-ms-hgk-cta-label>{% if hgk_en %}Next – Mo advises me{% else %}Weiter – Mo berät mich{% endif %}</span>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
+              <div class="ms-hgk-form__actions">
+                <button type="submit" class="ms-hgk-btn ms-hgk-btn--primary ms-hgk-cta" data-ms-hgk-cta disabled>
+                  <span data-ms-hgk-cta-label>{% if hgk_en %}Continue{% else %}Weiter{% endif %}</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="ms-hgk-btn ms-hgk-btn--secondary ms-hgk-skip" data-ms-hgk-skip hidden>{% if hgk_en %}Skip{% else %}Überspringen{% endif %}</button>
+              </div>
               <button type="button" class="ms-hgk-link" data-ms-hgk-cancel hidden>{% if hgk_en %}Cancel{% else %}Abbrechen{% endif %}</button>
             </div>
           </form>
@@ -190,8 +213,8 @@
             <div class="ms-hgk-profile__head">
               <p class="ms-hgk-profile__title">{% if hgk_en %}Your answers{% else %}Deine Angaben{% endif %}</p>
               <div class="ms-hgk-profile__actions">
-                <button type="button" class="ms-hgk-link" data-ms-hgk-edit>{% if hgk_en %}Change{% else %}Ändern{% endif %}</button>
-                <button type="button" class="ms-hgk-link" data-ms-hgk-restart>{% if hgk_en %}Start over{% else %}Neu starten{% endif %}</button>
+                <button type="button" class="ms-hgk-btn ms-hgk-btn--secondary ms-hgk-btn--sm" data-ms-hgk-edit>{% if hgk_en %}Change{% else %}Ändern{% endif %}</button>
+                <button type="button" class="ms-hgk-btn ms-hgk-btn--secondary ms-hgk-btn--sm ms-hgk-btn--quiet" data-ms-hgk-restart>{% if hgk_en %}Start over{% else %}Neu starten{% endif %}</button>
               </div>
             </div>
             <ul class="ms-hgk-chips" data-ms-hgk-chips role="list"></ul>
@@ -209,22 +232,33 @@
         </div>
 
         <div class="ms-hgk-right">
-          <div class="ms-hgk-dock" data-ms-chat-dock>
-            <div class="ms-hgk-intro" data-ms-hgk-intro>
-              <span class="ms-chat-logo ms-hgk-intro__orb" aria-hidden="true"></span>
-              <p class="ms-hgk-intro__title">{{ section.settings.mo_hello | escape }}</p>
-              {%- if section.settings.mo_lead != blank -%}
-                <p class="ms-hgk-intro__text">{{ section.settings.mo_lead | escape }}</p>
-              {%- endif -%}
-              <p class="ms-hgk-intro__hint" data-ms-hgk-intro-hint>
-                <span class="ms-hgk-intro__hint-wide">{% if hgk_en %}← Pick your basics on the left{% else %}← Wähle links deine Grundeinstellungen{% endif %}</span>
-                <span class="ms-hgk-intro__hint-narrow">{% if hgk_en %}↑ Pick your basics above{% else %}↑ Wähle oben deine Grundeinstellungen{% endif %}</span>
-              </p>
-              <p class="ms-hgk-intro__fallback" data-ms-hgk-fallback hidden>
-                {%- if hgk_en -%}Mo is not available right now.{%- else -%}Mo ist gerade nicht erreichbar.{%- endif %}
-                <a href="{{ hgk_fallback }}">{% if hgk_en %}Ask our team instead{% else %}Frag stattdessen unser Team{% endif %}</a>
-              </p>
-              <p class="ms-hgk-intro__legal">{% if hgk_en %}AI home-gym advisor · free and without obligation{% else %}KI-Home-Gym-Berater · kostenlos &amp; unverbindlich{% endif %}</p>
+          <div class="ms-hgk-side" data-ms-hgk-side>
+            <div class="ms-hgk-timeline">
+              <ol class="ms-hgk-steps" data-ms-hgk-steps aria-label="{% if hgk_en %}Progress{% else %}Fortschritt{% endif %}">
+                <li class="ms-hgk-steps__item is-current" data-step="start"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Basics{% else %}Grundeinstellungen{% endif %}</span></li>
+                <li class="ms-hgk-steps__item" data-step="notes"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Your notes{% else %}Deine Hinweise{% endif %}</span></li>
+                <li class="ms-hgk-steps__item" data-step="questions"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Advice from Mo{% else %}Beratung mit Mo{% endif %}</span></li>
+                <li class="ms-hgk-steps__item" data-step="plan"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Your plan{% else %}Dein Plan{% endif %}</span></li>
+                <li class="ms-hgk-steps__item" data-step="cart"><span class="ms-hgk-steps__dot" aria-hidden="true"></span><span class="ms-hgk-steps__label">{% if hgk_en %}Cart{% else %}Warenkorb{% endif %}</span></li>
+              </ol>
+            </div>
+            <div class="ms-hgk-dock" data-ms-chat-dock>
+              <div class="ms-hgk-intro" data-ms-hgk-intro>
+                <span class="ms-chat-logo ms-hgk-intro__orb" aria-hidden="true"></span>
+                <p class="ms-hgk-intro__title">{{ section.settings.mo_hello | escape }}</p>
+                {%- if section.settings.mo_lead != blank -%}
+                  <p class="ms-hgk-intro__text">{{ section.settings.mo_lead | escape }}</p>
+                {%- endif -%}
+                <p class="ms-hgk-intro__hint" data-ms-hgk-intro-hint>
+                  <span class="ms-hgk-intro__hint-wide">{% if hgk_en %}← Pick your basics on the left{% else %}← Wähle links deine Grundeinstellungen{% endif %}</span>
+                  <span class="ms-hgk-intro__hint-narrow">{% if hgk_en %}↑ Pick your basics above{% else %}↑ Wähle oben deine Grundeinstellungen{% endif %}</span>
+                </p>
+                <p class="ms-hgk-intro__fallback" data-ms-hgk-fallback hidden>
+                  {%- if hgk_en -%}Mo is not available right now.{%- else -%}Mo ist gerade nicht erreichbar.{%- endif %}
+                  <a href="{{ hgk_fallback }}">{% if hgk_en %}Ask our team instead{% else %}Frag stattdessen unser Team{% endif %}</a>
+                </p>
+                <p class="ms-hgk-intro__legal">{% if hgk_en %}AI home-gym advisor · free and without obligation{% else %}KI-Home-Gym-Berater · kostenlos &amp; unverbindlich{% endif %}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -317,9 +351,20 @@
     { "type": "checkbox", "id": "hero_intro_caps", "label": "Einleitung in Großbuchstaben", "info": "Wie die blauen Zeilen auf der Startseite („DARF IN KEINEM GYM FEHLEN.“) – bei einem langen Satz meist ruhiger ohne.", "default": false },
     { "type": "text", "id": "heading", "label": "Überschrift", "info": "Ab Tablet-Breite einzeilig – kurz halten.", "default": "Dein Home Gym. Klar geplant." },
     { "type": "text", "id": "hero_cta", "label": "Button", "default": "Jetzt Home Gym planen" },
-    { "type": "image_picker", "id": "hero_image", "label": "Bild (optional)", "info": "Großes Bild im Kopfbereich: der Text steht links auf einem dunklen Verlauf, die Siegel ragen unten rechts über die Bildkante. Querformat (16:9), mind. 2000 px breit, Motiv eher mittig/rechts – den Fokuspunkt aufs Hauptmotiv setzen. Auf dem Handy steht das Bild über dem Text. Ohne Bild bleibt der Kopfbereich weiß." },
+    { "type": "image_picker", "id": "hero_image", "label": "Bild (optional)", "info": "Großes Bild im Kopfbereich: der Text steht links auf einem dunklen Verlauf, die Siegel rechts im Bild. Querformat (16:9), mind. 2000 px breit, dunkler Hintergrund. Den Fokuspunkt aufs Hauptmotiv setzen – das Bild wird so verschoben, dass er zwischen Text und Siegeln steht. Auf dem Handy steht das Bild über dem Text. Ohne Bild bleibt der Kopfbereich weiß." },
     { "type": "header", "content": "Empfehlungssiegel" },
     { "type": "text", "id": "seal_note", "label": "Text zu den Siegeln", "default": "Unser Konfigurator trägt das Empfehlungssiegel von Men's und Women's Health." },
+    {
+      "type": "select",
+      "id": "seal_position",
+      "label": "Position der Siegel im Kopfbereich",
+      "info": "Text und Siegel stehen als ein Block rechts im Kopfbereich. Auf schmaleren Bildschirmen (Tablet, Handy) stehen sie unter der Überschrift.",
+      "options": [
+        { "value": "top", "label": "Oben rechts" },
+        { "value": "bottom", "label": "Unten rechts" }
+      ],
+      "default": "top"
+    },
     { "type": "image_picker", "id": "seal_mh", "label": "Siegel Men's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px. Erscheint im Kopfbereich, klein bei „Welcher Typ bist du?“ und bei den Partnern." },
     { "type": "text", "id": "seal_mh_alt", "label": "Alternativtext Men's Health", "default": "Empfehlungssiegel Men's Health" },
     { "type": "image_picker", "id": "seal_wh", "label": "Siegel Women's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px." },
