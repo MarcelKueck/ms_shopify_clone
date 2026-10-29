@@ -21,11 +21,12 @@
   homepage's pill buttons („MOTION SPORTS – Learn more“: black, blue on
   hover; no red anywhere). With a hero image (setting hero_image, focal point
   from the theme editor) the hero is a dark image banner with the copy on the
-  left and the seal block (the sentence over both seals, one glass panel)
-  inside it at the top right — or bottom right (setting seal_position); the
-  photo is placed so that its focal point sits between the copy and the seal
-  block. Without an image the hero stays white. The answer cards carry the
-  step badges SCHRITT 01–04. The shared --hgk-* tokens are defined on .ms-hgk
+  left and the seal block (both seals side by side, the sentence centred
+  under them, no panel — as in the client's picture) inside it at the top
+  right — or bottom right (setting seal_position); the photo is placed so
+  that its focal point sits between the copy and the seal block. Without an
+  image the hero stays white. The answer cards carry the step badges
+  SCHRITT 01–04. The shared --hgk-* tokens are defined on .ms-hgk
   (…configurator.css); --hgk-navy (the „SCHRITT 03“ blue) is the plan box.
 
   Hosts the widget fills (contract in ms-chat-widget.js → Home-Gym-Konfigurator):
@@ -96,29 +97,31 @@
 {%- endcapture -%}
 
 {%- comment -%}
-  The seal block: the sentence over both seals in one panel (dark glass on
-  the photo, a light card on white). sizes = the seal width in
-  …configurator.css (--hgk-seal): ≤ 256 px from 1200 px, ≤ 200 px from 750 px,
-  ~41 % of the screen on phones.
+  The seal block, as in the client's picture: both seals side by side
+  (Women's Health first), the sentence centred under the pair — no panel
+  (white text on the photo, dark on white). sizes = the seal width in
+  …configurator.css (--hgk-seal): ≤ 256 px from 1200 px (on the photo
+  10.65 % of the hero, ≤ 230 px), ≤ 200 px from 750 px, ~41 % of the screen
+  on phones.
 {%- endcomment -%}
 {%- capture hgk_hero_seals -%}
   {%- if hgk_seals -%}
-    <div class="ms-hgk-sealbox">
-      {%- if section.settings.seal_note != blank -%}
-        <p class="ms-hgk-sealbox__note">{{ section.settings.seal_note | escape }}</p>
-      {%- endif -%}
+    <div class="ms-hgk-sealbox{% if section.settings.seal_note == blank %} ms-hgk-sealbox--bare{% endif %}">
       <div class="ms-hgk-seals__row ms-hgk-sealbox__row">
-        {%- if section.settings.seal_mh != blank -%}
-          <div class="ms-hgk-seal" data-partner-seal="mh">
-            {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
-          </div>
-        {%- endif -%}
         {%- if section.settings.seal_wh != blank -%}
           <div class="ms-hgk-seal" data-partner-seal="wh">
             {{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
           </div>
         {%- endif -%}
+        {%- if section.settings.seal_mh != blank -%}
+          <div class="ms-hgk-seal" data-partner-seal="mh">
+            {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
+          </div>
+        {%- endif -%}
       </div>
+      {%- if section.settings.seal_note != blank -%}
+        <p class="ms-hgk-sealbox__note">{{ section.settings.seal_note | escape }}</p>
+      {%- endif -%}
     </div>
   {%- endif -%}
 {%- endcapture -%}

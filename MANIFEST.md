@@ -12,7 +12,34 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-27, latest) — Konfigurator: Siegel oben rechts, Plan in Dunkelblau, Schritt „Deine Hinweise“, Produkt-Regeln und Showroom
+## ⭐ Session update (2026-10-29, latest) — Konfigurator: Siegel im Hero wie auf dem Bild der Kundin
+
+The client sent a picture of how the seals should sit in the hero. Only the seal block changes; the
+intro, headline, button, the dark banner and the photo stay exactly as before (from 1200 px pixel-identical).
+**Upload the two files below; nothing else** (no widget, no template, no backend deploy).
+
+- **Siegel im Hero:** no box any more (no background, border or blur). Women's Health left, Men's Health
+  right, side by side; below them, centred, the sentence „Unser Konfigurator trägt das Empfehlungssiegel
+  von Men's und Women's Health.“ in white on three lines, regular weight. From 1200 px it sits top right on
+  the photo, sized like the picture (each seal about 10.65 % of the hero width, at most 230 px); „Unten
+  rechts“ (`seal_position`) still works and gets a soft darkening behind the text for legibility. Below
+  1200 px and in the white hero (no photo) the same arrangement under the headline, without a box.
+- **Seal images:** they look exactly like the picture when the uploaded PNGs are square and cropped tight
+  to the seal's width (little transparent margin). With wide transparent margins the seals look smaller.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (seal order WH → MH, sentence below the seals) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (seal block without a box, sizes after the picture) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | unchanged | ❌ No |
+| `templates/page.home-gym-mo.json` | unchanged | ❌ **No — do NOT upload** (it would drop the uploaded seals and the photo) |
+
+After the upload: open the page on desktop and on the phone — seals top right without a box, Women's
+Health left, the sentence below them; headline, button and photo as before.
+
+---
+
+## ⭐ Session update (2026-10-27) — Konfigurator: Siegel oben rechts, Plan in Dunkelblau, Schritt „Deine Hinweise“, Produkt-Regeln und Showroom
 
 The client's second review. Upload **right after the mo backend is deployed** (it brings the note in
 Mo's context, the product rules in `/api/products` and the showroom list; until this upload the live
