@@ -12,7 +12,27 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-30 evening, latest) — Konfigurator: Regler „Leerer Rand in den Siegel-Bildern“
+## ⭐ Session update (2026-10-31, latest) — Konfigurator: Siegel halb so groß, Men's Health zuerst
+
+With the seal PNGs cropped to the seal (M, 30.10.) the 2× seals were too large. The hero seals are half that
+size again — the size of the client's picture (on the photo from 1200 px 10.65 % of the hero width, at most
+230 px; 150–200 px at 750–1199; phones unchanged); the gaps, the margins and the small sentence stay as they are.
+**Men's Health now comes first** (left), as everywhere else on the site; on a partner page the active partner's
+seal still comes first. The seal images are requested at up to 600 px again.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (Men's Health first, image sizes) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (seal size halved) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | unchanged | ❌ No |
+| `templates/page.home-gym-mo.json` | unchanged | ❌ **No — do NOT upload** (it would drop the uploaded seals and the photo) |
+
+After the upload: the seals top right, Men's Health left, Women's Health right, the sentence under them. The
+setting „Leerer Rand in den Siegel-Bildern“ (entry below) stays at 0 with the cropped PNGs.
+
+---
+
+## ⭐ Session update (2026-10-30 evening) — Konfigurator: Regler „Leerer Rand in den Siegel-Bildern“
 
 After the upload of the 2× seals the seals and the sentence stood far apart: the uploaded seal PNGs have a
 transparent margin around the seal, and every gap on the page is the layout's gap plus that margin (twice

@@ -209,24 +209,24 @@
    banner: white copy on the left over a dark gradient and the seal block
    straight on the photo (white sentence) — under the copy up to 1199 px,
    from 1200 px inside the banner at the top right (bottom right with the
-   modifier), placed like the picture, the seals twice its size. The photo keeps its own
+   modifier), placed and sized like the picture. The photo keeps its own
    aspect ratio at the banner's full height and is shifted so that its focal
    point (theme editor; the rack) lands in the free room between the copy
    column and the seal block; its edges fade into the banner's dark. The one
    modifier class switches the seal block between top and bottom. */
 .ms-hgk-hero {
-  /* Seal block geometry. The seals are twice the round-7 size
-     (--hgk-seal-1x, which the photo placement from 750 px still counts
-     with, so the photo stays where it was); the distances around them
-     (--hgk-seal-gap, the margins, the gap to the sentence) keep their
-     round-7 values. --hgk-seal is the box of the visible seal: with an
+  /* Seal block geometry. The seals have the round-7 size of the client's
+     picture again (--hgk-seal-1x; the 2× of 30.10. was halved once the
+     PNGs were cropped to the seal), with the round-7 distances around them
+     (--hgk-seal-gap, the margins, the gap to the sentence) and the half-size
+     sentence of 30.10. --hgk-seal is the box of the visible seal: with an
      empty margin in the PNGs (theme editor „Leerer Rand in den
      Siegel-Bildern“, --hgk-seal-trim per side, set on the hero) the box
      shrinks to the artwork the margin left, so the seals look as large as
      before and the gaps around them are the visible ones. */
   --hgk-seal-fill: calc(1 - 2 * var(--hgk-seal-trim, 0));
   --hgk-seal-1x: 190px;
-  --hgk-seal: calc(2 * var(--hgk-seal-1x) * var(--hgk-seal-fill));
+  --hgk-seal: calc(var(--hgk-seal-1x) * var(--hgk-seal-fill));
   --hgk-seal-gap: 12px;
   /* Phones: the room the seal row leaves on each side. The two seals
      shrink to share the row (≈ 41 % of a 390 px screen each), up to
@@ -269,7 +269,7 @@
 .ms-hgk-hero__cta:hover svg { transform: translateY(2px); }
 
 /* The seal block, as in the client's picture: the two seals side by side
-   (Women's Health first), the sentence centred under the pair — regular
+   (Men's Health first), the sentence centred under the pair — regular
    weight, three lines (≈ 15.5em: „Unser Konfigurator trägt das /
    Empfehlungssiegel von Men's / und Women's Health.“). No panel: no
    background, border, shadow or padding. Phones: full width, the seals
@@ -329,8 +329,9 @@
 .ms-hgk[data-active-partner="wh"] .ms-hgk-seal[data-partner-seal="wh"] { transform: scale(1.06); }
 /* In the seal block the active partner's seal grows from a point that keeps
    round 7's growth (3 % of the round-7 seal, --hgk-seal-1x) towards its
-   neighbour on the right and towards the copy above it; the rest of the
-   growth of the twice as big seal goes left and down, away from both. Up to
+   neighbour on the right and towards the copy above it (with the round-7
+   size that point is the centre; a larger seal would grow the rest left and
+   down, away from both). Up to
    1199 px (block under the copy) it grows at most 4 px upwards, so it stays
    ≥ 24 px from the CTA (the 28 px row gap). A transform: nothing moves. */
 .ms-hgk[data-active-partner="mh"] .ms-hgk-sealbox .ms-hgk-seal[data-partner-seal="mh"],
@@ -368,7 +369,7 @@
      stage below. */
   .ms-hgk-hero {
     --hgk-u: 1vw;
-    /* 2 × 150–190 px: 300 px at 750, 317 px at 989 (from 990 px the rule
+    /* 150–190 px: 150 px at 750, 159 px at 989 (from 990 px the rule
        below); the row may shrink them to its width. */
     --hgk-seal-1x: clamp(150px, calc(13 * var(--hgk-u) + 30px), 190px);
   }
@@ -456,9 +457,8 @@
      seals. */
   .ms-hgk-hero--image .ms-hgk-sealbox { position: relative; z-index: 2; }
   .ms-hgk-hero--image .ms-hgk-sealbox__note { position: relative; color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / 35%); }
-  /* The 12 px sentence sits lower and further right over the photo than
-     the round-7 one (the seals above it are twice the size), over brighter
-     parts of it: a soft radial darkening behind just the sentence keeps the
+  /* The 12 px sentence can sit over brighter parts of the photo (the
+     plant, the floor): a soft radial darkening behind just the sentence keeps the
      white ≥ 4.5:1 — no box, no edge (an ellipse that fades out about 2.75em
      above and below and 5em beside the text); the seals and the text paint
      over it. From 1200 px „Unten rechts“ has its own darkening (below). */
@@ -485,8 +485,9 @@
   }
 }
 @media (min-width: 750px) and (max-width: 1199px) {
-  /* The seal row under the copy is taller than in round 7 by exactly
-     --hgk-seal − --hgk-seal-1x; the banner's minimum height grows by that,
+  /* Should the seal row under the copy be taller than round 7's
+     (--hgk-seal − --hgk-seal-1x; 0 with the round-7 size), the banner's
+     minimum height grows by that,
      so a hero whose copy and seal block are centred in it (no sentence, a
      short copy) keeps its copy where it was. A taller one (the sentence
      under the seals, the default copy) is as tall as its content anyway and
@@ -502,7 +503,7 @@
   /* A headline from the editor too long for one line even at fitTitle's
      smallest size (page JS): balanced lines instead of running into the photo. */
   .ms-hgk-hero__title.ms-hgk-hero__title--wrap { white-space: normal; text-wrap: balance; }
-  /* The seal block under the copy: 360–400 px each (2 × 180–200 px). */
+  /* The seal block under the copy: 180–200 px each. */
   .ms-hgk-hero { --hgk-seal-1x: clamp(180px, calc(16 * var(--hgk-u) + 20px), 200px); }
   .ms-hgk-hero--image { --hgk-copy-w: min(662px, calc(54 * var(--hgk-u) - 118px)); }
   /* One line (fitTitle in the page JS shrinks a longer text from the editor). */
@@ -511,26 +512,23 @@
 @media (min-width: 1200px) {
   /* White hero: the seal block on the right of the copy — 200 px at 1200,
      240 px at 1440, 256 px from 1536 (--hgk-seal-lg; the photo's placement
-     below still counts with it). Twice that does not fit: the one-line
-     headline (fitTitle) already fills the copy column, so a wider block
-     would shrink it or come closer to it; the seals keep this size (it is
-     also their round-7 size, --hgk-seal-1x, for the partner seal's growth). */
+     below still counts with it; it is also their round-7 size,
+     --hgk-seal-1x, for the partner seal's growth). */
   .ms-hgk-hero--seals {
     --hgk-seal-lg: clamp(200px, calc(100 * var(--hgk-u) / 6), 256px);
     --hgk-seal-1x: var(--hgk-seal-lg);
     --hgk-seal: calc(var(--hgk-seal-1x) * var(--hgk-seal-fill));
     --hgk-seal-gap: 14px;
   }
-  /* On the photo the seals are twice the size of the client's picture
-     (round 7: 10.65 u, measured on its visible pixels for a square PNG
-     cropped to the seal's width) — 21.3 u: 256 px at 1200, 307 px at
-     1440, 409 px at 1920, at most 460 px. The gap keeps round 7's value,
-     0.343 × the round-7 seal (3.65 u, at most 79 px). The photo is still
+  /* On the photo the seals have the size of the client's picture (10.65 u,
+     measured on its visible pixels for a PNG cropped to the seal's width):
+     128 px at 1200, 153 px at 1440, 204 px at 1920, at most 230 px; the
+     gap 0.343 × the seal (3.65 u, at most 79 px). The photo is still
      placed for the old panel (two --hgk-seal-lg seals + 52 px of padding,
      border and gap), so it stays exactly where it was. */
   .ms-hgk-hero--image.ms-hgk-hero--seals {
     --hgk-seal-1x: clamp(120px, calc(10.65 * var(--hgk-u)), 230px);
-    --hgk-seal: calc(2 * var(--hgk-seal-1x) * var(--hgk-seal-fill));
+    --hgk-seal: calc(var(--hgk-seal-1x) * var(--hgk-seal-fill));
     --hgk-seal-gap: calc(0.343 * var(--hgk-seal-1x));
     --hgk-place-w: calc(2 * var(--hgk-seal-lg) + 52px);
   }

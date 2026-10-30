@@ -98,25 +98,24 @@
 
 {%- comment -%}
   The seal block, as in the client's picture: both seals side by side
-  (Women's Health first), the sentence centred under the pair — no panel
-  (white text on the photo, dark on white). sizes = the seal width in
-  …configurator.css (--hgk-seal): from 1200 px 21.3 % of the hero on the
-  photo (≤ 460 px; the white hero's 200–256 px are below that); 300–400 px
-  from 750 px; on phones ~41 % of the screen, up to 380 px. Files up to
-  920 px wide (a 460 px seal on a 2x screen).
+  (Men's Health first, as everywhere else on the site), the sentence centred
+  under the pair — no panel (white text on the photo, dark on white).
+  sizes = the seal width in …configurator.css (--hgk-seal): ≤ 256 px from
+  1200 px (on the photo 10.65 % of the hero, ≤ 230 px), ≤ 200 px from
+  750 px, ~41 % of the screen on phones.
 {%- endcomment -%}
 {%- capture hgk_hero_seals -%}
   {%- if hgk_seals -%}
     <div class="ms-hgk-sealbox{% if section.settings.seal_note == blank %} ms-hgk-sealbox--bare{% endif %}">
       <div class="ms-hgk-seals__row ms-hgk-sealbox__row">
-        {%- if section.settings.seal_wh != blank -%}
-          <div class="ms-hgk-seal" data-partner-seal="wh">
-            {{ section.settings.seal_wh | image_url: width: 920 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600, 920', sizes: '(min-width: 2160px) 460px, (min-width: 1200px) 21.3vw, (min-width: 750px) 400px, 45vw' }}
-          </div>
-        {%- endif -%}
         {%- if section.settings.seal_mh != blank -%}
           <div class="ms-hgk-seal" data-partner-seal="mh">
-            {{ section.settings.seal_mh | image_url: width: 920 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600, 920', sizes: '(min-width: 2160px) 460px, (min-width: 1200px) 21.3vw, (min-width: 750px) 400px, 45vw' }}
+            {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
+          </div>
+        {%- endif -%}
+        {%- if section.settings.seal_wh != blank -%}
+          <div class="ms-hgk-seal" data-partner-seal="wh">
+            {{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
           </div>
         {%- endif -%}
       </div>
@@ -369,9 +368,9 @@
       ],
       "default": "top"
     },
-    { "type": "image_picker", "id": "seal_mh", "label": "Siegel Men's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 920 px, eng auf das Siegel zugeschnitten (sonst „Leerer Rand in den Siegel-Bildern“ unten). Erscheint im Kopfbereich, klein bei „Welcher Typ bist du?“ und bei den Partnern." },
+    { "type": "image_picker", "id": "seal_mh", "label": "Siegel Men's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 600 px, eng auf das Siegel zugeschnitten (sonst „Leerer Rand in den Siegel-Bildern“ unten). Erscheint im Kopfbereich, klein bei „Welcher Typ bist du?“ und bei den Partnern." },
     { "type": "text", "id": "seal_mh_alt", "label": "Alternativtext Men's Health", "default": "Empfehlungssiegel Men's Health" },
-    { "type": "image_picker", "id": "seal_wh", "label": "Siegel Women's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 920 px, eng auf das Siegel zugeschnitten." },
+    { "type": "image_picker", "id": "seal_wh", "label": "Siegel Women's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 600 px, eng auf das Siegel zugeschnitten." },
     { "type": "text", "id": "seal_wh_alt", "label": "Alternativtext Women's Health", "default": "Empfehlungssiegel Women's Health" },
     {
       "type": "range",
