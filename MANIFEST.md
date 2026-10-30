@@ -12,7 +12,23 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-31, latest) — Konfigurator: Siegel halb so groß, Men's Health zuerst
+## ⭐ Session update (2026-10-31 evening, latest) — Konfigurator: „Garage“ statt „Garage / Outdoor“
+
+Client mail: motion sports has no outdoor equipment. The location option „Garage / Outdoor“ is now „Garage“
+(EN „Garage“; the stored value `garage` is unchanged). With the mo deploy of the same day Mo points out, when
+„Garage“ is chosen, that the garage should not be damp — equipment always belongs in a dry environment.
+**Upload this one file; nothing else.**
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `assets/ms-home-gym-configurator.js` | **MODIFIED** (option label „Garage“) | ✅ Yes — replace the whole file |
+| `sections/ms-home-gym-configurator.liquid` | unchanged | ❌ No |
+| `assets/ms-home-gym-configurator.css` | unchanged | ❌ No |
+| `templates/page.home-gym-mo.json` | unchanged | ❌ **No — do NOT upload** |
+
+---
+
+## ⭐ Session update (2026-10-31) — Konfigurator: Siegel halb so groß, Men's Health zuerst
 
 With the seal PNGs cropped to the seal (M, 30.10.) the 2× seals were too large. The hero seals are half that
 size again — the size of the client's picture (on the photo from 1200 px 10.65 % of the hero width, at most

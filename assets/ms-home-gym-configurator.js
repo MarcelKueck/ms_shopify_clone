@@ -86,7 +86,7 @@
       location: { label: T('Trainingsort', 'Where'), short: T('Ort', 'Where'), multi: false, required: true, error: T('Bitte wähle deinen Trainingsort aus.', 'Please choose where you train.'), options: [
         ['house', T('Haus / Keller', 'House / basement')],
         ['apartment', T('Wohnung (Mietobjekt)', 'Flat (rented)')],
-        ['garage', T('Garage / Outdoor', 'Garage / outdoor')]
+        ['garage', T('Garage', 'Garage')]
       ] },
       space: { label: T('Platz', 'Space'), short: T('Platz', 'Space'), multi: false, required: true, error: T('Bitte wähle deine Fläche aus.', 'Please choose your space.'), options: [
         ['xs', T('bis 6 m²', 'up to 6 m²')],
