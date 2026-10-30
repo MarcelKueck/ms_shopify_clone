@@ -12,7 +12,36 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-29, latest) — Konfigurator: Siegel im Hero wie auf dem Bild der Kundin
+## ⭐ Session update (2026-10-30, latest) — Konfigurator: Siegel doppelt so groß, Satz halb so groß
+
+Follow-up to the entry of 29.10. below (if that one is not uploaded yet, this upload replaces it — the same two
+files). The seals in the hero are twice as big, the sentence below them half the size (at least 12 px); the
+distances (gap between the seals, margins to the edge, gap to the sentence) stay as they were. Intro, headline,
+button and photo position are unchanged. **Upload the two files below; nothing else.**
+
+- **From 1200 px (on the photo):** each seal about 21.3 % of the hero width, at most 460 px; they now cover
+  part of the rack and the plant on the photo. A soft darkening behind the sentence keeps it readable on the
+  photo (top and bottom position).
+- **750–1199 px:** seals 300–400 px under the headline; the dark banner gets 130–180 px taller.
+- **Phones:** the seals already fill the width, so they stay about the same size; the sentence is 12 px.
+- **Hero without a photo, from 1200 px:** the seals keep their previous size (2× does not fit next to the headline).
+- **Partner pages:** the enlarged active seal keeps its distance to the other seal.
+- **Seal images:** the page now asks Shopify for up to 920 px wide files. Upload seal PNGs at least ~920 px
+  wide (square, cropped tight to the seal's width) so they stay sharp.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (seal images up to 920 px, comment) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (seals 2×, sentence ½, darkening behind the sentence) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | unchanged | ❌ No |
+| `templates/page.home-gym-mo.json` | unchanged | ❌ **No — do NOT upload** (it would drop the uploaded seals and the photo) |
+
+After the upload: open the page on desktop and on the phone — large seals top right, the small sentence
+below them; headline, button and photo as before.
+
+---
+
+## ⭐ Session update (2026-10-29) — Konfigurator: Siegel im Hero wie auf dem Bild der Kundin
 
 The client sent a picture of how the seals should sit in the hero. Only the seal block changes; the
 intro, headline, button, the dark banner and the photo stay exactly as before (from 1200 px pixel-identical).

@@ -209,17 +209,23 @@
    banner: white copy on the left over a dark gradient and the seal block
    straight on the photo (white sentence) — under the copy up to 1199 px,
    from 1200 px inside the banner at the top right (bottom right with the
-   modifier), sized and placed like the picture. The photo keeps its own
+   modifier), placed like the picture, the seals twice its size. The photo keeps its own
    aspect ratio at the banner's full height and is shifted so that its focal
    point (theme editor; the rack) lands in the free room between the copy
    column and the seal block; its edges fade into the banner's dark. The one
    modifier class switches the seal block between top and bottom. */
 .ms-hgk-hero {
-  /* Seal block geometry (also read by the photo placement from 750 px). */
-  --hgk-seal: 190px;
+  /* Seal block geometry. The seals are twice the round-7 size
+     (--hgk-seal-1x, which the photo placement from 750 px still counts
+     with, so the photo stays where it was); the distances around them
+     (--hgk-seal-gap, the margins, the gap to the sentence) keep their
+     round-7 values. */
+  --hgk-seal-1x: 190px;
+  --hgk-seal: calc(2 * var(--hgk-seal-1x));
   --hgk-seal-gap: 12px;
-  /* Phones: the room the seal row leaves on each side, so the seals keep
-     the size they were tuned to (≈ 41 % of a 390 px screen each). */
+  /* Phones: the room the seal row leaves on each side. The two seals
+     shrink to share the row (≈ 41 % of a 390 px screen each), up to
+     380 px each on the widest phones. */
   --hgk-seal-inset: 15px;
   background: #fff;
 }
@@ -262,7 +268,7 @@
    weight, three lines (≈ 15.5em: „Unser Konfigurator trägt das /
    Empfehlungssiegel von Men's / und Women's Health.“). No panel: no
    background, border, shadow or padding. Phones: full width, the seals
-   share the row (≈ 41 % of a 390 px screen each). */
+   share the row (≈ 41 % of a 390 px screen each, at most 380 px). */
 .ms-hgk-sealbox {
   grid-area: seals;
   justify-self: stretch;
@@ -274,9 +280,9 @@
 }
 .ms-hgk .ms-hgk-sealbox__note {
   max-width: 15.5em;
-  /* Phones 15 px (14 px at 320 px); 16 px from 750 px, 17 px on the white
-     hero from 1200 px; on the photo from 1200 px the picture's size. */
-  font-size: clamp(14px, calc(6px + 2.5vw), 15px);
+  /* 12 px (half of round 7's 14–17 px, held at a 12 px floor) — on the
+     photo from 1200 px half the picture's size, at least 12 px. */
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.45;
   color: var(--hgk-ink);
@@ -300,6 +306,23 @@
 .ms-hgk[data-active-partner="wh"] [data-partner-seal="wh"] { order: -1; }
 .ms-hgk[data-active-partner="mh"] .ms-hgk-seal[data-partner-seal="mh"],
 .ms-hgk[data-active-partner="wh"] .ms-hgk-seal[data-partner-seal="wh"] { transform: scale(1.06); }
+/* In the seal block the active partner's seal grows from a point that keeps
+   round 7's growth (3 % of the round-7 seal, --hgk-seal-1x) towards its
+   neighbour on the right and towards the copy above it; the rest of the
+   growth of the twice as big seal goes left and down, away from both. Up to
+   1199 px (block under the copy) it grows at most 4 px upwards, so it stays
+   ≥ 24 px from the CTA (the 28 px row gap). A transform: nothing moves. */
+.ms-hgk[data-active-partner="mh"] .ms-hgk-sealbox .ms-hgk-seal[data-partner-seal="mh"],
+.ms-hgk[data-active-partner="wh"] .ms-hgk-sealbox .ms-hgk-seal[data-partner-seal="wh"] {
+  --hgk-seal-was: min(var(--hgk-seal-1x), 100%);
+  transform-origin: calc(100% - 0.5 * var(--hgk-seal-was)) calc(0.5 * var(--hgk-seal-was));
+}
+@media (max-width: 1199px) {
+  .ms-hgk[data-active-partner="mh"] .ms-hgk-sealbox .ms-hgk-seal[data-partner-seal="mh"],
+  .ms-hgk[data-active-partner="wh"] .ms-hgk-sealbox .ms-hgk-seal[data-partner-seal="wh"] {
+    transform-origin: calc(100% - 0.5 * var(--hgk-seal-was)) min(calc(0.5 * var(--hgk-seal-was)), calc(4px / 0.06));
+  }
+}
 
 /* The photo (phones: on top, 16:10). */
 .ms-hgk-hero__banner { position: relative; }
@@ -324,21 +347,24 @@
      stage below. */
   .ms-hgk-hero {
     --hgk-u: 1vw;
-    --hgk-seal: clamp(150px, calc(13 * var(--hgk-u) + 30px), 190px);
+    /* 2 × 150–190 px: 300 px at 750, 317 px at 989 (from 990 px the rule
+       below); the row may shrink them to its width. */
+    --hgk-seal-1x: clamp(150px, calc(13 * var(--hgk-u) + 30px), 190px);
   }
   .ms-hgk-sealbox { justify-self: start; }
   .ms-hgk-sealbox__row { max-width: 100%; }
-  .ms-hgk .ms-hgk-sealbox__note { font-size: 16px; }
   .ms-hgk-hero--image {
     /* Content left edge, copy column, seal block width (the two seals and
        their gap — no panel), the column the copy and the seal block share
-       (up to 1199 px), and where the photo's focal point lands: the middle
-       of the room right of that column. Percentages resolve against the
-       banner (the full width). */
+       (up to 1199 px; still counted with the round-7 seal block, so the
+       photo stays where it was — the bigger block reaches further over
+       it), and where the photo's focal point lands: the middle of the room
+       right of that column. Percentages resolve against the banner (the
+       full width). */
     --hgk-cl: calc(max(0px, (100% - 1440px) / 2) + var(--hgk-pad));
     --hgk-copy-w: calc(41 * var(--hgk-u));
     --hgk-box-w: calc(2 * var(--hgk-seal) + var(--hgk-seal-gap));
-    --hgk-col-w: max(var(--hgk-copy-w), var(--hgk-box-w));
+    --hgk-col-w: max(var(--hgk-copy-w), calc(2 * var(--hgk-seal-1x) + var(--hgk-seal-gap)));
     --hgk-focus-at: calc((var(--hgk-cl) + var(--hgk-col-w) + 100% - var(--hgk-pad)) / 2);
     /* …and lands 2.65 % of the photo's width right of that middle: the rack
        of the live photo sits at 31–58 % of its width, so a focal point set on
@@ -349,7 +375,7 @@
   .ms-hgk-hero__banner {
     display: flex;
     align-items: center;
-    min-height: clamp(520px, calc(44 * var(--hgk-u)), 680px);
+    min-height: calc(clamp(520px, calc(44 * var(--hgk-u)), 680px) + var(--hgk-box-grow, 0px));
     overflow: hidden;
     background: var(--hgk-hero-dark);
     isolation: isolate;
@@ -408,7 +434,24 @@
      white sentence (a hint of text shadow), no panel, no shadow under the
      seals. */
   .ms-hgk-hero--image .ms-hgk-sealbox { position: relative; z-index: 2; }
-  .ms-hgk-hero--image .ms-hgk-sealbox__note { color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / 35%); }
+  .ms-hgk-hero--image .ms-hgk-sealbox__note { position: relative; color: #fff; text-shadow: 0 1px 2px rgb(0 0 0 / 35%); }
+  /* The 12 px sentence sits lower and further right over the photo than
+     the round-7 one (the seals above it are twice the size), over brighter
+     parts of it: a soft radial darkening behind just the sentence keeps the
+     white ≥ 4.5:1 — no box, no edge (an ellipse that fades out about 2.75em
+     above and below and 5em beside the text); the seals and the text paint
+     over it. From 1200 px „Unten rechts“ has its own darkening (below). */
+  .ms-hgk-hero--image .ms-hgk-sealbox__note::before {
+    content: "";
+    position: absolute;
+    top: -2.75em;
+    right: -5em;
+    bottom: -2.75em;
+    left: -5em;
+    z-index: -1;
+    background: radial-gradient(closest-side, rgb(0 0 0 / 60%) 0%, rgb(0 0 0 / 52%) 65%, rgb(0 0 0 / 0%) 100%);
+    pointer-events: none;
+  }
   .ms-hgk-hero--image .ms-hgk-seal img { filter: none; }
 }
 /* The hero as the size container behind --hgk-u. Its own box is unchanged
@@ -419,6 +462,15 @@
     .ms-hgk-hero { container-type: inline-size; --hgk-u: 1cqi; }
   }
 }
+@media (min-width: 750px) and (max-width: 1199px) {
+  /* The seal row under the copy is taller than in round 7 by exactly
+     --hgk-seal − --hgk-seal-1x; the banner's minimum height grows by that,
+     so a hero whose copy and seal block are centred in it (no sentence, a
+     short copy) keeps its copy where it was. A taller one (the sentence
+     under the seals, the default copy) is as tall as its content anyway and
+     starts at the top padding, as before. */
+  .ms-hgk-hero--image.ms-hgk-hero--seals { --hgk-box-grow: calc(var(--hgk-seal) - var(--hgk-seal-1x)); }
+}
 @media (min-width: 750px) and (max-width: 989px) {
   /* The narrow copy column: the compact pill keeps the CTA on one line. */
   .ms-hgk-hero--image .ms-hgk-hero__cta { padding: 14px 28px; }
@@ -428,31 +480,36 @@
   /* A headline from the editor too long for one line even at fitTitle's
      smallest size (page JS): balanced lines instead of running into the photo. */
   .ms-hgk-hero__title.ms-hgk-hero__title--wrap { white-space: normal; text-wrap: balance; }
-  /* The seal block under the copy fills the copy column (≈ 185 px each). */
-  .ms-hgk-hero { --hgk-seal: clamp(180px, calc(16 * var(--hgk-u) + 20px), 200px); }
+  /* The seal block under the copy: 360–400 px each (2 × 180–200 px). */
+  .ms-hgk-hero { --hgk-seal-1x: clamp(180px, calc(16 * var(--hgk-u) + 20px), 200px); }
   .ms-hgk-hero--image { --hgk-copy-w: min(662px, calc(54 * var(--hgk-u) - 118px)); }
   /* One line (fitTitle in the page JS shrinks a longer text from the editor). */
   .ms-hgk-hero--image .ms-hgk-hero__title { font-size: clamp(1.7rem, calc(3.62 * var(--hgk-u) - 8px), 2.75rem); }
 }
 @media (min-width: 1200px) {
-  /* White hero: the seal block on the right of the copy, large seals —
-     200 px at 1200, 240 px at 1440, 256 px from 1536 (--hgk-seal-lg; the
-     photo's placement below still counts with it). */
+  /* White hero: the seal block on the right of the copy — 200 px at 1200,
+     240 px at 1440, 256 px from 1536 (--hgk-seal-lg; the photo's placement
+     below still counts with it). Twice that does not fit: the one-line
+     headline (fitTitle) already fills the copy column, so a wider block
+     would shrink it or come closer to it; the seals keep this size (it is
+     also their round-7 size, --hgk-seal-1x, for the partner seal's growth). */
   .ms-hgk-hero--seals {
     --hgk-seal-lg: clamp(200px, calc(100 * var(--hgk-u) / 6), 256px);
-    --hgk-seal: var(--hgk-seal-lg);
+    --hgk-seal-1x: var(--hgk-seal-lg);
+    --hgk-seal: var(--hgk-seal-1x);
     --hgk-seal-gap: 14px;
   }
-  /* On the photo the seals are sized like the client's picture, measured on
-     its visible pixels for a square PNG cropped to the seal's width (its
-     widest part, the name banner): 213 px each and 73 px apart in the
-     2000 px frame — 10.65 u: 128 px at 1200, 153 px at 1440, 204 px at
-     1920, at most 230 px; the gap 0.343 × the seal. The photo is still
+  /* On the photo the seals are twice the size of the client's picture
+     (round 7: 10.65 u, measured on its visible pixels for a square PNG
+     cropped to the seal's width) — 21.3 u: 256 px at 1200, 307 px at
+     1440, 409 px at 1920, at most 460 px. The gap keeps round 7's value,
+     0.343 × the round-7 seal (3.65 u, at most 79 px). The photo is still
      placed for the old panel (two --hgk-seal-lg seals + 52 px of padding,
      border and gap), so it stays exactly where it was. */
   .ms-hgk-hero--image.ms-hgk-hero--seals {
-    --hgk-seal: clamp(120px, calc(10.65 * var(--hgk-u)), 230px);
-    --hgk-seal-gap: calc(0.343 * var(--hgk-seal));
+    --hgk-seal-1x: clamp(120px, calc(10.65 * var(--hgk-u)), 230px);
+    --hgk-seal: calc(2 * var(--hgk-seal-1x));
+    --hgk-seal-gap: calc(0.343 * var(--hgk-seal-1x));
     --hgk-place-w: calc(2 * var(--hgk-seal-lg) + 52px);
   }
   /* 94 px = 56 px plus the 38 px the old panel's padding and border took:
@@ -462,23 +519,24 @@
     grid-template-areas: "copy seals";
     gap: 94px;
   }
-  /* The sentence at 17 px under the 200–256 px seals. The margins make up
-     for the old panel, so the copy (centred against the block) and the
-     hero's height stay exactly as they were: its padding and border (36 px)
-     and two 22.03 px sentence lines, less the three 24.64 px lines now —
-     6.14 px in all, in whole 1/64 px layout units. */
-  .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-sealbox { align-self: start; margin-block: 3.0625px 3.078125px; }
+  /* The sentence at 12 px under the 200–256 px seals. The margins make up
+     for the old panel and the smaller sentence, so the seals, the copy
+     (centred against the block) and the hero's height stay exactly as they
+     were: the panel's padding and border (36 px) and two 22.03 px sentence
+     lines, less three 24.65 px lines (6.14 px, split above and below), and
+     the 21.75 px the three lines lost at 12 px (below) — in whole 1/64 px
+     layout units. */
+  .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-sealbox { align-self: start; margin-block: 3.0625px 24.828125px; }
   /* Without the sentence: the old panel's padding and border alone (17 px
      above the seals, 19 px below). */
   .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-sealbox--bare { margin-block: 17px 19px; }
-  .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-sealbox__note { font-size: 17px; }
   .ms-hgk-hero--seals-bottom:not(.ms-hgk-hero--image) .ms-hgk-sealbox { align-self: end; }
   .ms-hgk-hero--seals:not(.ms-hgk-hero--image) .ms-hgk-hero__title { font-size: clamp(2.6rem, calc(3.6 * var(--hgk-u)), 3.4rem); }
   /* Image: three zones — copy | the photo's focal point | seal block (top or
-     bottom right inside the banner, placed like the client's picture: its
-     seals' visible tops 3 u under the banner's top edge, Men's Health's
-     right edge 2.95 u from the banner's right edge; with the modifier the
-     block's bottom sits as far above the bottom edge). The banner height
+     bottom right inside the banner, placed like the client's picture: the
+     block 2.54 u under the banner's top edge, Men's Health's right edge
+     2.95 u from the banner's right edge; with the modifier the block's
+     bottom sits as far above the bottom edge). The banner height
      sets the photo's (and the rack's) size; the headline size sets the copy
      column, so it is held small enough that copy, rack and seal block sit
      side by side from 1200 px (the rack of the live photo ≈ 0.47 × the
@@ -492,16 +550,16 @@
     --hgk-copy-w: calc(var(--hgk-title) * 14.8);
     --hgk-hero-h: clamp(510px, calc(25 * var(--hgk-u) + 220px), 610px);
     --hgk-box-r: calc(2.95 * var(--hgk-u));
-    /* 2.54 u from the top (or the bottom): the seal art starts ≈ 0.45 u
-       lower (≈ 3 u), and the sentence's last glyphs end about as far above
-       its box. But never more than the banner leaves beside the block: on
-       ultrawide windows the margins would make the banner taller and move
-       the copy, which stays as it was. */
+    /* 2.54 u from the top (or the bottom), as in round 7: the seal art
+       starts a little lower (≈ 4 % of the seal), and the sentence's last
+       glyphs end a little above its box. But never more than the banner
+       leaves beside the block: on ultrawide windows the margins would make
+       the banner taller and move the copy, which stays as it was. */
     --hgk-box-y: min(calc(2.54 * var(--hgk-u)), calc((var(--hgk-hero-h) - var(--hgk-seal) - var(--hgk-note-mt) - 3 * 1.38 * var(--hgk-note-fs)) / 2));
-    /* The sentence under the seals, as in the picture: ≈ 27 px type on
-       37 px lines in the 2000 px frame (1.34 u, line height 1.38), its first
-       glyphs 43 px under the seals' art. */
-    --hgk-note-fs: clamp(14px, calc(1.34 * var(--hgk-u)), 27px);
+    /* The sentence under the seals: half the picture's size (0.67 u, at
+       least 12 px, at most 13.5 px) on its 1.38 lines, as far under the
+       seals as in the picture. */
+    --hgk-note-fs: clamp(12px, calc(0.67 * var(--hgk-u)), 13.5px);
     --hgk-note-mt: max(8px, calc(1.3 * var(--hgk-u)));
     /* At least the seal block's height with its margins (top + seals + the
        three-line sentence + bottom): it never leaves the banner. */
@@ -545,16 +603,17 @@
   }
   .ms-hgk-hero--image.ms-hgk-hero--seals-bottom .ms-hgk-sealbox { top: auto; bottom: var(--hgk-box-y); }
   /* „Unten rechts“: there the sentence sits over the photo's lighter floor,
-     so a soft darkening around the block's bottom keeps it legible (white
-     ≥ 4.5:1) — no box, no edge, the seals stay above it. The default top
-     position needs none, as in the picture. */
+     so a wider soft darkening centred under the block's bottom (under the
+     sentence) keeps it legible (white ≥ 4.5:1) — no box, no edge, the
+     seals stay above it; it replaces the sentence's own darkening. */
+  .ms-hgk-hero--image.ms-hgk-hero--seals-bottom .ms-hgk-sealbox__note::before { content: none; }
   .ms-hgk-hero--image.ms-hgk-hero--seals-bottom .ms-hgk-hero__banner::after {
-    background: radial-gradient(ellipse 34% 48% at 84% 100%, rgb(0 0 0 / 62%) 0%, rgb(0 0 0 / 40%) 55%, rgb(0 0 0 / 0%) 100%), linear-gradient(90deg, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.5) 30%, rgba(0, 0, 0, 0) 60%);
+    background: radial-gradient(ellipse 34% 48% at calc(100% - var(--hgk-box-r) - var(--hgk-box-w) / 2) 100%, rgb(0 0 0 / 62%) 0%, rgb(0 0 0 / 40%) 55%, rgb(0 0 0 / 0%) 100%), linear-gradient(90deg, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.5) 30%, rgba(0, 0, 0, 0) 60%);
   }
 }
 @media (min-width: 1440px) {
   /* White hero: 240 px seals from a 1440 px window, also when a classic
-     scrollbar leaves the hero a little narrower (on the photo the 10.65 u
+     scrollbar leaves the hero a little narrower (on the photo the 21.3 u
      rule above wins; the photo's placement follows this size too). */
   .ms-hgk-hero--seals { --hgk-seal-lg: clamp(240px, calc(100 * var(--hgk-u) / 6), 256px); }
 }

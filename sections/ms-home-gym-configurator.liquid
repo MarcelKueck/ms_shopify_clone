@@ -100,9 +100,10 @@
   The seal block, as in the client's picture: both seals side by side
   (Women's Health first), the sentence centred under the pair — no panel
   (white text on the photo, dark on white). sizes = the seal width in
-  …configurator.css (--hgk-seal): ≤ 256 px from 1200 px (on the photo
-  10.65 % of the hero, ≤ 230 px), ≤ 200 px from 750 px, ~41 % of the screen
-  on phones.
+  …configurator.css (--hgk-seal): from 1200 px 21.3 % of the hero on the
+  photo (≤ 460 px; the white hero's 200–256 px are below that); 300–400 px
+  from 750 px; on phones ~41 % of the screen, up to 380 px. Files up to
+  920 px wide (a 460 px seal on a 2x screen).
 {%- endcomment -%}
 {%- capture hgk_hero_seals -%}
   {%- if hgk_seals -%}
@@ -110,12 +111,12 @@
       <div class="ms-hgk-seals__row ms-hgk-sealbox__row">
         {%- if section.settings.seal_wh != blank -%}
           <div class="ms-hgk-seal" data-partner-seal="wh">
-            {{ section.settings.seal_wh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
+            {{ section.settings.seal_wh | image_url: width: 920 | image_tag: loading: 'eager', alt: section.settings.seal_wh_alt, widths: '300, 450, 600, 920', sizes: '(min-width: 2160px) 460px, (min-width: 1200px) 21.3vw, (min-width: 750px) 400px, 45vw' }}
           </div>
         {%- endif -%}
         {%- if section.settings.seal_mh != blank -%}
           <div class="ms-hgk-seal" data-partner-seal="mh">
-            {{ section.settings.seal_mh | image_url: width: 600 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600', sizes: '(min-width: 1200px) 256px, (min-width: 750px) 200px, 45vw' }}
+            {{ section.settings.seal_mh | image_url: width: 920 | image_tag: loading: 'eager', alt: section.settings.seal_mh_alt, widths: '300, 450, 600, 920', sizes: '(min-width: 2160px) 460px, (min-width: 1200px) 21.3vw, (min-width: 750px) 400px, 45vw' }}
           </div>
         {%- endif -%}
       </div>
