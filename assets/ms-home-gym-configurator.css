@@ -219,9 +219,14 @@
      (--hgk-seal-1x, which the photo placement from 750 px still counts
      with, so the photo stays where it was); the distances around them
      (--hgk-seal-gap, the margins, the gap to the sentence) keep their
-     round-7 values. */
+     round-7 values. --hgk-seal is the box of the visible seal: with an
+     empty margin in the PNGs (theme editor „Leerer Rand in den
+     Siegel-Bildern“, --hgk-seal-trim per side, set on the hero) the box
+     shrinks to the artwork the margin left, so the seals look as large as
+     before and the gaps around them are the visible ones. */
+  --hgk-seal-fill: calc(1 - 2 * var(--hgk-seal-trim, 0));
   --hgk-seal-1x: 190px;
-  --hgk-seal: calc(2 * var(--hgk-seal-1x));
+  --hgk-seal: calc(2 * var(--hgk-seal-1x) * var(--hgk-seal-fill));
   --hgk-seal-gap: 12px;
   /* Phones: the room the seal row leaves on each side. The two seals
      shrink to share the row (≈ 41 % of a 390 px screen each), up to
@@ -301,6 +306,22 @@
   height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 8px 18px rgb(0 0 0 / 12%));
+}
+/* PNGs with an empty margin (--hgk-seal-trim per side, theme editor): the
+   image is drawn larger by 1 / --hgk-seal-fill and centred, the seal's box
+   cuts the margin off — the box is the artwork. The light shadow moves to
+   the box, so the cut does not cut it. */
+.ms-hgk-hero--seal-trim .ms-hgk-sealbox .ms-hgk-seal {
+  overflow: clip;
+  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 12%));
+}
+.ms-hgk-hero--seal-trim .ms-hgk-sealbox .ms-hgk-seal img {
+  width: calc(100% / var(--hgk-seal-fill));
+  max-width: none;
+  height: auto;
+  aspect-ratio: 1;
+  margin: calc(50% - 50% / var(--hgk-seal-fill));
+  filter: none;
 }
 .ms-hgk[data-active-partner="mh"] [data-partner-seal="mh"],
 .ms-hgk[data-active-partner="wh"] [data-partner-seal="wh"] { order: -1; }
@@ -452,7 +473,8 @@
     background: radial-gradient(closest-side, rgb(0 0 0 / 60%) 0%, rgb(0 0 0 / 52%) 65%, rgb(0 0 0 / 0%) 100%);
     pointer-events: none;
   }
-  .ms-hgk-hero--image .ms-hgk-seal img { filter: none; }
+  .ms-hgk-hero--image .ms-hgk-seal img,
+  .ms-hgk-hero--image.ms-hgk-hero--seal-trim .ms-hgk-sealbox .ms-hgk-seal { filter: none; }
 }
 /* The hero as the size container behind --hgk-u. Its own box is unchanged
    (a full-width block; the photo and the seal block are positioned in the
@@ -469,7 +491,7 @@
      short copy) keeps its copy where it was. A taller one (the sentence
      under the seals, the default copy) is as tall as its content anyway and
      starts at the top padding, as before. */
-  .ms-hgk-hero--image.ms-hgk-hero--seals { --hgk-box-grow: calc(var(--hgk-seal) - var(--hgk-seal-1x)); }
+  .ms-hgk-hero--image.ms-hgk-hero--seals { --hgk-box-grow: max(0px, calc(var(--hgk-seal) - var(--hgk-seal-1x))); }
 }
 @media (min-width: 750px) and (max-width: 989px) {
   /* The narrow copy column: the compact pill keeps the CTA on one line. */
@@ -496,7 +518,7 @@
   .ms-hgk-hero--seals {
     --hgk-seal-lg: clamp(200px, calc(100 * var(--hgk-u) / 6), 256px);
     --hgk-seal-1x: var(--hgk-seal-lg);
-    --hgk-seal: var(--hgk-seal-1x);
+    --hgk-seal: calc(var(--hgk-seal-1x) * var(--hgk-seal-fill));
     --hgk-seal-gap: 14px;
   }
   /* On the photo the seals are twice the size of the client's picture
@@ -508,7 +530,7 @@
      border and gap), so it stays exactly where it was. */
   .ms-hgk-hero--image.ms-hgk-hero--seals {
     --hgk-seal-1x: clamp(120px, calc(10.65 * var(--hgk-u)), 230px);
-    --hgk-seal: calc(2 * var(--hgk-seal-1x));
+    --hgk-seal: calc(2 * var(--hgk-seal-1x) * var(--hgk-seal-fill));
     --hgk-seal-gap: calc(0.343 * var(--hgk-seal-1x));
     --hgk-place-w: calc(2 * var(--hgk-seal-lg) + 52px);
   }

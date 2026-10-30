@@ -12,7 +12,33 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-30, latest) — Konfigurator: Siegel doppelt so groß, Satz halb so groß
+## ⭐ Session update (2026-10-30 evening, latest) — Konfigurator: Regler „Leerer Rand in den Siegel-Bildern“
+
+After the upload of the 2× seals the seals and the sentence stood far apart: the uploaded seal PNGs have a
+transparent margin around the seal, and every gap on the page is the layout's gap plus that margin (twice
+between the seals). New theme-editor setting **„Leerer Rand in den Siegel-Bildern“** (`seal_trim`, 0–30 %,
+default 0 = no change): the page cuts that margin off each seal image, so the seals keep the size they have now
+and move together, the sentence moves up under them, the block sits at the right/top margin as designed. It
+also removes a visible square edge in the PNGs, as long as the value covers it. Applies to the hero (desktop,
+tablet, phone); with a value set the seals on phones fill their row (larger than now). The image infos now ask
+for PNGs of at least 920 px, cropped tight to the seal.
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-home-gym-configurator.liquid` | **MODIFIED** (new setting `seal_trim`, image infos) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.css` | **MODIFIED** (trim of the seal images) | ✅ Yes — replace the whole file |
+| `assets/ms-home-gym-configurator.js` | unchanged | ❌ No |
+| `templates/page.home-gym-mo.json` | unchanged | ❌ **No — do NOT upload** (it would drop the uploaded seals and the photo) |
+
+After the upload: theme editor → section „Home-Gym-Konfigurator“ → „Leerer Rand in den Siegel-Bildern“: raise it
+step by step while watching the preview until the seals stand close together and the sentence sits under them
+(the share of the PNG's width that is empty on ONE side — e.g. a 1000 px PNG with 150 px empty left of the seal
+= 15 %). Too much cuts the seals' edges (the „Women'sHealth“ banner) — then one step back. Save, check on
+desktop and phone.
+
+---
+
+## ⭐ Session update (2026-10-30) — Konfigurator: Siegel doppelt so groß, Satz halb so groß
 
 Follow-up to the entry of 29.10. below (if that one is not uploaded yet, this upload replaces it — the same two
 files). The seals in the hero are twice as big, the sentence below them half the size (at least 12 px); the

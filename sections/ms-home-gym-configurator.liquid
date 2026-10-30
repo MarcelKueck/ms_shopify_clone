@@ -152,7 +152,7 @@
     its aspect ratio — 1085 px from 1600 px, 1030 px at 1440, ≤ 1100 px from
     750 px; phones: the 16:10 box crops a 16:9 photo to 111 % of the screen.
   {%- endcomment -%}
-  <div class="ms-hgk-hero{% if hgk_has_img %} ms-hgk-hero--image{% endif %}{% if hgk_seals %} ms-hgk-hero--seals{% endif %}{% if hgk_seal_bottom %} ms-hgk-hero--seals-bottom{% endif %}">
+  <div class="ms-hgk-hero{% if hgk_has_img %} ms-hgk-hero--image{% endif %}{% if hgk_seals %} ms-hgk-hero--seals{% endif %}{% if hgk_seal_bottom %} ms-hgk-hero--seals-bottom{% endif %}{% if hgk_seals and section.settings.seal_trim > 0 %} ms-hgk-hero--seal-trim" style="--hgk-seal-trim: {{ section.settings.seal_trim | divided_by: 100.0 }};{% endif %}">
     {%- if hgk_has_img -%}
       <div class="ms-hgk-hero__banner">
         <div class="ms-hgk-hero__media" style="--hgk-focal: {{ hgk_img.presentation.focal_point }}; --hgk-focal-x: {{ hgk_focal_x }}; --hgk-img-ar: {{ hgk_img_ar }};">
@@ -369,10 +369,21 @@
       ],
       "default": "top"
     },
-    { "type": "image_picker", "id": "seal_mh", "label": "Siegel Men's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px. Erscheint im Kopfbereich, klein bei „Welcher Typ bist du?“ und bei den Partnern." },
+    { "type": "image_picker", "id": "seal_mh", "label": "Siegel Men's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 920 px, eng auf das Siegel zugeschnitten (sonst „Leerer Rand in den Siegel-Bildern“ unten). Erscheint im Kopfbereich, klein bei „Welcher Typ bist du?“ und bei den Partnern." },
     { "type": "text", "id": "seal_mh_alt", "label": "Alternativtext Men's Health", "default": "Empfehlungssiegel Men's Health" },
-    { "type": "image_picker", "id": "seal_wh", "label": "Siegel Women's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 520 px." },
+    { "type": "image_picker", "id": "seal_wh", "label": "Siegel Women's Health", "info": "PNG mit transparentem Hintergrund, quadratisch, mind. 920 px, eng auf das Siegel zugeschnitten." },
     { "type": "text", "id": "seal_wh_alt", "label": "Alternativtext Women's Health", "default": "Empfehlungssiegel Women's Health" },
+    {
+      "type": "range",
+      "id": "seal_trim",
+      "label": "Leerer Rand in den Siegel-Bildern",
+      "info": "Haben die Siegel-PNGs einen leeren Rand, stehen die Siegel und der Text darunter zu weit auseinander. Den Wert erhöhen, bis sie eng beieinander stehen – die Siegel bleiben gleich groß. Zu viel schneidet die Siegel an. 0 = Bilder ohne Rand. Gilt für den Kopfbereich.",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "%",
+      "default": 0
+    },
     { "type": "header", "content": "Mo" },
     { "type": "text", "id": "mo_hello", "label": "Begrüßung", "default": "Hallo, ich bin Mo." },
     { "type": "text", "id": "mo_lead", "label": "Einleitung", "default": "Wähle deinen Trainingsfokus – ich stelle dir dein Home Gym zusammen." },
