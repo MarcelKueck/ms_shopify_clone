@@ -1,0 +1,1259 @@
+{% comment %}Fruits & Harvest | Premium Search Grid | Native Shopify search{% endcomment %}
+{% assign ai_gen_id = 'premiumsearchv2' %}
+{% style %}
+.ai-{{ ai_gen_id }}{display:block;width:100%;padding:24px;background:#F9F9F9;color:#0A0B0C;font-family:Montserrat,sans-serif;}
+.ai-{{ ai_gen_id }}__grid{display:grid;grid-template-columns:repeat({{ section.settings.columns }},minmax(0,1fr));gap:{{ section.settings.grid_gap }}px;align-items:stretch;}
+.ai-{{ ai_gen_id }}__search-header{text-align:center;padding:4px 0 30px;}
+.ai-{{ ai_gen_id }}__search-header h1{font-size:32px;font-weight:400;margin:0 0 28px;}
+.ai-{{ ai_gen_id }}__search-form{display:flex;max-width:576px;margin:auto;background:#f0f0f0;border-radius:4px;overflow:hidden;}
+.ai-{{ ai_gen_id }}__search-form input{flex:1;min-width:0;border:0;background:transparent;padding:18px;font:inherit;color:inherit;}
+.ai-{{ ai_gen_id }}__search-form button{border:0;background:transparent;padding:0 20px;cursor:pointer;}
+.ai-{{ ai_gen_id }}__search-form svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;}
+.ai-{{ ai_gen_id }}__count{font-size:14px;margin:0 0 22px;opacity:.7;}
+/* ============================================================
+   PRODUCT GRID
+============================================================ */
+
+.ai-{{ ai_gen_id }}__grid {
+  display: grid;
+  grid-template-columns: repeat({{ section.settings.columns }}, minmax(0, 1fr));
+  gap: {{ section.settings.grid_gap }}px;
+  align-items: stretch;
+}
+
+.ai-{{ ai_gen_id }}__card {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: {{ section.settings.card_background }};
+  border-radius: {{ section.settings.card_radius }}px;
+  box-shadow: 0 8px 20px #0002;
+  transition: transform .2s, box-shadow .2s;
+}
+
+.ai-{{ ai_gen_id }}__card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 30px #0003;
+}
+
+.ai-{{ ai_gen_id }}__media {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  aspect-ratio: 1;
+  background: #f5f5f5;
+}
+
+.ai-{{ ai_gen_id }}__media img,
+.ai-{{ ai_gen_id }}__media svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Badges are positioned independently within the product image. */
+.ai-{{ ai_gen_id }}__badges {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ai-{{ ai_gen_id }}__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 5px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.ai-{{ ai_gen_id }}__badge--sale {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #9A0000;
+  color: #ffffff;
+}
+
+.ai-{{ ai_gen_id }}__badge--soldout {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: #eeeeee;
+  color: #000000;
+  font-size: 10px;
+}
+
+.ai-{{ ai_gen_id }}__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  padding: {{ section.settings.card_padding }}px;
+}
+
+.ai-{{ ai_gen_id }}__title {
+  margin: 0 0 {{ section.settings.title_price_gap }}px;
+  font-size: {{ section.settings.title_size }}px;
+  font-weight: 300;
+}
+
+.ai-{{ ai_gen_id }}__title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ai-{{ ai_gen_id }}__price {
+  margin-bottom: {{ section.settings.price_rating_gap }}px;
+  font-size: {{ section.settings.price_size }}px;
+  font-weight: {{ section.settings.price_weight }};
+}
+
+.ai-{{ ai_gen_id }}__price s {
+  margin-left: 5px;
+  opacity: .55;
+}
+
+.ai-{{ ai_gen_id }}__rating {
+  margin-bottom: {{ section.settings.rating_gap }}px;
+  color: {{ section.settings.rating_color }};
+  font-size: {{ section.settings.rating_size }}px;
+}
+
+
+/* ============================================================
+   PRODUCT SWATCHES
+============================================================ */
+
+.ai-{{ ai_gen_id }}__product-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 20px;
+  margin: 2px 0 12px;
+}
+
+.ai-{{ ai_gen_id }}__product-swatch {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.22);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform .15s ease, outline .15s ease;
+}
+
+.ai-{{ ai_gen_id }}__product-swatch:hover {
+  transform: scale(1.12);
+  outline: 1px solid rgba(0,0,0,.35);
+  outline-offset: 2px;
+}
+
+
+/* ============================================================
+   BUTTONS
+============================================================ */
+
+.ai-{{ ai_gen_id }}__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.ai-{{ ai_gen_id }}__view,
+.ai-{{ ai_gen_id }}__quick {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  border-radius: {{ section.settings.button_radius }}px;
+  box-shadow: none;
+  font-family: {{ section.settings.button_font.family }};
+  cursor: pointer;
+}
+
+.ai-{{ ai_gen_id }}__view {
+  flex: 1;
+  padding: {{ section.settings.button_padding }}px;
+  background: {{ section.settings.button_background }};
+  color: {{ section.settings.button_text }};
+  text-align: center;
+  text-decoration: none;
+}
+
+.ai-{{ ai_gen_id }}__quick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  background: {{ section.settings.quick_background }};
+  color: #fff;
+}
+
+.ai-{{ ai_gen_id }}__quick svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ai-{{ ai_gen_id }}__view:before,
+.ai-{{ ai_gen_id }}__quick:before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -120%;
+  width: 70%;
+  background: linear-gradient(110deg,transparent,#fff8,transparent);
+  transform: skewX(-20deg);
+  transition: left .5s;
+}
+
+.ai-{{ ai_gen_id }}__view:hover:before,
+.ai-{{ ai_gen_id }}__quick:hover:before {
+  left: 140%;
+}
+
+.ai-{{ ai_gen_id }}__quick:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+
+/* ============================================================
+   PAGINATION
+============================================================ */
+
+.ai-{{ ai_gen_id }}__pagination {
+  margin-top: 30px;
+}
+
+
+
+@media(max-width:749px){.ai-{{ ai_gen_id }}__grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+.ai-{{ ai_gen_id }}__grid > [hidden]{display:none!important;}
+.ai-{{ ai_gen_id }}__pagination{display:none;}
+.ai-{{ ai_gen_id }}__infinite{display:flex;justify-content:center;align-items:center;min-height:42px;margin-top:18px;font-size:13px;}
+.ai-{{ ai_gen_id }}__infinite [data-infinite-retry][hidden]{display:none!important;}
+
+/* Editorial search and filter sidebar */
+.ai-{{ ai_gen_id }}__search-header{padding:{{ section.settings.header_top_desktop }}px 0 {{ section.settings.header_bottom_desktop }}px;text-align:center}
+.ai-{{ ai_gen_id }}__eyebrow{font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#666;margin:0 0 {{ section.settings.eyebrow_gap }}px}
+.ai-{{ ai_gen_id }}__search-header h1{font-size:clamp(32px,4vw,{{ section.settings.search_title_size }}px);font-weight:400;letter-spacing:-.045em;margin:0 0 {{ section.settings.heading_gap }}px}
+.ai-{{ ai_gen_id }}__description{font-size:14px;color:#666;margin:0 0 {{ section.settings.description_gap }}px}
+.ai-{{ ai_gen_id }}__search-form{max-width:680px;background:#fff;border:1px solid #d2d2ce;padding:5px;min-height:{{ section.settings.search_field_height }}px;border-radius:4px;align-items:stretch}
+.ai-{{ ai_gen_id }}__search-form input{font-size:15px;outline:0}
+.ai-{{ ai_gen_id }}__search-form button{position:relative;overflow:hidden;display:flex;align-items:center;gap:10px;background:{{ section.settings.search_button_color }};color:{{ section.settings.search_button_text_color }};padding:0 24px;border-radius:2px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;transition:background .2s}
+.ai-{{ ai_gen_id }}__search-form button:hover{background:#008CCB}
+.ai-{{ ai_gen_id }}__search-form button:before{content:'';position:absolute;left:-90%;top:-50%;width:45%;height:200%;background:linear-gradient(105deg,transparent,#ffffffa0,transparent);transform:skewX(-20deg);transition:left .55s}
+.ai-{{ ai_gen_id }}__search-form button:hover:before{left:140%}
+.ai-{{ ai_gen_id }}__search-form svg{width:18px;height:18px}
+.ai-{{ ai_gen_id }}__layout{display:grid;grid-template-columns:{{ section.settings.sidebar_width }}px minmax(0,1fr);gap:{{ section.settings.sidebar_gap }}px;align-items:start}
+.ai-{{ ai_gen_id }}__results{min-width:0;transition:opacity .18s ease}
+.ai-{{ ai_gen_id }}__results.is-loading{opacity:.45;pointer-events:none}
+.ai-{{ ai_gen_id }}__filter-message{font-size:12px;color:#666;margin:8px 0 0;min-height:16px}
+.ai-{{ ai_gen_id }}__sidebar{border:1px solid #e7e7e7;border-radius:6px;padding:22px 18px;background:#fff}
+.ai-{{ ai_gen_id }}__filters-details summary{font-size:16px;font-weight:700;cursor:pointer;margin-bottom:20px}
+.ai-{{ ai_gen_id }}__filter-group{border:0;border-top:1px solid #eee;margin:0;padding:20px 0}
+.ai-{{ ai_gen_id }}__filter-group legend{font-weight:700;font-size:13px;padding-top:15px}
+.ai-{{ ai_gen_id }}__check{display:flex;align-items:center;gap:9px;font-size:13px;margin:12px 0;cursor:pointer}
+.ai-{{ ai_gen_id }}__check input{accent-color:#008CCB}
+.ai-{{ ai_gen_id }}__price-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ai-{{ ai_gen_id }}__price-fields label{font-size:12px;color:#555}
+.ai-{{ ai_gen_id }}__price-fields input{width:100%;min-width:0;border:1px solid #ddd;border-radius:3px;padding:10px 7px;margin-top:6px;font-size:13px}
+.ai-{{ ai_gen_id }}__apply{display:block;width:100%;padding:13px 10px;border:0;background:#0A0B0C;color:white;font-size:12px;cursor:pointer}
+.ai-{{ ai_gen_id }}__reset{display:block;text-align:center;font-size:12px;margin-top:14px;text-decoration:underline}
+{% unless section.settings.show_filters %}.ai-{{ ai_gen_id }}__layout{grid-template-columns:minmax(0,1fr)}{% endunless %}
+@media(max-width:900px){.ai-{{ ai_gen_id }}__layout{grid-template-columns:minmax(0,1fr)}.ai-{{ ai_gen_id }}__sidebar{padding:12px 16px}.ai-{{ ai_gen_id }}__filters-details:not([open]) summary{margin-bottom:0}}
+@media(max-width:600px){.ai-{{ ai_gen_id }}{padding:16px}.ai-{{ ai_gen_id }}__search-header{padding:{{ section.settings.header_top_mobile }}px 0 {{ section.settings.header_bottom_mobile }}px}.ai-{{ ai_gen_id }}__search-form button{padding:0 14px}.ai-{{ ai_gen_id }}__search-form button span{display:none}}
+
+/* Mobile search field and collapsible filters */
+@media (max-width:749px) {
+  .ai-{{ ai_gen_id }}__search-form { min-height:42px; height:42px; padding:3px; }
+  .ai-{{ ai_gen_id }}__search-form input { padding:7px 10px; font-size:14px; min-height:0; height:100%; }
+  .ai-{{ ai_gen_id }}__search-form button { padding:0 12px; min-height:0; }
+  .ai-{{ ai_gen_id }}__search-form svg { width:17px; height:17px; }
+  .ai-{{ ai_gen_id }}__filters-details summary { margin-bottom:0; }
+  .ai-{{ ai_gen_id }}__filters-details[open] summary { margin-bottom:14px; }
+}
+
+/* Suchkopf: Ueberschrift immer normal, auch bei Theme-Overrides */
+premium-search-grid-v2.ai-{{ ai_gen_id }} .ai-{{ ai_gen_id }}__search-header h1 {
+  font-weight: 400 !important;
+}
+
+.ai-{{ ai_gen_id }}__title,
+.ai-{{ ai_gen_id }}__title a {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 300 !important;
+}
+
+{% endstyle %}
+<premium-search-grid-v2 class="ai-{{ ai_gen_id }}" data-section-id="{{ section.id }}" {{ section.shopify_attributes }}>
+<header class="ai-{{ ai_gen_id }}__search-header">
+{% if section.settings.eyebrow != blank %}<p class="ai-{{ ai_gen_id }}__eyebrow">{{ section.settings.eyebrow | escape }}</p>{% endif %}
+<h1>{{ section.settings.search_heading | escape }}</h1>
+{% if section.settings.search_description != blank %}<p class="ai-{{ ai_gen_id }}__description">{{ section.settings.search_description | escape }}</p>{% endif %}
+<form action="{{ routes.search_url }}" method="get" role="search" class="ai-{{ ai_gen_id }}__search-form">
+<input type="search" name="q" value="{{ search.terms | escape }}" aria-label="Produkte suchen" placeholder="{{ section.settings.search_placeholder | escape }}" autocomplete="off">
+<input type="hidden" name="type" value="product">
+<input type="hidden" name="options[prefix]" value="last">
+<button type="submit" aria-label="Suchen"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><span>{{ section.settings.search_button_label | escape }}</span></button>
+</form></header>
+{% if search.performed %}
+<div class="ai-{{ ai_gen_id }}__layout">
+{% if section.settings.show_filters %}
+<aside class="ai-{{ ai_gen_id }}__sidebar" aria-label="Suchfilter">
+<details class="ai-{{ ai_gen_id }}__filters-details" {% comment %}Desktop open; mobile state adjusted below{% endcomment %} open>
+<summary>Produkte filtern</summary>
+<form action="{{ routes.search_url }}" method="get" class="ai-{{ ai_gen_id }}__filter-form" data-fh-filter-form>
+<input type="hidden" name="q" value="{{ search.terms | escape }}">
+<input type="hidden" name="type" value="product">
+<input type="hidden" name="options[prefix]" value="last">
+{% comment %}Verfügbarkeit als eigenständiger Filter, auch wenn search.filters keinen entsprechenden Eintrag liefert.{% endcomment %}
+{% assign fh_availability = '' %}
+{% for filter in search.filters %}
+  {% if filter.param_name == 'filter.v.availability' %}
+    {% for value in filter.values %}
+      {% if value.active %}
+        {% assign fh_availability = value.value | append: '' %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% endfor %}
+<fieldset class="ai-{{ ai_gen_id }}__filter-group">
+  <legend>Verfügbarkeit</legend>
+  <label class="ai-{{ ai_gen_id }}__check">
+    <input type="radio" name="filter.v.availability" value="" {% if fh_availability == blank %}checked{% endif %}>
+    <span>Alle Produkte</span>
+  </label>
+  <label class="ai-{{ ai_gen_id }}__check">
+    <input type="radio" name="filter.v.availability" value="1" {% if fh_availability == '1' or fh_availability == 'true' %}checked{% endif %}>
+    <span>Verfügbar</span>
+  </label>
+  <label class="ai-{{ ai_gen_id }}__check">
+    <input type="radio" name="filter.v.availability" value="0" {% if fh_availability == '0' or fh_availability == 'false' %}checked{% endif %}>
+    <span>Nicht verfügbar</span>
+  </label>
+</fieldset>
+{% for filter in search.filters %}
+{% if filter.type == 'price_range' %}
+<fieldset class="ai-{{ ai_gen_id }}__filter-group"><legend>Preis</legend>
+<div class="ai-{{ ai_gen_id }}__price-fields">
+<label>Von (€)<input type="number" min="0" step="0.01" name="{{ filter.min_value.param_name }}" value="{% if filter.min_value.value %}{{ filter.min_value.value | divided_by: 100.0 }}{% endif %}" placeholder="0"></label>
+<label>Bis (€)<input type="number" min="0" step="0.01" name="{{ filter.max_value.param_name }}" value="{% if filter.max_value.value %}{{ filter.max_value.value | divided_by: 100.0 }}{% endif %}" placeholder="{{ filter.range_max | money_without_currency }}"></label>
+</div>
+</fieldset>
+{% endif %}
+{% endfor %}
+
+<a class="ai-{{ ai_gen_id }}__reset" data-fh-filter-reset href="{{ routes.search_url }}?q={{ search.terms | url_encode }}&type=product&options%5Bprefix%5D=last">Filter zurücksetzen</a>
+<p class="ai-{{ ai_gen_id }}__filter-message" data-fh-live-status aria-live="polite"></p>
+</form>
+</details>
+</aside>
+{% endif %}
+<div class="ai-{{ ai_gen_id }}__results">
+<p class="ai-{{ ai_gen_id }}__count">Suchergebnisse für „{{ search.terms | escape }}“</p>
+{% paginate search.results by section.settings.products_per_page %}
+<div class="ai-{{ ai_gen_id }}__grid">
+{% assign availability_passes = 'available,unavailable' | split: ',' %}
+{% for availability_pass in availability_passes %}
+{% for item in search.results %}
+{% unless item.object_type == 'product' %}{% continue %}{% endunless %}
+{% assign product = item %}
+{% if availability_pass == 'available' %}
+{% unless product.available %}{% continue %}{% endunless %}
+{% else %}
+{% if product.available %}{% continue %}{% endif %}
+{% endif %}
+<article class="ai-{{ ai_gen_id }}__card" data-product-available="{{ product.available }}">
+
+
+<a
+  class="ai-{{ ai_gen_id }}__media"
+  href="{{ product.url }}"
+>
+
+{% comment %}
+  Rabatt der Haupt-/Preisvariante: Die Variante mit dem Preis,
+  der unten in der Produktkarte als product.price ausgegeben wird.
+{% endcomment %}
+{% assign card_variant = blank %}
+{% for variant in product.variants %}
+  {% if variant.price == product.price %}
+    {% assign card_variant = variant %}
+    {% break %}
+  {% endif %}
+{% endfor %}
+
+{% assign card_saving = 0 %}
+{% if card_variant != blank and card_variant.compare_at_price != blank %}
+  {% if card_variant.compare_at_price > card_variant.price %}
+    {% assign card_saving = card_variant.compare_at_price | minus: card_variant.price %}
+  {% endif %}
+{% endif %}
+
+<div class="ai-{{ ai_gen_id }}__badges">
+  {% if card_saving > 0 %}
+    <span class="ai-{{ ai_gen_id }}__badge ai-{{ ai_gen_id }}__badge--sale">%</span>
+  {% endif %}
+  {% unless product.available %}
+    <span class="ai-{{ ai_gen_id }}__badge ai-{{ ai_gen_id }}__badge--soldout">SOLD OUT</span>
+  {% endunless %}
+</div>
+
+{% if product.featured_image %}
+
+<img
+  src="{{ product.featured_image | image_url: width: 800 }}"
+  alt="{{ product.featured_image.alt | default: product.title | escape }}"
+  width="800"
+  height="{{ 800 | divided_by: product.featured_image.aspect_ratio | round }}"
+  loading="lazy"
+>
+
+{% else %}
+
+{{ 'product-apparel-1' | placeholder_svg_tag }}
+
+{% endif %}
+
+</a>
+
+
+<div class="ai-{{ ai_gen_id }}__content">
+
+
+<h2 class="ai-{{ ai_gen_id }}__title">
+
+<a href="{{ product.url }}">
+  {{ product.title }}
+</a>
+
+</h2>
+
+
+<div class="ai-{{ ai_gen_id }}__price">
+
+{{ product.price | money }}
+
+{% if card_saving > 0 %}
+
+<s>
+  {{ card_variant.compare_at_price | money }}
+</s>
+
+{% endif %}
+
+</div>
+
+
+{% assign rating = product.metafields.loox.avg_rating.value
+  | default: product.metafields.loox.rating.value
+%}
+
+{% assign reviews = product.metafields.loox.num_reviews.value
+  | default: product.metafields.loox.review_count.value
+%}
+
+
+<div class="ai-{{ ai_gen_id }}__rating">
+
+{% if rating != blank %}
+
+★★★★★
+
+{% if reviews != blank %}
+  ({{ reviews }})
+{% endif %}
+
+{% else %}
+
+☆☆☆☆☆
+
+{% endif %}
+
+</div>
+
+
+<!-- ============================================================
+     PRODUCT SWATCHES
+============================================================ -->
+
+{% assign color_option = blank %}
+
+{% for option in product.options_with_values %}
+
+  {% assign option_name_downcase = option.name | downcase | strip %}
+
+  {% if option_name_downcase == 'farbe'
+    or option_name_downcase == 'color'
+    or option_name_downcase == 'colour'
+  %}
+
+    {% assign color_option = option %}
+    {% break %}
+
+  {% endif %}
+
+{% endfor %}
+
+
+{% if color_option != blank %}
+
+<div class="ai-{{ ai_gen_id }}__product-swatches">
+
+{% assign color_index = color_option.position | minus: 1 %}
+
+{% for option_value in color_option.values %}
+
+  {% assign swatch_name = option_value.name | downcase | strip %}
+  {% assign swatch_variant = blank %}
+
+  {% for variant in product.variants %}
+
+    {% if variant.options[color_index] == option_value.name %}
+
+      {% assign swatch_variant = variant %}
+      {% break %}
+
+    {% endif %}
+
+  {% endfor %}
+
+
+  <a
+    class="ai-{{ ai_gen_id }}__product-swatch"
+    href="{% if swatch_variant != blank %}{{ product.url | split: '?' | first }}?variant={{ swatch_variant.id }}{% else %}{{ product.url }}{% endif %}"
+    title="{{ option_value.name | escape }}"
+    aria-label="{{ option_value.name | escape }}"
+
+    {% if option_value.swatch.image %}
+
+      style="background-image:url('{{ option_value.swatch.image | image_url: width: 60 }}');"
+
+    {% elsif option_value.swatch.color %}
+
+      style="background-color:{{ option_value.swatch.color }};"
+
+    {% else %}
+
+      {% case swatch_name %}
+
+        {% when 'weiß (kl01)' %}style="background:#EEEEEE;"
+        {% when 'perle (kl34)' %}style="background:#D6D7D1;"
+        {% when 'sand (kl36)' %}style="background:#D9D1BA;"
+        {% when 'apricot (kl11)' %}style="background:#F4B575;"
+        {% when 'safran (kl06)' %}style="background:#F8AD4C;"
+        {% when 'rost (kl30)' %}style="background:#C05742;"
+        {% when 'kirsche (kl35)' %}style="background:#B63A42;"
+        {% when 'cyclam (kl04)' %}style="background:#944671;"
+        {% when 'orchidee (kl03)' %}style="background:#5E4668;"
+        {% when 'sky (kl33)' %}style="background:#607A93;"
+        {% when 'atoll (kl27)' %}style="background:#24558D;"
+        {% when 'royal (kl13)' %}style="background:#324260;"
+        {% when 'aqua (kl32)' %}style="background:#6EC5B6;"
+        {% when 'basalt' %}style="background:#817260;"
+        {% when 'aubergine' %}style="background:#565057;"
+        {% when 'misty mountain' %}style="background:#485F77;"
+        {% when 'smaragd (kl07)' %}style="background:#008B63;"
+        {% when 'limone (kl28)' %}style="background:#A3BE63;"
+        {% when 'apfel (kl08)' %}style="background:#79C14F;"
+        {% when 'chrom (kl05)' %}style="background:#807F7F;"
+        {% when 'anthrazit (kl29)' %}style="background:#4D565A;"
+        {% when 'schwarz (kl02)' %}style="background:#3E4043;"
+
+        {% when 'birke (tor01)' %}style="background:#A29C8F;"
+        {% when 'mocca (tor02)' %}style="background:#5A4831;"
+        {% when 'olive (tor03)' %}style="background:#7D8645;"
+        {% when 'limone (tor04)' %}style="background:#9CAE19;"
+        {% when 'corn (tor05)' %}style="background:#DDB01E;"
+        {% when 'orange (tor06)' %}style="background:#DA9621;"
+        {% when 'stone blue (tor07)' %}style="background:#7A8793;"
+        {% when 'slate grey (tor08)' %}style="background:#696D6C;"
+        {% when 'anthrazit (tor09)' %}style="background:#4B5051;"
+        {% when 'schwarz (tor10)' %}style="background:#2C2E2D;"
+        {% when 'kirsche (tor11)' %}style="background:#9D2527;"
+        {% when 'feuer (tor12)' %}style="background:#D81C09;"
+        {% when 'atoll (tor13)' %}style="background:#364687;"
+
+        {% when 'white (pan001)' %}style="background:#E5E9EC;"
+        {% when 'hellbeige (pan002)' %}style="background:#D1D3CF;"
+        {% when 'kiesel (pan003)' %}style="background:#B2AA98;"
+        {% when 'birke (pan004)' %}style="background:#AAA69C;"
+        {% when 'smoke (pan005)' %}style="background:#736354;"
+        {% when 'schoko (pan006)' %}style="background:#483A38;"
+        {% when 'limone (pan007)' %}style="background:#A0B44B;"
+        {% when 'gletscher (pan008)' %}style="background:#A0BDD3;"
+        {% when 'royal (pan009)' %}style="background:#323959;"
+        {% when 'mais (pan010)' %}style="background:#DBB21B;"
+        {% when 'platin (pan011)' %}style="background:#787F88;"
+        {% when 'schwarz (pan012)' %}style="background:#1F2124;"
+        {% when 'anthrazit (pan013)' %}style="background:#4A5055;"
+        {% when 'kaktus (pan014)' %}style="background:#6F8D45;"
+        {% when 'sky (pan015)' %}style="background:#2976A4;"
+        {% when 'smaragd (pan016)' %}style="background:#0E80AE;"
+        {% when 'feuer (pan017)' %}style="background:#CF372A;"
+        {% when 'kirsche (pan018)' %}style="background:#98363B;"
+
+        {% when 'blau-lila' %}style="background:#425392;"
+        {% when 'schwarz' %}style="background:#000000;"
+        {% when 'lava' %}style="background:#A49B9B;"
+        {% when 'blau' %}style="background:#062996;"
+        {% when 'lila' %}style="background:#6A3AAA;"
+        {% when 'pearl' %}style="background:#F3EEE5;"
+        {% when 'sea-grass' %}style="background:#566A6C;"
+        {% when 'anthrazit' %}style="background:#3D3D3D;"
+        {% when 'grau' %}style="background:#B1B1B1;"
+        {% when 'violett' %}style="background:#715898;"
+        {% when 'grün' %}style="background:#27A661;"
+        {% when 'türkis' %}style="background:#60BED8;"
+        {% when 'orange' %}style="background:#E75F07;"
+        {% when 'gelb' %}style="background:#F3E34E;"
+        {% when 'rosa' %}style="background:#DC9B97;"
+        {% when 'dweiss' %}style="background:#FFFFFF;"
+        {% when 'rot' %}style="background:#EC5761;"
+
+        {% when 'schwarz-blau' %}
+          style="background:linear-gradient(135deg,#7DD7EE 0 50%,#272727 50% 100%);"
+
+        {% when 'schwarz-rot' %}
+          style="background:linear-gradient(135deg,#D3232D 0 50%,#272727 50% 100%);"
+
+        {% when 'schwarz-grau' %}
+          style="background:linear-gradient(135deg,#ABABAB 0 50%,#272727 50% 100%);"
+
+        {% when 'schwarz - grau' %}
+          style="background:linear-gradient(135deg,#ABABAB 0 50%,#272727 50% 100%);"
+
+        {% when 'blau - rot' %}
+          style="background:linear-gradient(135deg,#D4200A 0 50%,#1D56C1 50% 100%);"
+
+        {% when 'grün - gelb' %}
+          style="background:linear-gradient(135deg,#EFF3A7 0 50%,#87B187 50% 100%);"
+
+        {% when 'grün - rot' %}
+          style="background:linear-gradient(135deg,#C8C999 0 50%,#D13653 50% 100%);"
+
+        {% when 'silber' %}style="background:#B3B9B9;"
+        {% when 'moos' %}style="background:#A1AE98;"
+        {% when 'terra' %}style="background:#C5A391;"
+        {% when 'himmelblau' %}style="background:#73A6BB;"
+        {% when 'sand' %}style="background:#DFC5B2;"
+        {% when 'schiefer' %}style="background:#4C4C4A;"
+        {% when 'kiwi' %}style="background:#84A258;"
+        {% when 'olive' %}style="background:#5A6148;"
+        {% when 'platin' %}style="background:#929592;"
+        {% when 'wasserblau' %}style="background:#067984;"
+        {% when 'hellblau' %}style="background:#20AEDC;"
+        {% when 'weiß' %}style="background:#EFEFEF;"
+
+        {% when 'schwarzes granulat' %}
+  style="background:#222222;"
+
+{% when 'schwarz mit grauen granulaten' %}
+  style="background:linear-gradient(135deg,#222222 50%,#999999 50%);"
+
+        {% else %}
+          style="background:#DADADA;"
+
+      {% endcase %}
+
+    {% endif %}
+  >
+
+  </a>
+
+{% endfor %}
+
+</div>
+
+{% endif %}
+
+
+</div>
+
+</article>
+
+{% endfor %}
+{% endfor %}
+</div>
+<div class="ai-{{ ai_gen_id }}__pagination" data-infinite-pagination data-next-url="{% if paginate.next %}{{ paginate.next.url | escape }}{% endif %}" data-total-products="{{ search.results_count }}" data-total-pages="{{ paginate.pages }}" data-page-size="{{ section.settings.products_per_page }}">{{ paginate | default_pagination }}</div>
+<div class="ai-{{ ai_gen_id }}__infinite" data-infinite-sentinel aria-live="polite"><span data-infinite-status></span><button type="button" data-infinite-retry hidden>Weitere Produkte laden</button></div>
+{% endpaginate %}
+</div>
+</div>
+{% endif %}
+</premium-search-grid-v2>
+<script>
+(function(){
+class PremiumSearchGridV2 extends HTMLElement {
+connectedCallback(){
+  if (this._fhInitialized) return;
+  this._fhInitialized = true;
+  // Filters default to collapsed on mobile, expanded on desktop.
+  // Preserve user interaction when the viewport changes.
+  const filterDetails = this.querySelector('.ai-{{ ai_gen_id }}__filters-details');
+  if (filterDetails) {
+    const mobileQuery = window.matchMedia('(max-width:749px)');
+    const syncFilterState = () => { filterDetails.open = !mobileQuery.matches; };
+    syncFilterState();
+    this._fhFilterMedia = mobileQuery;
+    this._fhFilterMediaHandler = syncFilterState;
+    mobileQuery.addEventListener('change', syncFilterState);
+  }
+
+  this._fhRequest = null;
+  this._fhSequence = 0;
+  this._fhTimer = null;
+  this._fhResultsCleanup = null;
+  const form = this.querySelector('[data-fh-filter-form]');
+  const reset = this.querySelector('[data-fh-filter-reset]');
+  const buildURL = () => {
+    const params = new URLSearchParams(new FormData(form));
+    const clean = new URLSearchParams();
+    params.forEach((value, key) => { if (String(value).trim() !== '') clean.append(key, value); });
+    const url = new URL(form.action || window.location.href, window.location.origin);
+    url.search = clean.toString();
+    return url;
+  };
+  this._fhLoad = async (url, push = true) => {
+    const sequence = ++this._fhSequence;
+    if (this._fhRequest) this._fhRequest.abort();
+    const controller = new AbortController();
+    this._fhRequest = controller;
+    const results = this.querySelector('.ai-{{ ai_gen_id }}__results');
+    if (results) { results.classList.add('is-loading'); results.setAttribute('aria-busy','true'); }
+    const status = this.querySelector('[data-fh-live-status]');
+    if (status) status.textContent = 'Ergebnisse werden aktualisiert …';
+    try {
+      const requestURL = new URL(url);
+      requestURL.searchParams.delete('page');
+      requestURL.searchParams.set('section_id', this.dataset.sectionId);
+      const response = await fetch(requestURL.toString(), {signal:controller.signal,credentials:'same-origin',headers:{'Accept':'text/html'},cache:'no-store'});
+      if (!response.ok) throw new Error('HTTP '+response.status);
+      const doc = new DOMParser().parseFromString(await response.text(),'text/html');
+      const incomingRoot = doc.querySelector('premium-search-grid-v2');
+      const incoming = incomingRoot && incomingRoot.querySelector('.ai-{{ ai_gen_id }}__results');
+      if (!incoming) throw new Error('Suchergebnisse in Section-Antwort fehlen');
+      if (sequence !== this._fhSequence) return;
+      if (this._fhResultsCleanup) this._fhResultsCleanup();
+      const old = this.querySelector('.ai-{{ ai_gen_id }}__results');
+      if (old) old.replaceWith(incoming);
+      const nextURL = new URL(url);
+      nextURL.searchParams.delete('page');
+      if (push) history.pushState({fhPremiumSearch:true},'',nextURL.toString());
+      this._fhInitResults();
+      if (status) status.textContent = '';
+    } catch (error) {
+      if (error.name === 'AbortError' || sequence !== this._fhSequence) return;
+      console.error('[Premium Search Grid] AJAX-Filter:',error);
+      if (status) status.textContent = 'Aktualisierung fehlgeschlagen. Seite wird geladen.';
+      window.location.assign(url.toString());
+    } finally {
+      if (sequence === this._fhSequence) {
+        const active = this.querySelector('.ai-{{ ai_gen_id }}__results');
+        if (active) { active.classList.remove('is-loading'); active.removeAttribute('aria-busy'); }
+      }
+    }
+  };
+  if (form) {
+    form.addEventListener('submit', e => {e.preventDefault();clearTimeout(this._fhTimer);this._fhLoad(buildURL());});
+    form.addEventListener('change', e => {
+      if (!e.target.matches('input,select')) return;
+      clearTimeout(this._fhTimer);
+      this._fhTimer = setTimeout(()=>this._fhLoad(buildURL()), e.target.type === 'number' ? 500 : 0);
+    });
+    form.addEventListener('input', e => {
+      if (e.target.type !== 'number') return;
+      clearTimeout(this._fhTimer);
+      this._fhTimer = setTimeout(()=>this._fhLoad(buildURL()), 550);
+    });
+  }
+  if (reset) reset.addEventListener('click', e => {
+    e.preventDefault();clearTimeout(this._fhTimer);
+    if (form) {
+      form.querySelectorAll('input[type="radio"]').forEach(input => {input.checked = input.value === '';});
+      form.querySelectorAll('input[type="number"]').forEach(input => {input.value = '';});
+    }
+    this._fhLoad(new URL(reset.href));
+  });
+  this._fhPopstate = () => {
+    const url = new URL(window.location.href);
+    if (form) {
+      const params = url.searchParams;
+      form.querySelectorAll('input[type="radio"]').forEach(input => {
+        input.checked = params.get(input.name) === input.value || (!params.has(input.name) && input.value === '');
+      });
+      form.querySelectorAll('input[type="number"]').forEach(input => {input.value = params.get(input.name) || '';});
+    }
+    this._fhLoad(url,false);
+  };
+  window.addEventListener('popstate',this._fhPopstate);
+  this._fhInitResults();
+}
+disconnectedCallback(){
+  if (this._fhFilterMedia && this._fhFilterMediaHandler) this._fhFilterMedia.removeEventListener('change', this._fhFilterMediaHandler);
+  clearTimeout(this._fhTimer);
+  if(this._fhRequest) this._fhRequest.abort();
+  if(this._fhResultsCleanup) this._fhResultsCleanup();
+  if(this._fhPopstate) window.removeEventListener('popstate',this._fhPopstate);
+  this._fhInitialized=false;
+}
+_fhInitResults(){
+/* ============================================================
+         QUICK ADD TO CART
+      ============================================================ */
+
+      const bindQuickButtons = (scope) => {
+        scope.querySelectorAll('button.ai-premiumsearchv2__quick[data-id]').forEach(button => {
+          if (button.dataset.quickBound === 'true') return;
+          button.dataset.quickBound = 'true';
+
+          button.addEventListener('click', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (button.disabled) return;
+
+            const variantId = Number(button.dataset.id);
+            if (!variantId) return;
+
+            const root = window.Shopify?.routes?.root || '/';
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+
+            let added = false;
+            try {
+              const response = await fetch(root + 'cart/add.js', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                body: JSON.stringify({ items: [{ id: variantId, quantity: 1 }] })
+              });
+              const result = await response.json();
+              if (!response.ok) {
+                throw new Error(result.description || result.message || 'Produkt konnte nicht hinzugefügt werden.');
+              }
+              added = true;
+
+              // Das Theme nutzt cart-modal, nicht den alten Sidebar-Handle.
+              const cartModal = document.querySelector('cart-modal');
+              if (!cartModal || typeof cartModal.reloadContent !== 'function' || typeof cartModal.show !== 'function') {
+                throw new Error('Das Warenkorb-Modal des Themes ist nicht verfügbar.');
+              }
+              await cartModal.reloadContent();
+              await cartModal.show();
+
+              // Das native Theme-Ereignis für weitere Shop-Integrationen.
+              document.dispatchEvent(new CustomEvent('product:added-to-cart', {
+                detail: { id: String(variantId), quantity: 1 }
+              }));
+
+              // Warenkorbzähler wie in der nativen Theme-Logik aktualisieren.
+              const bubble = document.getElementById('CartBubble');
+              if (bubble) {
+                const cartResponse = await fetch(root + 'cart.js', { credentials: 'same-origin', cache: 'no-store' });
+                if (cartResponse.ok) {
+                  const cart = await cartResponse.json();
+                  bubble.classList.toggle('hidden', !cart.item_count);
+                  bubble.textContent = cart.item_count ? String(cart.item_count) : '';
+                }
+              }
+            } catch (error) {
+              console.error('[Premium Search Grid] Quick Add:', error);
+              if (added) {
+                alert('Artikel wurde hinzugefügt, aber der Warenkorb konnte nicht geöffnet werden.');
+              } else {
+                alert(error.message || 'Produkt konnte nicht hinzugefügt werden.');
+              }
+            } finally {
+              button.disabled = false;
+              button.removeAttribute('aria-busy');
+            }
+          });
+        });
+      };
+      bindQuickButtons(this);
+
+      /* Globale Sortierung: alle gefilterten Ergebnisseiten anhand der
+         Shopify-Ergebniszahl laden, danach gestaffelt sichtbar machen. */
+      const grid = this.querySelector('.ai-{{ ai_gen_id }}__grid');
+      const pager = this.querySelector('[data-infinite-pagination]');
+      const sentinel = this.querySelector('[data-infinite-sentinel]');
+      const status = this.querySelector('[data-infinite-status]');
+      const retry = this.querySelector('[data-infinite-retry]');
+      if (!grid || !pager || !sentinel || !status || !retry) return;
+
+      const batchSize = Math.max(1, Number(pager.dataset.pageSize) || 24);
+      const totalProducts = Math.max(0, Number(pager.dataset.totalProducts) || 0);
+      const firstPageCards = Array.from(grid.querySelectorAll(':scope > [data-product-available]'));
+      let allCards = [];
+      let shownCount = 0;
+      let observer = null;
+      let cancelled = false;
+      this._fhResultsCleanup = () => {cancelled = true;if(observer)observer.disconnect();};
+      let preparing = false;
+      let ready = false;
+
+      const showNextBatch = () => {
+        if (!ready) return;
+        const end = Math.min(shownCount + batchSize, allCards.length);
+        for (let i = shownCount; i < end; i++) allCards[i].hidden = false;
+        shownCount = end;
+        const hasMore = shownCount < allCards.length;
+        status.textContent = hasMore ? '' : 'Alle Produkte angezeigt';
+        retry.hidden = true;
+        if (!hasMore && observer) observer.disconnect();
+      };
+
+      const prepareSearch = async () => {
+        if (preparing || ready) return;
+        preparing = true;
+        retry.hidden = true;
+        status.textContent = 'Produkte werden nach Verfügbarkeit sortiert …';
+        try {
+          const pageCount = Math.max(1, Number(pager.dataset.totalPages) || Math.ceil(totalProducts / batchSize));
+          if (pageCount > 100) throw new Error('Search zu groß für globale Browser-Sortierung');
+          const collected = firstPageCards.slice();
+          const currentPage = Number(new URL(window.location.href).searchParams.get('page') || 1);
+          const pages = Array.from({ length: pageCount }, (_, i) => i + 1).filter(page => page !== currentPage);
+
+          // Jede Seite separat anfordern. Die URL übernimmt aktive Shopify-Filter.
+          for (const page of pages) {
+            if (cancelled) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', String(page));
+            const response = await fetch(url.toString(), {
+              credentials: 'same-origin',
+              headers: { 'Accept': 'text/html' },
+              cache: 'no-store'
+            });
+            if (!response.ok) throw new Error('Shopify Seite ' + page + ': HTTP ' + response.status);
+            const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const incoming = doc.querySelector('premium-search-grid-v2 .ai-{{ ai_gen_id }}__grid')
+              || doc.querySelector('.ai-{{ ai_gen_id }}__grid');
+            if (!incoming) throw new Error('Produktgrid auf Seite ' + page + ' nicht gefunden');
+            const cards = Array.from(incoming.querySelectorAll(':scope > [data-product-available]'));
+            // Suchseiten koennen auch Nicht-Produkt-Treffer enthalten.
+             // Eine Seite ohne Produktkarten ist daher erlaubt.
+            collected.push(...cards);
+          }
+
+          if (cancelled) return;
+          // Stable Partition: manuelle Reihenfolge innerhalb der Gruppen erhalten.
+          const available = collected.filter(card => card.dataset.productAvailable === 'true');
+          const unavailable = collected.filter(card => card.dataset.productAvailable !== 'true');
+          allCards = available.concat(unavailable);
+          const fragment = document.createDocumentFragment();
+          allCards.forEach((card, index) => {
+            card.hidden = index >= batchSize;
+            fragment.appendChild(card);
+          });
+          bindQuickButtons(fragment);
+          grid.replaceChildren(fragment);
+          shownCount = Math.min(batchSize, allCards.length);
+          ready = true;
+          pager.dataset.nextUrl = '';
+          status.textContent = shownCount < allCards.length ? '' : 'Alle Produkte angezeigt';
+          if (shownCount < allCards.length) {
+            if ('IntersectionObserver' in window) {
+              observer = new IntersectionObserver(entries => {
+                if (entries.some(entry => entry.isIntersecting)) showNextBatch();
+              }, { rootMargin: '450px 0px' });
+              observer.observe(sentinel);
+            } else {
+              retry.hidden = false;
+              retry.textContent = 'Weitere Produkte anzeigen';
+            }
+          }
+          console.info('[Premium Search Grid] Sortiert:', available.length, 'verfügbar,', unavailable.length, 'ausverkauft');
+        } catch (error) {
+          if (cancelled) return;
+          console.error('[Premium Search Grid] Sortierung fehlgeschlagen:', error);
+          status.textContent = 'Sortierung konnte nicht vollständig geladen werden.';
+          retry.hidden = false;
+          retry.textContent = 'Erneut versuchen';
+        } finally {
+          preparing = false;
+        }
+      };
+
+      retry.addEventListener('click', () => ready ? showNextBatch() : prepareSearch());
+      prepareSearch();
+
+}
+}
+if(!customElements.get('premium-search-grid-v2')) customElements.define('premium-search-grid-v2',PremiumSearchGridV2);
+})();
+</script>
+{% schema %}
+{
+  "name": "Premium Search V2",
+  "settings": [
+
+    {"type":"header","content":"Suchkopf"},
+    {"type":"range","id":"header_top_desktop","label":"Suchkopf oben Desktop","min":0,"max":100,"step":2,"unit":"px","default":14},
+    {"type":"range","id":"header_bottom_desktop","label":"Suchkopf unten Desktop","min":0,"max":100,"step":2,"unit":"px","default":22},
+    {"type":"range","id":"header_top_mobile","label":"Suchkopf oben Mobil","min":0,"max":80,"step":2,"unit":"px","default":10},
+    {"type":"range","id":"header_bottom_mobile","label":"Suchkopf unten Mobil","min":0,"max":80,"step":2,"unit":"px","default":18},
+    {"type":"range","id":"eyebrow_gap","label":"Abstand Oberzeile zu Titel","min":0,"max":40,"step":1,"unit":"px","default":6},
+    {"type":"range","id":"heading_gap","label":"Abstand Titel zu Beschreibung","min":0,"max":40,"step":1,"unit":"px","default":6},
+    {"type":"range","id":"description_gap","label":"Abstand Beschreibung zu Suche","min":0,"max":50,"step":1,"unit":"px","default":14},
+    {"type":"range","id":"search_field_height","label":"Suchfeld Mindesthöhe","min":40,"max":80,"step":2,"unit":"px","default":52},
+    {"type":"text","id":"eyebrow","label":"Oberzeile","default":"MOTION SPORTS · EQUIPMENT"},
+    {"type":"text","id":"search_heading","label":"Überschrift","default":"Was suchst du?"},
+    {"type":"text","id":"search_description","label":"Beschreibung","default":"Entdecke hochwertiges Equipment für dein Training."},
+    {"type":"text","id":"search_placeholder","label":"Suchfeld Platzhalter","default":"Produkte, Marken oder Kategorien suchen"},
+    {"type":"text","id":"search_button_label","label":"Suchbutton","default":"Suchen"},
+    {"type":"range","id":"search_title_size","label":"Überschrift Größe","min":32,"max":64,"step":2,"unit":"px","default":48},
+    {"type":"color","id":"search_button_color","label":"Suchbutton Hintergrund","default":"#0A0B0C"},
+    {"type":"color","id":"search_button_text_color","label":"Suchbutton Schrift","default":"#FFFFFF"},
+    {"type":"header","content":"Filterleiste"},
+    {"type":"checkbox","id":"show_filters","label":"Filter anzeigen","default":true},
+    {"type":"range","id":"sidebar_width","label":"Filterbreite Desktop","min":180,"max":340,"step":10,"unit":"px","default":240},
+    {"type":"range","id":"sidebar_gap","label":"Abstand Filter zu Produkten","min":12,"max":48,"step":4,"unit":"px","default":24},
+    {
+      "type": "range",
+      "id": "grid_gap",
+      "label": "Gridabstand",
+      "min": 8,
+      "max": 40,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "select",
+      "id": "columns",
+      "label": "Spalten",
+      "options": [
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        },
+        {
+          "value": "4",
+          "label": "4"
+        },
+        {
+          "value": "5",
+          "label": "5"
+        }
+      ],
+      "default": "4"
+    },
+    {
+  "type": "number",
+  "id": "products_per_page",
+  "label": "Produkte pro Seite",
+  "default": 24
+},
+    {
+      "type": "range",
+      "id": "card_padding",
+      "label": "Kartenabstand",
+      "min": 8,
+      "max": 32,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "card_radius",
+      "label": "Kartenradius",
+      "min": 0,
+      "max": 32,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "title_price_gap",
+      "label": "Abstand Titel Preis",
+      "min": 0,
+      "max": 24,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "price_rating_gap",
+      "label": "Abstand Preis Bewertung",
+      "min": 0,
+      "max": 24,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "rating_gap",
+      "label": "Abstand Bewertung Buttons",
+      "min": 0,
+      "max": 24,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "title_size",
+      "label": "Titelgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "select",
+      "id": "title_weight",
+      "label": "Titelschriftstärke",
+      "options": [
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "600",
+          "label": "Halbfett"
+        },
+        {
+          "value": "700",
+          "label": "Fett"
+        }
+      ],
+      "default": "600"
+    },
+    {
+      "type": "range",
+      "id": "price_size",
+      "label": "Preisgröße",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "select",
+      "id": "price_weight",
+      "label": "Preis-Schriftstärke",
+      "options": [
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "600",
+          "label": "Halbfett"
+        },
+        {
+          "value": "700",
+          "label": "Fett"
+        }
+      ],
+      "default": "700"
+    },
+    {
+      "type": "range",
+      "id": "rating_size",
+      "label": "Bewertungsgröße",
+      "min": 10,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "button_padding",
+      "label": "Button Innenabstand",
+      "min": 6,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 9
+    },
+    {
+      "type": "range",
+      "id": "button_radius",
+      "label": "Button Radius",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "font_picker",
+      "id": "button_font",
+      "label": "Button-Schrift",
+      "default": "montserrat_n4"
+    },
+    {
+      "type": "color",
+      "id": "card_background",
+      "label": "Kartenhintergrund",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Textfarbe",
+      "default": "#0A0B0C"
+    },
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "Buttonfarbe",
+      "default": "#0A0B0C"
+    },
+    {
+      "type": "color",
+      "id": "button_text",
+      "label": "Buttontextfarbe",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "quick_background",
+      "label": "Quick-Add-Farbe",
+      "default": "#008CCB"
+    },
+    {
+      "type": "color",
+      "id": "rating_color",
+      "label": "Bewertungsfarbe",
+      "default": "#9A0000"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Premium Search V2"
+    }
+  ]
+}
+{% endschema %}

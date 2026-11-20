@@ -7,7 +7,8 @@
   4) Zubehör (intent=complementary) – lädt über separate Section + Fallback-JS
 {% endcomment %}
 
-<section class="tabs-cards-section" id="section-{{ section.id }}">
+{% assign comp_shadow_alpha = section.settings.comp_shadow_opacity | divided_by: 100.0 %}
+<section class="tabs-cards-section" id="section-{{ section.id }}" style="--comp-visible: {{ section.settings.comp_visible_desktop }}; --comp-mobile: {{ section.settings.comp_visible_mobile }}; --comp-card-bg: {{ section.settings.comp_card_background }}; --comp-shadow-color: {{ section.settings.comp_shadow_color | color_modify: 'alpha', comp_shadow_alpha }}; --comp-shadow-blur: {{ section.settings.comp_shadow_size }}px; --comp-star-color: #9A0000;">
   <div class="tabs-cards container">
     {% if section.settings.heading != blank %}
       <h2 class="tabs-heading">{{ section.settings.heading }}</h2>
@@ -436,46 +437,95 @@
     overflow: visible !important;
   }
 
-  /* === Tab 4: Buttons in Blau === */
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .comp-add-btn,
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card quick-add-button > button,
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .complementary-product__button-add-to-cart {
-    background-color: #008CCB !important;
-    border-color: #008CCB !important;
-    color: #fff !important;
-  }
-
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .comp-add-btn:hover,
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card quick-add-button > button:hover,
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .complementary-product__button-add-to-cart:hover {
-    background-color: #0079AF !important;
-    border-color: #0079AF !important;
-  }
-
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card quick-add-button > button:focus,
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .complementary-product__button-add-to-cart:focus {
-    outline: 0;
-    box-shadow: 0 0 0 2px rgba(0,140,203,.25) !important;
-  }
-
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card quick-add-button > button:active,
-  #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .complementary-product__button-add-to-cart:active {
-    filter: brightness(.95);
-  }
-
-/* Tab 4: Preis fett */
-#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card span.regular-price,
-#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card span.regular-price *,
-#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .price,
-#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .price *,
-#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .price-item,
-#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card .price-item *,
-#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card [class*="price"],
-#section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card [class*="price"] * {
-  font-weight: 800 !important;
-  font-variation-settings: "wght" 800 !important;
-  color: #111 !important;
-}
+   /* Zubehör Tab: Karten aus complementary-products-tab.liquid */
+   #section-{{ section.id }} #panel-{{ section.id }}-4 .panel-card { overflow: visible; }
+   #section-{{ section.id }} .comp-rp03-carousel { position: relative; width: 100%; min-width: 0; }
+   #section-{{ section.id }} .comp-rp03-carousel .product-carousel-wrapper { width: 100%; min-width: 0; }
+   #section-{{ section.id }} .comp-rp03-carousel .grid-carousel--products { align-items: stretch; }
+   #section-{{ section.id }} .comp-rp03-carousel { --grid-products-columns-sm: {% if section.settings.comp_visible_mobile == '1' %}1.15{% else %}1.6{% endif %}; }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-item { min-width: 0; padding: 7px 0 12px; background: transparent !important; }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-card {
+     height: 100%; display: flex; flex-direction: column; overflow: hidden;
+     border: 0 !important; outline: 0 !important; border-radius: 16px;
+     background: var(--comp-card-bg) !important;
+     box-shadow: none !important;
+     transition: transform .2s ease, box-shadow .2s ease;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-card::before,
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-card::after { border: 0 !important; }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-media {
+     position: relative; display: block; aspect-ratio: 1 / 1;
+     overflow: hidden; background: #f5f5f5;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-media img,
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-media svg {
+     display: block; width: 100%; height: 100%; object-fit: cover;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-badge {
+     position: absolute; z-index: 2; display: inline-flex; align-items: center;
+     justify-content: center; min-height: 26px; padding: 5px 9px;
+     border-radius: 4px; font-size: 11px; font-weight: 700;
+     line-height: 1; letter-spacing: .03em; pointer-events: none;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-badge--sale {
+     top: 12px; right: 12px; color: #fff; background: #9A0000;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-badge--soldout {
+     bottom: 12px; left: 12px; background: #eee; color: #000; font-size: 10px;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-content {
+     display: flex; flex: 1 1 auto; flex-direction: column;
+     padding: 16px; background: var(--comp-card-bg) !important;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-title {
+     margin: 0 0 8px; font-family: Montserrat, sans-serif;
+     font-size: 15px; font-weight: 300; line-height: 1.45;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-title a {
+     color: inherit; text-decoration: none;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-price {
+     margin-top: auto; font-family: Montserrat, sans-serif;
+     font-size: 14px; font-weight: 700 !important; line-height: 1.5;
+     color: #111 !important;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-price s {
+     margin-left: 5px; color: #9A0000 !important;
+     opacity: 1 !important; font-weight: 400 !important;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-rating {
+     margin-top: 8px; font-size: 14px; line-height: 1.4;
+     color: var(--comp-star-color) !important;
+   }
+   #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-card a:focus-visible {
+     outline: 2px solid currentColor; outline-offset: -3px;
+   }
+   @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+     #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-card:hover {
+       transform: translateY(-5px);
+       box-shadow: {% if section.settings.comp_enable_shadow %}0 16px var(--comp-shadow-blur) var(--comp-shadow-color){% else %}none{% endif %} !important;
+     }
+   }
+   @media (min-width: 990px) {
+     #section-{{ section.id }} .comp-rp03-carousel scroll-carousel .grid-carousel--products {
+       --comp-gap: 16px;
+       display: grid !important; grid-auto-flow: column !important;
+       grid-template-columns: none !important;
+       grid-auto-columns: calc((100% - (var(--comp-visible) - 1) * var(--comp-gap)) / var(--comp-visible)) !important;
+       column-gap: var(--comp-gap) !important; justify-content: start !important;
+     }
+     #section-{{ section.id }} .comp-rp03-carousel scroll-carousel .grid-carousel--products > .grid-carousel-item {
+       width: 100% !important; min-width: 0 !important; max-width: none !important;
+       box-sizing: border-box;
+     }
+   }
+   @media (max-width: 749px) {
+     #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-content { padding: 12px; }
+     #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-title { font-size: 14px; }
+   }
+   @media (prefers-reduced-motion: reduce) {
+     #section-{{ section.id }} .comp-rp03-carousel .comp-rp03-card { transition: none; }
+   }
 
   /* =========================================================
      TAB 1 – ANGEPASSTE FORMATIERUNG
@@ -751,78 +801,10 @@ function setResponsiveState() {
             el.innerHTML = html;
             el.dataset.loaded = 'true';
 
-            const gridContainer =
-              el.querySelector('.product-grid') ||
-              el.querySelector('ul.grid') ||
-              el.querySelector('.recommendations, .recommendations__inner, .product-recommendations, .product-recommendations__inner') ||
-              el;
+                         // Zubehörkarten werden bereits vollständig in der Section ausgegeben.
+             // Keine nachträgliche DOM-Umschreibung erforderlich.
 
-            const cards = gridContainer.querySelectorAll(
-              'li.grid__item, .product-grid > li, .recommendations__item, .product-recommendations__item, .grid__item, li'
-            );
-
-            cards.forEach(card => {
-              let titleEl =
-                card.querySelector('.card-information__text a, .card__heading a, .product-card__title a, .full-unstyled-link') ||
-                card.querySelector('.card-information__text, .card__heading, .product-card__title');
-
-              if (titleEl) {
-                const isH3 = titleEl.tagName && titleEl.tagName.toLowerCase() === 'h3';
-                const isClass = titleEl.classList && titleEl.classList.contains('product-name');
-                if (!(isH3 && isClass)) {
-                  const h3 = document.createElement('h3');
-                  h3.className = 'product-name';
-                  if (titleEl.tagName && titleEl.tagName.toLowerCase() === 'a') {
-                    h3.appendChild(titleEl.cloneNode(true));
-                    titleEl.replaceWith(h3);
-                  } else {
-                    h3.innerHTML = titleEl.innerHTML;
-                    titleEl.replaceWith(h3);
-                  }
-                }
-              }
-
-              let rawPrice =
-                card.querySelector('.price__regular .price-item--regular') ||
-                card.querySelector('.price-item--regular') ||
-                card.querySelector('.price .price-item') ||
-                card.querySelector('.price [data-price]') ||
-                card.querySelector('.price, [data-price]');
-
-              if (rawPrice) {
-                let priceSpan;
-                if (rawPrice.tagName && rawPrice.tagName.toLowerCase() === 'span') {
-                  priceSpan = rawPrice;
-                  priceSpan.classList.add('regular-price');
-                } else {
-                  priceSpan = document.createElement('span');
-                  priceSpan.className = 'regular-price';
-                  priceSpan.innerHTML = rawPrice.innerHTML;
-                  rawPrice.innerHTML = '';
-                  rawPrice.appendChild(priceSpan);
-                }
-
-                priceSpan.querySelectorAll('strong, b').forEach(node => { node.replaceWith(...node.childNodes); });
-                const priceContainer = priceSpan.closest('.price') || priceSpan.parentElement;
-                if (priceContainer) {
-                  priceContainer.querySelectorAll('strong, b').forEach(node => { node.replaceWith(...node.childNodes); });
-                }
-
-                if (!card.classList.contains('comp-card')) {
-                  card.classList.add('comp-card');
-                  card.style.display = 'flex';
-                  card.style.flexDirection = 'column';
-                  card.style.height = '100%';
-                }
-                if (!card.querySelector('.comp-flex-spacer')) {
-                  const spacer = document.createElement('div');
-                  spacer.className = 'comp-flex-spacer';
-                  priceSpan.parentElement.insertBefore(spacer, priceSpan);
-                }
-              }
-            });
-
-            document.dispatchEvent(new CustomEvent('product-recommendations:loaded', { detail: { el } }));
+document.dispatchEvent(new CustomEvent('product-recommendations:loaded', { detail: { el } }));
             window.dispatchEvent(new Event('resize'));
           })
           .catch(() => {
@@ -926,7 +908,15 @@ function toggleMobileAccordion(index, forceOpen = false) {
       { "type": "range", "id": "max_width", "min": 720, "max": 1400, "step": 10, "unit": "px", "label": "Max. Breite", "default": 1100 },
       { "type": "range", "id": "card_min_h", "min": 0, "max": 800, "step": 10, "unit": "px", "label": "Min. Kartenhöhe (Desktop)", "default": 0 },
       { "type": "range", "id": "comp_limit", "min": 2, "max": 12, "step": 1, "label": "Zubehör: Anzahl Produkte", "default": 8 },
-      { "type": "checkbox", "id": "show_qa_tab", "label": "Q&A-Tab anzeigen", "default": true }
+      { "type": "checkbox", "id": "show_qa_tab", "label": "Q&A-Tab anzeigen", "default": true },
+      { "type": "header", "content": "Zubehör – Produktkarten" },
+      { "type": "range", "id": "comp_visible_desktop", "min": 2, "max": 7, "step": 1, "label": "Sichtbare Produkte Desktop", "default": 5 },
+      { "type": "select", "id": "comp_visible_mobile", "label": "Sichtbare Produkte mobil", "options": [{"value":"1","label":"1"},{"value":"2","label":"2"}], "default": "2" },
+      { "type": "color", "id": "comp_card_background", "label": "Hintergrund Produktkarten", "default": "#FFFFFF" },
+      { "type": "checkbox", "id": "comp_enable_shadow", "label": "Hover-Schatten aktivieren", "default": false },
+      { "type": "color", "id": "comp_shadow_color", "label": "Schattenfarbe", "default": "#000000" },
+      { "type": "range", "id": "comp_shadow_opacity", "label": "Schattenintensität", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 20 },
+      { "type": "range", "id": "comp_shadow_size", "label": "Schattenstärke", "min": 0, "max": 60, "step": 2, "unit": "px", "default": 30 }
     ],
     "blocks": [
       {

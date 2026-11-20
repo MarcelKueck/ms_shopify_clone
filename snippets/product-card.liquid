@@ -96,10 +96,15 @@
         "
       >
         {% if settings.product_card_sold_out_badge and card_product.available == false %}
-          <div class="info-badge sold-out-badge">
-            {{ 'products.product.sold_out' | t }}
-          </div>
-        {% endif %}
+  <div class="info-badge sold-out-badge">
+    {% if collection.handle == 'black-week' %}
+  AVAILABLE 13.11.
+{% else %}
+  {{ 'products.product.sold_out' | t }}
+{% endif %}
+  </div>
+{% endif %}
+  
 
         {% if settings.product_card_discount_badge
           and card_product.compare_at_price > card_product.price

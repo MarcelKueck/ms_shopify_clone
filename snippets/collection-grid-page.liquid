@@ -1,3 +1,4 @@
+
 {% liquid
   assign products_collection_grid_class = section.settings.space_between_products | append: ' ' | append: section.settings.products_per_row_mobile
   capture image_sizes
@@ -16,6 +17,20 @@
       assign has_active_filters = true
     endif
   endfor
+
+  comment
+    BLACK WEEK BADGE
+    true  = AVAILABLE 13.11.
+    false = SOLD OUT
+  endcomment
+
+  assign blackweek_badge_enabled = true
+  assign blackweek_badge_text = 'AVAILABLE 13.11.'
+
+  assign blackweek_collection = false
+  if collection.handle == 'black-week'
+    assign blackweek_collection = true
+  endif
 %}
 
 {% if current_results.size == 0 %}
@@ -49,16 +64,32 @@
         endif
       %}
 
-      <li>
+      <li
+        {% if item.object_type == 'product' %}
+          data-ms-available="{{ item.available }}"
+        {% endif %}
+      >
         {% case item.object_type %}
           {% when 'article', 'page' %}
-            {% render 'article-card', card_article: item, excerpt: false, date: false, comments: false %}
+            {% render 'article-card',
+              card_article: item,
+              excerpt: false,
+              date: false,
+              comments: false
+            %}
           {% else %}
-            {% render 'product-card', card_product: item, sizes: image_sizes %}
+            {% render 'product-card',
+              card_product: item,
+              sizes: image_sizes,
+              blackweek_badge_enabled: blackweek_badge_enabled,
+              blackweek_badge_text: blackweek_badge_text,
+              blackweek_collection: blackweek_collection
+            %}
         {% endcase %}
       </li>
     {% endfor %}
   </ul>
+
   {% render 'pagination',
     paginate: paginate,
     pagination_type: section.settings.pagination_type,

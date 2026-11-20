@@ -1,221 +1,71 @@
-{% render 'section-bg-number-vars' %}
-
-{% capture image_sizes %}
-  {% render 'product-carousel-image-sizes',
-      enabled: true,
-      grid_columns: 5,
-      grid_columns_mobile: 2
-  %}
-{% endcapture %}
+{% comment %}
+  MOTIONSPORTS – ZUBEHÖR TAB 03
+  Wird per Recommendations API (intent=complementary) in tabs-cards.liquid geladen.
+  Produktkarten im Look von related-products-03.liquid.
+{% endcomment %}
 
 {% if recommendations.performed and recommendations.products_count > 0 %}
-
-  {% capture card_attrs %}
-    data-animation="block"
-    data-animation-group="{{ section.id }}-product-cards"
-  {% endcapture %}
-
   {% capture items %}
     {% for recommendation in recommendations.products %}
       {% unless recommendation.tags contains 'globo-product-options' %}
-
-        <div class="grid-carousel-item rp03-item comp-rp03-item">
-          <div class="rp03-card-wrapper comp-rp03-card">
-
-            {% render 'product-card',
-              card_product: recommendation,
-              attrs: card_attrs,
-              sizes: image_sizes
-            %}
-
-            <a href="{{ recommendation.url }}" class="rp03-btn-ansehen comp-rp03-btn">
-              {{ 'products.product.view_product' | t }}
+        {% assign card_variant = blank %}
+        {% for variant in recommendation.variants %}
+          {% if variant.price == recommendation.price %}
+            {% assign card_variant = variant %}
+            {% break %}
+          {% endif %}
+        {% endfor %}
+        {% assign card_saving = 0 %}
+        {% if card_variant != blank and card_variant.compare_at_price != blank %}
+          {% if card_variant.compare_at_price > card_variant.price %}
+            {% assign card_saving = card_variant.compare_at_price | minus: card_variant.price %}
+          {% endif %}
+        {% endif %}
+        <div class="grid-carousel-item comp-rp03-item">
+          <article class="comp-rp03-card product-card">
+            <a class="comp-rp03-media" href="{{ recommendation.url }}" aria-label="{{ recommendation.title | escape }}">
+              {% if recommendation.featured_image %}
+                <img
+                  src="{{ recommendation.featured_image | image_url: width: 800 }}"
+                  alt="{{ recommendation.featured_image.alt | default: recommendation.title | escape }}"
+                  width="800"
+                  height="{{ 800 | divided_by: recommendation.featured_image.aspect_ratio | round }}"
+                  loading="lazy"
+                >
+              {% else %}
+                {{ 'product-apparel-1' | placeholder_svg_tag }}
+              {% endif %}
+              {% if card_saving > 0 %}<span class="comp-rp03-badge comp-rp03-badge--sale">%</span>{% endif %}
+              {% unless recommendation.available %}<span class="comp-rp03-badge comp-rp03-badge--soldout">SOLD OUT</span>{% endunless %}
             </a>
-
-          </div>
+            <div class="comp-rp03-content">
+              <h3 class="comp-rp03-title"><a href="{{ recommendation.url }}">{{ recommendation.title | escape }}</a></h3>
+              <div class="comp-rp03-price">
+                {{ recommendation.price | money }}
+                {% if card_saving > 0 %}<s>{{ card_variant.compare_at_price | money }}</s>{% endif %}
+              </div>
+              {% assign comp_rating = recommendation.metafields.loox.avg_rating.value | default: recommendation.metafields.loox.rating.value %}
+              {% assign comp_reviews = recommendation.metafields.loox.num_reviews.value | default: recommendation.metafields.loox.review_count.value %}
+              <div class="comp-rp03-rating" aria-label="{% if comp_rating != blank %}Bewertung {{ comp_rating }} von 5{% else %}Noch keine Bewertungen{% endif %}">
+                {% if comp_rating != blank %}★★★★★{% if comp_reviews != blank %} ({{ comp_reviews }}){% endif %}{% else %}☆☆☆☆☆{% endif %}
+              </div>
+            </div>
+          </article>
         </div>
-
       {% endunless %}
     {% endfor %}
   {% endcapture %}
-
-  <div class="comp-rp03-carousel">
-    {% render 'product-carousel',
-      enabled: true,
-      grid_columns: 5,
-      grid_columns_mobile: 2,
-      slot: items
-    %}
+  <div class="comp-rp03-carousel" style="--grid-columns-max: var(--comp-visible, 5);">
+    <div class="product-carousel-wrapper relative">
+      <scroll-carousel class="grid scroll-area-x bleed pb-2 -mb-2" item-selector=".product-card">
+        <div class="grid-carousel grid-carousel--pseudo-pr grid-carousel--products">{{ items }}</div>
+      </scroll-carousel>
+      {% render 'carousel-buttons' %}
+    </div>
   </div>
-
 {% else %}
-
   <p>Aktuell kein Zubehör empfohlen.</p>
-
 {% endif %}
-
-<style>
-  .comp-rp03-carousel {
-    position: relative;
-    overflow: hidden;
-    width: 100%;
-    max-width: 100%;
-    padding: 0 42px;
-  }
-
-.comp-rp03-carousel .carousel,
-.comp-rp03-carousel .product-carousel,
-.comp-rp03-carousel .scroll-area,
-.comp-rp03-carousel .scroll-carousel {
-  max-width: 100%;
-}
-
-/* wichtig: scroll-carousel NICHT begrenzen */
-.comp-rp03-carousel scroll-carousel {
-  max-width: none;
-}
-
-  .comp-rp03-carousel .carousel-previous,
-  .comp-rp03-carousel .carousel-next {
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    z-index: 20;
-  }
-
-  .comp-rp03-carousel .carousel-previous {
-    left: 6px !important;
-  }
-
-  .comp-rp03-carousel .carousel-next {
-    right: 6px !important;
-  }
-
-  .comp-rp03-carousel .rp03-card-wrapper {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: 16px;
-    background: #fff;
-    border: 1px solid transparent;
-    transition: border-color .2s ease, box-shadow .2s ease;
-  }
-
-  .comp-rp03-carousel .rp03-card-wrapper:hover {
-    border-color: #E3F2FD;
-    box-shadow: 0 8px 24px rgba(0, 140, 203, .14);
-  }
-
-  .comp-rp03-carousel .rp03-card-wrapper:hover .rp03-btn-ansehen {
-    background: #E3F2FD;
-    color: #000 !important;
-  }
-
-  .comp-rp03-carousel quick-add-button,
-  .comp-rp03-carousel .quick-add-button,
-  .comp-rp03-carousel .quick-add,
-  .comp-rp03-carousel [class*="quick-add"],
-  .comp-rp03-carousel .complementary-product__button-add-to-cart {
-    display: none !important;
-  }
-
-  .comp-rp03-carousel .card__information,
-  .comp-rp03-carousel .card-information,
-  .comp-rp03-carousel .product-card__info,
-  .comp-rp03-carousel .card__content,
-  .comp-rp03-carousel .product-card__content,
-  .comp-rp03-carousel .product-card-info {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .comp-rp03-carousel .product-name,
-.comp-rp03-carousel .product-name a,
-.comp-rp03-carousel h3.product-name,
-.comp-rp03-carousel .card__heading,
-.comp-rp03-carousel .card__heading a {
-  font-size: 15px;
-  line-height: 1.35;
-  font-weight: 400;
-  color: #262626;
-  text-decoration: none;
-}
-
-.comp-rp03-carousel .product-name,
-.comp-rp03-carousel h3.product-name,
-.comp-rp03-carousel .card__heading {
-  min-height: calc(15px * 1.35 * 3);
-  margin-bottom: 14px;
-}
-
-.comp-rp03-carousel span.regular-price,
-.comp-rp03-carousel span.regular-price *,
-.comp-rp03-carousel .price,
-.comp-rp03-carousel .price *,
-.comp-rp03-carousel .price .price-item,
-.comp-rp03-carousel .price .price-item *,
-.comp-rp03-carousel .price__regular,
-.comp-rp03-carousel .price__regular *,
-.comp-rp03-carousel .price__sale,
-.comp-rp03-carousel .price__sale * {
-  font-weight: 800 !important;
-  font-style: bold !important;
-  color: #111;
-}
-
-  .comp-rp03-carousel .rp03-btn-ansehen {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    margin-top: auto;
-    padding: 14px 18px;
-    border-radius: 0 0 16px 16px;
-    background: #111;
-    color: #fff !important;
-    font-size: 13px;
-    font-weight: 300;
-    line-height: 1;
-    text-decoration: none !important;
-    text-transform: uppercase;
-    letter-spacing: .12em;
-    transition: background .2s ease;
-  }
-
-  .comp-rp03-carousel .rp03-btn-ansehen:hover {
-    background: #008CCB;
-    color: #000 !important;
-  }
-
-  @media (max-width: 640px) {
-    .comp-rp03-carousel {
-      padding: 0 28px;
-    }
-
-    .comp-rp03-carousel .carousel-previous {
-      left: 0 !important;
-    }
-
-    .comp-rp03-carousel .carousel-next {
-      right: 0 !important;
-    }
-
-    .comp-rp03-carousel .card__information,
-    .comp-rp03-carousel .card-information,
-    .comp-rp03-carousel .product-card__info,
-    .comp-rp03-carousel .card__content,
-    .comp-rp03-carousel .product-card__content,
-    .comp-rp03-carousel .product-card-info {
-      padding-left: 12px;
-      padding-right: 12px;
-    }
-
-    .comp-rp03-carousel .rp03-btn-ansehen {
-      padding: 12px 10px;
-      font-size: 12px;
-    }
-  }
-</style>
 
 {% schema %}
 {

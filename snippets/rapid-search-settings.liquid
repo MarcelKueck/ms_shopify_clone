@@ -2,7 +2,12 @@
 
 {% if content_for_header contains rps_metafields.storeFrontScriptDomain %}
   <script type="text/javascript">
-    window.RapidSearchAdmin = {% if content_for_header contains 'preview-bar-modules' %}true{% else %}false{% endif %};
     window.rpsMarketInfo = { id: {{ localization.market.id | json }} };
+  </script>
+{% endif %}
+
+{% if content_for_header contains 'preview-bar-modules' %}
+  <script type="text/javascript">
+    window.RapidSearchAdmin = true;
   </script>
 {% endif %}

@@ -1,0 +1,127 @@
+{% doc %}
+  @prompt
+    Bitte kopiere den premium image mit Text abschnitt und füge dazu, dass es möglich ist die breite des moduls einzustellen , wir benötigen dazu die mobil optimierung sowie die möglichkeit ein anderes bild mobil einzusetzten. dazu sollen die bilder mit 3d effekten zu designen sein und das text element mit farben und der button auch mit 3d effekten, das verhältnis zwischen bild und text soll einzustellen zu sein. Dazu soll das Bildformat desktop auf rechteckig ausgelegt sein und mobil 1:1, leider wird das rechteckige bild am desktop nicht richtig angezeigt. das problem ist das das modul in der höhe größer wird, dass soll es am desktop nicht, das rechteckige bild muss darstellbar sein also bild formt , sehr gut und jetzt soll dann noch der überflüssige rand nach oben und untern reduziert werden sodass nur das bild zu sehen ist und kein leerer abstand, leider ist die modulhöhe zu hoch sodass es bei dem rechteckigen bild, wenn man es komplette anzeigt zu hässlichen abstand kommt, super! der Button soll noch mit einem glänzenden effekt belegt werden und der hintergrund der texbausteins zu stilen sein. , der button effekt ist noch nicht gut. bei hoover soll dieser glenzen. zudem soll sich das modul desktop auf verschiedene größen optimal anpassen lassen. als nicht das auf kleineren desktops der bereich dann abgeschnitten wird., die schriftart des buttons soll dünn und caps sein., der abstand zwischen den modulen muss noch einzustellen sein. und schön wäre, wenn der hintergrund des textfelds genau auf der höhe von dem bild ist, , super und jetzt noch den abstand zwischen text und bild  
+{% enddoc %}
+{% doc %}
+  @prompt
+    Premium image mit Text aktualisiert: Abstand zwischen Bild und Text einstellbar.
+{% enddoc %}
+{% assign ai_gen_id = block.id | replace: '_', '' | downcase %}
+{% case block.settings.desktop_image_ratio %}
+  {% when '3-2' %}{% assign image_aspect_ratio = '3 / 2' %}
+  {% when '16-9' %}{% assign image_aspect_ratio = '16 / 9' %}
+  {% when 'original' %}{% assign image_aspect_ratio = 'auto' %}
+  {% else %}{% assign image_aspect_ratio = '4 / 3' %}
+{% endcase %}
+{% style %}
+  .ai-premium-image-text-{{ ai_gen_id }} { display:block; width:min({{ block.settings.desktop_width_percent }}%, calc(100% - {{ block.settings.margin_desktop_left }}px - {{ block.settings.margin_desktop_right }}px)); max-width:100%; margin:{{ block.settings.margin_desktop_top }}px {{ block.settings.margin_desktop_right }}px {{ block.settings.margin_desktop_bottom }}px {{ block.settings.margin_desktop_left }}px; color:{{ block.settings.body_color }}; background:{{ block.settings.background_color }}; border-radius:{{ block.settings.corner_radius }}px; overflow:hidden; }
+  .ai-premium-image-text__inner-{{ ai_gen_id }} { display:grid; grid-template-columns:minmax(0, {{ block.settings.image_width_percent }}fr) minmax(0, {{ 100 | minus: block.settings.image_width_percent }}fr); column-gap:{{ block.settings.content_gap }}px; align-items:stretch; }
+  .ai-premium-image-text--image-right-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} { order:2; }
+  .ai-premium-image-text__media-{{ ai_gen_id }} { position:relative; display:block; width:100%; aspect-ratio:{{ image_aspect_ratio }}; min-width:0; background:transparent; perspective:1000px; box-sizing:border-box; border-radius:{{ block.settings.image_radius }}px; }
+  .ai-premium-image-text__media-{{ ai_gen_id }} picture { position:absolute; inset:0; display:block; }
+  .ai-premium-image-text__media-{{ ai_gen_id }} img { display:block; width:100%; height:100%; object-fit:{{ block.settings.image_fit }}; border-radius:{{ block.settings.image_radius }}px; transform:perspective(1000px) rotateY({{ block.settings.image_tilt }}deg); box-shadow:0 {{ block.settings.image_depth | times: 2 }}px {{ block.settings.image_depth | times: 4 }}px rgba(0,0,0,0.{{ block.settings.image_shadow_opacity }}); }
+  .ai-premium-image-text--image-right-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} img { transform:perspective(1000px) rotateY(-{{ block.settings.image_tilt }}deg); }
+  .ai-premium-image-text--ratio-original-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} { aspect-ratio:auto; }
+  .ai-premium-image-text--ratio-original-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} picture { position:relative; inset:auto; }
+  .ai-premium-image-text--ratio-original-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} img { width:100%; height:auto; aspect-ratio:auto; object-fit:initial; }
+  .ai-premium-image-text__placeholder-{{ ai_gen_id }} { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#f1f0ed; }
+  .ai-premium-image-text__placeholder-{{ ai_gen_id }} svg { display:block; width:100%; height:100%; }
+  .ai-premium-image-text__empty-{{ ai_gen_id }} { position:absolute; inset:auto 16px 16px; padding:10px 14px; background:#fff; color:#333; text-align:center; font-size:13px; }
+  .ai-premium-image-text__content-{{ ai_gen_id }} { display:flex; flex-direction:column; justify-content:center; align-items:{{ block.settings.content_alignment }}; padding:clamp(20px,3vw,48px); text-align:{{ block.settings.text_alignment }}; min-width:0; box-sizing:border-box; background:{{ block.settings.text_background }}; border-radius:{{ block.settings.text_corner_radius }}px; overflow-wrap:anywhere; }
+  .ai-premium-image-text__eyebrow-{{ ai_gen_id }} { margin:0 0 14px; color:{{ block.settings.eyebrow_color }}; font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
+  .ai-premium-image-text__heading-{{ ai_gen_id }} { margin:0 0 {{ block.settings.subtitle_margin_top }}px; color:{{ block.settings.heading_color }}; font-size:clamp(24px,2.5vw,{{ block.settings.heading_size }}px); line-height:1.15; }
+  .ai-premium-image-text__body-{{ ai_gen_id }} { max-width:48ch; color:{{ block.settings.body_color }}; font-size:15px; line-height:1.7; }
+  .ai-premium-image-text__body-{{ ai_gen_id }} p { margin:0 0 12px; }
+  .ai-premium-image-text__body-{{ ai_gen_id }} p:last-child { margin-bottom:0; }
+  .ai-premium-image-text__button-{{ ai_gen_id }} { position:relative; isolation:isolate; overflow:hidden; display:inline-flex; align-items:center; justify-content:center; min-height:48px; margin-top:26px; margin-bottom:{{ block.settings.button_margin_bottom }}px; padding:12px 24px; border:1px solid {{ block.settings.button_background }}; border-radius:{{ block.settings.button_radius }}px; background:linear-gradient(155deg, {{ block.settings.button_highlight }} 0%, {{ block.settings.button_background }} 52%); color:{{ block.settings.button_text }}; box-shadow:0 {{ block.settings.button_depth }}px 0 {{ block.settings.button_shadow }}; font-family:inherit; font-size:{{ block.settings.button_font_size }}px; font-weight:300; letter-spacing:.1em; text-transform:uppercase; text-decoration:none; transition:transform 160ms ease,box-shadow 160ms ease; }
+  .ai-premium-image-text__button-{{ ai_gen_id }}::before { content:""; position:absolute; z-index:0; top:-30%; bottom:-30%; left:0; width:42%; background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,.12) 25%,rgba(255,255,255,.82) 50%,rgba(255,255,255,.16) 75%,transparent 100%); transform:translateX(-160%) skewX(-22deg); transition:transform 550ms ease; pointer-events:none; }
+  .ai-premium-image-text__button-{{ ai_gen_id }} span { position:relative; z-index:1; }
+  .ai-premium-image-text__button-{{ ai_gen_id }}:hover::before { transform:translateX(360%) skewX(-22deg); }
+  .ai-premium-image-text__button-{{ ai_gen_id }}:hover { transform:translateY(2px); box-shadow:0 {{ block.settings.button_depth | minus: 2 }}px 0 {{ block.settings.button_shadow }}; }
+  .ai-premium-image-text__button-{{ ai_gen_id }}:focus-visible { outline:2px solid {{ block.settings.heading_color }}; outline-offset:4px; }
+  @media screen and (max-width:989px) and (min-width:750px) { .ai-premium-image-text-{{ ai_gen_id }} { width:min(100%, calc(100% - {{ block.settings.margin_desktop_left }}px - {{ block.settings.margin_desktop_right }}px)); } .ai-premium-image-text__inner-{{ ai_gen_id }} { grid-template-columns:minmax(0,1fr); row-gap:{{ block.settings.content_gap }}px; } .ai-premium-image-text--image-right-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} { order:0; } .ai-premium-image-text__content-{{ ai_gen_id }} { padding:32px; } }
+  @media screen and (max-width:749px) { .ai-premium-image-text-{{ ai_gen_id }} { width:min({{ block.settings.mobile_width_percent }}%, calc(100% - {{ block.settings.margin_mobile_left }}px - {{ block.settings.margin_mobile_right }}px)); margin:{{ block.settings.margin_mobile_top }}px {{ block.settings.margin_mobile_right }}px {{ block.settings.margin_mobile_bottom }}px {{ block.settings.margin_mobile_left }}px; } .ai-premium-image-text__inner-{{ ai_gen_id }} { grid-template-columns:minmax(0,1fr); row-gap:{{ block.settings.content_gap }}px; } .ai-premium-image-text--image-right-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} { order:0; } .ai-premium-image-text__media-{{ ai_gen_id }} { aspect-ratio:1 / 1; } .ai-premium-image-text__media-{{ ai_gen_id }} picture { position:absolute; inset:0; } .ai-premium-image-text__media-{{ ai_gen_id }} img { width:100%; height:100%; object-fit:cover; transform:none !important; border-radius:{{ block.settings.mobile_image_radius }}px; box-shadow:0 {{ block.settings.mobile_image_depth | times: 2 }}px {{ block.settings.mobile_image_depth | times: 4 }}px rgba(0,0,0,0.{{ block.settings.image_shadow_opacity }}); } .ai-premium-image-text__media-{{ ai_gen_id }} { border-radius:{{ block.settings.mobile_image_radius }}px; } .ai-premium-image-text--ratio-original-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} { aspect-ratio:1 / 1; } .ai-premium-image-text--ratio-original-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} picture { position:absolute; inset:0; } .ai-premium-image-text--ratio-original-{{ ai_gen_id }} .ai-premium-image-text__media-{{ ai_gen_id }} img { width:100%; height:100%; aspect-ratio:1 / 1; object-fit:cover; } .ai-premium-image-text__content-{{ ai_gen_id }} { padding:24px 20px; } }
+  @media (prefers-reduced-motion:reduce) { .ai-premium-image-text__button-{{ ai_gen_id }}, .ai-premium-image-text__button-{{ ai_gen_id }}::before { transition:none; } }
+{% endstyle %}
+<div class="ai-premium-image-text-{{ ai_gen_id }} {% if block.settings.desktop_image_ratio == 'original' %}ai-premium-image-text--ratio-original-{{ ai_gen_id }}{% endif %}" {{ block.shopify_attributes }}>
+  <div class="ai-premium-image-text__inner-{{ ai_gen_id }} {% if block.settings.image_position == 'right' %}ai-premium-image-text--image-right-{{ ai_gen_id }}{% endif %}">
+    <div class="ai-premium-image-text__media-{{ ai_gen_id }}">
+      {% if block.settings.image != blank or block.settings.mobile_image != blank %}
+        {% assign desktop_image = block.settings.image | default: block.settings.mobile_image %}
+        <picture>{% if block.settings.mobile_image != blank %}<source media="(max-width:749px)" srcset="{{ block.settings.mobile_image | image_url: width: 1000 }}">{% endif %}<img src="{{ desktop_image | image_url: width: 1600 }}" alt="{{ desktop_image.alt | escape }}" loading="lazy" width="{{ desktop_image.width }}" height="{{ desktop_image.height }}"></picture>
+      {% else %}
+        <div class="ai-premium-image-text__placeholder-{{ ai_gen_id }}">{{ 'image' | placeholder_svg_tag }}<div class="ai-premium-image-text__empty-{{ ai_gen_id }}">Füge ein Bild hinzu, um diesen Abschnitt zu vervollständigen.</div></div>
+      {% endif %}
+    </div>
+    <div class="ai-premium-image-text__content-{{ ai_gen_id }}">
+      {% if block.settings.eyebrow != blank %}<p class="ai-premium-image-text__eyebrow-{{ ai_gen_id }}">{{ block.settings.eyebrow | escape }}</p>{% endif %}
+      {% if block.settings.heading != blank %}<h2 class="ai-premium-image-text__heading-{{ ai_gen_id }}">{{ block.settings.heading | escape }}</h2>{% endif %}
+      {% if block.settings.body != blank %}<div class="ai-premium-image-text__body-{{ ai_gen_id }}">{{ block.settings.body }}</div>{% endif %}
+      {% if block.settings.button_label != blank and block.settings.button_link != blank %}<a class="ai-premium-image-text__button-{{ ai_gen_id }}" href="{{ block.settings.button_link }}"><span>{{ block.settings.button_label | escape }}</span></a>{% endif %}
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Premium image mit Text",
+  "settings": [
+    { "type": "header", "content": "Bilder und Layout" },
+    { "type": "image_picker", "id": "image", "label": "Bild Desktop" },
+    { "type": "image_picker", "id": "mobile_image", "label": "Bild Mobil" },
+    { "type": "range", "id": "desktop_width_percent", "label": "Modulbreite Desktop", "min": 50, "max": 100, "step": 5, "unit": "%", "default": 100 },
+    { "type": "range", "id": "mobile_width_percent", "label": "Modulbreite Mobil", "min": 50, "max": 100, "step": 5, "unit": "%", "default": 100 },
+    { "type": "range", "id": "image_width_percent", "label": "Bildanteil Desktop", "min": 30, "max": 70, "step": 5, "unit": "%", "default": 50 },
+    { "type": "header", "content": "Außenabstände Desktop" },
+    { "type": "range", "id": "margin_desktop_top", "label": "Oben Desktop", "min": 0, "max": 200, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "margin_desktop_right", "label": "Rechts Desktop", "min": 0, "max": 200, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "margin_desktop_bottom", "label": "Unten Desktop", "min": 0, "max": 200, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "margin_desktop_left", "label": "Links Desktop", "min": 0, "max": 200, "step": 2, "unit": "px", "default": 0 },
+    { "type": "header", "content": "Außenabstände Mobil" },
+    { "type": "range", "id": "margin_mobile_top", "label": "Oben Mobil", "min": 0, "max": 200, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "margin_mobile_right", "label": "Rechts Mobil", "min": 0, "max": 200, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "margin_mobile_bottom", "label": "Unten Mobil", "min": 0, "max": 200, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "margin_mobile_left", "label": "Links Mobil", "min": 0, "max": 200, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "content_gap", "label": "Abstand zwischen Bild und Text", "min": 0, "max": 64, "step": 4, "unit": "px", "default": 16 },
+    { "type": "select", "id": "desktop_image_ratio", "label": "Bildformat Desktop", "options": [{ "value": "original", "label": "Originalformat, ohne leere Ränder" }, { "value": "4-3", "label": "Rechteckig 4:3" }, { "value": "3-2", "label": "Rechteckig 3:2" }, { "value": "16-9", "label": "Breit 16:9" }], "default": "original" },
+    { "type": "select", "id": "image_fit", "label": "Bilddarstellung Desktop", "options": [{ "value": "cover", "label": "Fläche füllen, ggf. Beschnitt" }, { "value": "contain", "label": "Ganzes Bild zeigen" }], "default": "cover" },
+    { "type": "select", "id": "image_position", "label": "Bildposition Desktop", "options": [{ "value": "left", "label": "Links" }, { "value": "right", "label": "Rechts" }], "default": "left" },
+    { "type": "header", "content": "Bild-3D-Effekt" },
+    { "type": "range", "id": "image_depth", "label": "Schattenstärke", "min": 0, "max": 12, "step": 1, "unit": "px", "default": 4 },
+    { "type": "range", "id": "mobile_image_depth", "label": "Schatten Mobil", "min": 0, "max": 8, "step": 1, "unit": "px", "default": 2 },
+    { "type": "range", "id": "image_tilt", "label": "Perspektive", "min": 0, "max": 8, "step": 1, "unit": "°", "default": 2 },
+    { "type": "range", "id": "image_shadow_opacity", "label": "Schattendunkelheit", "min": 1, "max": 8, "step": 1, "default": 3 },
+    { "type": "range", "id": "image_radius", "label": "Bild-Eckenradius", "min": 0, "max": 24, "step": 2, "unit": "px", "default": 4 },
+    { "type": "range", "id": "mobile_image_radius", "label": "Bild-Eckenradius Mobil", "min": 0, "max": 40, "step": 2, "unit": "px", "default": 16 },
+    { "type": "header", "content": "Inhalt" },
+    { "type": "text", "id": "eyebrow", "label": "Dachzeile", "default": "Entdecke mehr" },
+    { "type": "text", "id": "heading", "label": "Überschrift", "default": "Premium-Qualität für dein Training" },
+    { "type": "richtext", "id": "body", "label": "Text", "default": "<p>Entwickelt für anspruchsvolles Training – durchdacht, langlebig und kompromisslos hochwertig.</p>" },
+    { "type": "text", "id": "button_label", "label": "Buttontext", "default": "Mehr erfahren" },
+    { "type": "url", "id": "button_link", "label": "Button-Link" },
+    { "type": "header", "content": "Text und Farben" },
+    { "type": "select", "id": "text_alignment", "label": "Textausrichtung", "options": [{ "value": "left", "label": "Links" }, { "value": "center", "label": "Zentriert" }], "default": "left" },
+    { "type": "select", "id": "content_alignment", "label": "Inhaltsposition", "options": [{ "value": "flex-start", "label": "Links" }, { "value": "center", "label": "Zentriert" }], "default": "flex-start" },
+    { "type": "range", "id": "subtitle_margin_top", "label": "Abstand vor Untertitel", "min": 0, "max": 80, "step": 2, "unit": "px", "default": 18 },
+    { "type": "range", "id": "heading_size", "label": "Überschriftgröße", "min": 28, "max": 56, "step": 2, "unit": "px", "default": 40 },
+    { "type": "color", "id": "background_color", "label": "Modulhintergrund", "default": "#F5F3EF" },
+    { "type": "color", "id": "text_background", "label": "Textbereich-Hintergrund", "default": "#F5F3EF" },
+    { "type": "range", "id": "text_corner_radius", "label": "Textbereich-Eckenradius", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 0 },
+    { "type": "color", "id": "eyebrow_color", "label": "Dachzeile", "default": "#555555" },
+    { "type": "color", "id": "heading_color", "label": "Überschrift", "default": "#171717" },
+    { "type": "color", "id": "body_color", "label": "Fließtext", "default": "#333333" },
+    { "type": "header", "content": "Button-3D-Effekt" },
+    { "type": "color", "id": "button_background", "label": "Hintergrund", "default": "#171717" },
+    { "type": "color", "id": "button_highlight", "label": "Glanzfarbe", "default": "#555555" },
+    { "type": "color", "id": "button_text", "label": "Textfarbe", "default": "#FFFFFF" },
+    { "type": "color", "id": "button_shadow", "label": "Schattenfarbe", "default": "#555555" },
+    { "type": "range", "id": "button_font_size", "label": "Button-Schriftgröße", "min": 10, "max": 24, "step": 1, "unit": "px", "default": 13 },
+    { "type": "range", "id": "button_margin_bottom", "label": "Abstand unter Button", "min": 0, "max": 80, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "button_depth", "label": "Schattenhöhe", "min": 2, "max": 10, "step": 1, "unit": "px", "default": 4 },
+    { "type": "range", "id": "button_radius", "label": "Eckenradius", "min": 0, "max": 20, "step": 2, "unit": "px", "default": 2 },
+    { "type": "range", "id": "corner_radius", "label": "Modul-Eckenradius", "min": 0, "max": 40, "step": 2, "unit": "px", "default": 8 }
+  ],
+  "presets": [{ "name": "Premium image mit Text" }],
+  "tag": null,
+  "class": "premium-image-text-block"
+}
+{% endschema %}
