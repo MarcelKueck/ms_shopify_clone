@@ -1,0 +1,111 @@
+/*
+ * A minimal stand-in for the Essence theme around the Gutschein-Designer
+ * (test harness only — never uploaded). It reproduces what leaks into the
+ * section on the live shop: the preflight resets of assets/main.css, the
+ * theme font variables (Montserrat 400/700 + italic, as the live theme
+ * loads them — 800 renders as 700), the 14 px body text, the platform
+ * custom CSS that shrinks every h1 on phones, the faded
+ * button[aria-disabled], a sticky header and the Mo launcher.
+ * The fonts come from the harness server (/__fonts/, see run.cjs); opened
+ * from disk the page falls back to the system sans-serif.
+ */
+@font-face { font-family: "Montserrat"; src: url("/__fonts/Montserrat_400Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Montserrat"; src: url("/__fonts/Montserrat_400Regular_Italic.ttf") format("truetype"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Montserrat"; src: url("/__fonts/Montserrat_700Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root {
+  --font-body-family: Montserrat, sans-serif;
+  --font-heading-family: Montserrat, sans-serif;
+  --font-body-scale: 0.875;
+  --button-font-family: var(--font-body-family);
+  --size-text-base: calc(var(--font-body-scale, 1) * 1rem);
+}
+html { height: 100%; font-size: 16px; }
+body {
+  margin: 0;
+  overflow-x: hidden;
+  max-width: 100%;
+  position: relative;
+  font-family: var(--font-body-family);
+  font-size: var(--size-text-base);
+  line-height: 1.5;
+  color: #000;
+  background: #fff;
+}
+/* main.css preflight (the parts that reach the section). */
+*, ::before, ::after { box-sizing: border-box; border: 0 solid #e5e7eb; }
+h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; margin: 0; }
+a { color: inherit; text-decoration: inherit; text-underline-offset: 0.25rem; }
+button, input, optgroup, select, textarea { font-family: inherit; font-size: 100%; font-weight: inherit; line-height: inherit; letter-spacing: inherit; color: inherit; margin: 0; padding: 0; }
+button, select { text-transform: none; }
+button, input:where([type="button"]), input:where([type="reset"]), input:where([type="submit"]) { -webkit-appearance: button; background-color: transparent; background-image: none; }
+button, [role="button"] { cursor: pointer; }
+button { padding: 0; letter-spacing: inherit; }
+summary { display: list-item; }
+details > summary { list-style: none; -webkit-user-select: none; user-select: none; cursor: pointer; }
+blockquote, dl, dd, hr, figure, p, pre { margin: 0; }
+fieldset { margin: 0; padding: 0; }
+legend { padding: 0; }
+ol, ul, menu { list-style: none; margin: 0; padding: 0; }
+textarea { resize: vertical; }
+img, svg, video, canvas, audio, iframe, embed, object { display: block; vertical-align: middle; }
+img, video { max-width: 100%; height: auto; }
+svg { max-width: 100%; height: auto; }
+dialog { padding: 0; }
+button[aria-disabled="true"], .button[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
+/* Platform custom CSS (settings_data.json → platform_customizations). */
+@media (max-width: 768px) { h1 { font-size: 1.7em !important; } }
+
+/* A stand-in for the theme's sticky header. */
+sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: block;
+  background: #fff;
+  box-shadow: 0 1px 0 #ececec;
+}
+.hx-top { background: #000; color: #fff; font-size: 12px; text-align: center; padding: 7px 12px; letter-spacing: 0.04em; }
+.hx-bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1800px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); height: 72px; }
+.hx-logo { font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+.hx-logo b { color: #008ccb; font-weight: 700; }
+.hx-nav { display: flex; gap: 22px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.hx-icons { display: flex; gap: 16px; }
+.hx-icons span { width: 22px; height: 22px; border: 2px solid #111; border-radius: 6px; }
+@media (max-width: 989px) { .hx-nav { display: none; } .hx-bar { height: 60px; } }
+.hx-footer { background: #f9f9f9; padding: 48px 24px; text-align: center; font-size: 13px; color: #555; }
+
+/* A stand-in for the Mo launcher (assets/ms-chat-widget.css: fixed, 20 px
+   from the bottom right corner, 68 px). */
+.ms-chat-launcher {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483000;
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #7bffc4 0%, #36d1ff 35%, #4d7cff 65%, #b14dff 100%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 22%), inset 0 0 0 3px rgb(255 255 255 / 55%);
+}
+
+/* A stand-in for the theme's cart drawer (<cart-modal>, show()). */
+cart-modal { display: block; }
+.hx-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2147483100;
+  width: min(420px, 92vw);
+  padding: 24px;
+  background: #fff;
+  box-shadow: -12px 0 40px rgb(0 0 0 / 18%);
+  font-size: 14px;
+  transform: translateX(105%);
+  transition: transform 0.3s ease;
+}
+.hx-drawer.is-open { transform: none; }
+.hx-drawer h2 { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+.hx-drawer li { padding: 12px 0; border-bottom: 1px solid #eee; }
+.hx-drawer small { display: block; color: #555; margin-top: 4px; }

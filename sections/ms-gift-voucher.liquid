@@ -1,0 +1,434 @@
+{% comment %}
+  Gutschein-Designer — the storefront page of the Mo gift vouchers
+  („Geschenkgutscheine“, mo repo: docs/GIFT_VOUCHERS.md).
+
+  The visitor designs a voucher in five steps — 1 Betrag → 2 Motiv → 3 Text →
+  4 Versand → 5 Prüfen & kaufen — with a progress line on top, a live preview
+  card next to the steps (under the progress line on phones) and a sticky
+  summary bar on phones. Amounts are the variants of a regular product
+  (setting „Gutschein-Produkt“, handle designgutschein), the Premium-Karte is
+  a paid add-on product (setting „Premium-Karte“, handle
+  gutschein-premiumkarte). Designs, AI texts, photo upload, the exact preview,
+  the draft and the balance check come from the Mo backend (HTTP contract:
+  mo repo, spec §8 — /api/gift-vouchers/*). „Jetzt kaufen“: draft → POST
+  /cart/add.js (voucher line + add-on line, both with the private property
+  _mo_gv=<token>) → /checkout; „In den Warenkorb“ opens the cart drawer. On
+  orders/paid Mo issues a real Shopify gift card and e-mails the PDF.
+
+  Look: the Home-Gym-Konfigurator's „Performance“ design (black pill buttons
+  turning blue, blue kicker over a regular-weight headline, white cards with a
+  1 px border, bands alternating #ffffff / #f9f9f9, no divider lines, red only
+  for errors). Styles: assets/ms-gift-voucher.css (everything under .ms-gv,
+  own --gv-* tokens), logic: assets/ms-gift-voucher.js (builds the steps;
+  config reaches it only through the data attributes below and the products
+  JSON at the end).
+
+  No [data-ms-chat-dock] here (the widget would dock into it). Names, messages
+  and addresses never go into a URL: the draft lives in sessionStorage
+  (ms-gv-draft) and on the Mo backend. The balance check („Guthaben prüfen“)
+  is the anchor #guthaben — the QR code on every voucher points to it.
+{% endcomment %}
+
+{{ 'ms-gift-voucher.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign gv_en = false
+  if request.locale.iso_code == 'en'
+    assign gv_en = true
+  endif
+  assign gv_mo_on = false
+  if settings.ai_advisor_enabled and settings.ms_chat_shared_secret != blank
+    assign gv_mo_on = true
+  endif
+  assign gv_api = settings.ai_advisor_backend_url | default: 'https://mo.motionsports.de' | strip
+  assign gv_fallback = section.settings.fallback_url | default: '/products/motion-sports-geschenkgutschein'
+  assign gv_img = section.settings.hero_image
+  assign gv_voucher = section.settings.voucher_product
+  assign gv_print = section.settings.print_product
+  # A Shopify gift card product must not sell the vouchers: Shopify would
+  # issue a second card of its own. Its amounts are then left out (the page
+  # shows the fallback; the theme editor says why).
+  assign gv_issue = ''
+  if gv_voucher == blank
+    assign gv_issue = 'missing'
+  elsif gv_voucher.gift_card?
+    assign gv_issue = 'gift_card'
+  endif
+  assign gv_print_variant = nil
+  if gv_print and gv_print.gift_card? == false
+    assign gv_print_variant = gv_print.selected_or_first_available_variant
+  endif
+-%}
+
+<section
+  class="ms-gv"
+  id="ms-gv-{{ section.id }}"
+  data-ms-gv
+  data-locale="{% if gv_en %}en{% else %}de{% endif %}"
+  data-mo="{% if gv_mo_on %}on{% else %}off{% endif %}"
+  data-api-base="{{ gv_api | escape }}"
+  data-key="{{ settings.ms_chat_shared_secret | escape }}"
+  data-fallback-url="{{ gv_fallback | escape }}"
+  data-terms-url="{{ section.settings.terms_url | escape }}"
+  {%- if request.design_mode %} data-design-mode="true"{% endif %}
+>
+  {%- comment -%} ---------- Hero ---------- {%- endcomment -%}
+  <div class="ms-gv-hero{% if gv_img != blank %} ms-gv-hero--image{% endif %}">
+    <div class="ms-gv-wrap ms-gv-hero__inner">
+      <div class="ms-gv-hero__copy">
+        {%- if section.settings.hero_kicker != blank -%}
+          <p class="ms-gv-kicker">{{ section.settings.hero_kicker | escape }}</p>
+        {%- endif -%}
+        <h1 class="ms-gv-hero__title">{{ section.settings.heading | escape }}</h1>
+        {%- if section.settings.hero_text != blank -%}
+          <p class="ms-gv-hero__text">{{ section.settings.hero_text | escape }}</p>
+        {%- endif -%}
+        <div class="ms-gv-hero__actions">
+          <a class="ms-gv-btn ms-gv-btn--primary ms-gv-hero__cta" href="#ms-gv-start-{{ section.id }}" data-ms-gv-scroll>
+            <span>{{ section.settings.hero_cta | default: 'Jetzt gestalten' | escape }}</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="ms-gv-link ms-gv-hero__balance" href="#guthaben" data-ms-gv-scroll>{% if gv_en %}Check balance{% else %}Guthaben prüfen{% endif %}</a>
+        </div>
+        <ul class="ms-gv-trust" role="list">
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4.5 13.5H12L11 22l8.5-11.5H12z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span>{% if gv_en %}Valid right after purchase{% else %}Sofort gültig nach dem Kauf{% endif %}</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span data-ms-gv-validity>{% if gv_en %}Valid for 3 years{% else %}3 Jahre gültig{% endif %}</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m3.5 7 8.5 6.5L20.5 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span data-ms-gv-delivery-trust>{% if gv_en %}As a PDF or premium card{% else %}Als PDF oder Premium-Karte{% endif %}</span>
+          </li>
+        </ul>
+      </div>
+
+      {%- comment -%}
+        The visual: the theme-editor image, or a fan of three voucher cards.
+        The cards are drawn here with the brand colours (so they stand without
+        the backend) and get the real designs from Mo's config (page JS).
+      {%- endcomment -%}
+      <div class="ms-gv-hero__visual">
+        {%- if gv_img != blank -%}
+          <div class="ms-gv-hero__media">
+            {{ gv_img | image_url: width: 1600 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '600, 900, 1200, 1600', sizes: '(min-width: 990px) 46vw, 100vw', alt: gv_img.alt, class: 'ms-gv-hero__img' }}
+          </div>
+        {%- else -%}
+          <div class="ms-gv-stack" data-ms-gv-stack aria-hidden="true">
+            <div class="ms-gv-stack__card ms-gv-stack__card--back" data-ms-gv-stack-card="2">
+              <div class="ms-gv-face ms-gv-face--front ms-gv-face--landscape ms-gv-face--css-navy">
+                <div class="ms-gv-face__content">
+                  <span class="ms-gv-face__brand">motion sports</span>
+                  <span class="ms-gv-face__eyebrow">{% if gv_en %}Gift voucher{% else %}Geschenkgutschein{% endif %}</span>
+                  <span class="ms-gv-face__value">100 €</span>
+                  <span class="ms-gv-face__url">motionsports.de</span>
+                </div>
+              </div>
+            </div>
+            <div class="ms-gv-stack__card ms-gv-stack__card--mid" data-ms-gv-stack-card="1">
+              <div class="ms-gv-face ms-gv-face--front ms-gv-face--landscape ms-gv-face--css-light">
+                <div class="ms-gv-face__content">
+                  <span class="ms-gv-face__brand">motion sports</span>
+                  <span class="ms-gv-face__eyebrow">{% if gv_en %}Gift voucher{% else %}Geschenkgutschein{% endif %}</span>
+                  <span class="ms-gv-face__value">25 €</span>
+                  <span class="ms-gv-face__url">motionsports.de</span>
+                </div>
+              </div>
+            </div>
+            <div class="ms-gv-stack__card ms-gv-stack__card--front" data-ms-gv-stack-card="0">
+              <div class="ms-gv-face ms-gv-face--front ms-gv-face--landscape ms-gv-face--css-dark">
+                <div class="ms-gv-face__content">
+                  <span class="ms-gv-face__brand">motion sports</span>
+                  <span class="ms-gv-face__eyebrow">{% if gv_en %}Gift voucher{% else %}Geschenkgutschein{% endif %}</span>
+                  <span class="ms-gv-face__value">50 €</span>
+                  <span class="ms-gv-face__for">{% if gv_en %}for you{% else %}für dich{% endif %}</span>
+                  <span class="ms-gv-face__url">motionsports.de</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+
+  {%- comment -%}
+    ---------- Designer ----------
+    The progress line (5 numbered steps; done = blue with a tick and
+    clickable, current = outlined, upcoming = grey; on a narrow card only the
+    dots plus „Schritt 2 von 5 · Motiv“), then the grid: the step panels
+    (built by the page JS) and, from 990 px on the right and sticky, the live
+    preview with the summary. data-state: loading | ready | unavailable.
+  {%- endcomment -%}
+  <div class="ms-gv-stage" id="ms-gv-start-{{ section.id }}">
+    <div class="ms-gv-wrap">
+      <div class="ms-gv-head">
+        <p class="ms-gv-kicker ms-gv-kicker--caps">{% if gv_en %}Voucher designer{% else %}Gutschein-Designer{% endif %}</p>
+        <h2 class="ms-gv-display">{% if gv_en %}Your voucher in five steps.{% else %}In fünf Schritten zu deinem Gutschein.{% endif %}</h2>
+      </div>
+
+      <div class="ms-gv-designer" data-ms-gv-designer data-state="loading">
+        <nav class="ms-gv-progress" data-ms-gv-progress aria-label="{% if gv_en %}Progress{% else %}Fortschritt{% endif %}">
+          <p class="ms-gv-progress__compact" data-ms-gv-progress-text aria-hidden="true">{% if gv_en %}Step 1 of 5 · Amount{% else %}Schritt 1 von 5 · Betrag{% endif %}</p>
+          <ol class="ms-gv-steps" data-ms-gv-steps role="list">
+            {%- liquid
+              if gv_en
+                assign gv_step_labels = 'Amount|Design|Message|Delivery|Review & buy' | split: '|'
+              else
+                assign gv_step_labels = 'Betrag|Motiv|Text|Versand|Prüfen & kaufen' | split: '|'
+              endif
+            -%}
+            {%- for gv_label in gv_step_labels -%}
+              <li class="ms-gv-steps__item{% if forloop.first %} is-current{% endif %}" data-step="{{ forloop.index0 }}"{% if forloop.first %} aria-current="step"{% endif %}>
+                <button type="button" class="ms-gv-steps__btn" data-ms-gv-goto="{{ forloop.index0 }}" disabled>
+                  <span class="ms-gv-steps__dot" aria-hidden="true">
+                    <span class="ms-gv-steps__num">{{ forloop.index }}</span>
+                    <svg class="ms-gv-steps__check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                  <span class="ms-gv-steps__label">{{ gv_label }}</span>
+                  <span class="ms-gv-sr" data-ms-gv-step-state></span>
+                </button>
+              </li>
+            {%- endfor -%}
+          </ol>
+        </nav>
+
+        <div class="ms-gv-grid">
+          <div class="ms-gv-main">
+            <div class="ms-gv-panels" data-ms-gv-panels>
+              <div class="ms-gv-loading" data-ms-gv-loading>
+                <span class="ms-gv-spinner" aria-hidden="true"></span>
+                <span>{% if gv_en %}Loading the designer …{% else %}Designer wird geladen …{% endif %}</span>
+              </div>
+              <noscript><p class="ms-gv-note">{% if gv_en %}Please enable JavaScript to design your voucher.{% else %}Bitte aktiviere JavaScript, um deinen Gutschein zu gestalten.{% endif %}</p></noscript>
+            </div>
+            <div class="ms-gv-fallback" data-ms-gv-fallback hidden>
+              <span class="ms-gv-fallback__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v13M3 12.5h18M12 8c-1.5-3.5-6-4-6-1.2C6 8 9 8 12 8zm0 0c1.5-3.5 6-4 6-1.2C18 8 15 8 12 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+              </span>
+              <p class="ms-gv-fallback__title">{% if gv_en %}The voucher designer is not available right now.{% else %}Der Gutschein-Designer ist gerade nicht erreichbar.{% endif %}</p>
+              <p class="ms-gv-fallback__text">{% if gv_en %}You can still buy our gift voucher – it works just the same at checkout.{% else %}Unseren Geschenkgutschein bekommst du trotzdem – er wird im Checkout genauso eingelöst.{% endif %}</p>
+              <a class="ms-gv-btn ms-gv-btn--primary" href="{{ gv_fallback }}">{% if gv_en %}To the gift voucher{% else %}Zum Geschenkgutschein{% endif %}</a>
+              {%- if request.design_mode -%}
+                <p class="ms-gv-fallback__editor" data-ms-gv-editor-hint>{% if gv_en %}Theme editor: the designer needs the AI Advisor (theme settings), both products in this section and Mo's gift vouchers switched on. In the editor preview Mo may refuse the preview domain – check the live page.{% else %}Theme-Editor: Der Designer braucht den AI Advisor (Theme-Einstellungen), beide Produkte in diesem Abschnitt und die Gutscheine in Mo. In der Editor-Vorschau lehnt Mo die Vorschau-Domain ggf. ab – bitte auf der Live-Seite prüfen.{% endif %}</p>
+              {%- endif -%}
+            </div>
+          </div>
+
+          <aside class="ms-gv-aside" aria-label="{% if gv_en %}Preview{% else %}Vorschau{% endif %}">
+            <div class="ms-gv-preview" data-ms-gv-preview data-mode="live">
+              <div class="ms-gv-preview__head">
+                <p class="ms-gv-preview__title">
+                  <span>{% if gv_en %}Preview{% else %}Vorschau{% endif %}</span>
+                  <span class="ms-gv-preview__badge" data-ms-gv-preview-badge>Live</span>
+                </p>
+                <div class="ms-gv-seg" role="group" aria-label="{% if gv_en %}Side{% else %}Seite{% endif %}">
+                  <button type="button" class="ms-gv-seg__btn" data-ms-gv-side="front" aria-pressed="true">{% if gv_en %}Front{% else %}Vorderseite{% endif %}</button>
+                  <button type="button" class="ms-gv-seg__btn" data-ms-gv-side="inside" aria-pressed="false">{% if gv_en %}Inside{% else %}Innenseite{% endif %}</button>
+                </div>
+              </div>
+              <div class="ms-gv-preview__stage" data-ms-gv-stage data-layout="landscape" data-side="front" role="img" aria-label="{% if gv_en %}Voucher preview{% else %}Vorschau des Gutscheins{% endif %}">
+                <div class="ms-gv-preview__skeleton" aria-hidden="true"></div>
+              </div>
+              <p class="ms-gv-preview__note" data-ms-gv-preview-note>{% if gv_en %}Simplified live preview – the last step shows the exact voucher.{% else %}Vereinfachte Live-Vorschau – im letzten Schritt siehst du den exakten Gutschein.{% endif %}</p>
+            </div>
+            <div class="ms-gv-summary" data-ms-gv-summary hidden></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {%- comment -%} ---------- How it works (texts from the theme editor) ---------- {%- endcomment -%}
+  <div class="ms-gv-how">
+    <div class="ms-gv-wrap">
+      <div class="ms-gv-head">
+        <p class="ms-gv-kicker ms-gv-kicker--caps">{% if gv_en %}How it works{% else %}So funktioniert’s{% endif %}</p>
+        {%- if section.settings.how_heading != blank -%}
+          <h2 class="ms-gv-display">{{ section.settings.how_heading | escape }}</h2>
+        {%- endif -%}
+      </div>
+      <ol class="ms-gv-how__list" role="list">
+        {%- for i in (1..3) -%}
+          {%- liquid
+            assign gv_t_key = 'how_' | append: i | append: '_title'
+            assign gv_x_key = 'how_' | append: i | append: '_text'
+          -%}
+          <li>
+            <span class="ms-gv-how__num" aria-hidden="true">{{ i }}</span>
+            <p class="ms-gv-how__title">{{ section.settings[gv_t_key] | escape }}</p>
+            {%- if section.settings[gv_x_key] != blank -%}
+              <p class="ms-gv-how__text">{{ section.settings[gv_x_key] | escape }}</p>
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ol>
+    </div>
+  </div>
+
+  {%- comment -%} ---------- FAQ (texts from the theme editor) ---------- {%- endcomment -%}
+  {%- liquid
+    assign gv_faq_any = false
+    for i in (1..6)
+      assign gv_q_key = 'faq_' | append: i | append: '_q'
+      if section.settings[gv_q_key] != blank
+        assign gv_faq_any = true
+      endif
+    endfor
+  -%}
+  {%- if gv_faq_any -%}
+    <div class="ms-gv-faq">
+      <div class="ms-gv-wrap ms-gv-faq__inner">
+        <div class="ms-gv-head">
+          <p class="ms-gv-kicker ms-gv-kicker--caps">{% if gv_en %}FAQ{% else %}Gut zu wissen{% endif %}</p>
+          <h2 class="ms-gv-display">{{ section.settings.faq_heading | escape }}</h2>
+        </div>
+        <div class="ms-gv-faq__list">
+          {%- for i in (1..6) -%}
+            {%- liquid
+              assign gv_q_key = 'faq_' | append: i | append: '_q'
+              assign gv_a_key = 'faq_' | append: i | append: '_a'
+              assign gv_q = section.settings[gv_q_key]
+              assign gv_a = section.settings[gv_a_key]
+            -%}
+            {%- if gv_q != blank -%}
+              <details class="ms-gv-faq__item">
+                <summary class="ms-gv-faq__q">
+                  <span>{{ gv_q | escape }}</span>
+                  <svg class="ms-gv-faq__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="ms-gv-faq__a">{{ gv_a }}</div>
+              </details>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+
+  {%- comment -%}
+    ---------- Guthaben prüfen (#guthaben — the QR code on the voucher) ----------
+    The code field has no name attribute: without JS nothing is submitted, so
+    a code (a bearer value) can never end up in a URL.
+  {%- endcomment -%}
+  <div class="ms-gv-balance" id="guthaben">
+    <div class="ms-gv-wrap">
+      <div class="ms-gv-balance__card">
+        <div class="ms-gv-balance__copy">
+          <p class="ms-gv-kicker ms-gv-kicker--caps">{% if gv_en %}Check balance{% else %}Guthaben prüfen{% endif %}</p>
+          <h2 class="ms-gv-display">{{ section.settings.balance_heading | escape }}</h2>
+          {%- if section.settings.balance_text != blank -%}
+            <p class="ms-gv-balance__text">{{ section.settings.balance_text | escape }}</p>
+          {%- endif -%}
+        </div>
+        <form class="ms-gv-balance__form" data-ms-gv-balance novalidate>
+          <label class="ms-gv-label" for="ms-gv-{{ section.id }}-code">{% if gv_en %}Voucher code{% else %}Gutscheincode{% endif %}</label>
+          <div class="ms-gv-balance__row">
+            <input class="ms-gv-input ms-gv-balance__input" id="ms-gv-{{ section.id }}-code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="XXXX XXXX XXXX XXXX" aria-describedby="ms-gv-{{ section.id }}-code-hint" data-ms-gv-balance-input>
+            <button type="submit" class="ms-gv-btn ms-gv-btn--primary ms-gv-balance__btn" data-ms-gv-balance-btn>
+              <span data-ms-gv-balance-label>{% if gv_en %}Check balance{% else %}Guthaben prüfen{% endif %}</span>
+            </button>
+          </div>
+          <p class="ms-gv-hint" id="ms-gv-{{ section.id }}-code-hint">{% if gv_en %}Works for vouchers from this designer. Other gift cards show their balance at checkout.{% else %}Für Gutscheine aus diesem Designer. Das Guthaben anderer Geschenkkarten siehst du im Checkout.{% endif %}</p>
+          <div class="ms-gv-balance__result" data-ms-gv-balance-result aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {%- comment -%}
+    The products for the page JS: the voucher variants (face value = price in
+    cents) and the Premium-Karte variant. Amounts are never taken from
+    anywhere else. "issue": "" | "missing" | "gift_card" (see the top).
+  {%- endcomment -%}
+  <script type="application/json" data-ms-gv-products>
+    {
+      "currency": {{ cart.currency.iso_code | json }},
+      "issue": {{ gv_issue | json }},
+      "voucher": [
+        {%- if gv_issue == '' -%}
+          {%- for gv_v in gv_voucher.variants -%}
+            {"id":{{ gv_v.id }},"priceCents":{{ gv_v.price }},"title":{{ gv_v.title | json }},"available":{{ gv_v.available | json }}}{% unless forloop.last %},{% endunless %}
+          {%- endfor -%}
+        {%- endif -%}
+      ],
+      "print": {% if gv_print_variant %}{"id":{{ gv_print_variant.id }},"priceCents":{{ gv_print_variant.price }},"title":{{ gv_print.title | json }},"available":{{ gv_print_variant.available | json }}}{% else %}null{% endif %}
+    }
+  </script>
+</section>
+
+<script src="{{ 'ms-gift-voucher.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Gutschein-Designer",
+  "tag": "div",
+  "class": "section-ms-gv",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Geschenkgutscheine mit Mo: Betrag, Motiv, Text, Versand, Prüfen & kaufen. Nach der Zahlung stellt Mo eine echte Shopify-Geschenkkarte aus und schickt den Gutschein als PDF (Premium-Karte: Druck und Versand per Post). Mo muss unter Theme-Einstellungen → AI Advisor aktiv sein; ein- und ausschalten in Mo → Gutscheine."
+    },
+    { "type": "header", "content": "Produkte" },
+    {
+      "type": "product",
+      "id": "voucher_product",
+      "label": "Gutschein-Produkt (Beträge)",
+      "info": "Normales Produkt mit einer Variante je Betrag (Handle designgutschein) – kein Shopify-Geschenkkarten-Produkt. Der Preis der Variante ist der Wert des Gutscheins."
+    },
+    {
+      "type": "product",
+      "id": "print_product",
+      "label": "Premium-Karte (Zusatzprodukt)",
+      "info": "Das Zusatzprodukt für Druck und Versand der Karte (Handle gutschein-premiumkarte). Leer = nur PDF."
+    },
+    {
+      "type": "url",
+      "id": "terms_url",
+      "label": "Gutscheinbedingungen",
+      "info": "Leer = der Link aus Mo (sonst /pages/gutscheinbedingungen)."
+    },
+    {
+      "type": "url",
+      "id": "fallback_url",
+      "label": "Link, falls der Designer nicht erreichbar ist",
+      "info": "Leer = /products/motion-sports-geschenkgutschein"
+    },
+    { "type": "header", "content": "Kopfbereich" },
+    { "type": "text", "id": "hero_kicker", "label": "Blaue Zeile über der Überschrift", "default": "Geschenkgutschein" },
+    { "type": "text", "id": "heading", "label": "Überschrift", "default": "Ein Geschenk, das bewegt." },
+    { "type": "textarea", "id": "hero_text", "label": "Text", "default": "Gestalte deinen persönlichen Gutschein: Betrag wählen, Motiv aussuchen, ein paar liebe Worte dazu – sofort als PDF per E-Mail oder als Premium-Karte per Post." },
+    { "type": "text", "id": "hero_cta", "label": "Button", "default": "Jetzt gestalten" },
+    { "type": "image_picker", "id": "hero_image", "label": "Bild (optional)", "info": "Statt der drei Gutscheinkarten rechts im Kopfbereich. Querformat 4:3, mind. 1600 px breit." },
+    { "type": "header", "content": "So funktioniert’s" },
+    { "type": "text", "id": "how_heading", "label": "Titel", "default": "In Minuten gestaltet, sofort einlösbar." },
+    { "type": "text", "id": "how_1_title", "label": "Karte 1: Titel", "default": "Gestalten" },
+    { "type": "textarea", "id": "how_1_text", "label": "Karte 1: Text", "default": "Betrag, Motiv und deine persönliche Nachricht – auf Wunsch formuliert Mo mit." },
+    { "type": "text", "id": "how_2_title", "label": "Karte 2: Titel", "default": "Bezahlen" },
+    { "type": "textarea", "id": "how_2_text", "label": "Karte 2: Text", "default": "Ganz normal in unserem sicheren Checkout." },
+    { "type": "text", "id": "how_3_title", "label": "Karte 3: Titel", "default": "Verschenken" },
+    { "type": "textarea", "id": "how_3_text", "label": "Karte 3: Text", "default": "Das PDF kommt sofort per E-Mail, die Premium-Karte per Post. Der Code ist direkt einlösbar." },
+    { "type": "header", "content": "Häufige Fragen" },
+    { "type": "text", "id": "faq_heading", "label": "Titel", "default": "Häufige Fragen" },
+    { "type": "text", "id": "faq_1_q", "label": "Frage 1", "default": "Wie lange ist der Gutschein gültig?" },
+    { "type": "richtext", "id": "faq_1_a", "label": "Antwort 1", "default": "<p>Drei Jahre, gerechnet ab dem Ende des Jahres, in dem du ihn kaufst. Das genaue Datum steht als „gültig bis“ auf dem Gutschein.</p>" },
+    { "type": "text", "id": "faq_2_q", "label": "Frage 2", "default": "Wie löse ich den Gutschein ein?" },
+    { "type": "richtext", "id": "faq_2_a", "label": "Antwort 2", "default": "<p>Gib den Gutscheincode im Checkout auf motionsports.de in das Feld für Rabattcode oder Geschenkkarte ein – der Betrag wird sofort abgezogen.</p>" },
+    { "type": "text", "id": "faq_3_q", "label": "Frage 3", "default": "Was passiert mit dem Restguthaben?" },
+    { "type": "richtext", "id": "faq_3_a", "label": "Antwort 3", "default": "<p>Es bleibt auf dem Gutschein erhalten und lässt sich bei der nächsten Bestellung einlösen. Den aktuellen Stand siehst du unten unter „Guthaben prüfen“. Eine Barauszahlung ist nicht möglich.</p>" },
+    { "type": "text", "id": "faq_4_q", "label": "Frage 4", "default": "Wann kommt die Premium-Karte an?" },
+    { "type": "richtext", "id": "faq_4_a", "label": "Antwort 4", "default": "<p>Wir drucken die Karte nach der Zahlung und schicken sie per Post – meist ist sie in 3–6 Werktagen da. Das PDF bekommst du zusätzlich sofort per E-Mail.</p>" },
+    { "type": "text", "id": "faq_5_q", "label": "Frage 5", "default": "Wie ist die Premium-Karte gemacht?" },
+    { "type": "richtext", "id": "faq_5_a", "label": "Antwort 5", "default": "<p>Eine gefaltete Karte im Format 14 × 14 cm auf kräftigem 350-g-Papier, im Umschlag verschickt: vorne dein Motiv, innen deine Nachricht und der Gutscheincode.</p>" },
+    { "type": "text", "id": "faq_6_q", "label": "Frage 6", "default": "Kann ich den Gutschein zurückgeben?" },
+    { "type": "richtext", "id": "faq_6_a", "label": "Antwort 6", "default": "<p>Du kannst den Kauf innerhalb der gesetzlichen Widerrufsfrist von 14 Tagen widerrufen, solange der Gutschein noch nicht eingelöst ist. Schreib uns dazu einfach eine Nachricht – die Einzelheiten stehen in unserer Widerrufsbelehrung.</p>" },
+    { "type": "header", "content": "Guthaben prüfen" },
+    { "type": "text", "id": "balance_heading", "label": "Titel", "default": "Wie viel ist noch drauf?" },
+    { "type": "text", "id": "balance_text", "label": "Text", "default": "Gib den Code von deinem Gutschein ein – wir zeigen dir das aktuelle Restguthaben." }
+  ],
+  "presets": [{ "name": "Gutschein-Designer" }]
+}
+{% endschema %}

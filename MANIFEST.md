@@ -12,7 +12,131 @@ The widget talks to the already-deployed headless backend (configured via the
 
 ---
 
-## ⭐ Session update (2026-10-31 evening, latest) — Konfigurator: „Garage“ statt „Garage / Outdoor“
+## ⭐ Session update (2026-11-20, latest) — Geschenkgutscheine: Gutschein-Designer
+
+A new page **`/pages/gutschein`**: customers design a gift voucher in five steps — **1 Betrag → 2 Motiv → 3 Text →
+4 Versand → 5 Prüfen & kaufen** — with a progress line, a live preview (front / inside; landscape for the PDF, square
+for the card) and Mo's exact preview with „MUSTER“ in the last step, then pay in the normal Shopify checkout. The
+amounts are the variants of a new **regular** product (`designgutschein`); the „Premium-Karte per Post“ (a folded
+14 × 14 cm card on 350 g paper in an envelope, printed and posted by print.one) is a paid add-on product
+(`gutschein-premiumkarte`). On `orders/paid` Mo creates a real Shopify gift card with its own code, e-mails the voucher
+as a PDF and sends the card to print. Under the designer: „So funktioniert’s“, the FAQ and „Guthaben prüfen“
+(`#guthaben` — the QR code on every voucher points there). Backend: the gift voucher feature of the mo repo
+(`docs/GIFT_VOUCHERS.md`, storefront API `/api/gift-vouchers/*`); until Mo sells vouchers the page shows a friendly note
+with a link to the old gift card product. **Every other page behaves exactly as before.**
+**Upload these four files; three are new, the template once** (it is new as well, but after this first upload it is
+never uploaded again — it then holds the products and texts set in the theme editor).
+
+| Path | Status | Re-upload to Shopify? |
+| --- | --- | --- |
+| `sections/ms-gift-voucher.liquid` | **NEW** (the section „Gutschein-Designer“: hero, designer, „So funktioniert’s“, FAQ, „Guthaben prüfen“) | ✅ Yes — upload as a new file |
+| `assets/ms-gift-voucher.js` | **NEW** (page logic: steps, preview, photo upload, Mo's texts, draft + cart, balance check) | ✅ Yes — upload as a new file |
+| `assets/ms-gift-voucher.css` | **NEW** (page styles: the Konfigurator's Performance design, own `--gv-*` tokens) | ✅ Yes — upload as a new file |
+| `templates/page.gutschein-mo.json` | **NEW** (page template: the section with both products and the default texts) | ✅ Yes — upload **once** as a new file; later ❌ **never again** (it would reset the products and texts set in the theme editor) |
+| `tests/gift-voucher/*` | NEW (static Playwright harness + mocks of Mo and the cart — repo only) | ❌ **No — do NOT upload** |
+
+Shared theme files to hand-edit: **none** (the menu item and one Custom CSS selector change in the admin, steps 6–7).
+
+**After the upload (Shopify admin + theme editor):**
+1. Produkte → „Produkt hinzufügen“ — best **before** the upload, so the handles in the template resolve at once:
+   - **„Geschenkgutschein“, handle `designgutschein`** — a **regular product, NOT a gift card product** (a Shopify gift
+     card product would issue a second card of its own; the page refuses one and the theme editor says why). Option
+     „Betrag“ with the variants **25 / 50 / 75 / 100 / 150 / 200 / 250 €** (price = face value, variant titles „25 €“ …).
+     **No tax charged** („Steuern auf dieses Produkt erheben“ off — a multi-purpose voucher is taxed on redemption;
+     pending the tax advisor). **Not a physical product** (no shipping). Inventory not tracked. Product type
+     `Gutschein`. Sales channel Onlineshop on, status **unlisted** („Nicht gelistet“; or at least in no collection and
+     hidden from search) — it only appears on the page. Bought directly from its product URL it still works (Mo then
+     uses the default design without texts).
+   - **„Gutschein Premium-Karte“, handle `gutschein-premiumkarte`** — one variant, price e.g. **4,90 €**, **taxable**,
+     **not a physical product** (print.one prints and posts the card, not the shop — the checkout asks for no shipping
+     address; the page collects the card's address), inventory not tracked, product type `Gutschein`, unlisted like the
+     voucher.
+   - **Exclude both from all discounts** — otherwise a voucher can be bought below its value (the cart drawer has a code
+     field, the promotion bar advertises BLACK, the Konfigurator activates its code). Shopify cannot exclude single
+     products from a code: create a smart collection „Alle Produkte ohne Gutscheine“ (condition „Produkttyp ist nicht
+     gleich Gutschein“) and set every active discount (codes and automatic discounts, the newsletter welcome code
+     included) to „Gilt für: bestimmte Kollektionen“ → that collection.
+2. Upload the four files above in the code editor (section, both assets, the template).
+3. Onlineshop → Seiten → „Seite hinzufügen“: **„Gutschein“**, handle **`gutschein`** (URL `/pages/gutschein` — the QR
+   codes and Mo's mails point to it; Mo's `GIFT_VOUCHER_PAGE_URL` defaults to `https://www.motionsports.de/pages/gutschein`),
+   template **`page.gutschein-mo`**, SEO title and description. Any page also shows it with `?view=gutschein-mo`.
+4. Theme editor → page „Gutschein“ → section „Gutschein-Designer“: „Gutschein-Produkt (Beträge)“ = `designgutschein`
+   and „Premium-Karte (Zusatzprodukt)“ = `gutschein-premiumkarte` (pick both if empty — without the add-on the page
+   sells the PDF only); check the texts, „So funktioniert’s“ and the FAQ (validity, redemption, Widerruf — have the
+   lawyer read the FAQ); optional a hero image (4:3, ≥ 1600 px) instead of the three voucher cards. „Gutscheinbedingungen“
+   empty = Mo's terms link; „Link, falls der Designer nicht erreichbar ist“ empty = the old gift card product.
+5. Onlineshop → Seiten → „Seite hinzufügen“: **„Gutscheinbedingungen“**, handle **`gutscheinbedingungen`**, with the
+   voucher terms (validity, redemption, remaining balance, no cash payout, Widerruf, loss) — linked from the checkbox in
+   step 5 and printed on every voucher (`GIFT_VOUCHER_TERMS_URL`).
+6. Inhalte → Menüs → **`mega-menu-26`**: the existing item „Geschenkgutschein“ points to
+   `/products/motion-sports-geschenkgutschein` — **repoint it to the page „Gutschein“** (`/pages/gutschein`) instead of
+   adding a second item (the header has no room for one more).
+7. Theme settings → **Custom CSS**: change the selector `.side-menu-item[href="/products/motion-sports-geschenkgutschein"]`
+   to **`.side-menu-item[href="/pages/gutschein"]`** — otherwise the blue separator under the item in the mobile menu
+   disappears.
+8. Theme settings → AI Advisor stays on with the shared secret set (the page reads both itself, so it also works where
+   the chat widget is excluded). The old native gift card product `motion-sports-geschenkgutschein` stays untouched — it
+   is the fallback link; retire it only after pointing the fallback setting elsewhere.
+
+**What happens on the page**
+1. Hero: „Jetzt gestalten“ scrolls to the designer, „Guthaben prüfen“ to `#guthaben`; the three cards on the right take
+   Mo's real designs; the trust line shows the validity from Mo („3 Jahre gültig“).
+2. The page loads `GET {Backend-URL}/api/gift-vouchers/config` (designs, features, limits — amounts and the card price
+   come from the two products only). **1 Betrag:** amount tiles (50 € preselected). **2 Motiv:** Mo's designs with the
+   amount on them; „Eigenes Foto“ opens the file picker, the photo is scaled down in the browser (≤ 2400 px, JPEG ≤ 4 MB)
+   and uploaded to Mo with a progress bar. **3 Text:** Für / Von / Nachricht (40 / 40 / 350 characters, 8 lines,
+   counter); emoji are removed with a note (the voucher fonts cannot print them); „Mit Mo formulieren“: Anlass + Ton →
+   three „KI-Vorschlag“ cards — Mo never gets the names, the page fills `{{fuer}}` / `{{von}}` in (an empty salutation
+   is dropped; the sender is printed under the message anyway, so a closing „Dein {{von}}“ is not repeated).
+   **4 Versand:** „PDF per E-Mail“ (inklusive) or „Premium-Karte per Post“ (+ the add-on's price) with an address form,
+   Germany only, checked inline. **5 Prüfen & kaufen:** Mo's exact images with „MUSTER“ (front / inside), the summary
+   with the total and „Ich habe die Gutscheinbedingungen gelesen.“
+3. Progress line on top: done steps blue with a tick and clickable (so is the next open step); on phones the dots plus
+   „Schritt 2 von 5 · Motiv“. The live preview sits right and sticky (on phones above the step), landscape for the PDF,
+   square for the card; on phones a sticky bar (total + „Weiter“ / „Jetzt kaufen“) appears next to the Mo launcher while
+   the step's own buttons are out of view.
+4. „Jetzt kaufen“: `POST /api/gift-vouchers/drafts` → token → `/cart/add.js` with the voucher line (properties
+   „Gutschein für“, „Motiv“, „Versand“, private `_mo_gv`) and, for the card, the add-on line („Für Gutschein an“,
+   `_mo_gv`) → `/checkout`. „In den Warenkorb“: the same, then the cart drawer opens (`cart:refresh` + reload + show).
+5. The draft stays in this tab's sessionStorage (`ms-gv-draft`); names, messages and addresses never go into a URL.
+   Mo calls carry only the widget's headers (`x-ms-chat-key`, `x-ms-session`, `x-ms-locale`), never cookies.
+6. After payment Mo issues the gift card, e-mails the PDF (with a download link) and sends or queues the print job.
+7. „Guthaben prüfen“: `POST /api/gift-vouchers/balance` → remaining balance, original value, valid until (vouchers from
+   this designer; other gift cards show their balance in the checkout).
+8. Fallback — a note and „Zum Geschenkgutschein“: AI Advisor off or no secret, Mo unreachable (with „Erneut
+   versuchen“), sales switched off in Mo, no amount available, or a gift card product picked in the section.
+
+**KPI:** none from the page in v1 — vouchers and orders are counted in Mo (admin „Gutscheine“).
+
+**Switches / settings** (in Mo, not in the theme): `GIFT_VOUCHERS_ENABLED` (master switch, default off — off: the page
+shows the fallback, paid orders are recorded and held); Mo admin → **Gutscheine** → Einrichtung: „Verkauf im Shop“,
+„KI-Textvorschläge“, „Eigene Fotos“, „Druck mit eigenem Foto prüfen“; `GIFT_VOUCHER_PRINT_SENDS_APPROVED` (legal gate
+for print.one, default off — Premium-Karte jobs wait in the admin print queue) with `PRINTONE_*`;
+`GIFT_VOUCHER_PRODUCT_HANDLE` / `GIFT_VOUCHER_PRINT_PRODUCT_HANDLE` (default `designgutschein` /
+`gutschein-premiumkarte`), `GIFT_VOUCHER_VALIDITY_YEARS` (3), `GIFT_VOUCHER_PAGE_URL`, `GIFT_VOUCHER_TERMS_URL`,
+`GIFT_VOUCHER_ALLOW_TEST_ORDERS` (default off — test orders issue no real card). The Shopify app needs the scope
+`write_gift_cards`. Theme: the section settings above.
+
+**Live checks after upload:**
+1. `/pages/gutschein` while Mo's vouchers are still off: hero, the fallback note with „Zum Geschenkgutschein“, „So
+   funktioniert’s“, FAQ and „Guthaben prüfen“ render; the menu item leads there (desktop and the mobile menu with its
+   blue separator).
+2. With Mo on: the designer loads; pick 100 €, a design, „Eigenes Foto“ (a phone photo), texts with „Mit Mo
+   formulieren“, „Premium-Karte“ with an address; step 5 shows Mo's images with „MUSTER“ — back over the progress line
+   and forward again.
+3. „In den Warenkorb“ → the drawer shows „Geschenkgutschein“ (Gutschein für / Motiv / Versand) and „Gutschein
+   Premium-Karte“; a discount code (e.g. BLACK) does not reduce either.
+4. **Shopify test order:** set Mo's `GIFT_VOUCHER_ALLOW_TEST_ORDERS=true`, payments in test mode (or the Bogus
+   Gateway); buy a 25 € voucher as PDF with a test card → the buyer mail with the PDF arrives (at the latest after
+   `GIFT_VOUCHER_RISK_WAIT_MINUTES`, 30, while Shopify's fraud check is pending), Mo admin → Gutscheine lists it as
+   issued, the code is accepted in the checkout and „Guthaben prüfen“ shows 25,00 €. Then block the test card in Mo
+   („sperren“) and set `GIFT_VOUCHER_ALLOW_TEST_ORDERS` back to false.
+5. Phone (≈ 390 px): progress line „Schritt 1 von 5 · Betrag“, the sticky bar beside the Mo launcher, „Jetzt kaufen“ →
+   checkout with both lines.
+
+---
+
+## ⭐ Session update (2026-10-31 evening) — Konfigurator: „Garage“ statt „Garage / Outdoor“
 
 Client mail: motion sports has no outdoor equipment. The location option „Garage / Outdoor“ is now „Garage“
 (EN „Garage“; the stored value `garage` is unchanged). With the mo deploy of the same day Mo points out, when

@@ -1,0 +1,352 @@
+<!doctype html>
+<!--
+  Test harness for the Gutschein-Designer (sections/ms-gift-voucher.liquid,
+  assets/ms-gift-voucher.{js,css}). NOT uploaded to Shopify.
+
+  The markup inside <div id="shopify-section-template--gv__main"> is what the
+  section's Liquid renders for these sample settings: German storefront, Mo on
+  (data-mo="on", backend https://mo.example.test — mocked by mock-mo.js), the
+  template's default texts, no hero image, the voucher product with seven
+  variants (25 / 50 / 75 / 100 / 150 / 200 / 250 €) and the Premium-Karte
+  add-on (4,90 €). Keep it in sync with the Liquid when the section changes.
+
+  Query parameters (read by the small script after the section):
+    ?mo=off               data-mo="off" (Mo switched off in the theme)
+    ?scenario=unavailable config says available:false
+    ?scenario=down        config request fails (network)
+    ?scenario=preview-error | draft-error | slow
+    ?nolauncher=1         no Mo launcher on the page
+    ?locale=en            data-locale="en" (JS strings only)
+    ?design=1             theme-editor mode (data-design-mode)
+    ?products=soldout     every amount variant unavailable
+    ?products=giftcard    a Shopify gift card product picked (Liquid lists
+                          no amounts, "issue": "gift_card")
+  Run everything with:  node tests/gift-voucher/run.cjs   (see that file)
+-->
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Geschenkgutschein – Harness</title>
+  <link rel="stylesheet" href="theme-standin.css">
+  <script>
+    // layout/theme.liquid
+    window.routes = { cart_add_url: '/cart/add.js', cart_url: '/cart.js', cart_change_url: '/cart/change.js', cart_update_url: '/cart/update.js' };
+    window.Shopify = { routes: { root: '/' } };
+  </script>
+</head>
+<body>
+  <sticky-header>
+    <div class="hx-top">Kostenloser Versand ab 289 € · Showroom bei München</div>
+    <div class="hx-bar">
+      <span class="hx-logo">motion <b>sports</b></span>
+      <nav class="hx-nav"><span>Kraftstationen</span><span>Hanteln &amp; Gewichte</span><span>Cardio</span><span>Bodenschutz &amp; Zubehör</span><span>Home-Gym-Konfigurator</span><span>Geschenkgutschein</span></nav>
+      <span class="hx-icons"><span></span><span></span><span id="CartBubble"></span></span>
+    </div>
+  </sticky-header>
+
+  <main>
+    <div id="shopify-section-template--gv__main" class="shopify-section section-ms-gv">
+<link href="../../assets/ms-gift-voucher.css" rel="stylesheet" type="text/css" media="all" />
+<section
+  class="ms-gv"
+  id="ms-gv-template--gv__main"
+  data-ms-gv
+  data-locale="de"
+  data-mo="on"
+  data-api-base="https://mo.example.test"
+  data-key="harness-key-0000"
+  data-fallback-url="/products/motion-sports-geschenkgutschein"
+  data-terms-url=""
+>
+  <div class="ms-gv-hero">
+    <div class="ms-gv-wrap ms-gv-hero__inner">
+      <div class="ms-gv-hero__copy"><p class="ms-gv-kicker">Geschenkgutschein</p><h1 class="ms-gv-hero__title">Ein Geschenk, das bewegt.</h1><p class="ms-gv-hero__text">Gestalte deinen persönlichen Gutschein: Betrag wählen, Motiv aussuchen, ein paar liebe Worte dazu – sofort als PDF per E-Mail oder als Premium-Karte per Post.</p><div class="ms-gv-hero__actions">
+          <a class="ms-gv-btn ms-gv-btn--primary ms-gv-hero__cta" href="#ms-gv-start-template--gv__main" data-ms-gv-scroll>
+            <span>Jetzt gestalten</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="ms-gv-link ms-gv-hero__balance" href="#guthaben" data-ms-gv-scroll>Guthaben prüfen</a>
+        </div>
+        <ul class="ms-gv-trust" role="list">
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4.5 13.5H12L11 22l8.5-11.5H12z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span>Sofort gültig nach dem Kauf</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span data-ms-gv-validity>3 Jahre gültig</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m3.5 7 8.5 6.5L20.5 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span data-ms-gv-delivery-trust>Als PDF oder Premium-Karte</span>
+          </li>
+        </ul>
+      </div><div class="ms-gv-hero__visual"><div class="ms-gv-stack" data-ms-gv-stack aria-hidden="true">
+            <div class="ms-gv-stack__card ms-gv-stack__card--back" data-ms-gv-stack-card="2">
+              <div class="ms-gv-face ms-gv-face--front ms-gv-face--landscape ms-gv-face--css-navy">
+                <div class="ms-gv-face__content">
+                  <span class="ms-gv-face__brand">motion sports</span>
+                  <span class="ms-gv-face__eyebrow">Geschenkgutschein</span>
+                  <span class="ms-gv-face__value">100 €</span>
+                  <span class="ms-gv-face__url">motionsports.de</span>
+                </div>
+              </div>
+            </div>
+            <div class="ms-gv-stack__card ms-gv-stack__card--mid" data-ms-gv-stack-card="1">
+              <div class="ms-gv-face ms-gv-face--front ms-gv-face--landscape ms-gv-face--css-light">
+                <div class="ms-gv-face__content">
+                  <span class="ms-gv-face__brand">motion sports</span>
+                  <span class="ms-gv-face__eyebrow">Geschenkgutschein</span>
+                  <span class="ms-gv-face__value">25 €</span>
+                  <span class="ms-gv-face__url">motionsports.de</span>
+                </div>
+              </div>
+            </div>
+            <div class="ms-gv-stack__card ms-gv-stack__card--front" data-ms-gv-stack-card="0">
+              <div class="ms-gv-face ms-gv-face--front ms-gv-face--landscape ms-gv-face--css-dark">
+                <div class="ms-gv-face__content">
+                  <span class="ms-gv-face__brand">motion sports</span>
+                  <span class="ms-gv-face__eyebrow">Geschenkgutschein</span>
+                  <span class="ms-gv-face__value">50 €</span>
+                  <span class="ms-gv-face__for">für dich</span>
+                  <span class="ms-gv-face__url">motionsports.de</span>
+                </div>
+              </div>
+            </div>
+          </div></div>
+    </div>
+  </div>
+  <div class="ms-gv-stage" id="ms-gv-start-template--gv__main">
+    <div class="ms-gv-wrap">
+      <div class="ms-gv-head">
+        <p class="ms-gv-kicker ms-gv-kicker--caps">Gutschein-Designer</p>
+        <h2 class="ms-gv-display">In fünf Schritten zu deinem Gutschein.</h2>
+      </div>
+
+      <div class="ms-gv-designer" data-ms-gv-designer data-state="loading">
+        <nav class="ms-gv-progress" data-ms-gv-progress aria-label="Fortschritt">
+          <p class="ms-gv-progress__compact" data-ms-gv-progress-text aria-hidden="true">Schritt 1 von 5 · Betrag</p>
+          <ol class="ms-gv-steps" data-ms-gv-steps role="list"><li class="ms-gv-steps__item is-current" data-step="0" aria-current="step">
+                <button type="button" class="ms-gv-steps__btn" data-ms-gv-goto="0" disabled>
+                  <span class="ms-gv-steps__dot" aria-hidden="true">
+                    <span class="ms-gv-steps__num">1</span>
+                    <svg class="ms-gv-steps__check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                  <span class="ms-gv-steps__label">Betrag</span>
+                  <span class="ms-gv-sr" data-ms-gv-step-state></span>
+                </button>
+              </li><li class="ms-gv-steps__item" data-step="1">
+                <button type="button" class="ms-gv-steps__btn" data-ms-gv-goto="1" disabled>
+                  <span class="ms-gv-steps__dot" aria-hidden="true">
+                    <span class="ms-gv-steps__num">2</span>
+                    <svg class="ms-gv-steps__check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                  <span class="ms-gv-steps__label">Motiv</span>
+                  <span class="ms-gv-sr" data-ms-gv-step-state></span>
+                </button>
+              </li><li class="ms-gv-steps__item" data-step="2">
+                <button type="button" class="ms-gv-steps__btn" data-ms-gv-goto="2" disabled>
+                  <span class="ms-gv-steps__dot" aria-hidden="true">
+                    <span class="ms-gv-steps__num">3</span>
+                    <svg class="ms-gv-steps__check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                  <span class="ms-gv-steps__label">Text</span>
+                  <span class="ms-gv-sr" data-ms-gv-step-state></span>
+                </button>
+              </li><li class="ms-gv-steps__item" data-step="3">
+                <button type="button" class="ms-gv-steps__btn" data-ms-gv-goto="3" disabled>
+                  <span class="ms-gv-steps__dot" aria-hidden="true">
+                    <span class="ms-gv-steps__num">4</span>
+                    <svg class="ms-gv-steps__check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                  <span class="ms-gv-steps__label">Versand</span>
+                  <span class="ms-gv-sr" data-ms-gv-step-state></span>
+                </button>
+              </li><li class="ms-gv-steps__item" data-step="4">
+                <button type="button" class="ms-gv-steps__btn" data-ms-gv-goto="4" disabled>
+                  <span class="ms-gv-steps__dot" aria-hidden="true">
+                    <span class="ms-gv-steps__num">5</span>
+                    <svg class="ms-gv-steps__check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                  <span class="ms-gv-steps__label">Prüfen &amp; kaufen</span>
+                  <span class="ms-gv-sr" data-ms-gv-step-state></span>
+                </button>
+              </li></ol>
+        </nav>
+
+        <div class="ms-gv-grid">
+          <div class="ms-gv-main">
+            <div class="ms-gv-panels" data-ms-gv-panels>
+              <div class="ms-gv-loading" data-ms-gv-loading>
+                <span class="ms-gv-spinner" aria-hidden="true"></span>
+                <span>Designer wird geladen …</span>
+              </div>
+              <noscript><p class="ms-gv-note">Bitte aktiviere JavaScript, um deinen Gutschein zu gestalten.</p></noscript>
+            </div>
+            <div class="ms-gv-fallback" data-ms-gv-fallback hidden>
+              <span class="ms-gv-fallback__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v13M3 12.5h18M12 8c-1.5-3.5-6-4-6-1.2C6 8 9 8 12 8zm0 0c1.5-3.5 6-4 6-1.2C18 8 15 8 12 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+              </span>
+              <p class="ms-gv-fallback__title">Der Gutschein-Designer ist gerade nicht erreichbar.</p>
+              <p class="ms-gv-fallback__text">Unseren Geschenkgutschein bekommst du trotzdem – er wird im Checkout genauso eingelöst.</p>
+              <a class="ms-gv-btn ms-gv-btn--primary" href="/products/motion-sports-geschenkgutschein">Zum Geschenkgutschein</a><p class="ms-gv-fallback__editor" data-ms-gv-editor-hint data-harness-design-only hidden>Theme-Editor: Der Designer braucht den AI Advisor (Theme-Einstellungen), beide Produkte in diesem Abschnitt und die Gutscheine in Mo. In der Editor-Vorschau lehnt Mo die Vorschau-Domain ggf. ab – bitte auf der Live-Seite prüfen.</p></div>
+          </div>
+
+          <aside class="ms-gv-aside" aria-label="Vorschau">
+            <div class="ms-gv-preview" data-ms-gv-preview data-mode="live">
+              <div class="ms-gv-preview__head">
+                <p class="ms-gv-preview__title">
+                  <span>Vorschau</span>
+                  <span class="ms-gv-preview__badge" data-ms-gv-preview-badge>Live</span>
+                </p>
+                <div class="ms-gv-seg" role="group" aria-label="Seite">
+                  <button type="button" class="ms-gv-seg__btn" data-ms-gv-side="front" aria-pressed="true">Vorderseite</button>
+                  <button type="button" class="ms-gv-seg__btn" data-ms-gv-side="inside" aria-pressed="false">Innenseite</button>
+                </div>
+              </div>
+              <div class="ms-gv-preview__stage" data-ms-gv-stage data-layout="landscape" data-side="front" role="img" aria-label="Vorschau des Gutscheins">
+                <div class="ms-gv-preview__skeleton" aria-hidden="true"></div>
+              </div>
+              <p class="ms-gv-preview__note" data-ms-gv-preview-note>Vereinfachte Live-Vorschau – im letzten Schritt siehst du den exakten Gutschein.</p>
+            </div>
+            <div class="ms-gv-summary" data-ms-gv-summary hidden></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ms-gv-how">
+    <div class="ms-gv-wrap">
+      <div class="ms-gv-head">
+        <p class="ms-gv-kicker ms-gv-kicker--caps">So funktioniert’s</p>
+        <h2 class="ms-gv-display">In Minuten gestaltet, sofort einlösbar.</h2>
+      </div>
+      <ol class="ms-gv-how__list" role="list">
+        <li>
+          <span class="ms-gv-how__num" aria-hidden="true">1</span>
+          <p class="ms-gv-how__title">Gestalten</p>
+          <p class="ms-gv-how__text">Betrag, Motiv und deine persönliche Nachricht – auf Wunsch formuliert Mo mit.</p>
+        </li>
+        <li>
+          <span class="ms-gv-how__num" aria-hidden="true">2</span>
+          <p class="ms-gv-how__title">Bezahlen</p>
+          <p class="ms-gv-how__text">Ganz normal in unserem sicheren Checkout.</p>
+        </li>
+        <li>
+          <span class="ms-gv-how__num" aria-hidden="true">3</span>
+          <p class="ms-gv-how__title">Verschenken</p>
+          <p class="ms-gv-how__text">Das PDF kommt sofort per E-Mail, die Premium-Karte per Post. Der Code ist direkt einlösbar.</p>
+        </li>
+      </ol>
+    </div>
+  </div><div class="ms-gv-faq">
+      <div class="ms-gv-wrap ms-gv-faq__inner">
+        <div class="ms-gv-head">
+          <p class="ms-gv-kicker ms-gv-kicker--caps">Gut zu wissen</p>
+          <h2 class="ms-gv-display">Häufige Fragen</h2>
+        </div>
+        <div class="ms-gv-faq__list"><details class="ms-gv-faq__item">
+                <summary class="ms-gv-faq__q">
+                  <span>Wie lange ist der Gutschein gültig?</span>
+                  <svg class="ms-gv-faq__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="ms-gv-faq__a"><p>Drei Jahre, gerechnet ab dem Ende des Jahres, in dem du ihn kaufst. Das genaue Datum steht als „gültig bis“ auf dem Gutschein.</p></div>
+              </details><details class="ms-gv-faq__item">
+                <summary class="ms-gv-faq__q">
+                  <span>Wie löse ich den Gutschein ein?</span>
+                  <svg class="ms-gv-faq__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="ms-gv-faq__a"><p>Gib den Gutscheincode im Checkout auf motionsports.de in das Feld für Rabattcode oder Geschenkkarte ein – der Betrag wird sofort abgezogen.</p></div>
+              </details><details class="ms-gv-faq__item">
+                <summary class="ms-gv-faq__q">
+                  <span>Was passiert mit dem Restguthaben?</span>
+                  <svg class="ms-gv-faq__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="ms-gv-faq__a"><p>Es bleibt auf dem Gutschein erhalten und lässt sich bei der nächsten Bestellung einlösen. Den aktuellen Stand siehst du unten unter „Guthaben prüfen“. Eine Barauszahlung ist nicht möglich.</p></div>
+              </details><details class="ms-gv-faq__item">
+                <summary class="ms-gv-faq__q">
+                  <span>Wann kommt die Premium-Karte an?</span>
+                  <svg class="ms-gv-faq__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="ms-gv-faq__a"><p>Wir drucken die Karte nach der Zahlung und schicken sie per Post – meist ist sie in 3–6 Werktagen da. Das PDF bekommst du zusätzlich sofort per E-Mail.</p></div>
+              </details><details class="ms-gv-faq__item">
+                <summary class="ms-gv-faq__q">
+                  <span>Wie ist die Premium-Karte gemacht?</span>
+                  <svg class="ms-gv-faq__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="ms-gv-faq__a"><p>Eine gefaltete Karte im Format 14 × 14 cm auf kräftigem 350-g-Papier, im Umschlag verschickt: vorne dein Motiv, innen deine Nachricht und der Gutscheincode.</p></div>
+              </details><details class="ms-gv-faq__item">
+                <summary class="ms-gv-faq__q">
+                  <span>Kann ich den Gutschein zurückgeben?</span>
+                  <svg class="ms-gv-faq__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="ms-gv-faq__a"><p>Du kannst den Kauf innerhalb der gesetzlichen Widerrufsfrist von 14 Tagen widerrufen, solange der Gutschein noch nicht eingelöst ist. Schreib uns dazu einfach eine Nachricht – die Einzelheiten stehen in unserer Widerrufsbelehrung.</p></div>
+              </details></div>
+      </div>
+    </div><div class="ms-gv-balance" id="guthaben">
+    <div class="ms-gv-wrap">
+      <div class="ms-gv-balance__card">
+        <div class="ms-gv-balance__copy">
+          <p class="ms-gv-kicker ms-gv-kicker--caps">Guthaben prüfen</p>
+          <h2 class="ms-gv-display">Wie viel ist noch drauf?</h2><p class="ms-gv-balance__text">Gib den Code von deinem Gutschein ein – wir zeigen dir das aktuelle Restguthaben.</p></div>
+        <form class="ms-gv-balance__form" data-ms-gv-balance novalidate>
+          <label class="ms-gv-label" for="ms-gv-template--gv__main-code">Gutscheincode</label>
+          <div class="ms-gv-balance__row">
+            <input class="ms-gv-input ms-gv-balance__input" id="ms-gv-template--gv__main-code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="XXXX XXXX XXXX XXXX" aria-describedby="ms-gv-template--gv__main-code-hint" data-ms-gv-balance-input>
+            <button type="submit" class="ms-gv-btn ms-gv-btn--primary ms-gv-balance__btn" data-ms-gv-balance-btn>
+              <span data-ms-gv-balance-label>Guthaben prüfen</span>
+            </button>
+          </div>
+          <p class="ms-gv-hint" id="ms-gv-template--gv__main-code-hint">Für Gutscheine aus diesem Designer. Das Guthaben anderer Geschenkkarten siehst du im Checkout.</p>
+          <div class="ms-gv-balance__result" data-ms-gv-balance-result aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script type="application/json" data-ms-gv-products>
+    {
+      "currency": "EUR",
+      "issue": "",
+      "voucher": [{"id":47110000000001,"priceCents":2500,"title":"25 €","available":true},{"id":47110000000002,"priceCents":5000,"title":"50 €","available":true},{"id":47110000000003,"priceCents":7500,"title":"75 €","available":true},{"id":47110000000004,"priceCents":10000,"title":"100 €","available":true},{"id":47110000000005,"priceCents":15000,"title":"150 €","available":true},{"id":47110000000006,"priceCents":20000,"title":"200 €","available":true},{"id":47110000000007,"priceCents":25000,"title":"250 €","available":true}],
+      "print": {"id":47110000000099,"priceCents":490,"title":"Gutschein Premium-Karte","available":true}
+    }
+  </script>
+</section>
+    </div>
+  </main>
+
+  <footer class="hx-footer">Footer der Theme (Platzhalter) · Impressum · Datenschutz · AGB</footer>
+
+  <cart-modal></cart-modal>
+  <button type="button" class="ms-chat-launcher" aria-label="Mo öffnen (Platzhalter)" data-harness-launcher></button>
+
+  <script>
+    // Harness switches (query string) — applied before the page script runs.
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var root = document.querySelector('[data-ms-gv]');
+      if (q.get('mo') === 'off') root.setAttribute('data-mo', 'off');
+      if (q.get('locale') === 'en') root.setAttribute('data-locale', 'en');
+      if (q.get('design') === '1') {
+        root.setAttribute('data-design-mode', 'true');
+        var h = document.querySelector('[data-harness-design-only]');
+        if (h) h.hidden = false;
+      }
+      var pj = document.querySelector('script[data-ms-gv-products]');
+      if (q.get('products') === 'soldout' || q.get('products') === 'giftcard') {
+        var j = JSON.parse(pj.textContent);
+        if (q.get('products') === 'soldout') j.voucher.forEach(function (v) { v.available = false; });
+        else { j.voucher = []; j.issue = 'gift_card'; }
+        pj.textContent = JSON.stringify(j);
+      }
+      if (q.get('nolauncher') === '1') {
+        var l = document.querySelector('[data-harness-launcher]');
+        if (l) l.parentNode.removeChild(l);
+      }
+    })();
+  </script>
+  <script src="mock-mo.js"></script>
+  <script src="../../assets/ms-gift-voucher.js" defer></script>
+</body>
+</html>

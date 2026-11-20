@@ -1,0 +1,1376 @@
+/*
+ * Gutschein-Designer (sections/ms-gift-voucher.liquid). Every class under
+ * .ms-gv; the tokens are the page's own --gv-* — the values of the
+ * Konfigurator's --hgk-* (ms-home-gym-configurator.css), whose names belong
+ * to the Konfigurator and ms-chat-widget.css and stay untouched.
+ *
+ * Look: the Konfigurator's „Performance“ design — a blue kicker over a
+ * regular-weight headline, black pill buttons that turn blue and lift on
+ * hover, white cards with a 1 px #e5e5e5 border and a 7 px radius, bands
+ * alternating #ffffff / #f9f9f9, no divider lines, red only for errors
+ * (--gv-error: the line at a field, its outline, error text). Font: the
+ * theme's (Montserrat via --font-heading-family / --font-body-family); the
+ * message on the voucher in Caveat, loaded by the page JS from Mo's font
+ * route („MS GV Caveat“).
+ *
+ * Layout: mobile first, one column up to 989 px (preview above the steps, a
+ * sticky bar at the bottom that keeps clear of the Mo launcher); from 990 px
+ * — and while the designer itself is ≥ 860 px wide (container query: the Mo
+ * sidebar narrows the page by 436 px) — steps left, preview + summary right
+ * and sticky. The voucher faces size their text in container units of the
+ * face (cqw; the page JS sets --cq in px where those are missing).
+ */
+
+.ms-gv {
+  --gv-blue: #008ccb;
+  --gv-blue-tint: #eaf6fc;
+  --gv-blue-tint-2: #f5fafd;
+  --gv-blue-rgb: 0 140 203;
+  /* Blue text on --gv-blue-tint: 5:1 (--gv-blue is 3.4:1 there). */
+  --gv-blue-on-tint: #00709f;
+  --gv-ink: #111111;
+  --gv-text: #333333;
+  --gv-muted: #555555;
+  --gv-line: #e5e5e5;
+  /* A field's edge: 3:1 on white (WCAG 1.4.11). */
+  --gv-field-line: #949494;
+  --gv-soft: #f9f9f9;
+  --gv-band: #f9f9f9;
+  --gv-radius: 7px;
+  --gv-pill: 64px;
+  --gv-rule: #cfcfcf;
+  --gv-error: #b42318;
+  --gv-error-tint: #fdf3f2;
+  --gv-navy: #00577f;
+  --gv-display: #262626;
+  --gv-sticky-top: 112px;
+  --gv-pad: clamp(16px, 4vw, 48px);
+  --gv-heading-font: var(--font-heading-family, inherit);
+  --gv-body-font: var(--font-body-family, inherit);
+  font-family: var(--gv-body-font);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--gv-text);
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.ms-gv *,
+.ms-gv *::before,
+.ms-gv *::after { box-sizing: border-box; }
+.ms-gv p { margin: 0; }
+.ms-gv svg { flex: 0 0 auto; }
+.ms-gv [hidden] { display: none !important; }
+.ms-gv-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ms-gv-wrap {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-left: var(--gv-pad);
+  padding-right: var(--gv-pad);
+}
+
+/* Headings as on the homepage and the Konfigurator: a blue kicker over a
+   regular-weight headline. No rules under titles. */
+.ms-gv-kicker {
+  margin: 0;
+  font-size: clamp(0.95rem, 1.1vw, 1.05rem);
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  color: var(--gv-blue);
+}
+.ms-gv-kicker--caps { font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.ms-gv .ms-gv-display {
+  margin: 0;
+  font-family: var(--gv-heading-font);
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--gv-display);
+  text-wrap: balance;
+}
+.ms-gv-head { display: flex; flex-direction: column; gap: 8px; margin: 0 0 clamp(22px, 3vw, 34px); }
+
+/* ---------- Buttons ----------
+   The Konfigurator's pill: black, 2 px border, turns blue and lifts on hover
+   while a light shine sweeps over it (::before at z-index -1 inside the
+   button's own stacking context). Labels stay as written (the theme
+   uppercases its .button; button[aria-disabled] keeps full opacity here —
+   main.css fades it to 0.6). */
+.ms-gv-btn {
+  position: relative;
+  z-index: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 40px;
+  border: 2px solid #000;
+  border-radius: var(--gv-pill);
+  background: #000;
+  color: #fff;
+  font-family: var(--button-font-family, inherit);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: none;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 1;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+.ms-gv-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+.ms-gv-btn svg { width: 18px; height: 18px; transition: transform 0.3s ease; }
+.ms-gv-btn:hover:not(:disabled):not([aria-disabled="true"])::before { left: 100%; }
+.ms-gv-btn--primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: #008ccb;
+  border-color: #008ccb;
+  color: #fff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 140, 203, 0.3);
+}
+.ms-gv-btn--secondary { background: #fff; border-color: #000; color: #000; box-shadow: none; }
+.ms-gv-btn--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+.ms-gv-btn--sm { gap: 8px; padding: 9px 20px; font-size: 13px; letter-spacing: 1px; }
+.ms-gv-btn--sm svg { width: 17px; height: 17px; }
+.ms-gv-btn--quiet { border-color: #c4c4c4; color: var(--gv-text); }
+.ms-gv-btn:disabled,
+.ms-gv-btn[aria-disabled="true"] {
+  background: #e9e9e9;
+  border-color: #e9e9e9;
+  color: #6f6f6f;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+/* aria-disabled keeps the click (it shows what is open). */
+.ms-gv-btn[aria-disabled="true"] { cursor: pointer; opacity: 1; }
+.ms-gv-btn[aria-busy="true"] { cursor: progress; }
+.ms-gv-btn:disabled::before,
+.ms-gv-btn[aria-disabled="true"]::before { display: none; }
+.ms-gv-btn:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 3px; }
+.ms-gv-btn--next:hover:not(:disabled):not([aria-disabled="true"]) svg { transform: translateX(3px); }
+.ms-gv-btn--back:hover:not(:disabled) svg { transform: translateX(-3px); }
+.ms-gv-link {
+  display: inline;
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--gv-blue-on-tint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.ms-gv-link:hover { color: var(--gv-ink); }
+.ms-gv-link:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 2px; border-radius: 2px; }
+.ms-gv-link--inline { padding: 0; font-size: inherit; }
+
+/* ---------- Hero ----------
+   White: copy left (kicker, headline, text, CTA + „Guthaben prüfen“, three
+   trust points), from 990 px the visual right — a fan of three voucher
+   cards (the real designs from Mo; brand-coloured cards before / without
+   them) or the theme-editor image. Phones: the cards under the copy. */
+.ms-gv-hero { background: #fff; overflow: hidden; }
+.ms-gv-hero__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: center;
+  padding-top: clamp(32px, 5vw, 76px);
+  padding-bottom: clamp(36px, 5vw, 84px);
+}
+.ms-gv-hero__copy { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; min-width: 0; }
+.ms-gv .ms-gv-hero__title {
+  margin: 0;
+  max-width: 100%;
+  font-family: var(--gv-heading-font);
+  font-size: clamp(2.1rem, 6.6vw, 3.6rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--gv-display);
+  text-wrap: balance;
+}
+.ms-gv-hero__text { max-width: 52ch; font-size: clamp(1rem, 1.25vw, 1.1rem); line-height: 1.65; color: var(--gv-text); text-wrap: pretty; }
+.ms-gv-hero__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 26px; margin-top: 8px; }
+.ms-gv-hero__cta:hover svg { transform: translateY(2px); }
+.ms-gv-hero__balance { font-size: 0.92rem; }
+.ms-gv-trust { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 12px 0 0; padding: 0; list-style: none; }
+.ms-gv-trust li { display: inline-flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 600; color: var(--gv-ink); }
+.ms-gv-trust svg { width: 20px; height: 20px; color: var(--gv-blue); }
+
+.ms-gv-hero__visual { position: relative; min-width: 0; }
+.ms-gv-hero__media { overflow: hidden; aspect-ratio: 4 / 3; border-radius: var(--gv-radius); background: var(--gv-soft); }
+.ms-gv .ms-gv-hero__img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+.ms-gv-stack { position: relative; width: 100%; max-width: 560px; margin: 0 auto; aspect-ratio: 16 / 11.5; }
+.ms-gv-stack__card { position: absolute; display: block; width: 70%; transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.ms-gv-stack__card .ms-gv-face { width: 100%; }
+.ms-gv-stack__card--back { left: 1%; top: 3%; transform: rotate(-8deg); }
+.ms-gv-stack__card--mid { right: 0; top: 9%; transform: rotate(7deg); }
+.ms-gv-stack__card--front { left: 13%; bottom: 2%; z-index: 2; transform: rotate(-1.5deg); }
+.ms-gv-stack__card--front .ms-gv-face { box-shadow: 0 2px 4px rgb(0 0 0 / 10%), 0 30px 60px -22px rgb(16 24 32 / 55%); }
+@media (hover: hover) {
+  .ms-gv-stack:hover .ms-gv-stack__card--back { transform: rotate(-10deg) translate(-2%, -2%); }
+  .ms-gv-stack:hover .ms-gv-stack__card--mid { transform: rotate(9deg) translate(2%, -1%); }
+  .ms-gv-stack:hover .ms-gv-stack__card--front { transform: rotate(-1deg) translateY(-2%); }
+}
+
+/* ---------- Stage (the designer band) ---------- */
+.ms-gv-stage {
+  background: var(--gv-band);
+  padding: clamp(36px, 5vw, 76px) 0 clamp(48px, 6vw, 96px);
+  scroll-margin-top: var(--gv-sticky-top);
+}
+.ms-gv-designer {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ---------- Progress line ----------
+   Five numbered dots joined by a line: upcoming = grey, current = outlined
+   blue with a soft ring, done = filled blue with a tick (clickable, back
+   or forward over done steps; so is the next open step once every step
+   before it is done). The line from a dot to the next one — one stroke per
+   gap, drawn by the step on its left — turns blue once that step is done.
+   A narrow card (< 560 px) shows only the dots and „Schritt 2 von 5 ·
+   Motiv“ above them; the labels stay for screen readers. */
+.ms-gv-progress {
+  container-type: inline-size;
+  padding: 18px clamp(14px, 2.4vw, 28px) 16px;
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  scroll-margin-top: var(--gv-sticky-top);
+}
+.ms-gv-progress__compact { display: none; margin: 0 0 12px; font-size: 0.92rem; font-weight: 700; color: var(--gv-ink); }
+.ms-gv-steps { display: flex; margin: 0; padding: 0; list-style: none; }
+.ms-gv-steps__item { position: relative; display: flex; flex: 1 1 0; justify-content: center; min-width: 0; }
+.ms-gv-steps__item::after {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: calc(50% + 24px);
+  right: calc(-50% + 24px);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--gv-rule);
+  transition: background-color 0.25s ease;
+}
+.ms-gv-steps__item:last-child::after { display: none; }
+.ms-gv-steps__item.is-filled::after { background: var(--gv-blue); }
+.ms-gv .ms-gv-steps__btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--gv-muted);
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+  opacity: 1;
+}
+.ms-gv .ms-gv-steps__btn:disabled { cursor: default; color: var(--gv-muted); }
+.ms-gv-steps__btn:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 4px; }
+.ms-gv-steps__dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--gv-rule);
+  border-radius: 999px;
+  background: #fff;
+  color: #6f6f6f;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+.ms-gv-steps__check { display: none; width: 15px; height: 15px; }
+.ms-gv-steps__label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gv-muted);
+}
+.ms-gv-steps__item.is-current .ms-gv-steps__dot {
+  border-color: var(--gv-blue);
+  color: var(--gv-blue);
+  box-shadow: 0 0 0 4px var(--gv-blue-tint);
+}
+.ms-gv-steps__item.is-current .ms-gv-steps__label { color: var(--gv-ink); font-weight: 700; }
+.ms-gv-steps__item.is-done .ms-gv-steps__dot { border-color: var(--gv-blue); background: var(--gv-blue); color: #fff; }
+.ms-gv-steps__item.is-done .ms-gv-steps__num { display: none; }
+.ms-gv-steps__item.is-done .ms-gv-steps__check { display: block; }
+.ms-gv-steps__item.is-done .ms-gv-steps__label { color: var(--gv-ink); }
+/* The next open step (clickable): a blue number, otherwise still upcoming. */
+.ms-gv-steps__item.is-next .ms-gv-steps__dot { border-color: rgb(var(--gv-blue-rgb) / 45%); color: var(--gv-blue-on-tint); }
+.ms-gv-steps__item.is-next .ms-gv-steps__label { color: var(--gv-text); }
+.ms-gv-steps__btn:not(:disabled):hover .ms-gv-steps__dot { box-shadow: 0 0 0 4px var(--gv-blue-tint); }
+.ms-gv-steps__btn:not(:disabled):hover .ms-gv-steps__label { text-decoration: underline; text-underline-offset: 3px; }
+@container (max-width: 559.98px) {
+  .ms-gv-progress__compact { display: block; }
+  .ms-gv-steps__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    border: 0;
+  }
+  /* A 44 px touch target around the 32 px dot; the line stays at its centre. */
+  .ms-gv .ms-gv-steps__btn { margin: -6px 0; padding: 6px; }
+}
+
+/* ---------- Grid: steps + preview ---------- */
+.ms-gv-grid {
+  --gv-cols: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.ms-gv-main { min-width: 0; }
+.ms-gv-aside { order: -1; min-width: 0; }
+@media (min-width: 990px) {
+  @container (min-width: 860px) {
+    .ms-gv-grid {
+      --gv-cols: 2;
+      grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+      gap: clamp(24px, 2.6vw, 40px);
+    }
+    .ms-gv-aside { order: 0; position: sticky; top: var(--gv-sticky-top); }
+    /* More specific than the base rule further down (display: none). */
+    .ms-gv .ms-gv-aside .ms-gv-summary { display: block; }
+  }
+}
+.ms-gv-designer[data-state="unavailable"] .ms-gv-grid { grid-template-columns: minmax(0, 1fr); }
+.ms-gv-designer[data-state="unavailable"] .ms-gv-progress,
+.ms-gv-designer[data-state="unavailable"] .ms-gv-aside,
+.ms-gv-designer[data-state="unavailable"] .ms-gv-panels { display: none; }
+
+.ms-gv-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 460px;
+  padding: 24px;
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  color: var(--gv-muted);
+  font-size: 0.92rem;
+}
+.ms-gv-note { padding: 16px; border: 1px solid var(--gv-line); border-radius: var(--gv-radius); background: #fff; }
+.ms-gv-spinner {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 2.5px solid var(--gv-blue-tint);
+  border-top-color: var(--gv-blue);
+  border-radius: 999px;
+  animation: ms-gv-spin 0.8s linear infinite;
+}
+.ms-gv-spinner--sm { width: 16px; height: 16px; border-width: 2px; }
+@keyframes ms-gv-spin { to { transform: rotate(360deg); } }
+
+/* ---------- Fallback (no Mo, no config, sales off) ---------- */
+.ms-gv-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: clamp(22px, 3vw, 40px);
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+}
+.ms-gv-fallback__icon { display: grid; place-items: center; width: 54px; height: 54px; margin-bottom: 4px; border-radius: 999px; background: var(--gv-blue-tint); color: var(--gv-blue); }
+.ms-gv-fallback__icon svg { width: 27px; height: 27px; }
+.ms-gv .ms-gv-fallback__title { font-family: var(--gv-heading-font); font-size: clamp(1.2rem, 2vw, 1.45rem); font-weight: 700; line-height: 1.25; color: var(--gv-ink); }
+.ms-gv-fallback__text { max-width: 62ch; line-height: 1.6; color: var(--gv-text); }
+.ms-gv-fallback > .ms-gv-btn,
+.ms-gv-fallback__actions { margin-top: 8px; }
+.ms-gv-fallback__actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.ms-gv .ms-gv-fallback__editor { margin-top: 8px; padding: 10px 12px; border-radius: 6px; background: var(--gv-soft); font-size: 0.82rem; line-height: 1.5; color: var(--gv-muted); }
+/* On a wide band the note stands centred (one short message). */
+@container (min-width: 720px) {
+  .ms-gv-fallback { align-items: center; padding: 48px 40px 52px; text-align: center; }
+  .ms-gv-fallback__actions { justify-content: center; }
+  .ms-gv .ms-gv-fallback__editor { max-width: 62ch; }
+}
+
+/* ---------- Step panels ---------- */
+.ms-gv-panels { display: flex; flex-direction: column; gap: 20px; }
+.ms-gv-panel {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: clamp(18px, 2.6vw, 32px);
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  animation: ms-gv-in 0.35s ease;
+}
+@keyframes ms-gv-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.ms-gv-panel__head { display: flex; flex-direction: column; gap: 8px; }
+.ms-gv .ms-gv-panel__title {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--gv-heading-font);
+  font-weight: 400;
+  text-transform: none;
+  outline: none;
+}
+.ms-gv-panel__title:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 6px; border-radius: 4px; }
+.ms-gv-panel__kicker { font-family: var(--gv-body-font); font-size: 0.74rem; font-weight: 700; line-height: 1.3; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gv-blue-on-tint); }
+.ms-gv-panel__heading { font-size: clamp(1.3rem, 2.2vw, 1.65rem); font-weight: 700; line-height: 1.2; letter-spacing: -0.015em; color: var(--gv-ink); text-wrap: balance; }
+.ms-gv .ms-gv-panel__sub { font-size: 0.95rem; line-height: 1.55; color: var(--gv-muted); text-wrap: pretty; }
+.ms-gv-panel__body { display: flex; flex-direction: column; gap: 22px; }
+.ms-gv-panel__foot { display: flex; flex-direction: column; gap: 10px; }
+.ms-gv-panel__foot:empty { display: none; }
+.ms-gv-panel__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.ms-gv-btn--back { padding-left: 26px; padding-right: 30px; }
+.ms-gv-btn--next { min-width: min(100%, 270px); margin-left: auto; }
+.ms-gv .ms-gv-panel__hint { min-height: 1.2em; font-size: 0.82rem; line-height: 1.4; color: var(--gv-muted); text-align: right; }
+@container (max-width: 479.98px) {
+  .ms-gv-panel__actions { flex-direction: column-reverse; align-items: stretch; }
+  .ms-gv-btn--next { margin-left: 0; }
+  .ms-gv .ms-gv-panel__hint { text-align: center; }
+}
+
+/* ---------- Tiles (amounts, designs, delivery) ----------
+   The Konfigurator's .ms-hgk-opt: white, 1 px border; hover a light blue;
+   selected (aria-pressed) a blue border with an inset ring, the tint and a
+   tick badge. */
+.ms-gv .ms-gv-tile {
+  position: relative;
+  display: flex;
+  margin: 0;
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  color: var(--gv-ink);
+  font: inherit;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  cursor: pointer;
+  opacity: 1;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ms-gv .ms-gv-tile:hover:not(:disabled) { border-color: rgb(var(--gv-blue-rgb) / 55%); background: var(--gv-blue-tint-2); }
+.ms-gv-tile:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 2px; }
+.ms-gv .ms-gv-tile[aria-pressed="true"],
+.ms-gv .ms-gv-tile[aria-pressed="true"]:hover {
+  border-color: var(--gv-blue);
+  box-shadow: inset 0 0 0 1px var(--gv-blue);
+  background: var(--gv-blue-tint);
+}
+.ms-gv-tile[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--gv-blue) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 6 9 17l-5-5' fill='none' stroke='%23ffffff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
+  box-shadow: 0 0 0 2px #fff;
+}
+.ms-gv .ms-gv-tile:disabled { background: #fafafa; color: #8a8a8a; cursor: not-allowed; }
+
+.ms-gv-block { display: flex; flex-direction: column; gap: 12px; min-width: 0; scroll-margin-top: var(--gv-sticky-top); }
+.ms-gv-amounts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ms-gv-amount { flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 80px; padding: 14px 6px; text-align: center; }
+.ms-gv-amount__value { font-family: var(--gv-heading-font); font-size: clamp(1.1rem, 1.6vw, 1.45rem); font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ms-gv-amount__note { font-size: 0.7rem; font-weight: 600; color: #8a8a8a; }
+@container (min-width: 560px) {
+  .ms-gv-amount { min-height: 92px; }
+  .ms-gv-amount__value { font-size: 1.5rem; }
+}
+.ms-gv-facts { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; padding: 0; list-style: none; }
+.ms-gv-facts li { display: inline-flex; align-items: center; gap: 7px; font-size: 0.85rem; color: var(--gv-text); }
+.ms-gv-facts svg { width: 16px; height: 16px; color: var(--gv-blue); stroke-width: 2.4; }
+.ms-gv-callout { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--gv-radius); background: var(--gv-blue-tint); color: var(--gv-ink); font-size: 0.86rem; line-height: 1.5; }
+.ms-gv-callout svg { width: 18px; height: 18px; margin-top: 1px; color: var(--gv-blue-on-tint); }
+
+/* Designs: the real face (amount, design, photo) in each tile. */
+.ms-gv-designs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@container (min-width: 560px) {
+  .ms-gv-designs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+}
+.ms-gv-design { flex-direction: column; gap: 10px; padding: 8px 8px 12px; }
+.ms-gv-design__media { position: relative; display: block; }
+.ms-gv-design .ms-gv-face { box-shadow: 0 1px 2px rgb(0 0 0 / 10%); }
+.ms-gv-tile.ms-gv-design[aria-pressed="true"]::after { top: 14px; right: 14px; }
+.ms-gv-design__cam {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 94%);
+  color: var(--gv-ink);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 18%);
+}
+.ms-gv-design__cam svg { width: 17px; height: 17px; }
+.ms-gv-design__text { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 0 4px; }
+.ms-gv-design__name { font-size: 0.92rem; font-weight: 700; line-height: 1.3; color: var(--gv-ink); }
+.ms-gv-design__desc {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--gv-muted);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.ms-gv-tile[aria-pressed="true"] .ms-gv-design__desc { color: var(--gv-text); }
+
+/* The photo box („Eigenes Foto“). */
+.ms-gv-upload {
+  padding: 18px;
+  border: 1.5px dashed rgb(var(--gv-blue-rgb) / 45%);
+  border-radius: var(--gv-radius);
+  background: var(--gv-blue-tint-2);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ms-gv-upload.is-drag { border-color: var(--gv-blue); background: var(--gv-blue-tint); }
+.ms-gv-upload.is-invalid { border-color: var(--gv-error); border-style: solid; }
+.ms-gv-upload__empty,
+.ms-gv-upload__done { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 16px; }
+.ms-gv-upload__icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 999px; background: #fff; color: var(--gv-blue); box-shadow: 0 1px 3px rgb(0 0 0 / 10%); }
+.ms-gv-upload__icon svg { width: 24px; height: 24px; }
+.ms-gv-upload__text { display: flex; flex: 1 1 220px; flex-direction: column; gap: 4px; min-width: 0; }
+.ms-gv .ms-gv-upload__title { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: 700; color: var(--gv-ink); }
+.ms-gv-upload__ok { width: 18px; height: 18px; color: var(--gv-blue); stroke-width: 2.6; }
+.ms-gv .ms-gv-upload__thumb { display: block; width: 104px; height: 78px; max-width: none; object-fit: cover; border-radius: 5px; box-shadow: 0 1px 3px rgb(0 0 0 / 16%); }
+.ms-gv-upload__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ms-gv-upload__work { display: flex; flex-direction: column; gap: 10px; }
+.ms-gv-upload__error { margin-top: 12px; }
+.ms-gv-progressbar { position: relative; display: block; height: 6px; overflow: hidden; border-radius: 999px; background: #dbe7ee; }
+.ms-gv-progressbar__fill { display: block; width: 4%; height: 100%; border-radius: inherit; background: var(--gv-blue); transition: width 0.2s ease; }
+.ms-gv-progressbar.is-indeterminate .ms-gv-progressbar__fill { width: 35% !important; animation: ms-gv-indet 1.1s ease-in-out infinite; }
+@keyframes ms-gv-indet {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
+}
+
+/* ---------- Fields ---------- */
+.ms-gv-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+@container (min-width: 520px) {
+  .ms-gv-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.ms-gv-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; scroll-margin-top: var(--gv-sticky-top); }
+.ms-gv .ms-gv-label { display: block; margin: 0; font-size: 0.86rem; font-weight: 700; line-height: 1.35; letter-spacing: normal; text-transform: none; color: var(--gv-ink); }
+.ms-gv-label__opt { font-size: 0.76rem; font-weight: 500; color: var(--gv-muted); }
+.ms-gv .ms-gv-input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--gv-field-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  color: var(--gv-ink);
+  font: inherit;
+  /* 16 px: iOS does not zoom into the field. */
+  font-size: 16px;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ms-gv .ms-gv-input--area { min-height: 148px; line-height: 1.55; resize: vertical; }
+.ms-gv-input::placeholder { color: #6b6b6b; opacity: 1; }
+.ms-gv .ms-gv-input:hover { border-color: #6b6b6b; }
+.ms-gv .ms-gv-input:focus { border-color: var(--gv-blue); outline: 2px solid var(--gv-blue); outline-offset: 1px; }
+.ms-gv .ms-gv-input:disabled { background: #f4f4f4; color: #8a8a8a; cursor: not-allowed; }
+.ms-gv-field.is-invalid .ms-gv-input,
+.ms-gv .ms-gv-input.is-invalid { border-color: var(--gv-error); box-shadow: 0 0 0 1px var(--gv-error); }
+.ms-gv .ms-gv-field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--gv-error);
+}
+.ms-gv-field__error svg { width: 16px; height: 16px; margin-top: 1px; }
+.ms-gv-field__after { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ms-gv .ms-gv-hint { font-size: 0.8rem; line-height: 1.45; color: var(--gv-muted); }
+.ms-gv .ms-gv-count { margin-left: auto; font-size: 0.78rem; color: var(--gv-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ms-gv .ms-gv-count.is-max { font-weight: 700; color: var(--gv-ink); }
+.ms-gv .ms-gv-field__warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  background: var(--gv-blue-tint);
+  color: var(--gv-ink);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.ms-gv-field__warn svg { width: 16px; height: 16px; margin-top: 1px; color: var(--gv-blue-on-tint); }
+.ms-gv .ms-gv-select { padding-right: 40px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6' fill='none' stroke='%23111' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") right 14px center / 16px no-repeat; }
+
+/* „Mit Mo formulieren“. */
+.ms-gv-ai { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.ms-gv-ai__toggle svg { color: var(--gv-blue); }
+.ms-gv-ai__toggle:hover:not(:disabled) svg { color: #fff; }
+.ms-gv-ai__toggle[aria-expanded="true"] { background: var(--gv-blue-tint); border-color: var(--gv-blue); color: var(--gv-ink); }
+.ms-gv-ai__body {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgb(var(--gv-blue-rgb) / 25%);
+  border-radius: var(--gv-radius);
+  background: var(--gv-blue-tint-2);
+  animation: ms-gv-in 0.3s ease;
+}
+.ms-gv-ai__head { display: flex; flex-direction: column; gap: 6px; }
+.ms-gv .ms-gv-ai__title { font-family: var(--gv-heading-font); font-size: 1.02rem; font-weight: 700; color: var(--gv-ink); }
+.ms-gv .ms-gv-ai__privacy { display: flex; align-items: flex-start; gap: 7px; }
+.ms-gv-ai__privacy svg { width: 16px; height: 16px; margin-top: 1px; color: var(--gv-blue-on-tint); }
+.ms-gv-chipgroup { display: flex; flex-direction: column; gap: 8px; }
+.ms-gv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ms-gv .ms-gv-chip {
+  margin: 0;
+  padding: 9px 15px;
+  border: 1px solid #c9d3da;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--gv-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ms-gv .ms-gv-chip:hover { border-color: rgb(var(--gv-blue-rgb) / 60%); }
+.ms-gv .ms-gv-chip[aria-pressed="true"] { border-color: var(--gv-blue); background: var(--gv-blue); color: #fff; }
+.ms-gv-chip:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 2px; }
+.ms-gv-ai__gorow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.ms-gv-ai__go svg { color: #fff; }
+.ms-gv-ai__list { display: flex; flex-direction: column; gap: 10px; }
+.ms-gv-ai__list:empty { display: none; }
+.ms-gv-sugg {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ms-gv-sugg.is-applied { border-color: var(--gv-blue); box-shadow: inset 0 0 0 1px var(--gv-blue); }
+.ms-gv-sugg__top { display: flex; align-items: center; gap: 8px; }
+.ms-gv-sugg__tag { display: inline-flex; padding: 3px 9px; border-radius: 999px; background: var(--gv-blue-tint); color: var(--gv-blue-on-tint); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.ms-gv .ms-gv-sugg__text { font-size: 0.93rem; line-height: 1.6; white-space: pre-line; color: var(--gv-ink); overflow-wrap: anywhere; }
+.ms-gv-sugg__use { align-self: flex-start; }
+.ms-gv-sugg__use svg { color: var(--gv-blue); }
+.ms-gv-sugg--skeleton { gap: 9px; }
+.ms-gv-skel {
+  display: block;
+  height: 11px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #eef1f3 0%, #f8fafb 40%, #eef1f3 80%);
+  background-size: 200% 100%;
+  animation: ms-gv-shimmer 1.2s linear infinite;
+}
+.ms-gv-skel--tag { width: 96px; height: 18px; border-radius: 999px; }
+.ms-gv-skel--short { width: 58%; }
+@keyframes ms-gv-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* ---------- Delivery ---------- */
+.ms-gv-options { display: flex; flex-direction: column; gap: 12px; }
+.ms-gv-option { align-items: center; gap: 16px; min-height: 92px; padding: 18px 18px 18px 16px; }
+.ms-gv-option__icon { display: grid; flex: 0 0 auto; place-items: center; width: 48px; height: 48px; border-radius: 999px; background: var(--gv-blue-tint); color: var(--gv-blue); transition: background-color 0.15s ease, color 0.15s ease; }
+.ms-gv-option__icon svg { width: 24px; height: 24px; }
+.ms-gv-tile[aria-pressed="true"] .ms-gv-option__icon { background: var(--gv-blue); color: #fff; }
+.ms-gv-tile.ms-gv-option[aria-pressed="true"]::after { display: none; }
+.ms-gv-option__text { display: flex; flex: 1 1 auto; flex-direction: column; gap: 4px; min-width: 0; }
+.ms-gv-option__title { font-family: var(--gv-heading-font); font-size: 1.02rem; font-weight: 700; line-height: 1.3; color: var(--gv-ink); }
+.ms-gv-option__desc { font-size: 0.84rem; line-height: 1.5; color: var(--gv-muted); }
+.ms-gv-tile[aria-pressed="true"] .ms-gv-option__desc { color: var(--gv-text); }
+.ms-gv-option__price { flex: 0 0 auto; align-self: flex-start; margin-top: 2px; font-size: 1rem; font-weight: 700; color: var(--gv-ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ms-gv-option__price--incl { padding: 4px 10px; border-radius: 999px; background: var(--gv-blue-tint); color: var(--gv-blue-on-tint); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.ms-gv-tile[aria-pressed="true"] .ms-gv-option__price--incl { background: #fff; }
+@container (max-width: 399.98px) {
+  .ms-gv-option { flex-wrap: wrap; align-items: flex-start; padding: 16px; }
+  .ms-gv-option__text { flex-basis: calc(100% - 64px); }
+  .ms-gv-option__price { margin-left: 64px; }
+}
+
+.ms-gv-address { display: flex; flex-direction: column; gap: 18px; padding: clamp(16px, 2.2vw, 22px); border-radius: var(--gv-radius); background: var(--gv-soft); animation: ms-gv-in 0.3s ease; }
+.ms-gv-address__head { display: flex; flex-direction: column; gap: 4px; }
+.ms-gv .ms-gv-address__title { font-family: var(--gv-heading-font); font-size: 1.02rem; font-weight: 700; color: var(--gv-ink); }
+.ms-gv-address__grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px 14px; }
+.ms-gv-field--full { grid-column: 1 / -1; }
+.ms-gv-field--postal { grid-column: span 2; }
+.ms-gv-field--city { grid-column: span 4; }
+/* A narrow panel (phones): PLZ and Ort one under the other, so a message
+   under the short PLZ field has the whole width. */
+@container (max-width: 479.98px) {
+  .ms-gv-field--postal,
+  .ms-gv-field--city { grid-column: 1 / -1; }
+  .ms-gv .ms-gv-field--postal .ms-gv-input { max-width: 11em; }
+}
+.ms-gv .ms-gv-fixed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  font-weight: 600;
+  color: var(--gv-ink);
+}
+.ms-gv-fixed__note { font-size: 0.78rem; font-weight: 500; color: var(--gv-muted); }
+
+/* ---------- Review (step 5) ---------- */
+.ms-gv .ms-gv-review { display: flex; flex-direction: column; gap: 0; margin: 0; }
+.ms-gv-review__row { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: baseline; gap: 4px 16px; padding: 9px 0; }
+.ms-gv-review__label { margin: 0; font-size: 0.86rem; color: var(--gv-muted); }
+.ms-gv .ms-gv-review__value { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; margin: 0; }
+.ms-gv-review__text { min-width: 0; font-weight: 600; color: var(--gv-ink); overflow-wrap: anywhere; white-space: pre-line; }
+.ms-gv-review__row--msg .ms-gv-review__text { display: -webkit-box; overflow: hidden; font-weight: 500; -webkit-line-clamp: 3; -webkit-box-orient: vertical; white-space: normal; }
+.ms-gv-review__row--ship .ms-gv-review__text { line-height: 1.5; }
+.ms-gv .ms-gv-review__edit { flex: 0 0 auto; padding: 0; font-size: 0.8rem; }
+.ms-gv-review__row--total {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: var(--gv-radius);
+  background: var(--gv-blue-tint-2);
+}
+.ms-gv-review__row--total .ms-gv-review__label { font-size: 1rem; font-weight: 700; color: var(--gv-ink); }
+.ms-gv .ms-gv-review__row--total .ms-gv-review__value { font-family: var(--gv-heading-font); font-size: 1.35rem; font-weight: 700; color: var(--gv-ink); font-variant-numeric: tabular-nums; }
+@container (max-width: 419.98px) {
+  .ms-gv-review__row:not(.ms-gv-review__row--total) { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+.ms-gv-review__terms {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 6px 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ms-gv-review__terms.is-invalid { border-color: var(--gv-error); box-shadow: 0 0 0 1px var(--gv-error); }
+.ms-gv .ms-gv-check__input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--gv-blue); cursor: pointer; }
+.ms-gv-check__input:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 2px; }
+.ms-gv-check { font-size: 0.93rem; line-height: 1.5; color: var(--gv-ink); cursor: pointer; }
+.ms-gv-review__terms .ms-gv-field__error { grid-column: 2; }
+.ms-gv-buy { display: flex; flex-wrap: wrap; gap: 12px; }
+.ms-gv-buy__now { flex: 1 1 220px; }
+.ms-gv-buy__cart { flex: 1 1 200px; }
+.ms-gv-buy__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 15px;
+  border-radius: var(--gv-radius);
+  background: var(--gv-error-tint);
+  color: var(--gv-error);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.ms-gv-buy__erricon svg { display: block; width: 18px; height: 18px; margin-top: 1px; }
+.ms-gv-buy__errbody { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.ms-gv-buy__errbody .ms-gv-link { color: var(--gv-error); }
+.ms-gv .ms-gv-buy__fine { display: flex; align-items: flex-start; gap: 8px; }
+.ms-gv-buy__fine svg { width: 16px; height: 16px; margin-top: 1px; color: var(--gv-blue-on-tint); }
+.ms-gv-added { display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: var(--gv-radius); background: var(--gv-blue-tint); outline: none; }
+.ms-gv .ms-gv-added__title { display: flex; align-items: center; gap: 10px; font-family: var(--gv-heading-font); font-size: 1.05rem; font-weight: 700; color: var(--gv-ink); }
+.ms-gv-added__title svg { width: 26px; height: 26px; padding: 5px; border-radius: 999px; background: var(--gv-blue); color: #fff; stroke-width: 2.8; }
+.ms-gv-added__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.ms-gv-added__actions .ms-gv-btn { flex: 1 1 200px; }
+.ms-gv-added__short { display: none; }
+@container (max-width: 479.98px) {
+  .ms-gv-added__long { display: none; }
+  .ms-gv-added__short { display: inline; }
+}
+
+/* ---------- Preview (aside) ----------
+   A studio surface with a fixed 5:4 shape: the card keeps the proportions of
+   the delivery (PDF 210:148, Premium-Karte 1:1 front / the open card 2:1
+   inside) and turns front ⇄ inside without any layout shift. Step 5: Mo's
+   exact images take the live card's place. */
+.ms-gv-preview {
+  padding: 16px;
+  border: 1px solid var(--gv-line);
+  border-radius: var(--gv-radius);
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+.ms-gv-preview__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; margin-bottom: 14px; }
+.ms-gv .ms-gv-preview__title { display: flex; align-items: center; gap: 8px; font-family: var(--gv-heading-font); font-size: 1rem; font-weight: 700; color: var(--gv-ink); }
+.ms-gv-preview__badge { padding: 3px 9px; border-radius: 999px; background: var(--gv-blue-tint); color: var(--gv-blue-on-tint); font-family: var(--gv-body-font); font-size: 0.64rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.ms-gv-preview__badge.is-exact { background: var(--gv-ink); color: #fff; }
+.ms-gv-seg { display: inline-flex; padding: 3px; border-radius: 999px; background: #f0f2f4; }
+.ms-gv .ms-gv-seg__btn {
+  margin: 0;
+  padding: 8px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gv-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.ms-gv .ms-gv-seg__btn:hover { color: var(--gv-ink); }
+.ms-gv .ms-gv-seg__btn[aria-pressed="true"] { background: #fff; color: var(--gv-ink); box-shadow: 0 1px 3px rgb(0 0 0 / 14%); }
+.ms-gv-seg__btn:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 2px; }
+.ms-gv-preview__frame { position: relative; display: block; }
+.ms-gv-preview__stage {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 5 / 4;
+  border-radius: 5px;
+  background: radial-gradient(120% 95% at 50% 28%, #ffffff 0%, #f1f3f5 60%, #e7eaee 100%);
+}
+.ms-gv-preview__skeleton {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 84%;
+  aspect-ratio: 210 / 148;
+  border-radius: 4px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(90deg, #e9edf0 0%, #f6f8f9 40%, #e9edf0 80%);
+  background-size: 200% 100%;
+  animation: ms-gv-shimmer 1.2s linear infinite;
+}
+.ms-gv-preview__card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 84%;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1), width 0.35s ease, filter 0.3s ease;
+}
+.ms-gv-preview__stage[data-layout="square"] .ms-gv-preview__card--front { width: 64%; }
+.ms-gv-preview__stage[data-layout="square"] .ms-gv-preview__card--inside { width: 92%; }
+.ms-gv-preview__card .ms-gv-face { box-shadow: 0 2px 4px rgb(0 0 0 / 8%), 0 26px 50px -20px rgb(16 24 32 / 48%); }
+.ms-gv-preview__stage[data-side="front"] .ms-gv-preview__card--inside,
+.ms-gv-preview__stage[data-side="inside"] .ms-gv-preview__card--front {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.94);
+  pointer-events: none;
+}
+.ms-gv .ms-gv-preview__exact {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 92%;
+  max-height: 86%;
+  border-radius: 4px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 8%), 0 26px 50px -20px rgb(16 24 32 / 48%);
+  transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: ms-gv-fade 0.4s ease;
+}
+@keyframes ms-gv-fade { from { opacity: 0; } to { opacity: 1; } }
+.ms-gv-preview__stage[data-side="front"] .ms-gv-preview__exact--inside,
+.ms-gv-preview__stage[data-side="inside"] .ms-gv-preview__exact--front { opacity: 0; transform: translate(-50%, -50%) scale(0.94); }
+.ms-gv-preview__stage.has-exact-front .ms-gv-preview__card--front,
+.ms-gv-preview__stage.has-exact-inside .ms-gv-preview__card--inside { visibility: hidden; }
+.ms-gv-preview__stage.is-loading .ms-gv-preview__card { filter: saturate(0.5) blur(1.5px); opacity: 0.6; }
+.ms-gv-preview__stage.is-loading[data-side="front"] .ms-gv-preview__card--inside,
+.ms-gv-preview__stage.is-loading[data-side="inside"] .ms-gv-preview__card--front { opacity: 0; }
+.ms-gv-preview__state {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 95%);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+  color: var(--gv-ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.ms-gv-preview__state-text { overflow: hidden; text-overflow: ellipsis; }
+.ms-gv-preview__state.is-error { color: var(--gv-error); white-space: normal; }
+.ms-gv-preview__state.is-error .ms-gv-spinner { display: none; }
+.ms-gv .ms-gv-preview__retry { padding: 0; font-size: 0.8rem; color: var(--gv-ink); white-space: nowrap; }
+.ms-gv .ms-gv-preview__note { margin-top: 12px; font-size: 0.78rem; line-height: 1.45; color: var(--gv-muted); }
+.ms-gv-preview[data-mode="exact"] .ms-gv-preview__note { color: var(--gv-text); }
+
+/* Summary under the preview (two columns only; the bar shows the total on
+   one column). No rules: the total stands in a light tint. */
+.ms-gv-aside .ms-gv-summary { display: none; margin-top: 14px; padding: 16px 18px; border: 1px solid var(--gv-line); border-radius: var(--gv-radius); background: #fff; }
+.ms-gv .ms-gv-sum { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.ms-gv-sum__row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 0.9rem; }
+.ms-gv-sum__row dt { color: var(--gv-muted); }
+.ms-gv .ms-gv-sum__row dd { margin: 0; font-weight: 600; color: var(--gv-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ms-gv-sum__row--total { margin-top: 4px; padding: 10px 12px; border-radius: 6px; background: var(--gv-blue-tint-2); }
+.ms-gv-sum__row--total dt { font-weight: 700; color: var(--gv-ink); }
+.ms-gv .ms-gv-sum__row--total dd { font-family: var(--gv-heading-font); font-size: 1.15rem; font-weight: 700; }
+.ms-gv .ms-gv-sum__note { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.82rem; line-height: 1.4; color: var(--gv-text); }
+.ms-gv-sum__note svg { width: 18px; height: 18px; color: var(--gv-blue); }
+
+/* ---------- Voucher faces ----------
+   One structure for the live preview, the design tiles and the hero (spans
+   only — they also sit in <button>s). The face is the size container: every
+   size is a share of its width (calc(var(--cq, 1cqw) * n)); inside, each
+   half (message | code) is its own container. Colours from Mo's config:
+   --f-bg / --f-ink / --f-brand / --f-muted. */
+.ms-gv-face {
+  position: relative;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  container-type: inline-size;
+  aspect-ratio: 210 / 148;
+  border-radius: 4px;
+  background: var(--f-bg, #15171a);
+  color: var(--f-ink, #ffffff);
+  font-family: var(--gv-heading-font);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  isolation: isolate;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%), 0 14px 34px -14px rgb(16 24 32 / 40%);
+}
+.ms-gv-face--square { aspect-ratio: 1 / 1; }
+.ms-gv-face--spread { aspect-ratio: 2 / 1; }
+.ms-gv .ms-gv-face__bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+}
+.ms-gv-face__shade { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; display: none; background: linear-gradient(180deg, rgb(0 0 0 / 0%) 36%, rgb(0 0 0 / 18%) 55%, rgb(0 0 0 / 66%) 100%); }
+.ms-gv-face--photo .ms-gv-face__shade { display: block; }
+.ms-gv-face__content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: calc(var(--cq, 1cqw) * 6.8) calc(var(--cq, 1cqw) * 7.6) calc(var(--cq, 1cqw) * 6);
+}
+.ms-gv-face__brand { display: block; font-size: calc(var(--cq, 1cqw) * 3.9); font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; white-space: nowrap; color: var(--f-brand, #008ccb); }
+.ms-gv-face__eyebrow { display: block; margin-top: calc(var(--cq, 1cqw) * 1.1); font-size: calc(var(--cq, 1cqw) * 1.8); font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; white-space: nowrap; color: var(--f-muted, #9aa3ab); }
+.ms-gv-face__value { display: block; margin-top: auto; font-size: calc(var(--cq, 1cqw) * 14.5); font-weight: 800; line-height: 0.95; letter-spacing: -0.035em; white-space: nowrap; color: var(--f-ink, #fff); }
+.ms-gv-face__for { display: block; max-width: 100%; margin-top: calc(var(--cq, 1cqw) * 1.8); overflow: hidden; font-size: calc(var(--cq, 1cqw) * 3.7); font-weight: 600; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; color: var(--f-ink, #fff); }
+.ms-gv-face__url { display: block; margin-top: calc(var(--cq, 1cqw) * 3.2); font-size: calc(var(--cq, 1cqw) * 1.75); font-weight: 600; letter-spacing: 0.08em; color: var(--f-muted, #9aa3ab); }
+.ms-gv-face--square .ms-gv-face__content { padding: calc(var(--cq, 1cqw) * 9) calc(var(--cq, 1cqw) * 9) calc(var(--cq, 1cqw) * 8); }
+.ms-gv-face--square .ms-gv-face__brand { font-size: calc(var(--cq, 1cqw) * 5.2); }
+.ms-gv-face--square .ms-gv-face__eyebrow { font-size: calc(var(--cq, 1cqw) * 2.4); }
+.ms-gv-face--square .ms-gv-face__value { font-size: calc(var(--cq, 1cqw) * 19); }
+.ms-gv-face--square .ms-gv-face__for { font-size: calc(var(--cq, 1cqw) * 5); }
+.ms-gv-face--square .ms-gv-face__url { font-size: calc(var(--cq, 1cqw) * 2.4); }
+.ms-gv-face--photo .ms-gv-face__content { text-shadow: 0 1px 3px rgb(0 0 0 / 35%); }
+
+/* Inside: the message (Caveat, auto-sized by the page JS via --fit) and the
+   code panel; the Premium-Karte opens to two squares with a soft fold. */
+.ms-gv-face--inside { color: var(--f-ink, #1b1d20); }
+.ms-gv-face__panels { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; }
+.ms-gv-face__panel { position: relative; display: flex; flex: 1 1 50%; flex-direction: column; justify-content: center; min-width: 0; container-type: inline-size; }
+.ms-gv-face__panel--msg { padding: calc(var(--cq, 1cqw) * 5.4) calc(var(--cq, 1cqw) * 4.6); }
+.ms-gv-face__panel--info { align-items: flex-start; padding: calc(var(--cq, 1cqw) * 4.6) calc(var(--cq, 1cqw) * 4.4); }
+.ms-gv-face--landscape .ms-gv-face__panel--info::before {
+  content: "";
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 0;
+  width: 1px;
+  background: currentColor;
+  opacity: 0.12;
+}
+.ms-gv-face--spread .ms-gv-face__panel--msg::after,
+.ms-gv-face--spread .ms-gv-face__panel--info::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9%;
+  pointer-events: none;
+}
+.ms-gv-face--spread .ms-gv-face__panel--msg::after { right: 0; background: linear-gradient(90deg, rgb(0 0 0 / 0%), rgb(0 0 0 / 7%)); }
+.ms-gv-face--spread .ms-gv-face__panel--info::before { left: 0; background: linear-gradient(90deg, rgb(255 255 255 / 45%), rgb(255 255 255 / 0%)); }
+.ms-gv-face__msgbox { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: center; min-height: 0; overflow: hidden; }
+.ms-gv-face__msg {
+  display: block;
+  font-family: "MS GV Caveat", var(--gv-body-font);
+  font-size: calc(var(--cq, 1cqw) * 9.6 * var(--fit, 1));
+  font-weight: 500;
+  line-height: 1.22;
+  letter-spacing: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  color: var(--f-ink, #1b1d20);
+}
+.ms-gv-face__from { display: block; margin-top: 0.4em; font-family: "MS GV Caveat", var(--gv-body-font); font-size: calc(var(--cq, 1cqw) * 8.6 * var(--fit, 1)); font-weight: 500; line-height: 1.2; text-align: right; color: var(--f-ink, #1b1d20); }
+/* Until Caveat is in: the body font, smaller and italic (it is wider). */
+.ms-gv:not(.ms-gv--script) .ms-gv-face__msg { font-size: calc(var(--cq, 1cqw) * 6.6 * var(--fit, 1)); font-style: italic; }
+.ms-gv:not(.ms-gv--script) .ms-gv-face__from { font-size: calc(var(--cq, 1cqw) * 6 * var(--fit, 1)); font-style: italic; }
+.ms-gv-face__label { display: block; font-size: calc(var(--cq, 1cqw) * 3.3); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.62; }
+.ms-gv-face__code { display: block; margin-top: calc(var(--cq, 1cqw) * 1.8); font-size: calc(var(--cq, 1cqw) * 6.2); font-weight: 700; letter-spacing: 0.07em; white-space: nowrap; }
+.ms-gv-face__qr { display: block; width: calc(var(--cq, 1cqw) * 24); margin: calc(var(--cq, 1cqw) * 4.6) 0 calc(var(--cq, 1cqw) * 4.2); color: var(--f-ink, #1b1d20); }
+.ms-gv .ms-gv-face__qr svg { display: block; width: 100%; height: auto; }
+.ms-gv-face__worth { display: block; font-size: calc(var(--cq, 1cqw) * 4.6); font-weight: 700; }
+.ms-gv-face__valid { display: block; margin-top: calc(var(--cq, 1cqw) * 1.3); font-size: calc(var(--cq, 1cqw) * 3.7); font-weight: 600; opacity: 0.8; }
+.ms-gv-face__fine { display: block; margin-top: calc(var(--cq, 1cqw) * 3.4); font-size: calc(var(--cq, 1cqw) * 2.9); line-height: 1.35; opacity: 0.62; }
+
+/* The hero's cards before (or without) Mo's designs: brand colours drawn in CSS. */
+.ms-gv-face--css-dark {
+  --f-bg: #15171a;
+  --f-ink: #f3e7c6;
+  --f-brand: #008ccb;
+  --f-muted: #9aa3ab;
+  background-image:
+    radial-gradient(110% 130% at 100% 0%, rgb(255 255 255 / 9%), rgb(255 255 255 / 0%) 55%),
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 4.5%) 0 1px, rgb(255 255 255 / 0%) 1px 10px),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / 4.5%) 0 1px, rgb(255 255 255 / 0%) 1px 10px);
+}
+.ms-gv-face--css-light {
+  --f-bg: #ffffff;
+  --f-ink: #111111;
+  --f-brand: #008ccb;
+  --f-muted: #5b6670;
+  background-image:
+    radial-gradient(circle at 74% 26%, rgb(0 140 203 / 22%) 0 2.2%, rgb(0 140 203 / 0%) 2.4%),
+    radial-gradient(circle at 86% 58%, rgb(242 165 65 / 45%) 0 1.6%, rgb(242 165 65 / 0%) 1.8%),
+    radial-gradient(circle at 63% 72%, rgb(0 87 127 / 25%) 0 1.4%, rgb(0 87 127 / 0%) 1.6%),
+    radial-gradient(circle at 92% 18%, rgb(124 205 242 / 50%) 0 2.6%, rgb(124 205 242 / 0%) 2.8%),
+    linear-gradient(135deg, #ffffff 0%, #f2f9fd 100%);
+}
+.ms-gv-face--css-navy {
+  --f-bg: #0b2440;
+  --f-ink: #ffffff;
+  --f-brand: #d9b26f;
+  --f-muted: #a9b8cc;
+  background-image:
+    radial-gradient(circle at 80% 22%, rgb(217 178 111 / 65%) 0 0.9%, rgb(217 178 111 / 0%) 1.1%),
+    radial-gradient(circle at 68% 60%, rgb(255 255 255 / 55%) 0 0.6%, rgb(255 255 255 / 0%) 0.8%),
+    radial-gradient(circle at 90% 74%, rgb(255 255 255 / 45%) 0 0.5%, rgb(255 255 255 / 0%) 0.7%),
+    radial-gradient(120% 120% at 100% 0%, rgb(255 255 255 / 10%), rgb(255 255 255 / 0%) 60%);
+}
+
+/* ---------- Sticky bar (one column) ----------
+   Fixed at the bottom while the designer is in view and the panel's own
+   buttons are not; next to the Mo launcher (68 px, 20 px from the corner),
+   centred on it, never under it (.ms-gv-bar--launcher); left of the open
+   Mo sidebar (html.ms-chat-page-shift). At most 620 px wide (tablets). The
+   total never shrinks — the step line drops the step's name instead (JS). */
+.ms-gv-bar {
+  position: fixed;
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 620px;
+  min-height: 64px;
+  margin: 0 auto;
+  padding: 7px 7px 7px 16px;
+  border: 1px solid var(--gv-line);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 97%);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 16%), 0 2px 6px rgb(0 0 0 / 6%);
+  visibility: hidden;
+  transform: translateY(calc(100% + 40px));
+  transition: transform 0.3s ease, visibility 0s linear 0.3s;
+}
+.ms-gv-bar.is-shown { visibility: visible; transform: none; transition: transform 0.3s ease, visibility 0s; }
+.ms-gv-bar--launcher { right: calc(100px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+html.ms-chat-page-shift .ms-gv .ms-gv-bar { right: calc(var(--ms-chat-sidebar-w, 410px) + 12px); }
+.ms-gv-bar__info { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+.ms-gv-bar__total { font-family: var(--gv-heading-font); font-size: 1.08rem; font-weight: 700; line-height: 1.2; white-space: nowrap; color: var(--gv-ink); font-variant-numeric: tabular-nums; }
+.ms-gv-bar__step { overflow: hidden; font-size: 0.74rem; line-height: 1.3; white-space: nowrap; color: var(--gv-muted); }
+.ms-gv .ms-gv-bar__btn { flex: 0 0 auto; gap: 8px; padding: 13px 20px; letter-spacing: 1px; }
+.ms-gv-bar__btn svg { width: 16px; height: 16px; }
+@media (max-width: 420px) {
+  .ms-gv .ms-gv-bar__btn { padding: 12px 18px; font-size: 13px; }
+  .ms-gv-bar--launcher .ms-gv-bar__btn svg { display: none; }
+}
+
+/* ---------- How it works ---------- */
+.ms-gv-how { padding: clamp(44px, 5.5vw, 84px) 0; background: #fff; }
+.ms-gv-how__list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: 0; padding: 0; list-style: none; }
+.ms-gv-how__list li { padding: 24px; border: 1px solid var(--gv-line); border-radius: var(--gv-radius); background: #fff; }
+.ms-gv-how__num {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 16px;
+  border-radius: 999px;
+  background: var(--gv-blue);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+.ms-gv .ms-gv-how__title { margin-bottom: 6px; font-family: var(--gv-heading-font); font-size: 1.08rem; font-weight: 700; letter-spacing: -0.01em; color: var(--gv-ink); }
+.ms-gv-how__text { font-size: 0.92rem; line-height: 1.55; color: var(--gv-text); }
+
+/* ---------- FAQ ---------- */
+.ms-gv-faq { padding: clamp(44px, 5.5vw, 84px) 0; background: var(--gv-band); }
+.ms-gv-faq__inner { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 clamp(32px, 5vw, 80px); align-items: start; }
+.ms-gv-faq__list { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ms-gv-faq__item { border: 1px solid var(--gv-line); border-radius: var(--gv-radius); background: #fff; transition: box-shadow 0.2s ease; }
+.ms-gv-faq__item[open] { box-shadow: 0 6px 18px -10px rgb(0 0 0 / 18%); }
+.ms-gv .ms-gv-faq__q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: var(--gv-radius);
+  font-family: var(--gv-heading-font);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--gv-ink);
+  list-style: none;
+  cursor: pointer;
+}
+.ms-gv-faq__q::-webkit-details-marker { display: none; }
+.ms-gv-faq__q:focus-visible { outline: 2px solid var(--gv-blue); outline-offset: 2px; }
+.ms-gv-faq__chevron { width: 20px; height: 20px; color: var(--gv-blue); transition: transform 0.2s ease; }
+.ms-gv-faq__item[open] .ms-gv-faq__chevron { transform: rotate(180deg); }
+.ms-gv-faq__a { padding: 0 20px 20px; font-size: 0.95rem; line-height: 1.65; color: var(--gv-text); }
+.ms-gv-faq__a p + p { margin-top: 10px; }
+.ms-gv-faq__a a { color: var(--gv-blue-on-tint); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- „Guthaben prüfen“ (#guthaben) ---------- */
+.ms-gv-balance { padding: clamp(44px, 5.5vw, 84px) 0 clamp(56px, 6vw, 100px); background: #fff; scroll-margin-top: var(--gv-sticky-top); }
+.ms-gv-balance__card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px clamp(32px, 5vw, 72px);
+  align-items: start;
+  padding: clamp(22px, 3.4vw, 44px);
+  border: 1px solid rgb(var(--gv-blue-rgb) / 18%);
+  border-radius: calc(var(--gv-radius) + 3px);
+  background: var(--gv-blue-tint-2);
+}
+.ms-gv-balance__copy { display: flex; flex-direction: column; gap: 8px; }
+.ms-gv-balance__copy .ms-gv-display { margin-bottom: 4px; }
+.ms-gv-balance__text { max-width: 46ch; line-height: 1.6; color: var(--gv-text); }
+.ms-gv-balance__form { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ms-gv-balance__row { display: flex; flex-wrap: wrap; gap: 10px; }
+.ms-gv .ms-gv-balance__input { flex: 1 1 240px; width: auto; min-width: 0; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.ms-gv .ms-gv-balance__input::placeholder { font-weight: 500; letter-spacing: 0.14em; }
+.ms-gv-balance__btn { flex: 0 0 auto; }
+.ms-gv-balance__result:empty { display: none; }
+.ms-gv-result { margin-top: 8px; padding: 14px 16px; border: 1px solid var(--gv-line); border-radius: var(--gv-radius); background: #fff; animation: ms-gv-in 0.25s ease; }
+.ms-gv-result--ok { border-color: rgb(var(--gv-blue-rgb) / 35%); }
+.ms-gv-result--error { border-color: #f1c9c5; }
+.ms-gv-result__head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ms-gv-result__icon { display: grid; flex: 0 0 auto; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: var(--gv-blue-tint); color: var(--gv-blue-on-tint); }
+.ms-gv-result__icon svg { width: 16px; height: 16px; stroke-width: 2.4; }
+.ms-gv-result--error .ms-gv-result__icon { background: var(--gv-error-tint); color: var(--gv-error); }
+.ms-gv .ms-gv-result__title { flex: 1 1 200px; min-width: 0; font-size: 0.92rem; font-weight: 700; line-height: 1.45; color: var(--gv-ink); }
+.ms-gv .ms-gv-result--ok .ms-gv-result__title { font-family: var(--gv-heading-font); font-size: 1.35rem; line-height: 1.25; }
+.ms-gv .ms-gv-result--error .ms-gv-result__title { color: var(--gv-error); }
+.ms-gv-result__pill { padding: 3px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ms-gv-result__pill--ok { background: var(--gv-blue-tint); color: var(--gv-blue-on-tint); }
+.ms-gv-result__pill--muted { background: #eeeeee; color: var(--gv-muted); }
+.ms-gv-result__pill--error { background: var(--gv-error-tint); color: var(--gv-error); }
+.ms-gv .ms-gv-result__rows { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 16px; margin: 12px 0 0 38px; font-size: 0.88rem; }
+.ms-gv-result__rows > div { display: contents; }
+.ms-gv-result__rows dt { color: var(--gv-muted); }
+.ms-gv .ms-gv-result__rows dd { margin: 0; font-weight: 600; color: var(--gv-ink); }
+
+/* ---------- Responsive ---------- */
+@media (min-width: 990px) {
+  .ms-gv-hero__inner { grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr); }
+  .ms-gv-faq__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); }
+  .ms-gv-faq__inner .ms-gv-head { position: sticky; top: var(--gv-sticky-top); }
+  .ms-gv-balance__card { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: center; }
+}
+@media (max-width: 989px) {
+  .ms-gv-stack { max-width: 500px; }
+  .ms-gv-how__list { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 768px) {
+  /* The store's custom CSS shrinks every h1 to 1.7em on phones (!important);
+     the hero headline keeps its own size. */
+  .ms-gv .ms-gv-hero__title { font-size: clamp(2.1rem, 9.4vw, 2.8rem) !important; }
+}
+@media (max-width: 680px) {
+  .ms-gv-hero__actions .ms-gv-hero__cta { width: 100%; }
+  .ms-gv-hero__actions { justify-content: center; }
+  .ms-gv-trust { gap: 10px 18px; }
+  .ms-gv-preview { padding: 12px; }
+  .ms-gv-how__list { gap: 12px; }
+  .ms-gv-how__list li { display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 14px; padding: 18px; }
+  .ms-gv-how__num { grid-row: span 2; margin-bottom: 0; }
+  .ms-gv-balance__btn { width: 100%; }
+  .ms-gv-faq__q { padding: 16px; }
+  .ms-gv-faq__a { padding: 0 16px 18px; }
+}
+@media (max-width: 374.98px) {
+  .ms-gv-btn:not(.ms-gv-btn--sm) { padding: 15px 22px; }
+  .ms-gv-btn > span { text-wrap: balance; white-space: normal; }
+  .ms-gv-bar { padding-left: 14px; }
+  .ms-gv .ms-gv-bar__btn { padding: 12px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-gv-btn,
+  .ms-gv-btn svg,
+  .ms-gv-tile,
+  .ms-gv-chip,
+  .ms-gv-steps__dot,
+  .ms-gv-steps__item::after,
+  .ms-gv-input,
+  .ms-gv-preview__card,
+  .ms-gv-preview__exact,
+  .ms-gv-stack__card,
+  .ms-gv-faq__chevron,
+  .ms-gv-bar,
+  .ms-gv-progressbar__fill,
+  .ms-gv-seg__btn { transition: none; }
+  .ms-gv-panel,
+  .ms-gv-ai__body,
+  .ms-gv-address,
+  .ms-gv-result,
+  .ms-gv-preview__exact { animation: none; }
+  .ms-gv .ms-gv-btn:hover,
+  .ms-gv .ms-gv-btn:hover svg { transform: none; }
+  .ms-gv-btn::before { display: none; }
+  .ms-gv-stack:hover .ms-gv-stack__card--back { transform: rotate(-8deg); }
+  .ms-gv-stack:hover .ms-gv-stack__card--mid { transform: rotate(7deg); }
+  .ms-gv-stack:hover .ms-gv-stack__card--front { transform: rotate(-1.5deg); }
+  .ms-gv-spinner { animation-duration: 2.4s; }
+  .ms-gv-skel,
+  .ms-gv-preview__skeleton,
+  .ms-gv-progressbar.is-indeterminate .ms-gv-progressbar__fill { animation: none; }
+}
