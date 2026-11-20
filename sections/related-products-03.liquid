@@ -1,12 +1,271 @@
+{% comment %}
+  MOTIONSPORTS – RELATED PRODUCTS 03
+  Search-look product cards | Fruits & Harvest
+{% endcomment %}
+
 {% render 'section-bg-number-vars' %}
 
 {% capture image_sizes %}
   {% render 'product-carousel-image-sizes',
-      enabled: section.settings.carousel,
-      grid_columns: section.settings.grid_columns,
-      grid_columns_mobile: section.settings.grid_columns_mobile
+    enabled: section.settings.carousel,
+    grid_columns: section.settings.grid_columns,
+    grid_columns_mobile: section.settings.grid_columns_mobile
   %}
 {% endcapture %}
+
+{% assign shadow_alpha = section.settings.hover_shadow_opacity | divided_by: 100.0 %}
+<style>
+  #shopify-section-{{ section.id }} .rp03-root {
+    background: {{ section.settings.background_color }};
+  }
+  #shopify-section-{{ section.id }} .section-header .section-heading,
+  #shopify-section-{{ section.id }} .section-header .section-title,
+  #shopify-section-{{ section.id }} .section-header h1,
+  #shopify-section-{{ section.id }} .section-header h2,
+  #shopify-section-{{ section.id }} .section-header h3,
+  #shopify-section-{{ section.id }} .section-header h4 {
+    color: {{ section.settings.heading_color }} !important;
+  }
+  #shopify-section-{{ section.id }} .section-header .section-subheading,
+  #shopify-section-{{ section.id }} .section-header .section-subtitle,
+  #shopify-section-{{ section.id }} .section-header .subheading,
+  #shopify-section-{{ section.id }} .section-header .subtitle {
+    color: {{ section.settings.subheading_color }} !important;
+  }
+  #shopify-section-{{ section.id }} .rp03-card-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: {{ section.settings.card_background_color }};
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px #0002;
+    transition: box-shadow .2s ease;
+  }
+  #shopify-section-{{ section.id }} .rp03-card-wrapper:hover {
+    box-shadow: 0 16px 30px #0003;
+  }
+  #shopify-section-{{ section.id }} .rp03-media {
+    display: block;
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: #f5f5f5;
+    overflow: hidden;
+  }
+  #shopify-section-{{ section.id }} .rp03-media img,
+  #shopify-section-{{ section.id }} .rp03-media svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  #shopify-section-{{ section.id }} .rp03-badge {
+    position: absolute;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 5px 9px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+  #shopify-section-{{ section.id }} .rp03-badge--sale {
+    top: 12px;
+    right: 12px;
+    background: #9A0000;
+    color: #fff;
+  }
+  #shopify-section-{{ section.id }} .rp03-badge--soldout {
+    bottom: 12px;
+    left: 12px;
+    background: #eee;
+    color: #000;
+    font-size: 10px;
+  }
+  #shopify-section-{{ section.id }} .rp03-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    padding: 16px;
+  }
+  #shopify-section-{{ section.id }} .rp03-title {
+    margin: 0 0 8px;
+    font-family: Montserrat, sans-serif;
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.45;
+  }
+  #shopify-section-{{ section.id }} .rp03-title a {
+    color: inherit;
+    text-decoration: none;
+  }
+  #shopify-section-{{ section.id }} .rp03-price {
+    font-family: Montserrat, sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  #shopify-section-{{ section.id }} .rp03-price s {
+    margin-left: 5px;
+    opacity: .55;
+    font-weight: 400;
+  }
+  @media (max-width: 749px) {
+    #shopify-section-{{ section.id }} .rp03-content { padding: 12px; }
+    #shopify-section-{{ section.id }} .rp03-title { font-size: 14px; }
+    #shopify-section-{{ section.id }} .rp03-badge--sale { top: 8px; right: 8px; }
+    #shopify-section-{{ section.id }} .rp03-badge--soldout { bottom: 8px; left: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ section.id }} .rp03-card-wrapper { transition: none; }
+  }
+  /* Durchgehend weisser Kartenhintergrund, auch bei unterschiedlich hohen Karten */
+  #shopify-section-{{ section.id }} .rp03-item {
+    background: {{ section.settings.card_background_color }};
+    border-radius: 12px;
+  }
+  #shopify-section-{{ section.id }} .rp03-card-wrapper,
+  #shopify-section-{{ section.id }} .rp03-product-card,
+  #shopify-section-{{ section.id }} .rp03-content {
+    background-color: {{ section.settings.card_background_color }} !important;
+  }
+  #shopify-section-{{ section.id }} .rp03-content {
+    flex-grow: 1;
+  }
+  
+/* Related Products 03 – saubere Kartenrundung */
+
+#shopify-section-{{ section.id }} .rp03-card-wrapper {
+  background: #ffffff !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  isolation: isolate;
+}
+
+#shopify-section-{{ section.id }} .rp03-card-wrapper.product-card {
+  background: #ffffff !important;
+}
+
+#shopify-section-{{ section.id }} .rp03-card-wrapper > * {
+  border-radius: inherit;
+}
+
+#shopify-section-{{ section.id }} .rp03-card-wrapper img {
+  display: block;
+}
+
+/* Äußere Slider-Elemente transparent halten */
+#shopify-section-{{ section.id }} .rp03-item {
+  background: transparent !important;
+}
+
+
+/* 03 – konsistente Typografie, Loox und Hover */
+#shopify-section-{{ section.id }} .section-header .section-heading,
+#shopify-section-{{ section.id }} .section-header .section-title,
+#shopify-section-{{ section.id }} .section-header h1,
+#shopify-section-{{ section.id }} .section-header h2,
+#shopify-section-{{ section.id }} .section-header h3,
+#shopify-section-{{ section.id }} .section-header h4 {
+  color: {{ section.settings.heading_color }} !important;
+  font-size: {{ section.settings.heading_font_size }}px !important;
+}
+#shopify-section-{{ section.id }} .section-header .section-subheading,
+#shopify-section-{{ section.id }} .section-header .section-subtitle,
+#shopify-section-{{ section.id }} .section-header .subheading,
+#shopify-section-{{ section.id }} .section-header .subtitle {
+  color: {{ section.settings.subheading_color }} !important;
+  font-size: {{ section.settings.subheading_font_size }}px !important;
+}
+#shopify-section-{{ section.id }} .rp03-card-wrapper {
+  border-radius: 16px !important;
+  overflow: hidden;
+  background: {{ section.settings.card_background_color }} !important;
+  height: 100%;
+  transition: transform .2s ease, box-shadow .2s ease !important;
+  box-shadow: none !important;
+}
+#shopify-section-{{ section.id }} .rp03-item {
+  background: transparent !important;
+  border-radius: 16px;
+  padding-top: 6px;
+  padding-bottom: 12px;
+}
+#shopify-section-{{ section.id }} .rp03-price s {
+  color: #9A0000 !important;
+  opacity: 1 !important;
+}
+#shopify-section-{{ section.id }} .rp03-rating {
+  color: #9A0000;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-top: 8px;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  #shopify-section-{{ section.id }} .rp03-card-wrapper:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: {% if section.settings.enable_card_shadow %}0 16px {{ section.settings.hover_shadow_size }}px {{ section.settings.hover_shadow_color | color_modify: 'alpha', shadow_alpha }}{% else %}none{% endif %} !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #shopify-section-{{ section.id }} .rp03-card-wrapper { transition: none !important; }
+}
+
+
+/* v2.6: Kartenfarbe und unerwuenschte Theme-Hover-Kontur */
+#shopify-section-{{ section.id }} .rp03-card-wrapper,
+#shopify-section-{{ section.id }} .rp03-card-wrapper.product-card,
+#shopify-section-{{ section.id }} .rp03-product-card,
+#shopify-section-{{ section.id }} .rp03-content {
+  background-color: {{ section.settings.card_background_color }} !important;
+  border-color: transparent !important;
+  outline: none !important;
+}
+#shopify-section-{{ section.id }} .rp03-card-wrapper:hover,
+#shopify-section-{{ section.id }} .rp03-card-wrapper:focus-within {
+  border-color: transparent !important;
+  outline: none !important;
+}
+#shopify-section-{{ section.id }} .rp03-card-wrapper::before,
+#shopify-section-{{ section.id }} .rp03-card-wrapper::after {
+  border-color: transparent !important;
+}
+#shopify-section-{{ section.id }} .rp03-card-wrapper a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
+}
+
+
+/* v2.7: Sichtbare Produkte im Desktop-Karussell (2 bis 7).
+   Nur diese Sektion; andere Carousel-Module bleiben unveraendert. */
+@media (min-width: 990px) {
+  #shopify-section-{{ section.id }} scroll-carousel .grid-carousel--products {
+    --fh03-visible: {{ section.settings.grid_columns }};
+    --fh03-gap: 16px;
+    display: grid !important;
+    grid-auto-flow: column !important;
+    grid-template-columns: none !important;
+    grid-auto-columns: calc((100% - (var(--fh03-visible) - 1) * var(--fh03-gap)) / var(--fh03-visible)) !important;
+    column-gap: var(--fh03-gap) !important;
+    justify-content: start !important;
+  }
+  #shopify-section-{{ section.id }} scroll-carousel .grid-carousel--products > .grid-carousel-item {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    box-sizing: border-box;
+  }
+  #shopify-section-{{ section.id }} .grid-carousel--products.grid-carousel--stack {
+    grid-template-columns: repeat({{ section.settings.grid_columns }}, minmax(0, 1fr)) !important;
+  }
+}
+</style>
 
 <product-recommendations
   section-id="{{ section.id }}"
@@ -15,37 +274,70 @@
   intent="related"
 >
   {% if recommendations.performed and recommendations.products_count > 0 %}
-    {% capture card_attrs %}
-      data-animation="block"
-      data-animation-group="{{ section.id }}-product-cards"
-    {% endcapture %}
-
     <div
       {% render 'section-attrs' %}
       style="
         --pm03-bg: {{ section.settings.background_color }};
         --pm03-heading-color: {{ section.settings.heading_color }};
         --pm03-subheading-color: {{ section.settings.subheading_color }};
+        background-color: {{ section.settings.background_color }};
       "
     >
       {% render 'section-header' %}
-
       <div class="section-body">
         {% capture items %}
           {% for recommendation in recommendations.products %}
             {% unless recommendation.tags contains 'globo-product-options' %}
-              <div class="grid-carousel-item rp03-item">
-                <div class="rp03-card-wrapper">
-                  {% render 'product-card',
-                    card_product: recommendation,
-                    attrs: card_attrs,
-                    sizes: image_sizes
-                  %}
+              {% assign card_variant = blank %}
+              {% for variant in recommendation.variants %}
+                {% if variant.price == recommendation.price %}
+                  {% assign card_variant = variant %}
+                  {% break %}
+                {% endif %}
+              {% endfor %}
+              {% assign card_saving = 0 %}
+              {% if card_variant != blank and card_variant.compare_at_price != blank %}
+                {% if card_variant.compare_at_price > card_variant.price %}
+                  {% assign card_saving = card_variant.compare_at_price | minus: card_variant.price %}
+                {% endif %}
+              {% endif %}
 
-                  <a href="{{ recommendation.url }}" class="rp03-btn-ansehen">
-                    {{ 'products.product.view_product' | t }}
+              <div class="grid-carousel-item rp03-item">
+                <article class="rp03-card-wrapper product-card">
+                  <a class="rp03-media" href="{{ recommendation.url }}" aria-label="{{ recommendation.title | escape }}">
+                    {% if recommendation.featured_image %}
+                      <img
+                        src="{{ recommendation.featured_image | image_url: width: 800 }}"
+                        alt="{{ recommendation.featured_image.alt | default: recommendation.title | escape }}"
+                        width="800"
+                        height="{{ 800 | divided_by: recommendation.featured_image.aspect_ratio | round }}"
+                        loading="lazy"
+                      >
+                    {% else %}
+                      {{ 'product-apparel-1' | placeholder_svg_tag }}
+                    {% endif %}
+                    {% if card_saving > 0 %}
+                      <span class="rp03-badge rp03-badge--sale">%</span>
+                    {% endif %}
+                    {% unless recommendation.available %}
+                      <span class="rp03-badge rp03-badge--soldout">SOLD OUT</span>
+                    {% endunless %}
                   </a>
-                </div>
+                  <div class="rp03-content">
+                    <h3 class="rp03-title"><a href="{{ recommendation.url }}">{{ recommendation.title | escape }}</a></h3>
+                    <div class="rp03-price">
+                      {{ recommendation.price | money }}
+                      {% if card_saving > 0 %}
+                        <s>{{ card_variant.compare_at_price | money }}</s>
+                      {% endif %}
+                    </div>
+                    {% assign rp03_rating = recommendation.metafields.loox.avg_rating.value | default: recommendation.metafields.loox.rating.value %}
+                    {% assign rp03_reviews = recommendation.metafields.loox.num_reviews.value | default: recommendation.metafields.loox.review_count.value %}
+                    <div class="rp03-rating" aria-label="{% if rp03_rating != blank %}Bewertung {{ rp03_rating }} von 5{% else %}Noch keine Bewertungen{% endif %}">
+                      {% if rp03_rating != blank %}★★★★★{% if rp03_reviews != blank %} ({{ rp03_reviews }}){% endif %}{% else %}☆☆☆☆☆{% endif %}
+                    </div>
+                  </div>
+                </article>
               </div>
             {% endunless %}
           {% endfor %}
@@ -94,9 +386,9 @@
     {
       "type": "range",
       "id": "grid_columns",
-      "label": "Spalten Desktop",
+      "label": "Sichtbare Produkte Desktop",
       "min": 2,
-      "max": 5,
+      "max": 7,
       "default": 4
     },
     {
@@ -104,14 +396,26 @@
       "id": "grid_columns_mobile",
       "label": "Spalten Mobile",
       "options": [
-        { "value": "1", "label": "1" },
-        { "value": "2", "label": "2" }
+        {
+          "value": "1",
+          "label": "1"
+        },
+        {
+          "value": "2",
+          "label": "2"
+        }
       ],
       "default": "2"
     },
     {
       "type": "header",
       "content": "Farben"
+    },
+    {
+      "type": "color",
+      "id": "card_background_color",
+      "label": "Hintergrund Produktkarten",
+      "default": "#FFFFFF"
     },
     {
       "type": "color",
@@ -130,6 +434,26 @@
       "id": "heading_color",
       "label": "Farbe Überschrift",
       "default": "#262626"
+    },
+    {
+      "type": "range",
+      "id": "heading_font_size",
+      "label": "Heading Schriftgröße",
+      "min": 16,
+      "max": 64,
+      "step": 1,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "subheading_font_size",
+      "label": "Subheading Schriftgröße",
+      "min": 10,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 14
     },
     {
       "type": "header",
@@ -151,9 +475,18 @@
       "id": "heading_size",
       "label": "Überschriftsgröße",
       "options": [
-        { "value": "h2", "label": "h2" },
-        { "value": "h3", "label": "h3" },
-        { "value": "h4", "label": "h4" }
+        {
+          "value": "h2",
+          "label": "h2"
+        },
+        {
+          "value": "h3",
+          "label": "h3"
+        },
+        {
+          "value": "h4",
+          "label": "h4"
+        }
       ],
       "default": "h2"
     },
@@ -162,9 +495,18 @@
       "id": "text_alignment",
       "label": "Textausrichtung",
       "options": [
-        { "value": "text-left", "label": "Links" },
-        { "value": "text-center", "label": "Mitte" },
-        { "value": "text-right", "label": "Rechts" }
+        {
+          "value": "text-left",
+          "label": "Links"
+        },
+        {
+          "value": "text-center",
+          "label": "Mitte"
+        },
+        {
+          "value": "text-right",
+          "label": "Rechts"
+        }
       ],
       "default": "text-left"
     },
@@ -173,11 +515,56 @@
       "id": "heading_html_tag",
       "label": "Heading HTML Tag",
       "options": [
-        { "value": "h2", "label": "h2" },
-        { "value": "h3", "label": "h3" },
-        { "value": "p", "label": "p" }
+        {
+          "value": "h2",
+          "label": "h2"
+        },
+        {
+          "value": "h3",
+          "label": "h3"
+        },
+        {
+          "value": "p",
+          "label": "p"
+        }
       ],
       "default": "p"
+    },
+    {
+      "type": "header",
+      "content": "Hover-Schatten Produktkarten"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_card_shadow",
+      "label": "Hover-Schatten aktivieren",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "hover_shadow_color",
+      "label": "Schattenfarbe",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "hover_shadow_opacity",
+      "label": "Schattenintensität",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "hover_shadow_size",
+      "label": "Schattenstärke",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 30
     }
   ],
   "presets": [
@@ -186,7 +573,9 @@
     }
   ],
   "enabled_on": {
-    "templates": ["product"]
+    "templates": [
+      "product"
+    ]
   }
 }
 {% endschema %}

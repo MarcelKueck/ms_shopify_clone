@@ -1,9 +1,11 @@
+
 {% if paginate.parts.size > 0 and paginate.next %}
   {% assign showing_items = paginate.current_offset | plus: paginate.page_size %}
   {% assign progress_percentage = showing_items | times: 100 | divided_by: paginate.items %}
 
   <pagination-load-more class="flex justify-center mt-12 max-md:text-sm">
     <div class="pagination-load-more flex flex-col items-center text-center w-full max-w-xs">
+
       <div class="progress-bar w-full">
         <div class="progress-bar-inner" style="width: {{ progress_percentage }}%"></div>
       </div>
@@ -12,11 +14,87 @@
         {{ 'general.pagination.load_more_text' | t: count: showing_items, all: paginate.items }}
       </p>
 
-      <a href="{{ paginate.next.url }}" class="button button-primary mt-4 md:mt-6">
+      <a
+        href="{{ paginate.next.url }}"
+        class="button button-primary mt-4 md:mt-6"
+        data-ms-infinite-trigger
+        style="position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;"
+        tabindex="-1"
+        aria-label="Weitere Produkte automatisch laden"
+      >
         {{ 'general.pagination.load_more' | t }}
       </a>
 
       <div class="message message-danger text-danger mt-6"></div>
+
     </div>
   </pagination-load-more>
+
+  <script>
+    (function () {
+      if (window.msInfiniteScrollInstalled) return;
+      window.msInfiniteScrollInstalled = true;
+
+      let loading = false;
+      let lastHref = '';
+      let lastAttempt = 0;
+
+      const observer = new IntersectionObserver((entries) => {
+        if (!entries.some(entry => entry.isIntersecting)) return;
+        if (loading) return;
+
+        const container = document.querySelector('pagination-load-more');
+        const button = container?.querySelector('[data-ms-infinite-trigger]');
+
+        if (!button || !button.getAttribute('href')) return;
+
+        const href = button.href;
+        const now = Date.now();
+
+        if (href === lastHref && now - lastAttempt < 8000) return;
+
+        loading = true;
+        lastHref = href;
+        lastAttempt = now;
+
+        button.click();
+
+        setTimeout(() => {
+          loading = false;
+        }, 1200);
+
+      }, {
+        rootMargin: '600px 0px',
+        threshold: 0
+      });
+
+      const watch = () => {
+        const container = document.querySelector('pagination-load-more');
+        if (!container) return;
+
+        observer.disconnect();
+        observer.observe(container);
+      };
+
+      const mutationObserver = new MutationObserver(watch);
+
+      const start = () => {
+        watch();
+
+        const grid = document.querySelector('.products-collection-grid');
+        if (grid) {
+          mutationObserver.observe(grid.parentElement, {
+            childList: true,
+            subtree: true
+          });
+        }
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+      } else {
+        start();
+      }
+    })();
+  </script>
 {% endif %}

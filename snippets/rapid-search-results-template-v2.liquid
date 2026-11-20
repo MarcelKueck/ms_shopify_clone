@@ -29,23 +29,33 @@
 {% endif %}
 
 {% if content_for_header contains rps_metafields.storeFrontScriptDomain %}
-  {% assign rps_installed = true %}
+  {% assign rps_loaded_by_script_tag = true %}
 {% endif %}
 
-{% if rps_installed %}
-  <script type="application/json" id="rpsSectionSettingsScript">
-    {{ section.settings | json }}
-  </script>
-{% endif %}
+<script type="application/json" id="rpsSectionSettingsScript">
+  {{ section.settings | json }}
+</script>
 
-{% if rps_installed
-  and rps_settings.enabled == true
+{% if rps_settings.enabled == true
   and rps_settings.limit_exceeded == false
   and rps_settings.last_import != false
   and rps_settings.last_import != null
   and rps_results_enabled == true
   and should_load_snapshot == true
 %}
+  {% if rps_loaded_by_script_tag %}
+    <script type="text/javascript">
+      document.documentElement.classList.add('rps-app-active');
+    </script>
+  {% endif %}
+
+  <style>
+    html:not(.rps-app-active) .rps-results,
+    html:not(.rps-app-active) .rps-results-page-title {
+      display: none !important;
+    }
+  </style>
+
   {% if search %}
     {% liquid
       assign search_title = 'templates.search.title' | t
@@ -97,7 +107,7 @@
   </script>
   {% endif %}
 
-  <style id="rps-theme-section-style-{{ section.id }}">
+  <style id="rps-theme-section-style-{{ section.id }}" media="not all">
     {% if rps_theme_settings.theme_version == 2 %}
       div.shopify-section[id$="__search"] .search-page__header {
         display: none !important;
@@ -118,6 +128,12 @@
 
     {{ rps_theme_settings.css }}
   </style>
+
+  <script type="text/javascript">
+    if (document.documentElement.classList.contains('rps-app-active')) {
+      document.getElementById('rps-theme-section-style-{{ section.id }}').media = 'all';
+    }
+  </script>
 
   {% render 'rapid-search-results-skeleton' %}
 
@@ -156,7 +172,7 @@
 
       const rpsResultsTemplateContainer = document.querySelector('.rps-results');
 
-      if (rpsResultsTemplateContainer) {
+      if (rpsResultsTemplateContainer && document.documentElement.classList.contains('rps-app-active')) {
         rpsHideSiblingsExceptTarget(rpsResultsTemplateContainer);
 
         rpsObserveParent(rpsResultsTemplateContainer);
