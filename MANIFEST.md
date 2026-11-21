@@ -85,14 +85,19 @@ Shared theme files to hand-edit: **none** (the menu item and one Custom CSS sele
    come from the two products only). **1 Betrag:** amount tiles (50 € preselected). **2 Motiv:** Mo's designs with the
    amount on them; „Eigenes Foto“ opens the file picker, the photo is scaled down in the browser (≤ 2400 px on the long
    side, while a panorama keeps Mo's minimum of 500 px on the short side; JPEG ≤ 4 MB) and uploaded to Mo with a
-   progress bar; a photo under 500 × 500 px is refused at once with Mo's note. **3 Text:** Für / Von / Nachricht (40 / 40 / 350
-   characters, 8 lines, counter); emoji are removed with a note (the voucher fonts cannot print them); „Mit Mo
+   progress bar; a photo under 500 × 500 px is refused at once with Mo's note, one under Mo's `limits.photoPrintMinSide`
+   (1000 px on the short side, as Mo stored it) only gets a calm note — never a block. **3 Text:** Für / Von / Nachricht
+   (40 / 40 / 350 characters, 8 lines, counter); emoji and the long s „ſ“ are removed with a note (the voucher fonts
+   cannot print them); an empty message shows the design's own line in the live preview („Alles Gute zum Geburtstag!“,
+   „Frohe Weihnachten!“ … — Mo's `defaultMessage`, what the PDF and the card print); „Mit Mo
    formulieren“: Anlass + Ton → up to three „KI-Vorschlag“ cards (as many as Mo sends; heading and announcement count
    them) — Mo never gets the names, the page fills `{{fuer}}` / `{{von}}` in (an empty salutation
    is dropped; the sender is printed under the message anyway, so a closing „Dein {{von}}“ is not repeated).
    **4 Versand:** „PDF per E-Mail“ (inklusive) or „Premium-Karte per Post“ (+ the add-on's price) with an address form,
-   Germany only, checked inline. **5 Prüfen & kaufen:** Mo's exact images with „MUSTER“ (front / inside), the summary
-   with the total and „Ich habe die Gutscheinbedingungen gelesen.“
+   Germany only, checked inline; with a photo under 1000 px the card gets the note „Für die gedruckte Karte ist das Foto
+   recht klein – es kann unscharf wirken. Ein größeres Foto sieht auf 14 × 14 cm besser aus.“ (also at the photo).
+   **5 Prüfen & kaufen:** Mo's exact images with „MUSTER“ (front / inside), the summary with the total and „Ich habe die
+   Gutscheinbedingungen gelesen.“
 3. Progress line on top: done steps blue with a tick and clickable (so is the next open step); on phones the dots plus
    „Schritt 2 von 5 · Motiv“. The live preview sits right and sticky (on phones above the step), landscape for the PDF,
    square for the card; on phones a sticky bar (total + „Weiter“ / „Jetzt kaufen“) appears next to the Mo launcher while
@@ -104,6 +109,9 @@ Shared theme files to hand-edit: **none** (the menu item and one Custom CSS sele
    „Dein vorheriger Entwurf liegt im Warenkorb – er wird durch diesen ersetzt.“, and the next „In den Warenkorb“ /
    „Jetzt kaufen“ adds the new version first and only then removes the earlier lines by their line keys
    (`/cart/change.js`). „Noch einen Gutschein gestalten“ starts a second voucher that is added next to the first.
+   On load and on entering step 5 the page reads the cart (`GET /cart.js`): when none of the voucher's lines is left
+   (bought in this tab, or removed in the drawer), „liegt im Warenkorb“ and the replace note go and the buy buttons
+   come back.
 5. The draft stays in this tab's sessionStorage (`ms-gv-draft`); names, messages and addresses never go into a URL.
    Mo calls carry only the widget's headers (`x-ms-chat-key`, `x-ms-session`, `x-ms-locale`), never cookies.
 6. After payment Mo issues the gift card, e-mails the PDF (with a download link) and sends or queues the print job.
@@ -136,7 +144,8 @@ for print.one, default off — Premium-Karte jobs wait in the admin print queue)
 3. „In den Warenkorb“ → the drawer shows „Geschenkgutschein“ (Gutschein für / Motiv / Versand) and „Gutschein
    Premium-Karte“; a discount code (e.g. BLACK) does not reduce either. Close the drawer, change the message in step 3,
    back to step 5 (the note „Dein vorheriger Entwurf liegt im Warenkorb …“) and „In den Warenkorb“ again → the drawer
-   still holds **one** voucher and one card — the changed version.
+   still holds **one** voucher and one card — the changed version. Remove both lines in the drawer and reload the page
+   (step 5 again) → „Jetzt kaufen“ / „In den Warenkorb“ instead of „Dein Gutschein liegt im Warenkorb.“
 4. **Shopify test order:** set Mo's `GIFT_VOUCHER_ALLOW_TEST_ORDERS=true`, payments in test mode (or the Bogus
    Gateway); buy a 25 € voucher as PDF with a test card → the buyer mail with the PDF arrives (at the latest after
    `GIFT_VOUCHER_RISK_WAIT_MINUTES`, 30, while Shopify's fraud check is pending), Mo admin → Gutscheine lists it as
