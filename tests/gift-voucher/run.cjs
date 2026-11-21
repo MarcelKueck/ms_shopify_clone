@@ -154,8 +154,13 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
   async function cartLines(page) {
     return page.evaluate(() => window.__gvMock.cart.map((l) => ({ id: l.id, key: l.key, tok: l.properties._mo_gv, who: l.properties['Gutschein für'] || l.properties['Für Gutschein an'] })));
   }
+  // Closes the stub drawer and takes the pointer off the page: it would rest
+  // where „In den Warenkorb“ was clicked — on the edge of the button that
+  // takes its place, whose 3 px hover lift then moves it out from under the
+  // pointer and back without end (Playwright: „element is not stable“).
   async function closeDrawer(page) {
     await page.evaluate(() => { const d = document.querySelector('.hx-drawer'); if (d) d.remove(); });
+    await page.mouse.move(0, 0);
   }
   // The 409 fallback: designer gone, the link to the plain voucher product.
   async function fallbackState(page) {
