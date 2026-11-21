@@ -37,6 +37,8 @@
  * An edit after that replaces the voucher in the cart: the new lines go in
  * first, then the earlier version's lines (their keys from the add) come out
  * via /cart/change.js; „Noch einen Gutschein gestalten“ starts a second one.
+ * On load and on entering step 5 the page reads GET /cart.js: lines bought
+ * meanwhile or removed in the drawer no longer count as in the cart.
  * The page's draft (names, message, address) stays in sessionStorage
  * ms-gv-draft — never in a URL. No KPI events in v1, no JS globals.
  * Re-initialises on the theme editor's shopify:section:load (and tears down
@@ -767,7 +769,7 @@
     function showStep(moveFocus) {
       for (var j = 0; j < P.length; j++) P[j].el.hidden = j !== state.step;
       if (state.step === 0 || state.step === 1 || state.step === 4) setSide('front', true);
-      if (state.step === 4) { paintReview(); requestExact(); }
+      if (state.step === 4) { paintReview(); requestExact(); syncCart(); }
       paintAll();
       if (moveFocus) {
         focusEl(P[state.step].title);
@@ -2087,6 +2089,7 @@
     var review = {};
     var termsInput = null;
     var buying = null;
+    var checkoutTimer = null;
     var draftCache = { key: '', token: '' };
     function buildReview() {
       var p = panel(4, T('Prüfen & kaufen', 'Review & buy'), T('So kommt dein Gutschein an. Passt alles?', 'This is how your voucher arrives. All good?'));
@@ -2347,6 +2350,39 @@
       try { if (window.routes && window.routes.cart_change_url) return String(window.routes.cart_change_url).replace(/\.js$/, '') + '.js'; } catch (e) {}
       return rootUrl() + 'cart/change.js';
     }
+    function cartJsUrl() {
+      try { if (window.routes && window.routes.cart_url) return String(window.routes.cart_url).replace(/\.js$/, '') + '.js'; } catch (e) {}
+      return rootUrl() + 'cart.js';
+    }
+    // The cart as it is now (GET /cart.js; on load and on entering step 5):
+    // the lines of the version in the cart may be gone — bought in this tab,
+    // or removed in the drawer. Only the keys still there are kept; none
+    // left → „liegt im Warenkorb“ and the replace note go. Without keys there
+    // is nothing to check; a failed read keeps what the page knows. A read
+    // that answers after a buy started (cartSeq) or after the lines changed
+    // is dropped.
+    var cartSeq = 0;
+    function syncCart() {
+      if (!ready || !state.added || !state.addedLines || typeof window.fetch !== 'function') return;
+      var seq = ++cartSeq;
+      var asked = state.addedLines.join(' ');
+      var pr;
+      try {
+        pr = window.fetch(cartJsUrl(), { method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+      } catch (e) { return; }
+      pr.then(function (r) { return r.ok ? r.json() : null; }).then(function (cart) {
+        if (torn || !ready || buying || seq !== cartSeq || !cart || !Array.isArray(cart.items)) return;
+        if (!state.added || !state.addedLines || state.addedLines.join(' ') !== asked) return;
+        var inCart = {};
+        cart.items.forEach(function (it) { if (it && typeof it.key === 'string') inCart[it.key] = true; });
+        var keep = state.addedLines.filter(function (k) { return inCart[k] === true; });
+        if (keep.length === state.addedLines.length) return;
+        if (keep.length) state.addedLines = keep;
+        else { state.added = null; state.addedLines = null; }
+        save(true);
+        paintAll();
+      }).then(null, function () {});
+    }
     // → { ok: true, keys } with the new lines' keys (for a later replace).
     function cartAdd(items) {
       return window.fetch(cartAddUrl(), {
@@ -2415,6 +2451,7 @@
       var p4 = check(4);
       if (p4.length) { block(p4); return; }
       buying = mode;
+      cartSeq++;
       paintBuy();
       paintBar();
       say(T('Dein Gutschein wird vorbereitet …', 'Preparing your voucher …'));
@@ -2449,9 +2486,9 @@
           setText(review.buyLabel, T('Weiter zur Kasse …', 'To checkout …'));
           say(T('Weiter zur Kasse …', 'To checkout …'));
           window.location.href = checkoutUrl();
-          // Should the navigation not happen (blocked, back-forward cache),
-          // the buttons come back.
-          setTimeout(function () { if (torn) return; buying = null; paintBuy(); paintBar(); }, 8000);
+          // Should the navigation not happen (blocked), the buttons come back;
+          // back from the back-forward cache, pageshow brings them at once.
+          checkoutTimer = setTimeout(function () { checkoutTimer = null; if (torn) return; buying = null; paintBuy(); paintBar(); }, 8000);
           return;
         }
         buying = null;
@@ -2746,6 +2783,7 @@
       paintAll();
       observe();
       save();
+      syncCart();
       // Resizes: the sticky offset, the bar (one or two columns), the fit.
       if ('ResizeObserver' in window && stage) {
         var ro = new window.ResizeObserver(function () { refit(); });
@@ -2873,6 +2911,20 @@
     on(window, 'resize', function () {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function () { measureHeader(); paintBar(); if (!('ResizeObserver' in window)) refit(); }, 100);
+    });
+    // Back on this page from the back-forward cache (e.g. from the checkout):
+    // a load as well — the cart may have changed meanwhile (syncCart). The
+    // way to /checkout was taken, so its busy buttons come back.
+    on(window, 'pageshow', function (e) {
+      if (!e || !e.persisted || !ready) return;
+      if (buying === 'checkout') {
+        clearTimeout(checkoutTimer);
+        checkoutTimer = null;
+        buying = null;
+        paintBuy();
+        paintBar();
+      }
+      syncCart();
     });
     // While a field has the focus on a phone, the bar steps aside (keyboard).
     on(root, 'focusin', function (e) {

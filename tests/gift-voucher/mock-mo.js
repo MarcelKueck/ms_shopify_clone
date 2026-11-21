@@ -20,6 +20,12 @@
  *   POST /api/gift-vouchers/balance     ABCDEFGHJKLMNPQR → 42,50 € of 50 €
  *   POST /cart/add.js                   → { items } with Shopify's line keys
  *   POST /cart/change.js                { id: <line key>, quantity: 0 } → removed
+ *   GET  /cart.js                       the cart as it is now ({ items, item_count });
+ *                                       __gvMock.cartReadFail = true (503) |
+ *                                       'network' makes it fail, cartReadDelay
+ *                                       (ms) a slow answer
+ * The stub drawer has „Entfernen“ per line (/cart/change.js, as the theme's
+ * drawer); __gvMock.emptyCart() empties the cart as a finished order does.
  *
  * Error answers as the real routes give them: ?scenario=rate-limited (429
  * „Too many requests“), server-error (500 „Unexpected server error“),
@@ -44,7 +50,9 @@
     try { var c = JSON.parse(sessionStorage.getItem(CART_KEY) || '[]'); return Array.isArray(c) ? c : []; } catch (e) { return []; }
   }
   function saveCart() { try { sessionStorage.setItem(CART_KEY, JSON.stringify(mock.cart)); } catch (e) {} }
-  var mock = window.__gvMock = { calls: [], cart: loadCart(), events: [], photos: {}, violations: [], tokens: [], uploads: [], stopSelling: scenario === 'stop-selling', cartFail: false };
+  var mock = window.__gvMock = { calls: [], cart: loadCart(), events: [], photos: {}, violations: [], tokens: [], uploads: [], stopSelling: scenario === 'stop-selling', cartFail: false, cartReadFail: false, cartReadDelay: 0 };
+  // A finished order empties the cart (Shopify, after the checkout).
+  mock.emptyCart = function () { mock.cart = []; saveCart(); };
   var TEXT = {
     unavailable: { de: 'Gutscheine sind gerade nicht verfügbar.', en: 'Gift vouchers are not available right now.' },
     photo_too_small: { de: 'Das Foto ist zu klein — es braucht mindestens 500 × 500 Pixel.', en: 'The photo is too small — it needs at least 500 × 500 pixels.' },
@@ -491,6 +499,7 @@
     var body = null;
     try { body = JSON.parse(init.body); } catch (e) {}
     record('calls', { method: 'POST', path: '/cart/add.js', headers: lower(init.headers), body: body, credentials: init.credentials || null });
+    mock.cart = loadCart();
     if (scenario === 'cart-error' || mock.cartFail) return json(422, { status: 422, message: 'Cart Error', description: 'Dieses Produkt ist gerade nicht verfügbar.' }, 300);
     var added = (body && body.items || []).map(function (it) {
       var line = { id: it.id, variant_id: it.id, quantity: it.quantity, properties: it.properties || {}, key: lineKey(it) };
@@ -506,12 +515,28 @@
     var body = null;
     try { body = JSON.parse(init.body); } catch (e) {}
     record('calls', { method: 'POST', path: '/cart/change.js', headers: lower(init.headers), body: body, credentials: init.credentials || null });
+    mock.cart = loadCart();
     var idx = -1;
     mock.cart.forEach(function (l, i) { if (body && l.key === body.id) idx = i; });
     if (idx === -1) return json(400, { status: 400, message: 'Cart Error', description: 'Cannot find variant' }, 120);
     if (body.quantity === 0) mock.cart.splice(idx, 1); else mock.cart[idx].quantity = body.quantity;
     saveCart();
-    return json(200, { items: mock.cart, item_count: mock.cart.reduce(function (n, l) { return n + l.quantity; }, 0) }, 120);
+    return json(200, cartJson(), 120);
+  }
+  function cartJson() {
+    return { token: 'harness-cart', items: mock.cart, item_count: mock.cart.reduce(function (n, l) { return n + l.quantity; }, 0), currency: 'EUR' };
+  }
+  // GET /cart.js: the cart as it is now (what the drawer or a finished order
+  // left — the cart lives in sessionStorage like Shopify's on the server),
+  // taken when the request comes in and answered after cartReadDelay ms; or
+  // a failure (cartReadFail: true → 503, 'network' → no answer).
+  function handleCartRead(init) {
+    record('calls', { method: (init.method || 'GET').toUpperCase(), path: '/cart.js', headers: lower(init.headers), credentials: init.credentials || null, cache: init.cache || null });
+    mock.cart = loadCart();
+    var delay = mock.cartReadDelay || 120;
+    if (mock.cartReadFail === 'network') return new Promise(function (res, rej) { setTimeout(function () { rej(new TypeError('Failed to fetch')); }, delay); });
+    if (mock.cartReadFail) return json(503, { status: 503, message: 'Service Unavailable' }, delay);
+    return json(200, JSON.parse(JSON.stringify(cartJson())), delay);
   }
   window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : input.url;
@@ -519,6 +544,7 @@
     if (url.indexOf(API) === 0) return handleMo(url.slice(API.length), init);
     if (/\/cart\/add\.js$/.test(url.split('?')[0])) return handleCartAdd(init);
     if (/\/cart\/change\.js$/.test(url.split('?')[0])) return handleCartChange(init);
+    if (/\/cart\.js$/.test(url.split('?')[0])) return handleCartRead(init);
     return realFetch(input, init);
   };
 
@@ -569,18 +595,32 @@
   // ------------------------------------------- the theme's cart drawer stub
   var TITLES = { 47110000000099: 'Gutschein Premium-Karte' };
   document.addEventListener('cart:refresh', function () { record('events', 'cart:refresh'); });
+  // „Entfernen“ removes a line the way the theme's drawer does (by its key).
+  function drawerHtml() {
+    var html = '<h2>Warenkorb</h2><ul>';
+    mock.cart.forEach(function (it) {
+      var props = Object.keys(it.properties || {}).filter(function (k) { return k.charAt(0) !== '_'; }).map(function (k) { return '<small>' + k + ': ' + String(it.properties[k]).replace(/</g, '&lt;') + '</small>'; }).join('');
+      html += '<li><b>' + (TITLES[it.id] || 'Geschenkgutschein') + '</b>' + props + '<button type="button" class="hx-remove" data-hx-remove="' + it.key + '">Entfernen</button></li>';
+    });
+    return html + '</ul>';
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-hx-remove]') : null;
+    if (!b) return;
+    var key = b.getAttribute('data-hx-remove');
+    window.fetch('/cart/change.js', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: key, quantity: 0 }) }).then(function () {
+      var d = document.querySelector('.hx-drawer');
+      if (d) d.innerHTML = drawerHtml();
+      record('events', 'removed');
+    });
+  });
   customElements.define('cart-modal', class extends HTMLElement {
     reloadContent() { record('events', 'reloadContent'); return new Promise(function (r) { setTimeout(r, 120); }); }
     show() {
       record('events', 'show');
       var d = document.querySelector('.hx-drawer');
       if (!d) { d = document.createElement('div'); d.className = 'hx-drawer'; document.body.appendChild(d); }
-      var html = '<h2>Warenkorb</h2><ul>';
-      mock.cart.forEach(function (it) {
-        var props = Object.keys(it.properties || {}).filter(function (k) { return k.charAt(0) !== '_'; }).map(function (k) { return '<small>' + k + ': ' + String(it.properties[k]).replace(/</g, '&lt;') + '</small>'; }).join('');
-        html += '<li><b>' + (TITLES[it.id] || 'Geschenkgutschein') + '</b>' + props + '</li>';
-      });
-      d.innerHTML = html + '</ul>';
+      d.innerHTML = drawerHtml();
       requestAnimationFrame(function () { d.classList.add('is-open'); });
     }
   });

@@ -10,8 +10,8 @@
  *
  * GV_ONLY (optional): a comma-separated list of the scenario functions to
  * run (purchase, toCart, balance, replaceInCart, replacePrint, errorTexts,
- * stopSelling, details, defaultLines, longS, cardPhoto, fallbacks,
- * extras, finalShots); default all.
+ * stopSelling, details, defaultLines, longS, cardPhoto, cartSync,
+ * cartSyncMore, fallbacks, extras, finalShots); default all.
  *
  * GV_FINAL_DIR (optional): one clean screenshot per step at 1440 and 390 px
  * (the designer band cut out of a full-page capture, so the theme's sticky
@@ -41,8 +41,10 @@
  * the font URL rebuilt on the page's backend URL; 1–3 suggestions counted
  * right; the design's own default line in the live preview (config
  * designs[].defaultMessage); ſ removed like an emoji; the hint for a photo
- * too small for the Premium-Karte (config limits.photoPrintMinSide);
- * keyboard focus; reduced motion; English strings; no horizontal scroll.
+ * too small for the Premium-Karte (config limits.photoPrintMinSide); the
+ * cart re-read (/cart.js) on load and on entering step 5 — a voucher bought
+ * or removed in the drawer no longer shows as in the cart; keyboard focus;
+ * reduced motion; English strings; no horizontal scroll.
  */
 'use strict';
 const { chromium } = require('playwright');
@@ -1018,6 +1020,191 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     }
   }
 
+  // ==================== the cart as it is now (GET /cart.js, Shopify's cart)
+  async function cartReads(page) { return call(page, '/cart.js'); }
+  async function addToCart(page) {
+    if (!(await page.isChecked(SEL.terms))) await page.check(SEL.terms);
+    await page.click('.ms-gv-buy__cart');
+    await page.waitForSelector('.hx-drawer.is-open', { timeout: 10000 });
+    await settle(page, 300);
+  }
+  async function reenterReview(page) {
+    await page.click('[data-ms-gv-goto="2"]');
+    await settle(page, 300);
+    await page.click('[data-ms-gv-goto="4"]');
+    await settle(page, 600);
+  }
+  async function cartSync(W) {
+    results.push('— the cart re-read on load and on step 5 ' + W + ' px');
+    {
+      // Bought in this tab: the order empties the cart; back on the page.
+      const { ctx, page } = await open(W, { draft: DRAFT });
+      await ready(page);
+      await settle(page, 300);
+      ok(!call(page, '/cart.js').length, 'nothing of this voucher in the cart yet: no /cart.js read');
+      await page.waitForSelector('.ms-gv-preview__stage.has-exact-front', { timeout: 10000 });
+      await page.check(SEL.terms);
+      const toCheckout = page.waitForURL('**/checkout', { timeout: 10000 });
+      await page.click('.ms-gv-buy__now');
+      await toCheckout;
+      // The order is placed: Shopify empties the cart.
+      await page.evaluate(() => sessionStorage.setItem('ms-gv-harness-cart', '[]'));
+      await page.goBack();
+      await ready(page);
+      await page.waitForFunction(() => !!document.querySelector('.ms-gv-buy__cart') && document.querySelector('.ms-gv-added').hidden, null, { timeout: 10000 }).catch(() => null);
+      await settle(page, 400);
+      ok(!(await page.isVisible('.ms-gv-added')) && await page.isVisible('.ms-gv-buy__cart'), 'bought in this tab: no „liegt im Warenkorb“, the buy buttons are back');
+      ok(!(await page.isVisible('.ms-gv-buy__replace')), 'bought: no „wird ersetzt“ note');
+      const d = await sessionDraft(page);
+      ok(!!d && d.added === null && d.addedLines === null, 'bought: the draft forgets the cart (' + JSON.stringify(d && [d.added && 'set', d.addedLines]) + ')');
+      const reads = await cartReads(page);
+      const r = reads[reads.length - 1];
+      ok(!!r && r.method === 'GET' && r.credentials === 'same-origin' && r.cache === 'no-store' && Object.keys(r.headers).every((k) => !/^x-ms-/.test(k)), '/cart.js: GET, same-origin, no-store, no Mo headers ' + JSON.stringify(r));
+      ok(!page.errors.length, 'bought: no script errors ' + (page.errors.join(' | ') || ''));
+      await ctx.close();
+    }
+    {
+      // Removed in the drawer: back on step 5 the page knows.
+      const { ctx, page } = await open(W, { draft: DRAFT });
+      await ready(page);
+      await page.waitForSelector('.ms-gv-preview__stage.has-exact-front', { timeout: 10000 });
+      await addToCart(page);
+      await page.click('.hx-drawer [data-hx-remove]');
+      await page.waitForFunction(() => window.__gvMock.cart.length === 0, null, { timeout: 5000 });
+      await closeDrawer(page);
+      const readsBefore = (await cartReads(page)).length;
+      await reenterReview(page);
+      ok((await cartReads(page)).length === readsBefore + 1, 'entering step 5: one /cart.js read');
+      ok(!(await page.isVisible('.ms-gv-added')) && await page.isVisible('.ms-gv-buy__cart'), 'removed in the drawer: back on step 5 the buy buttons, no „liegt im Warenkorb“');
+      await page.click('[data-ms-gv-goto="2"]');
+      await settle(page, 300);
+      await page.fill(SEL.msgInput, 'Lieber Max, alles Gute!');
+      await page.click('[data-ms-gv-goto="4"]');
+      await settle(page, 600);
+      ok(!(await page.isVisible('.ms-gv-buy__replace')), 'removed, then edited: no „wird ersetzt“ note');
+      const changesBefore = call(page, '/cart/change.js').length;
+      await addToCart(page);
+      const lines = await cartLines(page);
+      ok(call(page, '/cart/change.js').length === changesBefore && lines.length === 1, 'the next „In den Warenkorb“ removes nothing: one voucher in the cart (' + lines.length + ')');
+      ok(await page.isVisible('.ms-gv-added'), 'and „Dein Gutschein liegt im Warenkorb.“');
+      ok(!page.errors.length, 'removed: no script errors ' + (page.errors.join(' | ') || ''));
+      await ctx.close();
+    }
+  }
+  async function cartSyncMore() {
+    results.push('— the cart re-read: card lines, failures, a slow read, the back-forward cache');
+    const W = 1440;
+    const cardDraft = Object.assign(JSON.parse(JSON.stringify(DRAFT)), { delivery: 'print', address: { name: 'Max Beispiel', line1: 'Beispielweg 3', line2: '', postalCode: '12345', city: 'Berlin', country: 'DE' } });
+    {
+      // The card: only the add-on line removed in the drawer → only the
+      // voucher's key is kept (and replaced by the next version).
+      const { ctx, page } = await open(W, { draft: cardDraft });
+      await ready(page);
+      await addToCart(page);
+      const first = await cartLines(page);
+      await page.click('.hx-drawer [data-hx-remove="' + first[1].key + '"]');
+      await page.waitForFunction(() => window.__gvMock.cart.length === 1, null, { timeout: 5000 });
+      await closeDrawer(page);
+      await reenterReview(page);
+      let d = await sessionDraft(page);
+      ok(!!d && JSON.stringify(d.addedLines) === JSON.stringify([first[0].key]), 'card: only the key still in the cart is kept (' + JSON.stringify(d && d.addedLines) + ')');
+      ok(await page.isVisible('.ms-gv-added'), 'card: the voucher is still in the cart → „liegt im Warenkorb“ stays');
+      await page.click('[data-ms-gv-goto="3"]');
+      await settle(page, 300);
+      await page.fill('#' + ROOT_ID + '-addr-line1', 'Beispielweg 5');
+      await page.click('[data-ms-gv-goto="4"]');
+      await settle(page, 600);
+      ok(await page.isVisible('.ms-gv-buy__replace'), 'card, edited: the „wird ersetzt“ note');
+      const before = call(page, '/cart/change.js').length;
+      await addToCart(page);
+      const removed = call(page, '/cart/change.js').slice(before).map((c) => c.body.id);
+      const after = await cartLines(page);
+      ok(JSON.stringify(removed) === JSON.stringify([first[0].key]), 'card: the replace removes just the kept key (' + removed.join(', ') + ')');
+      ok(after.length === 2 && after[0].tok === after[1].tok && after[0].tok !== first[0].tok, 'card: the new voucher and its card line are in the cart');
+      ok(!page.errors.length, 'card: no script errors ' + (page.errors.join(' | ') || ''));
+      await ctx.close();
+    }
+    {
+      // A failed read keeps what the page knows.
+      const { ctx, page } = await open(W, { draft: DRAFT });
+      await ready(page);
+      await addToCart(page);
+      await closeDrawer(page);
+      const keys = (await sessionDraft(page)).addedLines;
+      await page.evaluate(() => { window.__gvMock.cartReadFail = true; window.__gvMock.emptyCart(); });
+      const n0 = (await cartReads(page)).length;
+      await reenterReview(page);
+      ok((await cartReads(page)).length === n0 + 1 && await page.isVisible('.ms-gv-added'), '/cart.js 503: the state is kept („liegt im Warenkorb“)');
+      ok(JSON.stringify((await sessionDraft(page)).addedLines) === JSON.stringify(keys), '/cart.js 503: the line keys are kept');
+      await page.evaluate(() => { window.__gvMock.cartReadFail = 'network'; });
+      await reenterReview(page);
+      ok(await page.isVisible('.ms-gv-added'), '/cart.js without an answer: the state is kept');
+      // On load: the read works again → the stale state goes.
+      await page.reload();
+      await ready(page);
+      await settle(page, 500);
+      ok(!(await page.isVisible('.ms-gv-added')) && await page.isVisible('.ms-gv-buy__cart'), 'reload with a readable, empty cart: the buy buttons');
+      ok(!page.errors.length, 'failures: no script errors ' + (page.errors.join(' | ') || ''));
+      await ctx.close();
+    }
+    {
+      // A read that answers only after a new version went in must not undo it.
+      const { ctx, page } = await open(W, { draft: DRAFT });
+      await ready(page);
+      await addToCart(page);
+      await page.click('.hx-drawer [data-hx-remove]');
+      await page.waitForFunction(() => window.__gvMock.cart.length === 0, null, { timeout: 5000 });
+      await closeDrawer(page);
+      await page.click('[data-ms-gv-goto="2"]');
+      await settle(page, 300);
+      await page.fill(SEL.msgInput, 'Lieber Max, alles Gute!');
+      await page.evaluate(() => { window.__gvMock.cartReadDelay = 2500; });
+      await page.click('[data-ms-gv-goto="4"]');
+      await page.waitForSelector('.ms-gv-buy__cart', { state: 'visible', timeout: 5000 });
+      await page.click('.ms-gv-buy__cart');
+      await page.waitForSelector('.hx-drawer.is-open', { timeout: 10000 });
+      await closeDrawer(page);
+      await page.waitForTimeout(3000);
+      const d = await sessionDraft(page);
+      const lines = await cartLines(page);
+      ok(await page.isVisible('.ms-gv-added') && lines.length === 1 && !!d && JSON.stringify(d.addedLines) === JSON.stringify([lines[0].key]), 'a slow read from before the add is ignored: the new version stays „im Warenkorb“ (' + JSON.stringify(d && d.addedLines) + ')');
+      ok(!page.errors.length, 'slow read: no script errors ' + (page.errors.join(' | ') || ''));
+      await ctx.close();
+    }
+    {
+      // Back from the back-forward cache (pageshow persisted) counts as a load.
+      const { ctx, page } = await open(W, { draft: DRAFT });
+      await ready(page);
+      await addToCart(page);
+      await closeDrawer(page);
+      await page.evaluate(() => { window.__gvMock.emptyCart(); });
+      const n0 = (await cartReads(page)).length;
+      await page.evaluate(() => { window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })); });
+      await settle(page, 500);
+      ok((await cartReads(page)).length === n0 + 1 && !(await page.isVisible('.ms-gv-added')) && await page.isVisible('.ms-gv-buy__cart'), 'pageshow from the back-forward cache: the cart is read, the stale state goes');
+      await ctx.close();
+    }
+    {
+      // A draft that knows no line keys: nothing to check — the state stays.
+      const { ctx, page } = await open(W, { draft: DRAFT });
+      await ready(page);
+      await addToCart(page);
+      await closeDrawer(page);
+      await page.evaluate(() => {
+        const d = JSON.parse(sessionStorage.getItem('ms-gv-draft'));
+        delete d.addedLines;
+        sessionStorage.setItem('ms-gv-draft', JSON.stringify(d));
+        window.__gvMock.emptyCart();
+      });
+      const n0 = (await cartReads(page)).length;
+      await page.reload();
+      await ready(page);
+      await settle(page, 500);
+      ok((await cartReads(page)).length === n0 && await page.isVisible('.ms-gv-added'), 'no line keys in the draft: no read, the state stays');
+      await ctx.close();
+    }
+  }
+
   // ===================================================== fallbacks + errors
   async function fallbacks(W) {
     results.push('— fallbacks ' + W + ' px');
@@ -1281,6 +1468,9 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     await run(longS);
     await run(cardPhoto, 1440);
     await run(cardPhoto, 390);
+    await run(cartSync, 1440);
+    await run(cartSync, 390);
+    await run(cartSyncMore);
     await run(fallbacks, 1440);
     await run(fallbacks, 390);
     await run(extras);
