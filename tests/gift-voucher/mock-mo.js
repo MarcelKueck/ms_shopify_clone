@@ -36,8 +36,9 @@
  * ?fontbase=alias|foreign|relative changes the font URL in the config,
  * ?validity=none sends 2 years without a date, ?defaults=none sends no
  * defaultMessage (an older Mo) and ?defaults=dirty unprintable / overlong
- * ones, ?printmin=none leaves limits.photoPrintMinSide out and ?printmin=<n>
- * sends n.
+ * ones, ?printmin=none leaves limits.photoPrintMinSide out, ?printmin=<n>
+ * sends n and ?printmin=null|empty|false|true sends that JSON value instead
+ * of a number.
  */
 (function () {
   'use strict';
@@ -173,10 +174,14 @@
     if (dl === 'dirty' && DIRTY_LINES[d.key]) return DIRTY_LINES[d.key];
     return defaultLine(d, locale);
   }
+  // ?printmin=null|empty|false|true: a value that is no number, as JSON sends
+  // it (Number() would read null, '' and false as 0).
+  var RAW_PRINTMIN = { 'null': null, empty: '', 'false': false, 'true': true };
   function configLimits() {
     var l = { recipientName: 40, senderName: 40, message: 350, messageLines: 8, photoMaxBytes: 4000000, photoPrintMinSide: 1000 };
     var pm = q.get('printmin');
     if (pm === 'none') delete l.photoPrintMinSide;
+    else if (pm && Object.prototype.hasOwnProperty.call(RAW_PRINTMIN, pm)) l.photoPrintMinSide = RAW_PRINTMIN[pm];
     else if (pm) l.photoPrintMinSide = Number(pm);
     return l;
   }

@@ -508,7 +508,10 @@
         message: num(l.message, 350, 1, 700),
         messageLines: num(l.messageLines, 8, 1, 20),
         photoMaxBytes: num(l.photoMaxBytes, 4000000, 200000, 4500000),
-        photoPrintMinSide: num(l.photoPrintMinSide, PHOTO_PRINT_MIN_SIDE, 0, 10000)
+        // Only a number counts (Mo sends one): Number() would read null, ''
+        // and false as 0 and switch both photo notes off, so anything that is
+        // no number means absent (1000 px). A real 0 still means: no note.
+        photoPrintMinSide: typeof l.photoPrintMinSide === 'number' ? num(l.photoPrintMinSide, PHOTO_PRINT_MIN_SIDE, 0, 10000) : PHOTO_PRINT_MIN_SIDE
       };
       var p = j.print && typeof j.print === 'object' ? j.print : {};
       var countries = (Array.isArray(p.countries) ? p.countries : []).filter(function (x) { return typeof x === 'string' && /^[A-Z]{2}$/.test(x); }).slice(0, 30);

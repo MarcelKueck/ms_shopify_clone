@@ -41,7 +41,8 @@
  * the font URL rebuilt on the page's backend URL; 1–3 suggestions counted
  * right; the design's own default line in the live preview (config
  * designs[].defaultMessage); ſ removed like an emoji; the hint for a photo
- * too small for the Premium-Karte (config limits.photoPrintMinSide); the
+ * too small for the Premium-Karte (config limits.photoPrintMinSide, 1000 px
+ * when it is missing or no number); the
  * cart re-read (/cart.js) on load and on entering step 5 — a voucher bought
  * or removed in the drawer no longer shows as in the cart; keyboard focus;
  * reduced motion; English strings; no horizontal scroll.
@@ -998,13 +999,34 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
       ok(!(await o2.page.isVisible(CARD_CALLOUT)), 'a stored photo of unknown size: no hint (nothing to judge)');
       await o2.ctx.close();
     }
-    for (const [q, w, h, want, label] of [['?printmin=none', 1200, 900, true, 'no photoPrintMinSide in the config: 1000 px'], ['?printmin=1600', 2600, 1700, true, 'photoPrintMinSide 1600: Mo\'s value counts (2400 × 1569)'], ['?printmin=800', 1200, 900, false, 'photoPrintMinSide 800: 1200 × 900 is enough']]) {
+    // Mo's number counts; a value that is no number (null, '', false, true —
+    // Number() would read the first three as 0) is „absent“: 1000 px. A real
+    // 0 switches the notes off. `want`: the note at the photo and in step 4.
+    for (const [q, w, h, want, label] of [
+      ['?printmin=none', 1200, 900, true, 'no photoPrintMinSide in the config: 1000 px'],
+      ['?printmin=1600', 2600, 1700, true, 'photoPrintMinSide 1600: Mo\'s value counts (2400 × 1569)'],
+      ['?printmin=800', 1200, 900, false, 'photoPrintMinSide 800: 1200 × 900 is enough'],
+      ['?printmin=null', 1200, 900, true, 'photoPrintMinSide null: no number, 1000 px'],
+      ['?printmin=empty', 1200, 900, true, 'photoPrintMinSide "": no number, 1000 px'],
+      ['?printmin=false', 1200, 900, true, 'photoPrintMinSide false: no number, 1000 px'],
+      ['?printmin=true', 1200, 900, true, 'photoPrintMinSide true: no number, 1000 px'],
+      ['?printmin=0', 1200, 900, false, 'photoPrintMinSide 0: Mo switched the note off']
+    ]) {
       const { ctx, page } = await open(W, { query: q, draft: photoDraft({ delivery: 'print', address: { name: 'Max Beispiel', line1: 'Beispielweg 3', line2: '', postalCode: '12345', city: 'Berlin', country: 'DE' } }) });
       await ready(page);
       await uploadPng(page, w, h);
+      ok(await visibleText(page, PHOTO_NOTE) === (want ? CARD_HINT : ''), label + ': ' + (want ? 'the card hint' : 'no note') + ' at the photo');
       await next(page, 1);
       await next(page, 2);
       ok((await page.isVisible(CARD_CALLOUT)) === want, label + ': ' + (want ? 'hint' : 'no hint'));
+      await ctx.close();
+    }
+    {
+      // The PDF's general „recht klein“ note reads the same value.
+      const { ctx, page } = await open(W, { query: '?printmin=null', draft: photoDraft() });
+      await ready(page);
+      await uploadPng(page, 1200, 900);
+      ok(await visibleText(page, PHOTO_NOTE) === SMALL_NOTE, 'photoPrintMinSide null, PDF: the general „recht klein“ note at the photo (' + await visibleText(page, PHOTO_NOTE) + ')');
       await ctx.close();
     }
     {
