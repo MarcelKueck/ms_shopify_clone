@@ -238,12 +238,13 @@
     }
 
     // ----- texts: the printable repertoire ----------------------------------------------
-    // The same rule as Mo's sanitizeGiftVoucherText: the voucher fonts draw
-    // Basic Latin, Latin-1, Latin Extended-A, € and the typographic
-    // punctuation „ “ ” ‚ ‘ ’ – — … • · ‹ ›. Everything else (emoji, other
-    // scripts, symbols) is removed while typing — with a note at the field —
-    // so the preview shows exactly what will be printed.
-    var PRINTABLE = /[ -~ -¬®-ſ€‚“”„‘’–—…•‹›]/;
+    // The same rule as Mo's sanitizeGiftVoucherText (isPrintableCodePoint):
+    // the voucher fonts draw Basic Latin, Latin-1, Latin Extended-A without
+    // the long s ſ (the handwriting font Caveat has no glyph for it), € and
+    // the typographic punctuation „ “ ” ‚ ‘ ’ – — … • · ‹ ›. Everything else
+    // (emoji, ſ, other scripts, symbols) is removed while typing — with a
+    // note at the field — so the preview shows exactly what will be printed.
+    var PRINTABLE = /[ -~ -¬®-ž€‚“”„‘’–—…•‹›]/;
     var SILENT = /[\u0000-\u001f\u007f-\u009f­​‌‎‏‪-‮⁠-⁤⁦-⁩︎﻿]/;
     function liveClean(value, max, maxLines, multiline) {
       var s = String(value == null ? '' : value);

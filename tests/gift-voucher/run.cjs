@@ -10,8 +10,8 @@
  *
  * GV_ONLY (optional): a comma-separated list of the scenario functions to
  * run (purchase, toCart, balance, replaceInCart, replacePrint, errorTexts,
- * stopSelling, details, defaultLines, fallbacks, extras, finalShots);
- * default all.
+ * stopSelling, details, defaultLines, longS, fallbacks, extras,
+ * finalShots); default all.
  *
  * GV_FINAL_DIR (optional): one clean screenshot per step at 1440 and 390 px
  * (the designer band cut out of a full-page capture, so the theme's sticky
@@ -40,8 +40,8 @@
  * photo (short side kept ≥ 500 px, a smaller photo refused on the device);
  * the font URL rebuilt on the page's backend URL; 1–3 suggestions counted
  * right; the design's own default line in the live preview (config
- * designs[].defaultMessage); keyboard focus; reduced motion; English
- * strings; no horizontal scroll.
+ * designs[].defaultMessage); ſ removed like an emoji; keyboard focus;
+ * reduced motion; English strings; no horizontal scroll.
  */
 'use strict';
 const { chromium } = require('playwright');
@@ -859,6 +859,35 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     }
   }
 
+  // ===================================== ſ (U+017F): no glyph in Caveat
+  async function longS() {
+    results.push('— ſ (U+017F) is removed like an emoji');
+    const { ctx, page } = await open(1440, { draft: textDraft({ designKey: 'classic', recipient: '', sender: '' }) });
+    await ready(page);
+    await page.focus(SEL.msgInput);
+    await page.keyboard.insertText('Waſſer – Straße, Œuvre, Žižek');
+    await settle(page, 300);
+    const msg = await page.inputValue(SEL.msgInput);
+    ok(msg === 'Waer – Straße, Œuvre, Žižek', 'message: ſ removed, ß Œ Ž ž kept (' + msg + ')');
+    ok(await page.isVisible('#' + ROOT_ID + '-msg-warn'), 'message: the „removed“ note at the field');
+    ok(norm(await page.textContent(MSG_FACE)) === 'Waer – Straße, Œuvre, Žižek', 'the live preview shows what is printed');
+    await page.focus(SEL.fromInput);
+    await page.keyboard.insertText('Joſef');
+    await settle(page, 300);
+    ok(await page.inputValue(SEL.fromInput) === 'Joef' && await page.isVisible('#' + ROOT_ID + '-from-warn'), 'sender: ſ removed with the note');
+    await page.focus(SEL.forInput);
+    await page.keyboard.insertText('ſ');
+    await settle(page, 300);
+    ok(await page.inputValue(SEL.forInput) === '' && await page.isVisible('#' + ROOT_ID + '-for-warn'), 'recipient: a lone ſ removed with the note');
+    await next(page, 2);
+    await next(page, 3);
+    await page.waitForSelector('.ms-gv-preview__stage.has-exact-front', { timeout: 10000 });
+    const pv = call(page, '/api/gift-vouchers/preview').pop();
+    ok(!!pv && pv.body.message === 'Waer – Straße, Œuvre, Žižek' && pv.body.senderName === 'Joef' && !/ſ/.test(JSON.stringify(pv.body)), 'no ſ reaches Mo');
+    ok(!page.errors.length, 'ſ: no script errors ' + (page.errors.join(' | ') || ''));
+    await ctx.close();
+  }
+
   // ===================================================== fallbacks + errors
   async function fallbacks(W) {
     results.push('— fallbacks ' + W + ' px');
@@ -1119,6 +1148,7 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     await run(stopSelling, 390);
     await run(details);
     await run(defaultLines);
+    await run(longS);
     await run(fallbacks, 1440);
     await run(fallbacks, 390);
     await run(extras);
