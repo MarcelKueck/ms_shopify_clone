@@ -128,7 +128,7 @@ Shared theme files to hand-edit: **none** (the menu item and one Custom CSS sele
 **Switches / settings** (in Mo, not in the theme): `GIFT_VOUCHERS_ENABLED` (master switch, default off — off: the page
 shows the fallback, paid orders are recorded and held); Mo admin → **Gutscheine** → Einrichtung: „Verkauf im Shop“,
 „KI-Textvorschläge“, „Eigene Fotos“, „Druck mit eigenem Foto prüfen“; `GIFT_VOUCHER_PRINT_SENDS_APPROVED` (legal gate
-for print.one, default off — Premium-Karte jobs wait in the admin print queue) with `PRINTONE_*`;
+for print.one, default off — while it is off (or print.one is not set up) the page does not offer the Premium-Karte; with `GIFT_VOUCHER_PRINT_PROVIDER=manual` the cards are printed in-house from Mo admin → Gutscheine → „Druck offen“) with `PRINTONE_*`;
 `GIFT_VOUCHER_PRODUCT_HANDLE` / `GIFT_VOUCHER_PRINT_PRODUCT_HANDLE` (default `designgutschein` /
 `gutschein-premiumkarte`), `GIFT_VOUCHER_VALIDITY_YEARS` (3), `GIFT_VOUCHER_PAGE_URL`, `GIFT_VOUCHER_TERMS_URL`,
 `GIFT_VOUCHER_ALLOW_TEST_ORDERS` (default off — test orders issue no real card). The Shopify app needs the scope
