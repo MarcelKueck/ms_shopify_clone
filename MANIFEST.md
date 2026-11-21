@@ -83,10 +83,12 @@ Shared theme files to hand-edit: **none** (the menu item and one Custom CSS sele
    Mo's real designs; the trust line shows the validity from Mo („3 Jahre gültig“).
 2. The page loads `GET {Backend-URL}/api/gift-vouchers/config` (designs, features, limits — amounts and the card price
    come from the two products only). **1 Betrag:** amount tiles (50 € preselected). **2 Motiv:** Mo's designs with the
-   amount on them; „Eigenes Foto“ opens the file picker, the photo is scaled down in the browser (≤ 2400 px, JPEG ≤ 4 MB)
-   and uploaded to Mo with a progress bar. **3 Text:** Für / Von / Nachricht (40 / 40 / 350 characters, 8 lines,
-   counter); emoji are removed with a note (the voucher fonts cannot print them); „Mit Mo formulieren“: Anlass + Ton →
-   three „KI-Vorschlag“ cards — Mo never gets the names, the page fills `{{fuer}}` / `{{von}}` in (an empty salutation
+   amount on them; „Eigenes Foto“ opens the file picker, the photo is scaled down in the browser (≤ 2400 px on the long
+   side, while a panorama keeps Mo's minimum of 500 px on the short side; JPEG ≤ 4 MB) and uploaded to Mo with a
+   progress bar; a photo under 500 × 500 px is refused at once with Mo's note. **3 Text:** Für / Von / Nachricht (40 / 40 / 350
+   characters, 8 lines, counter); emoji are removed with a note (the voucher fonts cannot print them); „Mit Mo
+   formulieren“: Anlass + Ton → up to three „KI-Vorschlag“ cards (as many as Mo sends; heading and announcement count
+   them) — Mo never gets the names, the page fills `{{fuer}}` / `{{von}}` in (an empty salutation
    is dropped; the sender is printed under the message anyway, so a closing „Dein {{von}}“ is not repeated).
    **4 Versand:** „PDF per E-Mail“ (inklusive) or „Premium-Karte per Post“ (+ the add-on's price) with an address form,
    Germany only, checked inline. **5 Prüfen & kaufen:** Mo's exact images with „MUSTER“ (front / inside), the summary
@@ -98,13 +100,20 @@ Shared theme files to hand-edit: **none** (the menu item and one Custom CSS sele
 4. „Jetzt kaufen“: `POST /api/gift-vouchers/drafts` → token → `/cart/add.js` with the voucher line (properties
    „Gutschein für“, „Motiv“, „Versand“, private `_mo_gv`) and, for the card, the add-on line („Für Gutschein an“,
    `_mo_gv`) → `/checkout`. „In den Warenkorb“: the same, then the cart drawer opens (`cart:refresh` + reload + show).
+   A change after „In den Warenkorb“ replaces that voucher in the cart instead of adding a second one: step 5 says
+   „Dein vorheriger Entwurf liegt im Warenkorb – er wird durch diesen ersetzt.“, and the next „In den Warenkorb“ /
+   „Jetzt kaufen“ adds the new version first and only then removes the earlier lines by their line keys
+   (`/cart/change.js`). „Noch einen Gutschein gestalten“ starts a second voucher that is added next to the first.
 5. The draft stays in this tab's sessionStorage (`ms-gv-draft`); names, messages and addresses never go into a URL.
    Mo calls carry only the widget's headers (`x-ms-chat-key`, `x-ms-session`, `x-ms-locale`), never cookies.
 6. After payment Mo issues the gift card, e-mails the PDF (with a download link) and sends or queues the print job.
 7. „Guthaben prüfen“: `POST /api/gift-vouchers/balance` → remaining balance, original value, valid until (vouchers from
    this designer; other gift cards show their balance in the checkout).
 8. Fallback — a note and „Zum Geschenkgutschein“: AI Advisor off or no secret, Mo unreachable (with „Erneut
-   versuchen“), sales switched off in Mo, no amount available, or a gift card product picked in the section.
+   versuchen“), sales switched off in Mo (also while the page is open: Mo answers 409 and the designer gives way to the
+   note), no amount available, or a gift card product picked in the section.
+9. Error lines: Mo's own messages (German on the German page) are shown as they are; its generic English answers
+   (too many requests, server error, wrong key) and a lost connection get the page's own German line.
 
 **KPI:** none from the page in v1 — vouchers and orders are counted in Mo (admin „Gutscheine“).
 
@@ -125,7 +134,9 @@ for print.one, default off — Premium-Karte jobs wait in the admin print queue)
    formulieren“, „Premium-Karte“ with an address; step 5 shows Mo's images with „MUSTER“ — back over the progress line
    and forward again.
 3. „In den Warenkorb“ → the drawer shows „Geschenkgutschein“ (Gutschein für / Motiv / Versand) and „Gutschein
-   Premium-Karte“; a discount code (e.g. BLACK) does not reduce either.
+   Premium-Karte“; a discount code (e.g. BLACK) does not reduce either. Close the drawer, change the message in step 3,
+   back to step 5 (the note „Dein vorheriger Entwurf liegt im Warenkorb …“) and „In den Warenkorb“ again → the drawer
+   still holds **one** voucher and one card — the changed version.
 4. **Shopify test order:** set Mo's `GIFT_VOUCHER_ALLOW_TEST_ORDERS=true`, payments in test mode (or the Bogus
    Gateway); buy a 25 € voucher as PDF with a test card → the buyer mail with the PDF arrives (at the latest after
    `GIFT_VOUCHER_RISK_WAIT_MINUTES`, 30, while Shopify's fraud check is pending), Mo admin → Gutscheine lists it as
