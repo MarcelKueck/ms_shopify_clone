@@ -363,7 +363,8 @@
       if (typeof raw.designKey === 'string' && /^[a-z0-9_-]{1,40}$/.test(raw.designKey)) s.designKey = raw.designKey;
       var p = raw.photo;
       if (p && typeof p === 'object' && /^[A-Za-z0-9_-]{22,64}$/.test(p.id || '') && typeof p.thumb === 'string' && /^data:image\/jpeg;base64,/.test(p.thumb)) {
-        s.photo = { id: p.id, thumb: p.thumb, w: Number(p.w) || 0, h: Number(p.h) || 0, small: p.small === true };
+        // w × h: the size Mo stored (0 = unknown — then no „recht klein“ note).
+        s.photo = { id: p.id, thumb: p.thumb, w: Number(p.w) || 0, h: Number(p.h) || 0 };
       }
       s.recipient = str(raw.recipient, 80);
       s.sender = str(raw.sender, 80);
@@ -476,6 +477,10 @@
       return out;
     }
     function num(v, def, lo, hi) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? Math.floor(v) : def; }
+    // The card's photo size (Mo's GIFT_VOUCHER_PHOTO_PRINT_MIN_SIDE): a photo
+    // with a shorter side is accepted but prints soft on the 14 × 14 cm card.
+    var PHOTO_PRINT_MIN_SIDE = 1000;
+    var DEFAULT_LIMITS = { recipientName: 40, senderName: 40, message: 350, messageLines: 8, photoMaxBytes: 4000000, photoPrintMinSide: PHOTO_PRINT_MIN_SIDE };
     // Fails closed: no usable design → no designer.
     function cleanConfig(j) {
       if (!j || j.ok !== true) return null;
@@ -484,7 +489,7 @@
         reason: typeof j.unavailableReason === 'string' ? j.unavailableReason : null,
         designs: [],
         features: { ai: false, photo: false, print: false },
-        limits: { recipientName: 40, senderName: 40, message: 350, messageLines: 8, photoMaxBytes: 4000000 },
+        limits: DEFAULT_LIMITS,
         occasions: cleanList(j.occasions, 40),
         tones: cleanList(j.tones, 40),
         print: { countries: ['DE'], deliveryNote: T('3–6 Werktage', '3–6 working days') },
@@ -500,7 +505,8 @@
         senderName: num(l.senderName, 40, 1, 80),
         message: num(l.message, 350, 1, 700),
         messageLines: num(l.messageLines, 8, 1, 20),
-        photoMaxBytes: num(l.photoMaxBytes, 4000000, 200000, 4500000)
+        photoMaxBytes: num(l.photoMaxBytes, 4000000, 200000, 4500000),
+        photoPrintMinSide: num(l.photoPrintMinSide, PHOTO_PRINT_MIN_SIDE, 0, 10000)
       };
       var p = j.print && typeof j.print === 'object' ? j.print : {};
       var countries = (Array.isArray(p.countries) ? p.countries : []).filter(function (x) { return typeof x === 'string' && /^[A-Z]{2}$/.test(x); }).slice(0, 30);
@@ -608,7 +614,19 @@
     function selectedDesign() { var d = designByKey(state.designKey); return d && (!d.photo || photoAllowed()) ? d : null; }
     function isPrint() { return state.delivery === 'print' && printAllowed(); }
     function layout() { return isPrint() ? 'square' : 'landscape'; }
-    function limits() { return cfg ? cfg.limits : { recipientName: 40, senderName: 40, message: 350, messageLines: 8, photoMaxBytes: 4000000 }; }
+    // The photo of „Eigenes Foto“ as Mo stored it (the width × height it
+    // answered) against the card's print size (limits.photoPrintMinSide): a
+    // shorter side is accepted, but prints soft — a note, never a block.
+    function photoSoft() {
+      var p = state.photo;
+      var d = selectedDesign();
+      var shortSide = p && p.id ? Math.min(p.w, p.h) : 0;
+      return !!(d && d.photo) && shortSide > 0 && shortSide < limits().photoPrintMinSide;
+    }
+    function cardPhotoText() {
+      return T('Für die gedruckte Karte ist das Foto recht klein – es kann unscharf wirken. Ein größeres Foto sieht auf 14 × 14 cm besser aus.', 'The photo is quite small for the printed card – it may look soft. A larger photo looks better at 14 × 14 cm.');
+    }
+    function limits() { return cfg ? cfg.limits : DEFAULT_LIMITS; }
     function countries() { return cfg ? cfg.print.countries : ['DE']; }
     function country() {
       var list = countries();
@@ -1490,7 +1508,11 @@
       u.work.hidden = !working;
       u.done.hidden = working || !has;
       if (has && u.thumb.getAttribute('src') !== state.photo.thumb) u.thumb.src = state.photo.thumb;
-      u.small.hidden = !(has && state.photo.small);
+      // „recht klein“: for the card in its own words (14 × 14 cm), else for
+      // printing the PDF.
+      var soft = has && photoSoft();
+      u.small.hidden = !soft;
+      if (soft) setText(u.small, isPrint() ? cardPhotoText() : T('Das Foto ist recht klein – im Druck kann es etwas unscharf wirken.', 'The photo is quite small – it may look a little soft in print.'));
       var pct = Math.round(upload.progress * 100);
       setText(u.workText, upload.phase === 'upload' ? T('Wird hochgeladen … ', 'Uploading … ') + pct + ' %' : T('Foto wird vorbereitet …', 'Preparing your photo …'));
       u.barFill.style.width = (upload.phase === 'upload' ? Math.max(4, pct) : 4) + '%';
@@ -1639,13 +1661,14 @@
           }
           if (res.ok && typeof res.data.photoId === 'string' && /^[A-Za-z0-9_-]{22,64}$/.test(res.data.photoId)) {
             // The size Mo stored (it scales a long side over 2400 px down
-            // again) decides the „recht klein“ note — that is what is printed.
+            // again) decides the „recht klein“ notes (photoSoft) — that is
+            // what is printed.
             var mw = Number(res.data.width);
             var mh = Number(res.data.height);
             var stored = mw > 0 && mh > 0 && isFinite(mw) && isFinite(mh);
             var pw = stored ? Math.round(mw) : img.w;
             var ph = stored ? Math.round(mh) : img.h;
-            state.photo = { id: res.data.photoId, thumb: img.thumb, w: pw, h: ph, small: Math.min(pw, ph) < 900 };
+            state.photo = { id: res.data.photoId, thumb: img.thumb, w: pw, h: ph };
             upload = { status: 'idle', progress: 1, phase: '', message: '', seq: seq };
             delete shown.photo;
             changed();
@@ -1930,6 +1953,7 @@
     // ----- step 4: Versand -------------------------------------------------------------------
     var deliveryBtns = {};
     var addrBox = null;
+    var cardPhotoNote = null;
     function buildDelivery() {
       var p = panel(3, T('Wie soll der Gutschein ankommen?', 'How should the voucher arrive?'), T('Das PDF bekommst du in jedem Fall sofort nach dem Kauf per E-Mail.', 'You always get the PDF by e-mail right after your purchase.'));
       var group = el('div', 'ms-gv-options');
@@ -1954,7 +1978,12 @@
           changed();
           // The card's own shape shows at once (square front).
           if (was !== key) setSide('front');
-          if (key === 'print' && addrBox && was !== key) reveal(addrBox, 'center');
+          if (key !== 'print' || was === key) return;
+          // A photo too small for the card: the note under the options comes
+          // first (and is said), the address right after it.
+          var soft = photoSoft() && cardPhotoNote;
+          if (soft) say(cardPhotoText());
+          if (soft || addrBox) reveal(soft ? cardPhotoNote : addrBox, 'center');
         });
         deliveryBtns[key] = b;
         group.appendChild(b);
@@ -1964,8 +1993,15 @@
         option('print', 'card', T('Premium-Karte per Post', 'Premium card by post'), T('350-g-Karte im Umschlag · 14 × 14 cm · ', '350 g card in an envelope · 14 × 14 cm · ') + cfg.print.deliveryNote + T('. Das PDF kommt zusätzlich sofort.', '. The PDF still arrives right away.'), '+ ' + money(PRODUCTS.print.priceCents, PRODUCTS.currency), false);
       }
       p.body.appendChild(group);
-      if (printAllowed()) buildAddress(p.body);
-      else {
+      if (printAllowed()) {
+        // The card with a photo under limits.photoPrintMinSide: a calm note.
+        cardPhotoNote = el('p', 'ms-gv-callout ms-gv-delivery__photo');
+        cardPhotoNote.hidden = true;
+        cardPhotoNote.innerHTML = icon('info');
+        cardPhotoNote.appendChild(el('span', '', cardPhotoText()));
+        p.body.appendChild(cardPhotoNote);
+        buildAddress(p.body);
+      } else {
         var note = el('p', 'ms-gv-callout');
         note.innerHTML = icon('info');
         note.appendChild(el('span', '', T('Die Premium-Karte per Post gibt es gerade nicht – dein Gutschein kommt als PDF, zum Ausdrucken oder Weiterleiten.', 'The premium card by post is not available right now – your voucher comes as a PDF, to print or forward.')));
@@ -2044,6 +2080,7 @@
       var d = isPrint() ? 'print' : 'pdf';
       Object.keys(deliveryBtns).forEach(function (k) { deliveryBtns[k].setAttribute('aria-pressed', k === d ? 'true' : 'false'); });
       if (addrBox) addrBox.hidden = d !== 'print';
+      if (cardPhotoNote) cardPhotoNote.hidden = !(d === 'print' && photoSoft());
     }
 
     // ----- step 5: Prüfen & kaufen --------------------------------------------------------------

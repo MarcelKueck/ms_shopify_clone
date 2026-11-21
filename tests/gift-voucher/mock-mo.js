@@ -7,7 +7,8 @@
  *
  *   GET  /api/gift-vouchers/config      six designs with vector backgrounds and
  *                                       their default lines (defaultMessage);
- *                                       the validity date as Mo formats it
+ *                                       limits.photoPrintMinSide 1000; the
+ *                                       validity date as Mo formats it
  *                                       („31.12.2029“ / „31 December 2029“)
  *   POST /api/gift-vouchers/photo       (XMLHttpRequest, with upload progress)
  *                                       checked like Mo: shorter side ≥ 500 px,
@@ -29,7 +30,8 @@
  * ?fontbase=alias|foreign|relative changes the font URL in the config,
  * ?validity=none sends 2 years without a date, ?defaults=none sends no
  * defaultMessage (an older Mo) and ?defaults=dirty unprintable / overlong
- * ones.
+ * ones, ?printmin=none leaves limits.photoPrintMinSide out and ?printmin=<n>
+ * sends n.
  */
 (function () {
   'use strict';
@@ -163,6 +165,13 @@
     if (dl === 'dirty' && DIRTY_LINES[d.key]) return DIRTY_LINES[d.key];
     return defaultLine(d, locale);
   }
+  function configLimits() {
+    var l = { recipientName: 40, senderName: 40, message: 350, messageLines: 8, photoMaxBytes: 4000000, photoPrintMinSide: 1000 };
+    var pm = q.get('printmin');
+    if (pm === 'none') delete l.photoPrintMinSide;
+    else if (pm) l.photoPrintMinSide = Number(pm);
+    return l;
+  }
   // The font URL as Mo builds it on its public base (?fontbase: another
   // spelling of the same backend, a foreign host, or a bare path).
   function fontUrl() {
@@ -181,7 +190,7 @@
         return { key: d.key, name: d.name, description: d.description, defaultMessage: configLine(d, locale), photo: d.photo, colors: d.colors, previewSvg: { landscape: d.gen(210, 148), square: d.gen(140, 140) } };
       }),
       features: { ai: true, photo: true, print: true },
-      limits: { recipientName: 40, senderName: 40, message: 350, messageLines: 8, photoMaxBytes: 4000000 },
+      limits: configLimits(),
       occasions: [{ key: 'geburtstag', label: 'Geburtstag' }, { key: 'weihnachten', label: 'Weihnachten' }, { key: 'danke', label: 'Danke' }, { key: 'sport', label: 'Sport' }, { key: 'einfach_so', label: 'Einfach so' }],
       tones: [{ key: 'herzlich', label: 'Herzlich' }, { key: 'witzig', label: 'Witzig' }, { key: 'sportlich', label: 'Sportlich' }, { key: 'kurz', label: 'Kurz' }],
       print: { countries: ['DE'], deliveryNote: '3–6 Werktage' },

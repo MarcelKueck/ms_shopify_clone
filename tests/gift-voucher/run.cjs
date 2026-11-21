@@ -10,8 +10,8 @@
  *
  * GV_ONLY (optional): a comma-separated list of the scenario functions to
  * run (purchase, toCart, balance, replaceInCart, replacePrint, errorTexts,
- * stopSelling, details, defaultLines, longS, fallbacks, extras,
- * finalShots); default all.
+ * stopSelling, details, defaultLines, longS, cardPhoto, fallbacks,
+ * extras, finalShots); default all.
  *
  * GV_FINAL_DIR (optional): one clean screenshot per step at 1440 and 390 px
  * (the designer band cut out of a full-page capture, so the theme's sticky
@@ -40,8 +40,9 @@
  * photo (short side kept ≥ 500 px, a smaller photo refused on the device);
  * the font URL rebuilt on the page's backend URL; 1–3 suggestions counted
  * right; the design's own default line in the live preview (config
- * designs[].defaultMessage); ſ removed like an emoji; keyboard focus;
- * reduced motion; English strings; no horizontal scroll.
+ * designs[].defaultMessage); ſ removed like an emoji; the hint for a photo
+ * too small for the Premium-Karte (config limits.photoPrintMinSide);
+ * keyboard focus; reduced motion; English strings; no horizontal scroll.
  */
 'use strict';
 const { chromium } = require('playwright');
@@ -888,6 +889,135 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     await ctx.close();
   }
 
+  // ============= a photo too small for the Premium-Karte (photoPrintMinSide)
+  const CARD_HINT = 'Für die gedruckte Karte ist das Foto recht klein – es kann unscharf wirken. Ein größeres Foto sieht auf 14 × 14 cm besser aus.';
+  const SMALL_NOTE = 'Das Foto ist recht klein – im Druck kann es etwas unscharf wirken.';
+  const PHOTO_NOTE = '.ms-gv-upload__small';
+  const CARD_CALLOUT = '[data-panel="3"] .ms-gv-delivery__photo';
+  const photoDraft = (o) => Object.assign(JSON.parse(JSON.stringify(DRAFT)), { step: 1, done: [true, false, false, false, false], designKey: 'photo' }, o || {});
+  async function uploadPng(page, w, h) {
+    const before = page.rec.uploads.length;
+    await page.setInputFiles('.ms-gv-upload input[type="file"]', { name: 'foto-' + w + 'x' + h + '.png', mimeType: 'image/png', buffer: Buffer.from(await pngOf(page, w, h), 'base64') });
+    await page.waitForFunction((n) => window.__gvMock.uploads.length > n, before, { timeout: 20000 });
+    await page.waitForSelector('.ms-gv-upload__done:not([hidden])', { timeout: 20000 });
+    await settle(page, 300);
+  }
+  async function fillAddress(page) {
+    await page.fill('#' + ROOT_ID + '-addr-name', 'Lena Muster');
+    await page.fill('#' + ROOT_ID + '-addr-line1', 'Musterstraße 12');
+    await page.fill('#' + ROOT_ID + '-addr-postal', '80331');
+    await page.fill('#' + ROOT_ID + '-addr-city', 'München');
+    await settle(page, 200);
+  }
+  async function visibleText(page, sel) {
+    return (await page.isVisible(sel)) ? norm(await page.textContent(sel)) : '';
+  }
+  async function cardPhoto(W) {
+    results.push('— a photo too small for the Premium-Karte ' + W + ' px');
+    {
+      // 1200 × 900: Mo stores 1200 × 900 — under 1000 px on the short side.
+      const { ctx, page } = await open(W, { draft: photoDraft() });
+      await ready(page);
+      await uploadPng(page, 1200, 900);
+      const u = page.rec.uploads[0];
+      ok(!!u && u.w === 1200 && u.h === 900, '1200 × 900 uploaded as it is (' + JSON.stringify(u) + ')');
+      ok(await visibleText(page, PHOTO_NOTE) === SMALL_NOTE, 'PDF: the general „recht klein“ note at the photo (' + await visibleText(page, PHOTO_NOTE) + ')');
+      await next(page, 1);
+      await next(page, 2);
+      ok(await step(page) === 3, 'step 4 (Versand)');
+      ok(!(await page.isVisible(CARD_CALLOUT)), 'PDF chosen: no card hint in step 4');
+      await page.click('.ms-gv-option >> nth=1');
+      await settle(page, 450);
+      ok(await visibleText(page, CARD_CALLOUT) === CARD_HINT, 'Premium-Karte: the calm card hint in step 4 (' + await visibleText(page, CARD_CALLOUT) + ')');
+      ok(await page.$eval(CARD_CALLOUT, (n) => !n.classList.contains('ms-gv-field__error') && !!n.querySelector('svg')), 'the hint is a note with an info icon, not an error');
+      ok(await status(page) === CARD_HINT, 'the hint is announced (polite)');
+      await shot(page, '18-card-photo-hint-' + W, '[data-panel="3"]');
+      await fillAddress(page);
+      await next(page, 3);
+      ok(await step(page) === 4, 'not blocking: „Weiter zur Prüfung“ goes on to step 5');
+      await page.click('[data-ms-gv-goto="1"]');
+      await settle(page, 400);
+      ok(await visibleText(page, PHOTO_NOTE) === CARD_HINT, 'back in step 2 with the Premium-Karte: the card hint at the photo');
+      if (W >= 600) await shot(page, '18-card-photo-note-' + W, '.ms-gv-upload');
+      await page.click('.ms-gv-design[data-design="birthday"]');
+      await settle(page, 300);
+      await page.click('[data-ms-gv-goto="3"]');
+      await settle(page, 400);
+      ok(!(await page.isVisible(CARD_CALLOUT)), 'another design (the photo is not printed): no card hint');
+      await page.click('.ms-gv-option >> nth=0');
+      await settle(page, 300);
+      ok(!(await page.isVisible(CARD_CALLOUT)), 'back to the PDF: no card hint');
+      ok(!page.errors.length, 'card hint: no script errors ' + (page.errors.join(' | ') || ''));
+      await ctx.close();
+    }
+    if (W < 600) return;
+    {
+      // 2600 × 1700: Mo stores 2400 × 1569 — big enough for the card.
+      const { ctx, page } = await open(W, { draft: photoDraft() });
+      await ready(page);
+      await uploadPng(page, 2600, 1700);
+      ok(!(await page.isVisible(PHOTO_NOTE)), '2400 × 1569 stored: no note at the photo');
+      await next(page, 1);
+      await next(page, 2);
+      await page.click('.ms-gv-option >> nth=1');
+      await settle(page, 400);
+      ok(!(await page.isVisible(CARD_CALLOUT)), '2400 × 1569 with the Premium-Karte: no card hint');
+      await ctx.close();
+    }
+    {
+      // A panorama 6000 × 1000: uploaded 3000 × 500, Mo stores 2400 × 400 —
+      // the hint follows the size Mo returned, not the upload.
+      const { ctx, page } = await open(W, { draft: photoDraft({ delivery: 'print', address: { name: 'Max Beispiel', line1: 'Beispielweg 3', line2: '', postalCode: '12345', city: 'Berlin', country: 'DE' } }) });
+      await ready(page);
+      await uploadPng(page, 6000, 1000);
+      ok(await visibleText(page, PHOTO_NOTE) === CARD_HINT, 'panorama, Premium-Karte chosen earlier: the card hint at the photo');
+      await next(page, 1);
+      await next(page, 2);
+      ok(await step(page) === 3 && await visibleText(page, CARD_CALLOUT) === CARD_HINT, 'panorama (Mo stored 2400 × 400): the card hint in step 4');
+      await ctx.close();
+    }
+    {
+      // A restored draft: step 4, the card, a 1200 × 900 photo stored before.
+      const thumb = await (async () => {
+        const { ctx, page } = await open(W, { query: '?mo=off' });
+        const t = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 40; c.height = 30; const x = c.getContext('2d'); x.fillStyle = '#5d4a7a'; x.fillRect(0, 0, 40, 30); return c.toDataURL('image/jpeg', 0.8); });
+        await ctx.close();
+        return t;
+      })();
+      const d = photoDraft({ step: 3, done: [true, true, true, false, false], delivery: 'print', photo: { id: 'gvp_' + 'a'.repeat(30), thumb, w: 1200, h: 900 } });
+      const { ctx, page } = await open(W, { draft: d });
+      await ready(page);
+      ok(await step(page) === 3 && await visibleText(page, CARD_CALLOUT) === CARD_HINT, 'restored at step 4 with the card and a 1200 × 900 photo: the hint at once');
+      await ctx.close();
+      const d2 = JSON.parse(JSON.stringify(d));
+      d2.photo.w = 0; d2.photo.h = 0; d2.photo.small = true;
+      const o2 = await open(W, { draft: d2 });
+      await ready(o2.page);
+      ok(!(await o2.page.isVisible(CARD_CALLOUT)), 'a stored photo of unknown size: no hint (nothing to judge)');
+      await o2.ctx.close();
+    }
+    for (const [q, w, h, want, label] of [['?printmin=none', 1200, 900, true, 'no photoPrintMinSide in the config: 1000 px'], ['?printmin=1600', 2600, 1700, true, 'photoPrintMinSide 1600: Mo\'s value counts (2400 × 1569)'], ['?printmin=800', 1200, 900, false, 'photoPrintMinSide 800: 1200 × 900 is enough']]) {
+      const { ctx, page } = await open(W, { query: q, draft: photoDraft({ delivery: 'print', address: { name: 'Max Beispiel', line1: 'Beispielweg 3', line2: '', postalCode: '12345', city: 'Berlin', country: 'DE' } }) });
+      await ready(page);
+      await uploadPng(page, w, h);
+      await next(page, 1);
+      await next(page, 2);
+      ok((await page.isVisible(CARD_CALLOUT)) === want, label + ': ' + (want ? 'hint' : 'no hint'));
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open(W, { query: '?locale=en', draft: photoDraft({ delivery: 'print', address: { name: 'Max Beispiel', line1: 'Beispielweg 3', line2: '', postalCode: '12345', city: 'Berlin', country: 'DE' } }) });
+      await ready(page);
+      await uploadPng(page, 1200, 900);
+      const en = 'The photo is quite small for the printed card – it may look soft. A larger photo looks better at 14 × 14 cm.';
+      ok(await visibleText(page, PHOTO_NOTE) === en, 'English: the card hint at the photo (' + await visibleText(page, PHOTO_NOTE) + ')');
+      await next(page, 1);
+      await next(page, 2);
+      ok(await visibleText(page, CARD_CALLOUT) === en, 'English: the card hint in step 4');
+      await ctx.close();
+    }
+  }
+
   // ===================================================== fallbacks + errors
   async function fallbacks(W) {
     results.push('— fallbacks ' + W + ' px');
@@ -1149,6 +1279,8 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     await run(details);
     await run(defaultLines);
     await run(longS);
+    await run(cardPhoto, 1440);
+    await run(cardPhoto, 390);
     await run(fallbacks, 1440);
     await run(fallbacks, 390);
     await run(extras);
