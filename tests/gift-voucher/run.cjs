@@ -10,7 +10,8 @@
  *
  * GV_ONLY (optional): a comma-separated list of the scenario functions to
  * run (purchase, toCart, balance, replaceInCart, replacePrint, errorTexts,
- * stopSelling, details, fallbacks, extras, finalShots); default all.
+ * stopSelling, details, defaultLines, fallbacks, extras, finalShots);
+ * default all.
  *
  * GV_FINAL_DIR (optional): one clean screenshot per step at 1440 and 390 px
  * (the designer band cut out of a full-page capture, so the theme's sticky
@@ -38,8 +39,9 @@
  * (Mo's German 502/503 texts kept); the English validity date; a panorama
  * photo (short side kept ≥ 500 px, a smaller photo refused on the device);
  * the font URL rebuilt on the page's backend URL; 1–3 suggestions counted
- * right; keyboard focus; reduced motion; English strings; no horizontal
- * scroll.
+ * right; the design's own default line in the live preview (config
+ * designs[].defaultMessage); keyboard focus; reduced motion; English
+ * strings; no horizontal scroll.
  */
 'use strict';
 const { chromium } = require('playwright');
@@ -785,6 +787,78 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     }
   }
 
+  // ===================== the design's own line for an empty message (config)
+  const MSG_FACE = '.ms-gv-preview__card--inside .ms-gv-face__msg';
+  const textDraft = (o) => Object.assign(JSON.parse(JSON.stringify(DRAFT)), { step: 2, done: [true, true, false, false, false], message: '' }, o || {});
+  async function insideMsg(page) {
+    await page.click('.ms-gv-seg__btn[data-ms-gv-side="inside"]');
+    await settle(page, 250);
+    return norm(await page.textContent(MSG_FACE));
+  }
+  async function defaultLines() {
+    results.push('— the design\'s own line in the live preview (designs[].defaultMessage)');
+    {
+      const { ctx, page } = await open(1440, { draft: textDraft({ designKey: 'birthday' }) });
+      await ready(page);
+      let m = await insideMsg(page);
+      ok(m === 'Alles Gute zum Geburtstag!', 'Geburtstag without a message: the inside shows „Alles Gute zum Geburtstag!“, as the PDF and the card print it (' + m + ')');
+      await page.fill(SEL.msgInput, 'Hallo Max');
+      await settle(page, 250);
+      ok(norm(await page.textContent(MSG_FACE)) === 'Hallo Max', 'a typed message takes its place');
+      await page.fill(SEL.msgInput, '  \n ');
+      await settle(page, 250);
+      ok(norm(await page.textContent(MSG_FACE)) === 'Alles Gute zum Geburtstag!', 'only spaces and a line break: the design\'s line again');
+      await page.fill(SEL.msgInput, '');
+      await page.click('[data-ms-gv-goto="1"]');
+      await settle(page, 400);
+      const lines = {};
+      for (const key of ['classic', 'christmas', 'thanks', 'training', 'photo']) {
+        await page.click('.ms-gv-design[data-design="' + key + '"]');
+        await settle(page, 200);
+        lines[key] = await insideMsg(page);
+      }
+      ok(JSON.stringify(lines) === JSON.stringify({ classic: 'Viel Freude beim Training!', christmas: 'Frohe Weihnachten!', thanks: 'Danke von Herzen!', training: 'Viel Freude beim Training!', photo: 'Viel Freude damit!' }), 'every design shows its own line ' + JSON.stringify(lines));
+      await page.click('.ms-gv-design[data-design="thanks"]');
+      await settle(page, 200);
+      // The empty message still goes to Mo as „no message“ (Mo prints its line).
+      await next(page, 1);
+      await next(page, 2);
+      await next(page, 3);
+      ok(await step(page) === 4, 'on to step 5');
+      await page.waitForSelector('.ms-gv-preview__stage.has-exact-front', { timeout: 10000 });
+      const pv = call(page, '/api/gift-vouchers/preview').pop();
+      ok(!!pv && pv.body.designKey === 'thanks' && pv.body.message === null, 'the exact preview gets message: null, not the default line (' + JSON.stringify(pv && pv.body.message) + ')');
+      ok(!page.errors.length, 'default lines: no script errors ' + (page.errors.join(' | ') || ''));
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open(1440, { query: '?locale=en', draft: textDraft({ designKey: 'birthday' }) });
+      await ready(page);
+      const m = await insideMsg(page);
+      ok(m === 'Happy birthday!', 'English: „Happy birthday!“ (' + m + ')');
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open(1440, { query: '?defaults=none', draft: textDraft({ designKey: 'birthday' }) });
+      await ready(page);
+      const m = await insideMsg(page);
+      ok(m === 'Viel Freude beim Training!', 'a config without defaultMessage: the page\'s own line (' + m + ')');
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open(1440, { query: '?defaults=dirty', draft: textDraft({ designKey: 'christmas' }) });
+      await ready(page);
+      let m = await insideMsg(page);
+      ok(m === 'Frohe Weihnachten!', 'a default line with an emoji: only what the fonts print (' + m + ')');
+      await page.click('[data-ms-gv-goto="1"]');
+      await settle(page, 300);
+      await page.click('.ms-gv-design[data-design="thanks"]');
+      m = await insideMsg(page);
+      ok(/^Danke x+$/.test(m) && m.length === 120, 'a 206-character default line: cut to 120 characters (' + m.length + ')');
+      await ctx.close();
+    }
+  }
+
   // ===================================================== fallbacks + errors
   async function fallbacks(W) {
     results.push('— fallbacks ' + W + ' px');
@@ -1044,6 +1118,7 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     await run(stopSelling, 1440);
     await run(stopSelling, 390);
     await run(details);
+    await run(defaultLines);
     await run(fallbacks, 1440);
     await run(fallbacks, 390);
     await run(extras);

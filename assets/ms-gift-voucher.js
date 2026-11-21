@@ -531,6 +531,10 @@
           key: d.key,
           name: str(d.name, 40) || d.key,
           description: str(d.description, 160),
+          // What the PDF and the card print when the message is left empty
+          // („Alles Gute zum Geburtstag!“) — cleaned like a typed message,
+          // so the live preview shows only what the fonts print.
+          defaultMessage: typeof d.defaultMessage === 'string' ? finalText(liveClean(d.defaultMessage.slice(0, 400), 120, c.limits.messageLines, true).text) : '',
           photo: d.photo === true,
           colors: colors,
           svg: { landscape: svgUri(ps.landscape), square: svgUri(ps.square) }
@@ -901,7 +905,8 @@
           setText(f.forEl, data.recipient ? T('für ', 'for ') + data.recipient : '');
           f.forEl.hidden = !data.recipient;
         } else {
-          var msg = data.message || T('Viel Freude beim Training!', 'Enjoy your training!');
+          // No message: the design's own line, as the PDF and the card print it.
+          var msg = data.message || (design && design.defaultMessage) || T('Viel Freude beim Training!', 'Enjoy your training!');
           var changed = f.msg.textContent !== msg || f.from.textContent !== (data.sender ? '— ' + data.sender : '') || f.shape !== shape;
           setText(f.msg, msg);
           setText(f.from, data.sender ? '— ' + data.sender : '');

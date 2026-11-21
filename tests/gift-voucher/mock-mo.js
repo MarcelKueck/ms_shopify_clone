@@ -5,7 +5,8 @@
  * Everything the page sends is recorded in window.__gvMock (calls, cart,
  * events, violations, uploads) for run.cjs.
  *
- *   GET  /api/gift-vouchers/config      six designs with vector backgrounds;
+ *   GET  /api/gift-vouchers/config      six designs with vector backgrounds and
+ *                                       their default lines (defaultMessage);
  *                                       the validity date as Mo formats it
  *                                       („31.12.2029“ / „31 December 2029“)
  *   POST /api/gift-vouchers/photo       (XMLHttpRequest, with upload progress)
@@ -26,7 +27,9 @@
  * write, as when Mo stops selling — also switchable at runtime with
  * window.__gvMock.stopSelling = true); cart-error (or __gvMock.cartFail).
  * ?fontbase=alias|foreign|relative changes the font URL in the config,
- * ?validity=none sends 2 years without a date.
+ * ?validity=none sends 2 years without a date, ?defaults=none sends no
+ * defaultMessage (an older Mo) and ?defaults=dirty unprintable / overlong
+ * ones.
  */
 (function () {
   'use strict';
@@ -141,14 +144,25 @@
     s += '<path d="M0 ' + (h * 0.9) + ' L' + (w * 0.4) + ' ' + (h * 0.64) + ' L' + (w * 0.75) + ' ' + (h * 0.92) + ' L' + w + ' ' + (h * 0.78) + ' V' + h + ' H0Z" fill="#33414f"/>';
     return svg(w, h, s, '<linearGradient id="bg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9fb8cf"/><stop offset="1" stop-color="#dfe7ee"/></linearGradient>');
   }
+  // line: the design's default line (Mo's GIFT_VOUCHER_DESIGNS defaultMessage)
+  // — what the PDF and the card print when the message is left empty.
   var DESIGNS = [
-    { key: 'classic', name: 'Klassisch', description: 'Anthrazit mit feiner Rändelung – zeitlos edel.', photo: false, gen: classic, colors: { background: '#15171a', ink: '#f3e7c6', accent: '#008ccb', muted: '#9aa3ab', insideBackground: '#fbfaf6', insideInk: '#1b1d20' } },
-    { key: 'birthday', name: 'Geburtstag', description: 'Leichtes Konfetti in Blau und Sonnengelb.', photo: false, gen: birthday, colors: { background: '#ffffff', ink: '#0d1b2a', accent: '#008ccb', muted: '#5b6670', insideBackground: '#ffffff', insideInk: '#1b1d20' } },
-    { key: 'christmas', name: 'Weihnachten', description: 'Nachtblau mit Sternen und goldenen Akzenten.', photo: false, gen: christmas, colors: { background: '#0b2440', ink: '#ffffff', accent: '#d9b26f', muted: '#a9b8cc', insideBackground: '#fbf8f1', insideInk: '#0b2440' } },
-    { key: 'thanks', name: 'Danke', description: 'Helles Blau mit fließenden Linien.', photo: false, gen: thanks, colors: { background: '#eaf6fc', ink: '#00577f', accent: '#008ccb', muted: '#3f6a80', insideBackground: '#ffffff', insideInk: '#10324a' } },
-    { key: 'training', name: 'Training', description: 'Kraftvoll: die Hantelscheibe in Markenblau.', photo: false, gen: training, colors: { background: '#0f1114', ink: '#ffffff', accent: '#ffffff', muted: '#9aa3ab', insideBackground: '#f7f8fa', insideInk: '#0f1114' } },
-    { key: 'photo', name: 'Eigenes Foto', description: 'Dein Lieblingsbild vorne drauf.', photo: true, gen: photo, colors: { background: '#1d2127', ink: '#ffffff', accent: '#ffffff', muted: '#d0d5dc', insideBackground: '#fbfaf6', insideInk: '#1b1d20' } }
+    { key: 'classic', name: 'Klassisch', description: 'Anthrazit mit feiner Rändelung – zeitlos edel.', photo: false, gen: classic, line: { de: 'Viel Freude beim Training!', en: 'Enjoy your training!' }, colors: { background: '#15171a', ink: '#f3e7c6', accent: '#008ccb', muted: '#9aa3ab', insideBackground: '#fbfaf6', insideInk: '#1b1d20' } },
+    { key: 'birthday', name: 'Geburtstag', description: 'Leichtes Konfetti in Blau und Sonnengelb.', photo: false, gen: birthday, line: { de: 'Alles Gute zum Geburtstag!', en: 'Happy birthday!' }, colors: { background: '#ffffff', ink: '#0d1b2a', accent: '#008ccb', muted: '#5b6670', insideBackground: '#ffffff', insideInk: '#1b1d20' } },
+    { key: 'christmas', name: 'Weihnachten', description: 'Nachtblau mit Sternen und goldenen Akzenten.', photo: false, gen: christmas, line: { de: 'Frohe Weihnachten!', en: 'Merry Christmas!' }, colors: { background: '#0b2440', ink: '#ffffff', accent: '#d9b26f', muted: '#a9b8cc', insideBackground: '#fbf8f1', insideInk: '#0b2440' } },
+    { key: 'thanks', name: 'Danke', description: 'Helles Blau mit fließenden Linien.', photo: false, gen: thanks, line: { de: 'Danke von Herzen!', en: 'Thank you so much!' }, colors: { background: '#eaf6fc', ink: '#00577f', accent: '#008ccb', muted: '#3f6a80', insideBackground: '#ffffff', insideInk: '#10324a' } },
+    { key: 'training', name: 'Training', description: 'Kraftvoll: die Hantelscheibe in Markenblau.', photo: false, gen: training, line: { de: 'Viel Freude beim Training!', en: 'Enjoy your training!' }, colors: { background: '#0f1114', ink: '#ffffff', accent: '#ffffff', muted: '#9aa3ab', insideBackground: '#f7f8fa', insideInk: '#0f1114' } },
+    { key: 'photo', name: 'Eigenes Foto', description: 'Dein Lieblingsbild vorne drauf.', photo: true, gen: photo, line: { de: 'Viel Freude damit!', en: 'Enjoy!' }, colors: { background: '#1d2127', ink: '#ffffff', accent: '#ffffff', muted: '#d0d5dc', insideBackground: '#fbfaf6', insideInk: '#1b1d20' } }
   ];
+  function defaultLine(d, locale) { return d.line[locale === 'en' ? 'en' : 'de']; }
+  // ?defaults=dirty: what the page must clean (an emoji, a 200-character line).
+  var DIRTY_LINES = { christmas: 'Frohe Weihnachten! 🎄', thanks: 'Danke ' + new Array(201).join('x') };
+  function configLine(d, locale) {
+    var dl = q.get('defaults');
+    if (dl === 'none') return undefined;
+    if (dl === 'dirty' && DIRTY_LINES[d.key]) return DIRTY_LINES[d.key];
+    return defaultLine(d, locale);
+  }
   // The font URL as Mo builds it on its public base (?fontbase: another
   // spelling of the same backend, a foreign host, or a bare path).
   function fontUrl() {
@@ -164,7 +178,7 @@
       available: scenario !== 'unavailable',
       unavailableReason: scenario === 'unavailable' ? 'disabled' : null,
       designs: DESIGNS.map(function (d) {
-        return { key: d.key, name: d.name, description: d.description, photo: d.photo, colors: d.colors, previewSvg: { landscape: d.gen(210, 148), square: d.gen(140, 140) } };
+        return { key: d.key, name: d.name, description: d.description, defaultMessage: configLine(d, locale), photo: d.photo, colors: d.colors, previewSvg: { landscape: d.gen(210, 148), square: d.gen(140, 140) } };
       }),
       features: { ai: true, photo: true, print: true },
       limits: { recipientName: 40, senderName: 40, message: 350, messageLines: 8, photoMaxBytes: 4000000 },
@@ -347,8 +361,8 @@
       x.fillRect(half, H * 0.12, 1.5, H * 0.76);
     }
     var ink = d.colors.insideInk;
-    // message (Caveat), auto-sized
-    var msg = b.message || 'Viel Freude beim Training!';
+    // message (Caveat), auto-sized — empty: the design's own line
+    var msg = b.message || defaultLine(d, b.locale);
     var from = b.senderName ? '— ' + b.senderName : '';
     var padX = half * 0.12;
     var maxW = half - padX * 2;
