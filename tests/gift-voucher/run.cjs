@@ -8,6 +8,10 @@
  *   [GV_FINAL_DIR=/path/for/clean/step/screenshots] \
  *   node tests/gift-voucher/run.cjs
  *
+ * GV_ONLY (optional): a comma-separated list of the scenario functions to
+ * run (purchase, toCart, balance, replaceInCart, replacePrint, errorTexts,
+ * stopSelling, details, fallbacks, extras, finalShots); default all.
+ *
  * GV_FINAL_DIR (optional): one clean screenshot per step at 1440 and 390 px
  * (the designer band cut out of a full-page capture, so the theme's sticky
  * header never covers it) plus hero, bar, cart, balance, FAQ and fallback.
@@ -25,9 +29,17 @@
  * „Jetzt kaufen“ → drafts → /cart/add.js → /checkout) with the request
  * contract (headers, credentials, cart properties, no names in URLs);
  * „In den Warenkorb“ (cart:refresh + <cart-modal>.reloadContent + show);
- * the sticky bar clear of the Mo launcher; „Guthaben prüfen“; the
- * fallbacks (Mo off, sales off, network down); preview and draft errors;
- * keyboard focus; reduced motion; English strings; no horizontal scroll.
+ * an edit after that replacing the voucher in the cart (/cart/change.js by
+ * line key, only after the new add; „Noch einen Gutschein gestalten“ adds a
+ * second one); the sticky bar clear of the Mo launcher; „Guthaben prüfen“;
+ * the fallbacks (Mo off, sales off, network down, a 409 from photo /
+ * suggest / preview / drafts mid-visit); preview and draft errors; Mo's
+ * generic English 429/500/401 answers shown as the page's German lines
+ * (Mo's German 502/503 texts kept); the English validity date; a panorama
+ * photo (short side kept ≥ 500 px, a smaller photo refused on the device);
+ * the font URL rebuilt on the page's backend URL; 1–3 suggestions counted
+ * right; keyboard focus; reduced motion; English strings; no horizontal
+ * scroll.
  */
 'use strict';
 const { chromium } = require('playwright');
@@ -104,7 +116,7 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
       hasTouch: mobile,
       reducedMotion: opts.reducedMotion ? 'reduce' : 'no-preference'
     });
-    const rec = { calls: [], events: [], violations: [], tokens: [] };
+    const rec = { calls: [], events: [], violations: [], tokens: [], uploads: [] };
     await ctx.exposeBinding('__gvRecord', (_src, kind, item) => { if (rec[kind]) rec[kind].push(JSON.parse(item)); });
     if (opts.draft) {
       await ctx.addInitScript((d) => {
@@ -127,8 +139,51 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
       }
       return route.fulfill({ status: 404, body: '' });
     });
+    // Other font hosts of the ?fontbase scenarios: never the network.
+    await page.route(/^https:\/\/(mo-alias|fonts\.foreign)\.example\.test\//, (route) => route.fulfill({ status: 404, body: '' }));
     await page.goto(BASE + (opts.query || ''));
     return { ctx, page };
+  }
+  // The page's polite status line (say()) and the designer's state.
+  async function status(page) {
+    return norm(await page.$eval('[data-ms-gv-designer] > [role="status"]', (n) => n.textContent));
+  }
+  async function sessionDraft(page) {
+    return page.evaluate(() => { try { return JSON.parse(sessionStorage.getItem('ms-gv-draft')); } catch (e) { return null; } });
+  }
+  async function cartLines(page) {
+    return page.evaluate(() => window.__gvMock.cart.map((l) => ({ id: l.id, key: l.key, tok: l.properties._mo_gv, who: l.properties['Gutschein für'] || l.properties['Für Gutschein an'] })));
+  }
+  async function closeDrawer(page) {
+    await page.evaluate(() => { const d = document.querySelector('.hx-drawer'); if (d) d.remove(); });
+  }
+  // The 409 fallback: designer gone, the link to the plain voucher product.
+  async function fallbackState(page) {
+    return page.evaluate(() => {
+      const d = document.querySelector('[data-ms-gv-designer]');
+      const f = document.querySelector('[data-ms-gv-fallback]');
+      const link = f && f.querySelector('a[href="/products/motion-sports-geschenkgutschein"]');
+      const panels = document.querySelector('[data-ms-gv-panels]');
+      return {
+        state: d.getAttribute('data-state'),
+        link: !!link && !f.hidden && link.getBoundingClientRect().height > 0,
+        panels: panels.getBoundingClientRect().height,
+        bar: !!document.querySelector('.ms-gv-bar.is-shown'),
+        focus: !!link && document.activeElement === link
+      };
+    });
+  }
+  // A PNG of w × h drawn in the page (base64).
+  async function pngOf(page, w, h) {
+    return page.evaluate(([w, h]) => {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const x = c.getContext('2d');
+      const g = x.createLinearGradient(0, 0, w, 0);
+      g.addColorStop(0, '#2b6cb0'); g.addColorStop(1, '#f6ad55');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+      return c.toDataURL('image/png').split(',')[1];
+    }, [w, h]);
   }
   async function settle(page, ms = 450) {
     await page.evaluate(() => (document.fonts ? document.fonts.ready : null));
@@ -240,6 +295,9 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     ok(!!dims && Math.max(dims[0], dims[1]) <= 720, 'photo: thumbnail ≤ 720 px for the preview');
     ok(!!up && headersOk(up), 'photo: only the allowed headers');
     ok(!!up && up.headers['x-ms-session'] === sid, 'photo: x-ms-session = localStorage ms-chat-sid');
+    const upDims = page.rec.uploads[0];
+    ok(!!upDims && upDims.w === 2400 && upDims.h === 1569, 'photo: 2600×1700 uploaded as 2400×1569 (' + JSON.stringify(upDims) + ')');
+    ok(!(await page.isVisible('.ms-gv-upload__small')), 'photo: Mo stored 2400×1569 → no „recht klein“ note');
     await shot(page, '03-photo-' + W, SEL.stage);
     await page.click('.ms-gv-design[data-design="birthday"]');
     await settle(page, 350);
@@ -259,6 +317,7 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     await settle(page, 300);
     let texts = await page.$$eval('.ms-gv-sugg__text', (ns) => ns.map((n) => n.textContent));
     ok(texts.length === 3 && texts.every((t) => !/\{\{/.test(t)), 'three suggestions, placeholders filled');
+    ok(norm(await page.textContent('.ms-gv-ai__title')) === 'Mo schreibt dir drei Vorschläge' && await status(page) === 'Drei Vorschläge von Mo sind da.', 'three suggestions: title and announcement say „drei“');
     ok(texts[0].indexOf('Liebe Lena,') === 0 && /Bestleistungen\.$/.test(texts[0]) && !/Jonas/.test(texts[0]), 'suggestion 1: „Liebe Lena,“ … — the closing „Dein {{von}}“ is left to the sender line');
     ok(/\nVon Herzen$/.test(texts[1]), 'suggestion 2: the closing „Von Herzen, {{von}}“ keeps „Von Herzen“');
     const sug = call(page, '/api/gift-vouchers/suggest')[0];
@@ -357,11 +416,14 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     ok(page.urls.every((u) => !/Lena|Jonas|Muster|M%C3%BCnchen|80331/.test(u)), 'no name, message or address in any URL');
     ok(!page.rec.violations.length, 'request contract: ' + (page.rec.violations.join('; ') || 'no violations'));
 
-    // Back from the checkout: the draft remembers the cart.
+    // Back from the checkout: the draft remembers the cart (and its lines).
     await page.goBack();
     await ready(page);
     await settle(page, 500);
     ok(await page.isVisible('.ms-gv-added'), 'back from /checkout: „Dein Gutschein liegt im Warenkorb.“');
+    const back = await sessionDraft(page);
+    ok(!!back && Array.isArray(back.addedLines) && back.addedLines.length === 2 && back.addedLines.every((k) => /^\d{1,20}:[0-9a-f]{8,64}$/.test(k)) && back.addedLines[0].indexOf(V.v100 + ':') === 0 && back.addedLines[1].indexOf(V.print + ':') === 0, 'back from /checkout: both line keys kept in the draft ' + JSON.stringify(back && back.addedLines));
+    ok(!(await page.isVisible('.ms-gv-buy__replace')), 'back from /checkout: no „wird ersetzt“ note for the same version');
     await shot(page, '08-back-from-checkout-' + W, '[data-panel="4"]');
     ok(!page.errors.length, 'no script errors: ' + (page.errors.join(' | ') || 'none'));
     await ctx.close();
@@ -432,6 +494,292 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     await ctx.close();
   }
 
+  // ============================= an edit after „In den Warenkorb“ replaces
+  async function replaceInCart(W) {
+    results.push('— edit after „In den Warenkorb“ replaces the voucher ' + W + ' px');
+    const { ctx, page } = await open(W, { draft: DRAFT });
+    await ready(page);
+    await page.waitForSelector('.ms-gv-preview__stage.has-exact-front', { timeout: 10000 });
+    await page.check(SEL.terms);
+    await page.click('.ms-gv-buy__cart');
+    await page.waitForSelector('.hx-drawer.is-open', { timeout: 10000 });
+    await settle(page, 400);
+    await closeDrawer(page);
+    const first = await cartLines(page);
+    let d = await sessionDraft(page);
+    ok(first.length === 1 && !!d && Array.isArray(d.addedLines) && d.addedLines.length === 1 && d.addedLines[0] === first[0].key, 'first add: the line key is kept in the draft (' + JSON.stringify(d && d.addedLines) + ')');
+    // A reload in the same tab restores it (sessionStorage).
+    await page.reload();
+    await ready(page);
+    await settle(page, 400);
+    ok(await page.isVisible('.ms-gv-added'), 'reload: „Dein Gutschein liegt im Warenkorb.“');
+    // Fix a typo in the message, back to „Prüfen & kaufen“ over the line.
+    await page.click('[data-ms-gv-goto="2"]');
+    await settle(page, 400);
+    await page.fill(SEL.msgInput, 'Lieber Max,\nfür deine nächsten Bestzeiten – viel Spaß beim Aussuchen! (korrigiert)');
+    await settle(page, 300);
+    await page.click('[data-ms-gv-goto="4"]');
+    await settle(page, 500);
+    ok(await page.isVisible('.ms-gv-buy__replace') && /Dein vorheriger Entwurf liegt im Warenkorb – er wird durch diesen ersetzt\./.test(await page.textContent('.ms-gv-buy__replace')), 'after the edit: „Dein vorheriger Entwurf liegt im Warenkorb – er wird durch diesen ersetzt.“');
+    ok(!(await page.isVisible('.ms-gv-added')) && await page.isVisible('.ms-gv-buy__cart'), 'after the edit: the buy buttons are back');
+    await shot(page, '15-replace-note-' + W, '[data-panel="4"]');
+    // A failed add keeps the earlier version in the cart.
+    await page.evaluate(() => { window.__gvMock.cartFail = true; });
+    if (!(await page.isChecked(SEL.terms))) await page.check(SEL.terms);
+    await page.click('.ms-gv-buy__cart');
+    await page.waitForSelector('.ms-gv-buy__error:not([hidden])', { timeout: 10000 });
+    await settle(page, 300);
+    ok(JSON.stringify(await cartLines(page)) === JSON.stringify(first) && !call(page, '/cart/change.js').length, 'failed add: nothing removed, the earlier version stays in the cart');
+    ok(await page.isVisible('.ms-gv-buy__replace'), 'failed add: the note stays');
+    await page.evaluate(() => { window.__gvMock.cartFail = false; });
+    await page.click('.ms-gv-buy__cart');
+    await page.waitForSelector('.hx-drawer.is-open', { timeout: 10000 });
+    await settle(page, 400);
+    const after = await cartLines(page);
+    const changes = call(page, '/cart/change.js');
+    const lastAdd = page.rec.calls.lastIndexOf(call(page, '/cart/add.js').pop());
+    ok(after.length === 1 && after[0].tok !== first[0].tok && after[0].key !== first[0].key, 'second add: one voucher in the cart — the new version (' + JSON.stringify(after) + ')');
+    ok(changes.length === 1 && JSON.stringify(changes[0].body) === JSON.stringify({ id: first[0].key, quantity: 0 }) && changes[0].credentials === 'same-origin', '/cart/change.js { id: <earlier line key>, quantity: 0 } ' + JSON.stringify(changes.map((c) => c.body)));
+    ok(page.rec.calls.indexOf(changes[0]) > lastAdd, 'the earlier line goes only after the new one is in');
+    ok(norm(await page.textContent('.hx-drawer')).split('Geschenkgutschein').length === 2, 'drawer: one „Geschenkgutschein“');
+    ok(await page.isVisible('.ms-gv-added') && !(await page.isVisible('.ms-gv-buy__replace')), 'second add: „Dein Gutschein liegt im Warenkorb.“, no note');
+    d = await sessionDraft(page);
+    ok(!!d && JSON.stringify(d.addedLines) === JSON.stringify([after[0].key]), 'second add: the draft holds the new line key');
+    await closeDrawer(page);
+    // „Noch einen Gutschein gestalten“ adds a second voucher next to it.
+    await page.click('.ms-gv-added .ms-gv-btn--secondary');
+    await settle(page, 500);
+    ok(await step(page) === 0, '„Noch einen Gutschein gestalten“ → step 1');
+    await next(page, 0);
+    await next(page, 1);
+    await page.fill(SEL.forInput, 'Paula');
+    await next(page, 2);
+    await next(page, 3);
+    ok(await step(page) === 4 && !(await page.isVisible('.ms-gv-buy__replace')), 'the next voucher: step 5 without the „wird ersetzt“ note');
+    await page.check(SEL.terms);
+    await page.click('.ms-gv-buy__cart');
+    await page.waitForSelector('.hx-drawer.is-open', { timeout: 10000 });
+    await settle(page, 400);
+    const two = await cartLines(page);
+    ok(two.length === 2 && two[0].key === after[0].key && two[1].who === 'Paula' && call(page, '/cart/change.js').length === 1, '„Noch einen“: two vouchers in the cart, nothing removed (' + JSON.stringify(two.map((l) => l.who)) + ')');
+    ok(!page.errors.length, 'no script errors: ' + (page.errors.join(' | ') || 'none'));
+    await ctx.close();
+  }
+  // The card: both lines (voucher + add-on) are replaced.
+  async function replacePrint() {
+    results.push('— edit after „In den Warenkorb“, Premium-Karte (two lines)');
+    const d0 = JSON.parse(JSON.stringify(DRAFT));
+    d0.delivery = 'print';
+    d0.address = { name: 'Max Beispiel', line1: 'Beispielweg 3', line2: '', postalCode: '12345', city: 'Berlin', country: 'DE' };
+    const { ctx, page } = await open(1440, { draft: d0 });
+    await ready(page);
+    await page.check(SEL.terms);
+    await page.click('.ms-gv-buy__cart');
+    await page.waitForSelector('.hx-drawer.is-open', { timeout: 10000 });
+    await settle(page, 300);
+    await closeDrawer(page);
+    const first = await cartLines(page);
+    await page.click('[data-ms-gv-goto="3"]');
+    await settle(page, 400);
+    await page.fill('#' + ROOT_ID + '-addr-line1', 'Beispielweg 5');
+    await page.click('[data-ms-gv-goto="4"]');
+    await settle(page, 500);
+    ok(await page.isVisible('.ms-gv-buy__replace'), 'card: address changed → the „wird ersetzt“ note');
+    await page.click('.ms-gv-buy__cart');
+    await page.waitForSelector('.hx-drawer.is-open', { timeout: 10000 });
+    await settle(page, 300);
+    const after = await cartLines(page);
+    const removed = call(page, '/cart/change.js').map((c) => c.body.id);
+    ok(first.length === 2 && JSON.stringify(removed) === JSON.stringify(first.map((l) => l.key)), 'card: both earlier lines removed by key (' + removed.join(', ') + ')');
+    ok(after.length === 2 && after[0].id === V.v50 && after[1].id === V.print && after[0].tok === after[1].tok && after[0].tok !== first[0].tok, 'card: the new voucher and its card line are in the cart');
+    ok(!page.errors.length, 'no script errors: ' + (page.errors.join(' | ') || 'none'));
+    await ctx.close();
+  }
+
+  // ============================ Mo's generic English errors → our German
+  async function errorTexts(W) {
+    results.push('— error texts (429 / 500 / 401 / 502) ' + W + ' px');
+    const RATE = 'Gerade kommen sehr viele Anfragen – bitte versuche es in ein paar Minuten noch einmal.';
+    const textDraft = Object.assign(JSON.parse(JSON.stringify(DRAFT)), { step: 2, done: [true, true, false, false, false] });
+    async function suggestError(query) {
+      const { ctx, page } = await open(W, { query, draft: textDraft });
+      await ready(page);
+      await page.click('.ms-gv-ai__toggle');
+      await page.click('.ms-gv-chip:has-text("Geburtstag")');
+      await page.click('.ms-gv-ai__go');
+      await page.waitForSelector('.ms-gv-ai__error:not([hidden])', { timeout: 10000 });
+      const t = norm(await page.textContent('.ms-gv-ai__error'));
+      await ctx.close();
+      return t;
+    }
+    async function buyError(query) {
+      const { ctx, page } = await open(W, { query, draft: DRAFT });
+      await ready(page);
+      await page.waitForSelector('.ms-gv-preview__state.is-error', { timeout: 10000 });
+      const pv = norm(await page.textContent('.ms-gv-preview__state-text'));
+      await page.check(SEL.terms);
+      await page.click('.ms-gv-buy__cart');
+      await page.waitForSelector('.ms-gv-buy__error:not([hidden])', { timeout: 10000 });
+      const buy = norm(await page.textContent('.ms-gv-buy__errbody p'));
+      await page.fill('[data-ms-gv-balance-input]', 'ABCD EFGH JKLM NPQR');
+      await page.click('[data-ms-gv-balance-btn]');
+      await page.waitForSelector('.ms-gv-result--error', { timeout: 5000 });
+      const bal = norm(await page.textContent('.ms-gv-result__title'));
+      const noCart = !call(page, '/cart/add.js').length;
+      await ctx.close();
+      return { pv, buy, bal, noCart };
+    }
+    let r = await buyError('?scenario=rate-limited');
+    ok(r.pv === RATE && r.buy === RATE && r.bal === RATE && r.noCart, '429 „Too many requests“ → our German line in preview, buy and balance ' + JSON.stringify(r));
+    let s = await suggestError('?scenario=rate-limited');
+    ok(s === RATE, '429 on suggest → our German line (' + s + ')');
+    r = await buyError('?scenario=server-error');
+    ok(r.pv === 'Die Vorschau ist gerade nicht verfügbar.' && r.buy === 'Der Gutschein konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal.' && /^Das Guthaben lässt sich gerade nicht abfragen/.test(r.bal), '500 „Unexpected server error“ → the page\'s own lines ' + JSON.stringify(r));
+    r = await buyError('?scenario=unauthorized');
+    ok(r.buy === 'Der Gutschein konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal.' && !/Unauthorized/.test(JSON.stringify(r)), '401 „Unauthorized“ → the page\'s own line ' + JSON.stringify(r.buy));
+    s = await suggestError('?scenario=ai-failed');
+    ok(s === 'Mo konnte gerade keine Vorschläge schreiben — bitte versuche es gleich noch einmal.', 'suggest 502: Mo\'s German text kept (' + s + ')');
+  }
+
+  // ======================== Mo stops selling during the visit (409)
+  async function stopSelling(W) {
+    results.push('— 409: Mo stops selling during the visit ' + W + ' px');
+    const UNAV = 'Gutscheine sind gerade nicht verfügbar.';
+    async function expectFallback(page, label, opts = {}) {
+      await page.waitForSelector(SEL.designer + '[data-state="unavailable"]', { timeout: 10000 });
+      await settle(page, 400);
+      const f = await fallbackState(page);
+      ok(f.link && f.panels === 0 && !f.bar, label + ': the designer gives way to the fallback link ' + JSON.stringify(f));
+      if (opts.focus) ok(f.focus, label + ': the focus moves to the fallback link');
+      ok(await status(page) === UNAV, label + ': Mo\'s line is announced');
+      ok(!page.errors.length, label + ': no script errors ' + (page.errors.join(' | ') || ''));
+    }
+    {
+      // drafts: „In den Warenkorb“ after the switch
+      const { ctx, page } = await open(W, { draft: DRAFT });
+      await ready(page);
+      await page.waitForSelector('.ms-gv-preview__stage.has-exact-front', { timeout: 10000 });
+      await page.evaluate(() => { window.__gvMock.stopSelling = true; });
+      await page.check(SEL.terms);
+      await page.click('.ms-gv-buy__cart');
+      await expectFallback(page, 'drafts 409', { focus: true });
+      ok(!call(page, '/cart/add.js').length, 'drafts 409: nothing added to the cart');
+      await shot(page, '16-stop-selling-' + W, SEL.stage);
+      await ctx.close();
+    }
+    {
+      // preview: step 5 restored while Mo does not sell
+      const { ctx, page } = await open(W, { query: '?scenario=stop-selling', draft: DRAFT });
+      await expectFallback(page, 'preview 409');
+      await ctx.close();
+    }
+    if (W >= 600) {
+      // suggest
+      const { ctx, page } = await open(W, { draft: Object.assign(JSON.parse(JSON.stringify(DRAFT)), { step: 2, done: [true, true, false, false, false] }) });
+      await ready(page);
+      await page.click('.ms-gv-ai__toggle');
+      await page.click('.ms-gv-chip:has-text("Geburtstag")');
+      await page.evaluate(() => { window.__gvMock.stopSelling = true; });
+      await page.click('.ms-gv-ai__go');
+      await expectFallback(page, 'suggest 409', { focus: true });
+      await ctx.close();
+    }
+    if (W >= 600) {
+      // photo
+      const { ctx, page } = await open(W, { draft: Object.assign(JSON.parse(JSON.stringify(DRAFT)), { step: 1, done: [true, false, false, false, false], designKey: 'photo' }) });
+      await ready(page);
+      await page.evaluate(() => { window.__gvMock.stopSelling = true; });
+      await page.setInputFiles('.ms-gv-upload input[type="file"]', { name: 'foto.png', mimeType: 'image/png', buffer: Buffer.from(await pngOf(page, 1200, 900), 'base64') });
+      await expectFallback(page, 'photo 409');
+      await ctx.close();
+    }
+    if (W < 600) {
+      // the sticky bar's „Jetzt kaufen“ (phone)
+      const { ctx, page } = await open(W, { draft: DRAFT });
+      await ready(page);
+      await page.waitForSelector('.ms-gv-preview__stage.has-exact-front', { timeout: 10000 });
+      await page.check(SEL.terms);
+      await scrollTo(page, '.ms-gv-preview', 120);
+      await settle(page, 600);
+      ok(await page.isVisible('.ms-gv-bar.is-shown'), 'phone: the sticky bar with „Jetzt kaufen“');
+      await page.evaluate(() => { window.__gvMock.stopSelling = true; });
+      await page.click('.ms-gv-bar__btn');
+      await expectFallback(page, 'bar „Jetzt kaufen“ 409', { focus: true });
+      await ctx.close();
+    }
+  }
+
+  // =========================== validity, panorama, font URL, suggestions
+  async function details() {
+    results.push('— validity line, panorama photo, font URL, suggestion count');
+    {
+      const { ctx, page } = await open(1440, { query: '?locale=en', draft: DRAFT });
+      await ready(page);
+      await page.click('[data-ms-gv-goto="2"]');
+      await settle(page, 400);
+      ok(norm(await page.textContent('.ms-gv-preview__card--inside .ms-gv-face__valid')) === 'Valid until 31 Dec 2029', 'English: „31 December 2029“ from Mo → „Valid until 31 Dec 2029“ in the live preview');
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open(1440, { draft: DRAFT });
+      await ready(page);
+      await page.click('[data-ms-gv-goto="2"]');
+      await settle(page, 400);
+      ok(norm(await page.textContent('.ms-gv-preview__card--inside .ms-gv-face__valid')) === 'Gültig bis 31.12.2029', 'German: „Gültig bis 31.12.2029“');
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open(1440, { query: '?validity=none', draft: DRAFT });
+      await ready(page);
+      await page.click('[data-ms-gv-goto="2"]');
+      await settle(page, 400);
+      ok(norm(await page.textContent('.ms-gv-preview__card--inside .ms-gv-face__valid')) === '2 Jahre gültig', 'no date in the config: the years from Mo („2 Jahre gültig“), not a fixed „3 Jahre“');
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open(1440, { draft: Object.assign(JSON.parse(JSON.stringify(DRAFT)), { step: 1, done: [true, false, false, false, false], designKey: 'photo' }) });
+      await ready(page);
+      await page.setInputFiles('.ms-gv-upload input[type="file"]', { name: 'panorama.png', mimeType: 'image/png', buffer: Buffer.from(await pngOf(page, 6000, 1000), 'base64') });
+      await page.waitForSelector('.ms-gv-upload__done:not([hidden])', { timeout: 20000 }).catch(() => null);
+      await settle(page, 300);
+      const u = page.rec.uploads[0];
+      const err = await page.isVisible('.ms-gv-upload .ms-gv-field__error');
+      ok(!err && !!u && u.w === 3000 && u.h === 500, 'panorama 6000×1000: uploaded with the short side kept at 500 px (' + JSON.stringify(u) + ')');
+      ok(await page.isVisible('.ms-gv-upload__small'), 'panorama: Mo stored 2400×400 → the „recht klein“ note');
+      const thumb = await page.evaluate(() => { const i = document.querySelector('.ms-gv-upload__thumb'); return [i.naturalWidth, i.naturalHeight]; });
+      ok(Math.max(thumb[0], thumb[1]) <= 720, 'panorama: the thumbnail stays ≤ 720 px (' + thumb.join('×') + ')');
+      await page.click('.ms-gv-upload__actions .ms-gv-btn--quiet');
+      await settle(page, 300);
+      const before = call(page, '/api/gift-vouchers/photo').length;
+      await page.setInputFiles('.ms-gv-upload input[type="file"]', { name: 'klein.png', mimeType: 'image/png', buffer: Buffer.from(await pngOf(page, 900, 400), 'base64') });
+      await page.waitForSelector('.ms-gv-upload .ms-gv-field__error:not([hidden])', { timeout: 10000 });
+      ok(norm(await page.textContent('.ms-gv-upload .ms-gv-field__error')) === 'Das Foto ist zu klein — es braucht mindestens 500 × 500 Pixel.' && call(page, '/api/gift-vouchers/photo').length === before, '900×400: refused on the device with Mo\'s text, no upload');
+      ok(!page.errors.length, 'photo: no script errors ' + (page.errors.join(' | ') || ''));
+      await ctx.close();
+    }
+    for (const [fb, want, label] of [['alias', 'https://mo.example.test/api/gift-vouchers/fonts/caveat-500.ttf', 'another spelling of the backend'], ['relative', 'https://mo.example.test/api/gift-vouchers/fonts/caveat-500.ttf', 'a bare path'], ['foreign', '', 'a foreign host']]) {
+      const { ctx, page } = await open(1440, { query: '?fontbase=' + fb });
+      await ready(page);
+      await settle(page, 600);
+      const fonts = page.urls.filter((x) => /caveat-500\.ttf/.test(x));
+      ok(want ? fonts.length >= 1 && fonts.every((x) => x === want) : !fonts.length, 'font URL from ' + label + ': ' + (want ? 'loaded from the page\'s own backend URL' : 'not loaded') + ' (' + (fonts.join(', ') || 'none') + ')');
+      await ctx.close();
+    }
+    for (const [n, title, said] of [[2, 'Mo schreibt dir zwei Vorschläge', 'Zwei Vorschläge von Mo sind da.'], [1, 'Mo schreibt dir einen Vorschlag', 'Ein Vorschlag von Mo ist da.']]) {
+      const { ctx, page } = await open(1440, { query: '?suggestions=' + n, draft: Object.assign(JSON.parse(JSON.stringify(DRAFT)), { step: 2, done: [true, true, false, false, false] }) });
+      await ready(page);
+      await page.click('.ms-gv-ai__toggle');
+      await page.click('.ms-gv-chip:has-text("Geburtstag")');
+      await page.click('.ms-gv-ai__go');
+      await page.waitForSelector('.ms-gv-sugg__use', { timeout: 10000 });
+      await settle(page, 300);
+      const cards = await page.$$eval('.ms-gv-sugg:not(.ms-gv-sugg--skeleton)', (ns) => ns.length);
+      ok(cards === n && norm(await page.textContent('.ms-gv-ai__title')) === title && await status(page) === said, n + ' suggestion(s): ' + cards + ' card(s), „' + title + '“, „' + said + '“');
+      if (n === 2) await shot(page, '17-two-suggestions-1440', '.ms-gv-ai');
+      await ctx.close();
+    }
+  }
+
   // ===================================================== fallbacks + errors
   async function fallbacks(W) {
     results.push('— fallbacks ' + W + ' px');
@@ -460,7 +808,7 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
       await ready(page);
       await page.waitForSelector('.ms-gv-preview__state.is-error', { timeout: 10000 });
       await settle(page, 300);
-      ok(/nicht verfügbar/.test(await page.textContent('.ms-gv-preview__state')), 'preview error: Mo\'s message shown');
+      ok(norm(await page.textContent('.ms-gv-preview__state-text')) === 'Die Vorschau ist gerade nicht verfügbar. Bitte versuche es gleich noch einmal.', 'preview error (503): Mo\'s German message shown as it is');
       ok(await page.isVisible('.ms-gv-preview__retry'), 'preview error: retry');
       await shot(page, '12-preview-error-' + W, '.ms-gv-preview');
       await ctx.close();
@@ -673,19 +1021,30 @@ const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').tri
     }
   }
 
+  // GV_ONLY=name[,name…] runs only those scenarios (e.g. GV_ONLY=replaceInCart).
+  const ONLY = (process.env.GV_ONLY || '').split(',').map((x) => x.trim()).filter(Boolean);
+  async function run(fn, ...args) { if (!ONLY.length || ONLY.includes(fn.name)) await fn(...args); }
   try {
-    await purchase(1440);
-    await purchase(390);
-    await toCart(1440);
-    await toCart(390);
-    await balance(1440);
-    await balance(390);
-    await fallbacks(1440);
-    await fallbacks(390);
-    await extras();
+    await run(purchase, 1440);
+    await run(purchase, 390);
+    await run(toCart, 1440);
+    await run(toCart, 390);
+    await run(balance, 1440);
+    await run(balance, 390);
+    await run(replaceInCart, 1440);
+    await run(replaceInCart, 390);
+    await run(replacePrint);
+    await run(errorTexts, 1440);
+    await run(errorTexts, 390);
+    await run(stopSelling, 1440);
+    await run(stopSelling, 390);
+    await run(details);
+    await run(fallbacks, 1440);
+    await run(fallbacks, 390);
+    await run(extras);
     if (FINAL) {
-      await finalShots(1440);
-      await finalShots(390);
+      await run(finalShots, 1440);
+      await run(finalShots, 390);
     }
   } catch (e) {
     failures++;

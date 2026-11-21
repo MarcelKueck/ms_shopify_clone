@@ -1,22 +1,51 @@
 /*
  * Mock of the Mo gift voucher API (mo spec §8) and of Shopify's
- * /cart/add.js + <cart-modal> for tests/gift-voucher/harness.html.
- * Test code only — never uploaded. Everything the page sends is recorded in
- * window.__gvMock (calls, cart, events, violations) for run.cjs.
+ * /cart/add.js + /cart/change.js + <cart-modal> for
+ * tests/gift-voucher/harness.html. Test code only — never uploaded.
+ * Everything the page sends is recorded in window.__gvMock (calls, cart,
+ * events, violations, uploads) for run.cjs.
  *
- *   GET  /api/gift-vouchers/config      six designs with vector backgrounds
+ *   GET  /api/gift-vouchers/config      six designs with vector backgrounds;
+ *                                       the validity date as Mo formats it
+ *                                       („31.12.2029“ / „31 December 2029“)
  *   POST /api/gift-vouchers/photo       (XMLHttpRequest, with upload progress)
+ *                                       checked like Mo: shorter side ≥ 500 px,
+ *                                       stored ≤ 2400 px → { width, height }
  *   POST /api/gift-vouchers/suggest     three texts with {{fuer}} / {{von}}
+ *                                       (?suggestions=1|2: fewer, as Mo may)
  *   POST /api/gift-vouchers/preview     JPEG data URIs drawn on a canvas, „MUSTER“
  *   POST /api/gift-vouchers/drafts      → token
  *   POST /api/gift-vouchers/balance     ABCDEFGHJKLMNPQR → 42,50 € of 50 €
+ *   POST /cart/add.js                   → { items } with Shopify's line keys
+ *   POST /cart/change.js                { id: <line key>, quantity: 0 } → removed
+ *
+ * Error answers as the real routes give them: ?scenario=rate-limited (429
+ * „Too many requests“), server-error (500 „Unexpected server error“),
+ * unauthorized (401 „Unauthorized“) — Mo's generic English, on every POST;
+ * ai-failed (suggest 502 with Mo's German text); stop-selling (409 on every
+ * write, as when Mo stops selling — also switchable at runtime with
+ * window.__gvMock.stopSelling = true); cart-error (or __gvMock.cartFail).
+ * ?fontbase=alias|foreign|relative changes the font URL in the config,
+ * ?validity=none sends 2 years without a date.
  */
 (function () {
   'use strict';
   var API = 'https://mo.example.test';
   var q = new URLSearchParams(location.search);
   var scenario = q.get('scenario') || '';
-  var mock = window.__gvMock = { calls: [], cart: [], events: [], photos: {}, violations: [], tokens: [] };
+  // The cart survives a reload of the tab, as Shopify's does (sessionStorage).
+  var CART_KEY = 'ms-gv-harness-cart';
+  function loadCart() {
+    try { var c = JSON.parse(sessionStorage.getItem(CART_KEY) || '[]'); return Array.isArray(c) ? c : []; } catch (e) { return []; }
+  }
+  function saveCart() { try { sessionStorage.setItem(CART_KEY, JSON.stringify(mock.cart)); } catch (e) {} }
+  var mock = window.__gvMock = { calls: [], cart: loadCart(), events: [], photos: {}, violations: [], tokens: [], uploads: [], stopSelling: scenario === 'stop-selling', cartFail: false };
+  var TEXT = {
+    unavailable: { de: 'Gutscheine sind gerade nicht verfügbar.', en: 'Gift vouchers are not available right now.' },
+    photo_too_small: { de: 'Das Foto ist zu klein — es braucht mindestens 500 × 500 Pixel.', en: 'The photo is too small — it needs at least 500 × 500 pixels.' },
+    ai_failed: { de: 'Mo konnte gerade keine Vorschläge schreiben — bitte versuche es gleich noch einmal.', en: 'Mo could not write suggestions just now — please try again in a moment.' }
+  };
+  function text(key, locale) { return TEXT[key][locale === 'en' ? 'en' : 'de']; }
   // Every record also goes to run.cjs (window.__gvRecord, a Playwright
   // binding) so the assertions survive the redirect to /checkout.
   function record(kind, item) {
@@ -120,7 +149,16 @@
     { key: 'training', name: 'Training', description: 'Kraftvoll: die Hantelscheibe in Markenblau.', photo: false, gen: training, colors: { background: '#0f1114', ink: '#ffffff', accent: '#ffffff', muted: '#9aa3ab', insideBackground: '#f7f8fa', insideInk: '#0f1114' } },
     { key: 'photo', name: 'Eigenes Foto', description: 'Dein Lieblingsbild vorne drauf.', photo: true, gen: photo, colors: { background: '#1d2127', ink: '#ffffff', accent: '#ffffff', muted: '#d0d5dc', insideBackground: '#fbfaf6', insideInk: '#1b1d20' } }
   ];
-  function config() {
+  // The font URL as Mo builds it on its public base (?fontbase: another
+  // spelling of the same backend, a foreign host, or a bare path).
+  function fontUrl() {
+    var fb = q.get('fontbase');
+    if (fb === 'alias') return 'https://mo-alias.example.test/api/gift-vouchers/fonts/caveat-500.ttf';
+    if (fb === 'foreign') return 'https://fonts.foreign.example.test/caveat-500.ttf';
+    if (fb === 'relative') return '/api/gift-vouchers/fonts/caveat-500.ttf';
+    return API + '/api/gift-vouchers/fonts/caveat-500.ttf';
+  }
+  function config(locale) {
     return {
       ok: true,
       available: scenario !== 'unavailable',
@@ -133,9 +171,10 @@
       occasions: [{ key: 'geburtstag', label: 'Geburtstag' }, { key: 'weihnachten', label: 'Weihnachten' }, { key: 'danke', label: 'Danke' }, { key: 'sport', label: 'Sport' }, { key: 'einfach_so', label: 'Einfach so' }],
       tones: [{ key: 'herzlich', label: 'Herzlich' }, { key: 'witzig', label: 'Witzig' }, { key: 'sportlich', label: 'Sportlich' }, { key: 'kurz', label: 'Kurz' }],
       print: { countries: ['DE'], deliveryNote: '3–6 Werktage' },
-      validity: { years: 3, untilExample: '31.12.2029' },
+      // formatGiftVoucherDate in Mo: „31.12.2029“ (de), „31 December 2029“ (en).
+      validity: q.get('validity') === 'none' ? { years: 2, untilExample: null } : { years: 3, untilExample: locale === 'en' ? '31 December 2029' : '31.12.2029' },
       termsUrl: 'https://www.motionsports.de/pages/gutscheinbedingungen',
-      fonts: { script: API + '/api/gift-vouchers/fonts/caveat-500.ttf' }
+      fonts: { script: fontUrl() }
     };
   }
   var SUGGESTIONS = {
@@ -167,6 +206,16 @@
     var e = { code: code, message: message };
     if (field) e.field = field;
     return json(status, { error: e }, delay);
+  }
+  // The real routes' generic answers (src/lib/rate-limit.ts, security.ts,
+  // the catch blocks — English on purpose) and the 409 while Mo does not
+  // sell (giftVoucherUnavailableResponse; the balance check has none).
+  function routeError(route, locale, delay) {
+    if (scenario === 'rate-limited') return err(429, 'rate_limited', 'Too many requests', null, delay);
+    if (scenario === 'server-error') return err(500, 'internal_error', 'Unexpected server error', null, delay);
+    if (scenario === 'unauthorized') return err(401, 'unauthorized', 'Unauthorized', null, delay);
+    if (mock.stopSelling && route !== '/api/gift-vouchers/balance') return err(409, 'bad_request', text('unavailable', locale), null, delay);
+    return null;
   }
   function checkHeaders(path, headers, credentials) {
     var keys = Object.keys(headers || {}).map(function (k) { return k.toLowerCase(); });
@@ -372,14 +421,19 @@
     if (method === 'GET' && route === '/api/gift-vouchers/config') {
       if (Object.keys(headers).length) record('violations', 'config: custom headers make it a preflighted request');
       if (scenario === 'down') return new Promise(function (res, rej) { setTimeout(function () { rej(new TypeError('Failed to fetch')); }, 300); });
-      return json(200, config(), 250);
+      return json(200, config(new URLSearchParams(path.split('?')[1] || '').get('locale')), 250);
     }
     if (method !== 'POST') return err(405, 'method_not_allowed', 'Methode nicht erlaubt.');
     checkHeaders(route, init.headers, init.credentials);
+    var failed = routeError(route, headers['x-ms-locale']);
+    if (failed) return failed;
     if (route === '/api/gift-vouchers/suggest') {
       if (!body || !body.occasion || !body.tone) return err(400, 'bad_request', 'Bitte wähle Anlass und Ton.');
+      if (scenario === 'ai-failed') return err(502, 'upstream_unavailable', text('ai_failed', headers['x-ms-locale']), null, 500);
       var list = SUGGESTIONS[body.tone] || SUGGESTIONS.herzlich;
-      return json(200, { ok: true, suggestions: list.slice(0, 3) }, 950);
+      // Mo passes on one to three texts (the model's usable ones).
+      var count = Math.max(1, Math.min(3, Number(q.get('suggestions')) || 3));
+      return json(200, { ok: true, suggestions: list.slice(0, count) }, 950);
     }
     if (route === '/api/gift-vouchers/preview') {
       if (scenario === 'preview-error') return err(503, 'upstream_unavailable', 'Die Vorschau ist gerade nicht verfügbar. Bitte versuche es gleich noch einmal.', null, 700);
@@ -399,19 +453,49 @@
     }
     return err(404, 'not_found', 'Nicht gefunden.');
   }
+  // Shopify's line key: „<variant id>:<32 hex>“, the hex a hash of the
+  // line's properties (so two vouchers with different tokens never merge).
+  function hex8(s, seed) {
+    var h = seed >>> 0;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return ('0000000' + h.toString(16)).slice(-8);
+  }
+  function lineKey(it) {
+    var s = JSON.stringify(it.properties || {});
+    return it.id + ':' + hex8(s, 2166136261) + hex8(s, 33554467) + hex8(s, 1315423911) + hex8(s, 2654435761);
+  }
   function handleCartAdd(init) {
     var body = null;
     try { body = JSON.parse(init.body); } catch (e) {}
     record('calls', { method: 'POST', path: '/cart/add.js', headers: lower(init.headers), body: body, credentials: init.credentials || null });
-    if (scenario === 'cart-error') return json(422, { status: 422, message: 'Cart Error', description: 'Dieses Produkt ist gerade nicht verfügbar.' }, 300);
-    (body && body.items || []).forEach(function (it) { mock.cart.push(it); });
-    return json(200, { items: body && body.items || [] }, 300);
+    if (scenario === 'cart-error' || mock.cartFail) return json(422, { status: 422, message: 'Cart Error', description: 'Dieses Produkt ist gerade nicht verfügbar.' }, 300);
+    var added = (body && body.items || []).map(function (it) {
+      var line = { id: it.id, variant_id: it.id, quantity: it.quantity, properties: it.properties || {}, key: lineKey(it) };
+      mock.cart.push(line);
+      return line;
+    });
+    saveCart();
+    return json(200, { items: added }, 300);
+  }
+  // /cart/change.js by line key; quantity 0 removes the line. An unknown
+  // key fails like Shopify's (400).
+  function handleCartChange(init) {
+    var body = null;
+    try { body = JSON.parse(init.body); } catch (e) {}
+    record('calls', { method: 'POST', path: '/cart/change.js', headers: lower(init.headers), body: body, credentials: init.credentials || null });
+    var idx = -1;
+    mock.cart.forEach(function (l, i) { if (body && l.key === body.id) idx = i; });
+    if (idx === -1) return json(400, { status: 400, message: 'Cart Error', description: 'Cannot find variant' }, 120);
+    if (body.quantity === 0) mock.cart.splice(idx, 1); else mock.cart[idx].quantity = body.quantity;
+    saveCart();
+    return json(200, { items: mock.cart, item_count: mock.cart.reduce(function (n, l) { return n + l.quantity; }, 0) }, 120);
   }
   window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : input.url;
     init = init || {};
     if (url.indexOf(API) === 0) return handleMo(url.slice(API.length), init);
     if (/\/cart\/add\.js$/.test(url.split('?')[0])) return handleCartAdd(init);
+    if (/\/cart\/change\.js$/.test(url.split('?')[0])) return handleCartChange(init);
     return realFetch(input, init);
   };
 
@@ -425,6 +509,16 @@
     record('calls', { method: this._method, path: path, headers: lower(this._headers), bodySize: blob && blob.size, bodyType: blob && blob.type, xhr: true });
     checkHeaders(path, this._headers, null);
     if (path !== '/api/gift-vouchers/photo') { setTimeout(function () { self.status = 404; self.responseText = '{"error":{"code":"not_found","message":"Nicht gefunden."}}'; if (self.onload) self.onload(); }, 50); return; }
+    var locale = lower(this._headers)['x-ms-locale'];
+    // The uploaded size, as Mo's checkGiftVoucherPhotoImage sees it.
+    var dims = (window.createImageBitmap ? createImageBitmap(blob) : Promise.reject(new Error('no createImageBitmap')))
+      .then(function (b) { var d = { w: b.width, h: b.height }; try { b.close(); } catch (e) {} return d; }, function () { return null; });
+    function answer(status, bodyText) {
+      self.status = status;
+      self.readyState = 4;
+      self.responseText = bodyText;
+      if (self.onload) self.onload();
+    }
     var total = blob && blob.size || 1;
     var steps = 8;
     var i = 0;
@@ -433,12 +527,18 @@
       if (self.upload.onprogress) self.upload.onprogress({ lengthComputable: true, loaded: Math.round(total * i / steps), total: total });
       if (i < steps) return;
       clearInterval(tick);
-      var id = 'gvp_' + rand(30);
-      mock.photos[id] = URL.createObjectURL(blob);
-      self.status = 200;
-      self.readyState = 4;
-      self.responseText = JSON.stringify({ ok: true, photoId: id, width: 2400, height: 1600 });
-      if (self.onload) self.onload();
+      dims.then(function (d) {
+        record('uploads', { w: d && d.w, h: d && d.h, size: total });
+        var failed = routeError(path, locale, 0);
+        if (failed) return failed.then(function (r) { return r.text().then(function (t) { answer(r.status, t); }); });
+        if (!d) return answer(400, JSON.stringify({ error: { code: 'bad_request', message: 'Das Foto konnte nicht gelesen werden.', field: 'photo' } }));
+        if (Math.min(d.w, d.h) < 500) return answer(400, JSON.stringify({ error: { code: 'bad_request', message: text('photo_too_small', locale), field: 'photo' } }));
+        // Mo stores the photo fit inside 2400 px and answers with that size.
+        var s = Math.min(1, 2400 / Math.max(d.w, d.h));
+        var id = 'gvp_' + rand(30);
+        mock.photos[id] = URL.createObjectURL(blob);
+        answer(200, JSON.stringify({ ok: true, photoId: id, width: Math.round(d.w * s), height: Math.round(d.h * s) }));
+      });
     }, 110);
   };
   window.XMLHttpRequest = MockXHR;

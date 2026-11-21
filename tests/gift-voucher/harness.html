@@ -14,7 +14,15 @@
     ?mo=off               data-mo="off" (Mo switched off in the theme)
     ?scenario=unavailable config says available:false
     ?scenario=down        config request fails (network)
-    ?scenario=preview-error | draft-error | slow
+    ?scenario=preview-error | draft-error | slow | cart-error
+    ?scenario=rate-limited | server-error | unauthorized
+                          every POST answers like the real routes' generic
+                          errors (429 / 500 / 401, English messages)
+    ?scenario=ai-failed   suggest answers 502 with Mo's German text
+    ?scenario=stop-selling every write answers 409 (Mo stopped selling)
+    ?suggestions=1|2      Mo returns fewer than three suggestions
+    ?fontbase=alias|foreign|relative   another font URL in the config
+    ?validity=none        config: 2 years, no example date
     ?nolauncher=1         no Mo launcher on the page
     ?locale=en            data-locale="en" (JS strings only)
     ?design=1             theme-editor mode (data-design-mode)
