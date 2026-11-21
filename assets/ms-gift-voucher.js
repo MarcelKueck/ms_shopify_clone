@@ -16,15 +16,17 @@
  * gift voucher spec §8):
  *   GET  /api/gift-vouchers/config?locale=   designs, features, limits
  *   POST /api/gift-vouchers/photo           the photo (downscaled here) → photoId
- *   POST /api/gift-vouchers/suggest         { occasion, tone, locale } → 3 texts
+ *   POST /api/gift-vouchers/suggest         { occasion, tone, locale } → 1–3 texts
  *   POST /api/gift-vouchers/preview         the exact server images (step 5)
  *   POST /api/gift-vouchers/drafts          → token
  *   POST /api/gift-vouchers/balance         { code } → balance („Guthaben prüfen“)
  * POSTs carry x-ms-chat-key, x-ms-session (the widget's localStorage
  * ms-chat-sid — created here the way the widget does when it is missing) and
  * x-ms-locale; no other header (CORS) and never credentials. Errors are
- * { error: { code, message } }: Mo's message is shown as it is, a network
- * error gets a friendly line of our own.
+ * { error: { code, message } }: Mo's message is shown as it is — except its
+ * generic English ones (429, 401/403, 500), which get a friendly line of our
+ * own like a network error; a 409 (Mo stopped selling during the visit)
+ * turns the designer into the fallback.
  *
  * Buying: drafts → POST /cart/add.js (the theme's route) with the voucher
  * line and, for the Premium-Karte, the add-on line — both carry the private
@@ -32,6 +34,9 @@
  * properties are for the cart and the order) — then /checkout („Jetzt
  * kaufen“) or the cart drawer („In den Warenkorb“: cart:refresh +
  * <cart-modal>.reloadContent().then(show), as the widget's plan does).
+ * An edit after that replaces the voucher in the cart: the new lines go in
+ * first, then the earlier version's lines (their keys from the add) come out
+ * via /cart/change.js; „Noch einen Gutschein gestalten“ starts a second one.
  * The page's draft (names, message, address) stays in sessionStorage
  * ms-gv-draft — never in a URL. No KPI events in v1, no JS globals.
  * Re-initialises on the theme editor's shopify:section:load (and tears down
@@ -332,11 +337,20 @@
     // ----- draft (sessionStorage, this tab only) ---------------------------------------
     var DRAFT_KEY = 'ms-gv-draft';
     function blankAddress() { return { name: '', line1: '', line2: '', postalCode: '', city: '', country: 'DE' }; }
+    // added: the draft key of the version in the cart; addedLines: its cart
+    // line keys („variant:hash“ from /cart/add.js) — an edit replaces it.
     function defaults() {
       return { v: 1, step: 0, done: [false, false, false, false, false], variantId: null, designKey: null, photo: null,
-        recipient: '', sender: '', message: '', delivery: 'pdf', address: blankAddress(), occasion: null, tone: null, added: null };
+        recipient: '', sender: '', message: '', delivery: 'pdf', address: blankAddress(), occasion: null, tone: null, added: null, addedLines: null };
     }
     function str(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
+    var LINE_KEY = /^\d{1,20}:[0-9a-f]{8,64}$/;
+    // At most four line keys (a voucher line and its card line) or null.
+    function lineKeys(list) {
+      if (!Array.isArray(list) || !list.length || list.length > 4) return null;
+      for (var i = 0; i < list.length; i++) if (typeof list[i] !== 'string' || !LINE_KEY.test(list[i])) return null;
+      return list.slice();
+    }
     function loadDraft() {
       var s = defaults();
       var raw = null;
@@ -359,6 +373,7 @@
       s.occasion = typeof raw.occasion === 'string' ? raw.occasion.slice(0, 40) : null;
       s.tone = typeof raw.tone === 'string' ? raw.tone.slice(0, 40) : null;
       s.added = typeof raw.added === 'string' ? raw.added.slice(0, 4000) : null;
+      s.addedLines = s.added ? lineKeys(raw.addedLines) : null;
       return s;
     }
     var state = loadDraft();
@@ -429,11 +444,15 @@
         } catch (e) { finish({ ok: false, status: 0, network: true }); }
       });
     }
-    // Mo's own message wins (German with locale de); otherwise our line.
+    // Mo's own message wins (German with locale de) — except where Mo answers
+    // in generic English by design (the shared guards and limiter: 429 „Too
+    // many requests“, 401/403, 500 „Unexpected server error“); those, a
+    // network error and an empty answer get a line of our own (as the chat
+    // widget maps them by code).
     function errorText(res, de, en) {
-      if (res && res.message) return res.message;
-      if (res && res.status === 429) return T('Gerade kommen sehr viele Anfragen – bitte versuche es in ein paar Minuten noch einmal.', 'Too many requests right now – please try again in a few minutes.');
+      if (res && (res.status === 429 || res.code === 'rate_limited')) return T('Gerade kommen sehr viele Anfragen – bitte versuche es in ein paar Minuten noch einmal.', 'Too many requests right now – please try again in a few minutes.');
       if (!res || res.network || !res.status) return T('Die Verbindung hat gerade nicht geklappt. Bitte prüfe dein Internet und versuche es noch einmal.', 'The connection did not work. Please check your internet connection and try again.');
+      if (res.message && res.code !== 'internal_error' && res.code !== 'unauthorized' && res.code !== 'forbidden') return res.message;
       return T(de, en);
     }
 
@@ -487,14 +506,18 @@
       if (countries.length) c.print.countries = countries;
       if (typeof p.deliveryNote === 'string' && p.deliveryNote) c.print.deliveryNote = p.deliveryNote.slice(0, 60);
       var v = j.validity && typeof j.validity === 'object' ? j.validity : {};
-      c.validity = { years: num(v.years, 3, 0, 10), until: typeof v.untilExample === 'string' && /^\d{2}\.\d{2}\.\d{4}$/.test(v.untilExample) ? v.untilExample : '' };
+      // The date as Mo writes it for the page's language: „31.12.2029“ /
+      // „31 December 2029“ (untilText() shortens the English month).
+      c.validity = { years: num(v.years, 3, 0, 10), until: typeof v.untilExample === 'string' && /^[0-9A-Za-z. ]{6,24}$/.test(v.untilExample) ? v.untilExample : '' };
       if (typeof j.termsUrl === 'string' && /^https:\/\/[^\s"'<>]+$/.test(j.termsUrl)) c.termsUrl = j.termsUrl;
       var fonts = j.fonts && typeof j.fonts === 'object' ? j.fonts : {};
       if (typeof fonts.script === 'string') {
-        var u = fonts.script.replace(/^\s+|\s+$/g, '');
-        if (u.charAt(0) === '/') u = API + u;
-        // Only Mo's own font route — the URL goes into a CSS url().
-        if (u.indexOf(API + '/api/gift-vouchers/fonts/') === 0 && /^[^\s"'()\\<>]+$/.test(u)) c.scriptFont = u;
+        // Only a file of Mo's own font route, loaded from the page's backend
+        // URL (Mo builds its URL on its public base, which may be another
+        // spelling of the same backend) — the URL goes into a CSS url().
+        var fm = /\/api\/gift-vouchers\/fonts\/([a-z0-9-]{1,40}\.ttf)$/.exec(fonts.script.replace(/^\s+|\s+$/g, ''));
+        var fu = fm ? API + '/api/gift-vouchers/fonts/' + fm[1] : '';
+        if (fu && /^[^\s"'()\\<>]+$/.test(fu)) c.scriptFont = fu;
       }
       var seen = {};
       (Array.isArray(j.designs) ? j.designs : []).forEach(function (d) {
@@ -590,18 +613,20 @@
       try { if (window.Intl && Intl.DisplayNames) return new Intl.DisplayNames([LOCALE], { type: 'region' }).of(code); } catch (e) {}
       return code === 'DE' ? T('Deutschland', 'Germany') : code;
     }
+    // The validity date as the voucher prints it: „31.12.2029“ / „31 Dec 2029“
+    // (Mo's config says „31 December 2029“ on the English page).
     function untilText() {
       var u = cfg && cfg.validity.until;
       if (!u) return '';
       if (!EN) return u;
       var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(u);
       var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return m ? parseInt(m[1], 10) + ' ' + months[parseInt(m[2], 10) - 1] + ' ' + m[3] : u;
+      return m ? parseInt(m[1], 10) + ' ' + months[parseInt(m[2], 10) - 1] + ' ' + m[3] : u.replace(/\b([A-Z][a-z]{2})[a-z]+\b/, '$1');
     }
     function validityLine() {
       if (cfg && cfg.validity.years === 0) return T('Unbegrenzt gültig', 'No expiry date');
       var u = untilText();
-      return u ? T('Gültig bis ', 'Valid until ') + u : T('3 Jahre gültig', 'Valid for 3 years');
+      return u ? T('Gültig bis ', 'Valid until ') + u : validityFact();
     }
     function termsUrl() {
       if (TERMS_SETTING) return TERMS_SETTING;
@@ -1013,6 +1038,12 @@
       say(T('Die exakte Vorschau wird erstellt …', 'Creating the exact preview …'));
       request('POST', '/api/gift-vouchers/preview', body, 30000).then(function (res) {
         if (torn || seq !== exact.seq) return;
+        if (!res.ok && res.status === 409) {
+          exact.status = 'idle';
+          exact.key = '';
+          stopSelling(res);
+          return;
+        }
         if (res.ok && isDataImage(res.data.front) && isDataImage(res.data.inside)) {
           exact.status = 'ok';
           exact.front = res.data.front;
@@ -1470,8 +1501,9 @@
       }
     }
     // Downscale on the device (Mo's upload limit, mobile data): ≤ 2400 px on
-    // the long side, JPEG ≤ the byte limit, white behind transparency; plus
-    // a small thumbnail for the preview (kept in the draft).
+    // the long side — but never under Mo's 500 px on the short side (a
+    // panorama) — JPEG ≤ the byte limit, white behind transparency; plus a
+    // small thumbnail for the preview (kept in the draft).
     function readImage(file) {
       return new Promise(function (resolve, reject) {
         var url = null;
@@ -1501,10 +1533,15 @@
         } catch (e) { resolve(null); }
       });
     }
-    function drawScaled(img, maxSide) {
+    // minShort (the upload only, not the thumbnail): the short side stays at
+    // that size or more, even if the long side then exceeds maxSide — a
+    // panorama keeps Mo's minimum (Mo scales the long side down itself).
+    function drawScaled(img, maxSide, minShort) {
       var w = img.naturalWidth;
       var h = img.naturalHeight;
+      var sh = Math.min(w, h);
       var s = Math.min(1, maxSide / Math.max(w, h));
+      if (minShort && sh * s < minShort) s = Math.min(1, minShort / sh);
       var c = document.createElement('canvas');
       c.width = Math.max(1, Math.round(w * s));
       c.height = Math.max(1, Math.round(h * s));
@@ -1515,12 +1552,16 @@
       ctx.drawImage(img, 0, 0, c.width, c.height);
       return c;
     }
+    // Mo's shortest side (GIFT_VOUCHER_PHOTO_MIN_SIDE): a smaller photo is
+    // refused here with Mo's own words, before any upload.
+    var PHOTO_MIN_SIDE = 500;
     function prepareImage(file, maxBytes) {
       return readImage(file).then(function (img) {
+        if (Math.min(img.naturalWidth, img.naturalHeight) < PHOTO_MIN_SIDE) throw 'small';
         var maxSide = 2400;
         var qualities = [0.9, 0.82, 0.74, 0.66];
         function attempt(k) {
-          var c = drawScaled(img, maxSide);
+          var c = drawScaled(img, maxSide, PHOTO_MIN_SIDE);
           return canvasBlob(c, qualities[k]).then(function (blob) {
             if (!blob) throw 'encode';
             if (blob.size <= maxBytes) return { blob: blob, w: c.width, h: c.height };
@@ -1533,7 +1574,6 @@
         return attempt(0).then(function (res) {
           var t = drawScaled(img, 720);
           res.thumb = t.toDataURL('image/jpeg', 0.82);
-          res.small = Math.min(img.naturalWidth, img.naturalHeight) < 900;
           return res;
         });
       });
@@ -1586,8 +1626,20 @@
           paintUpload();
         }).then(function (res) {
           if (torn || seq !== upload.seq) return;
+          if (!res.ok && res.status === 409) {
+            upload = { status: 'idle', progress: 0, phase: '', message: '', seq: seq };
+            stopSelling(res);
+            return;
+          }
           if (res.ok && typeof res.data.photoId === 'string' && /^[A-Za-z0-9_-]{22,64}$/.test(res.data.photoId)) {
-            state.photo = { id: res.data.photoId, thumb: img.thumb, w: img.w, h: img.h, small: img.small };
+            // The size Mo stored (it scales a long side over 2400 px down
+            // again) decides the „recht klein“ note — that is what is printed.
+            var mw = Number(res.data.width);
+            var mh = Number(res.data.height);
+            var stored = mw > 0 && mh > 0 && isFinite(mw) && isFinite(mh);
+            var pw = stored ? Math.round(mw) : img.w;
+            var ph = stored ? Math.round(mh) : img.h;
+            state.photo = { id: res.data.photoId, thumb: img.thumb, w: pw, h: ph, small: Math.min(pw, ph) < 900 };
             upload = { status: 'idle', progress: 1, phase: '', message: '', seq: seq };
             delete shown.photo;
             changed();
@@ -1603,9 +1655,11 @@
         });
       }).catch(function (why) {
         if (torn || seq !== upload.seq) return;
-        upload = { status: 'error', progress: 0, phase: '', seq: seq, message: why === 'large'
-          ? T('Das Foto lässt sich nicht klein genug rechnen. Bitte wähle ein anderes.', 'This photo cannot be made small enough. Please choose another one.')
-          : T('Dieses Bild können wir nicht lesen. Bitte wähle ein Foto im Format JPG, PNG oder WebP.', 'We cannot read this image. Please choose a JPG, PNG or WebP photo.') };
+        upload = { status: 'error', progress: 0, phase: '', seq: seq, message: why === 'small'
+          ? T('Das Foto ist zu klein — es braucht mindestens 500 × 500 Pixel.', 'The photo is too small — it needs at least 500 × 500 pixels.')
+          : why === 'large'
+            ? T('Das Foto lässt sich nicht klein genug rechnen. Bitte wähle ein anderes.', 'This photo cannot be made small enough. Please choose another one.')
+            : T('Dieses Bild können wir nicht lesen. Bitte wähle ein Foto im Format JPG, PNG oder WebP.', 'We cannot read this image. Please choose a JPG, PNG or WebP photo.') };
         paintUpload();
       });
     }
@@ -1661,8 +1715,19 @@
       setText(f.count, n + '/' + lim.message + (lines >= lim.messageLines - 1 ? ' · ' + lines + '/' + lim.messageLines + T(' Zeilen', ' lines') : ''));
       f.count.classList.toggle('is-max', n >= lim.message || lines >= lim.messageLines);
     }
-    // „Mit Mo formulieren“: occasion + tone → three suggestions (Mo writes with
-    // the {{fuer}} / {{von}} placeholders; the names are filled in here).
+    // „Mit Mo formulieren“: occasion + tone → up to three suggestions (Mo
+    // writes with the {{fuer}} / {{von}} placeholders; the names are filled in
+    // here). Mo asks the model for three and passes on one to three.
+    function aiTitle(n) {
+      if (n === 1) return T('Mo schreibt dir einen Vorschlag', 'Mo writes a suggestion for you');
+      if (n === 2) return T('Mo schreibt dir zwei Vorschläge', 'Mo writes two suggestions for you');
+      return T('Mo schreibt dir drei Vorschläge', 'Mo writes three suggestions for you');
+    }
+    function aiReadyText(n) {
+      if (n === 1) return T('Ein Vorschlag von Mo ist da.', 'One suggestion from Mo is ready.');
+      if (n === 2) return T('Zwei Vorschläge von Mo sind da.', 'Two suggestions from Mo are ready.');
+      return T('Drei Vorschläge von Mo sind da.', 'Three suggestions from Mo are ready.');
+    }
     function chipGroup(label, list, key) {
       var wrap = el('div', 'ms-gv-chipgroup');
       var lab = el('p', 'ms-gv-label', label);
@@ -1702,7 +1767,8 @@
       body.id = bodyId;
       body.hidden = true;
       var head = el('div', 'ms-gv-ai__head');
-      head.appendChild(el('p', 'ms-gv-ai__title', T('Mo schreibt dir drei Vorschläge', 'Mo writes three suggestions for you')));
+      var title = el('p', 'ms-gv-ai__title', aiTitle(3));
+      head.appendChild(title);
       var privacy = el('p', 'ms-gv-hint ms-gv-ai__privacy');
       privacy.innerHTML = icon('shield');
       privacy.appendChild(el('span', '', T('Mo bekommt nur Anlass und Ton – deine Namen setzen wir erst hier auf der Seite ein.', 'Mo only gets the occasion and the tone – your names are filled in here on the page.')));
@@ -1733,7 +1799,7 @@
       body.appendChild(err);
       box.appendChild(body);
       host.appendChild(box);
-      aiUi = { box: box, toggle: toggle, body: body, occ: occ, tone: tone, go: go2, goLabel: goLabel, goHint: goHint, list: list, err: err };
+      aiUi = { box: box, toggle: toggle, body: body, title: title, occ: occ, tone: tone, go: go2, goLabel: goLabel, goHint: goHint, list: list, err: err };
       toggle.addEventListener('click', function () {
         ai.open = !ai.open;
         paintAi();
@@ -1762,11 +1828,16 @@
       say(T('Mo schreibt …', 'Mo is writing …'));
       request('POST', '/api/gift-vouchers/suggest', { occasion: state.occasion, tone: state.tone, locale: LOCALE }, 30000).then(function (res) {
         if (torn || seq !== ai.seq) return;
+        if (!res.ok && res.status === 409) {
+          ai.status = 'idle';
+          stopSelling(res);
+          return;
+        }
         var items = res.ok && Array.isArray(res.data.suggestions) ? res.data.suggestions.filter(function (s) { return typeof s === 'string' && s.replace(/\s+/g, ''); }).slice(0, 3).map(function (s) { return s.slice(0, 400); }) : [];
         if (items.length) {
           ai.status = 'ok';
           ai.items = items;
-          say(T('Drei Vorschläge von Mo sind da.', 'Three suggestions from Mo are ready.'));
+          say(aiReadyText(items.length));
         } else {
           ai.status = 'error';
           ai.message = res.ok ? T('Mo hatte gerade keine Idee – bitte versuch es noch einmal.', 'Mo had no idea just now – please try again.') : errorText(res, 'Mo kann gerade nicht formulieren – bitte versuch es später noch einmal.', 'Mo cannot write right now – please try again later.');
@@ -1804,6 +1875,8 @@
       var loading = ai.status === 'loading';
       u.go.setAttribute('aria-busy', loading ? 'true' : 'false');
       setText(u.goLabel, loading ? T('Mo schreibt …', 'Mo is writing …') : ai.status === 'ok' ? T('Neue Vorschläge', 'New suggestions') : T('Vorschläge schreiben', 'Write suggestions'));
+      // „drei“ as asked for; the real number once Mo's texts are here.
+      setText(u.title, aiTitle(ai.status === 'ok' ? ai.items.length : 3));
       if (state.occasion) setText(u.goHint, '');
       u.list.setAttribute('aria-busy', loading ? 'true' : 'false');
       u.err.hidden = ai.status !== 'error';
@@ -1811,7 +1884,8 @@
         u.err.innerHTML = icon('alert');
         u.err.appendChild(el('span', '', ai.message));
       }
-      // Rebuild the list (three small cards; texts via textContent).
+      // Rebuild the list (one small card per text, three placeholders while
+      // Mo writes; texts via textContent).
       u.list.innerHTML = '';
       if (loading) {
         for (var s = 0; s < 3; s++) {
@@ -2008,6 +2082,13 @@
       };
       termsInput.addEventListener('change', function () { paintErrors(); paintBuy(); paintBar(); });
       p.body.appendChild(termsWrap);
+      // An edit after „In den Warenkorb“: this version takes the earlier one's
+      // place in the cart (buy()).
+      var replace = el('p', 'ms-gv-callout ms-gv-buy__replace');
+      replace.hidden = true;
+      replace.innerHTML = icon('info');
+      replace.appendChild(el('span', '', T('Dein vorheriger Entwurf liegt im Warenkorb – er wird durch diesen ersetzt.', 'Your previous design is in the cart – this one replaces it.')));
+      p.body.appendChild(replace);
       // Buy
       var actions = el('div', 'ms-gv-buy');
       var buyBtn = el('button', 'ms-gv-btn ms-gv-btn--primary ms-gv-buy__now');
@@ -2054,7 +2135,7 @@
       fine.innerHTML = icon('info');
       fine.appendChild(el('span', 'ms-gv-buy__finetext'));
       p.body.appendChild(fine);
-      review = { dl: dl, buyBtn: buyBtn, buyLabel: buyLabel, cartBtn: cartBtn, cartLabel: cartLabel, actions: actions, done: done, err: err, fine: fine, terms: termsWrap, link: a };
+      review = { dl: dl, buyBtn: buyBtn, buyLabel: buyLabel, cartBtn: cartBtn, cartLabel: cartLabel, actions: actions, done: done, replace: replace, err: err, fine: fine, terms: termsWrap, link: a };
     }
     function termsChecked() { return !!(termsInput && termsInput.checked); }
     function paintReview() {
@@ -2104,6 +2185,7 @@
       var added = !!state.added && state.added === draftKey();
       review.actions.hidden = added;
       review.done.hidden = !added;
+      review.replace.hidden = added || !state.added || !state.addedLines;
       var busy = !!buying;
       [review.buyBtn, review.cartBtn].forEach(function (b) {
         b.setAttribute('aria-busy', busy ? 'true' : 'false');
@@ -2189,7 +2271,7 @@
           return { ok: true, token: res.data.token, key: key };
         }
         if (res.ok) return { ok: false, message: T('Der Gutschein konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal.', 'The voucher could not be saved just now. Please try again.') };
-        return { ok: false, message: errorText(res, 'Der Gutschein konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal.', 'The voucher could not be saved just now. Please try again.'), key: fieldKey(res.field) };
+        return { ok: false, status: res.status, message: errorText(res, 'Der Gutschein konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal.', 'The voucher could not be saved just now. Please try again.'), key: fieldKey(res.field) };
       });
     }
     // The cart contract (mo spec §8): the voucher line and, for the card, the
@@ -2218,6 +2300,11 @@
       try { if (window.routes && window.routes.cart_add_url) return String(window.routes.cart_add_url).replace(/\.js$/, '') + '.js'; } catch (e) {}
       return rootUrl() + 'cart/add.js';
     }
+    function cartChangeUrl() {
+      try { if (window.routes && window.routes.cart_change_url) return String(window.routes.cart_change_url).replace(/\.js$/, '') + '.js'; } catch (e) {}
+      return rootUrl() + 'cart/change.js';
+    }
+    // → { ok: true, keys } with the new lines' keys (for a later replace).
     function cartAdd(items) {
       return window.fetch(cartAddUrl(), {
         method: 'POST',
@@ -2228,13 +2315,38 @@
         return r.text().then(function (t) {
           var j = null;
           try { j = t ? JSON.parse(t) : null; } catch (e) { j = null; }
-          if (r.ok) return { ok: true };
+          if (r.ok) {
+            var keys = (j && Array.isArray(j.items) ? j.items : []).map(function (i) { return i && typeof i.key === 'string' ? i.key : ''; }).filter(function (k) { return LINE_KEY.test(k); });
+            return { ok: true, keys: keys };
+          }
           var desc = j && typeof j.description === 'string' ? j.description.slice(0, 200) : '';
           return { ok: false, message: desc || T('Der Gutschein konnte nicht in den Warenkorb gelegt werden. Bitte versuche es noch einmal.', 'The voucher could not be added to the cart. Please try again.') };
         });
       }).catch(function () {
         return { ok: false, message: T('Die Verbindung hat gerade nicht geklappt. Bitte prüfe dein Internet und versuche es noch einmal.', 'The connection did not work. Please check your internet connection and try again.') };
       });
+    }
+    // Lines out of the cart by their keys, one after the other (by key, not
+    // by variant id: every voucher line of an amount shares its variant).
+    // A failure is ignored — e.g. the line is gone already (removed in the
+    // drawer, or bought).
+    function cartRemove(keys) {
+      var list = (keys || []).slice();
+      function nextKey() {
+        if (!list.length) return Promise.resolve();
+        var key = list.shift();
+        var done;
+        try {
+          done = window.fetch(cartChangeUrl(), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ id: key, quantity: 0 })
+          }).then(function () {}, function () {});
+        } catch (e) { done = Promise.resolve(); }
+        return done.then(nextKey);
+      }
+      return nextKey();
     }
     // The theme's drawer, as after the widget's plan add (never replaceWith).
     function openCart() {
@@ -2264,14 +2376,22 @@
       paintBar();
       say(T('Dein Gutschein wird vorbereitet …', 'Preparing your voucher …'));
       var key = draftKey();
+      // An earlier version of this voucher in the cart (an edit after „In den
+      // Warenkorb“) is replaced: its lines come out only once the new ones
+      // are in, so a failed add never leaves the cart without the voucher.
+      var replace = state.added && state.added !== key && state.addedLines ? state.addedLines.slice() : [];
       ensureDraft().then(function (r) {
         if (torn) return null;
         if (!r.ok) return r;
-        return cartAdd(cartItems(r.token));
+        return cartAdd(cartItems(r.token)).then(function (a) {
+          if (torn || !a.ok || !replace.length) return a;
+          return cartRemove(replace).then(function () { return a; });
+        });
       }).then(function (r) {
         if (torn || !r) return;
         if (!r.ok) {
           buying = null;
+          if (r.status === 409) { stopSelling(r); return; }
           paintBuy();
           paintBar();
           if (r.key) { extErr[r.key] = r.message; paintErrors(); }
@@ -2280,6 +2400,7 @@
           return;
         }
         state.added = key;
+        state.addedLines = lineKeys(r.keys);
         save(true);
         if (mode === 'checkout') {
           setText(review.buyLabel, T('Weiter zur Kasse …', 'To checkout …'));
@@ -2298,7 +2419,8 @@
       });
     }
     // „Noch einen Gutschein gestalten“: amount, design and delivery stay; the
-    // personal parts go.
+    // personal parts go — and the voucher in the cart stays there (the next
+    // one is added next to it, never in its place).
     function startOver() {
       state.recipient = '';
       state.sender = '';
@@ -2306,6 +2428,7 @@
       state.photo = null;
       state.address = blankAddress();
       state.added = null;
+      state.addedLines = null;
       state.done = [false, false, false, false, false];
       if (selectedDesign() && selectedDesign().photo) state.designKey = (visibleDesigns().filter(function (d) { return !d.photo; })[0] || DESIGNS[0]).key;
       ['recipient', 'sender', 'message'].forEach(function (k) { if (FIELDS[k]) FIELDS[k].input.value = ''; });
@@ -2523,6 +2646,25 @@
         if (link) { link.parentNode.insertBefore(actions, link); actions.appendChild(link); }
         else fallbackEl.appendChild(actions);
         actions.appendChild(b);
+      }
+    }
+    // Mo stopped selling while the page was open (a 409 from the photo,
+    // suggest, preview or drafts route: switched off in Mo, or no longer set
+    // up). The designer gives way to the fallback — the link to the plain
+    // voucher product — and Mo's line is announced; the focus moves to that
+    // link when it was in the part that disappears.
+    function stopSelling(res) {
+      if (!ready) return;
+      ready = false;
+      buying = null;
+      var a = document.activeElement;
+      var lost = !a || a === document.body || (designer && designer.contains(a)) || (bar && bar.contains(a));
+      paintBar();
+      showFallback(false);
+      say(errorText(res, 'Gutscheine sind gerade nicht verfügbar.', 'Gift vouchers are not available right now.'));
+      if (fallbackEl) {
+        reveal(fallbackEl, 'center');
+        if (lost) focusEl(fallbackEl.querySelector('a') || null);
       }
     }
 
