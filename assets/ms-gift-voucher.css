@@ -1131,9 +1131,12 @@
   letter-spacing: 0;
   white-space: pre-line;
   overflow-wrap: anywhere;
+  /* Caveat (and the italic fallback) draws strokes past a glyph's box; the
+     message box clips, so leave room at both ends of a line. */
+  padding-inline: 0.08em 0.25em;
   color: var(--f-ink, #1b1d20);
 }
-.ms-gv-face__from { display: block; margin-top: 0.4em; font-family: "MS GV Caveat", var(--gv-body-font); font-size: calc(var(--cq, 1cqw) * 8.6 * var(--fit, 1)); font-weight: 500; line-height: 1.2; text-align: right; color: var(--f-ink, #1b1d20); }
+.ms-gv-face__from { display: block; margin-top: 0.4em; padding-inline-end: 0.3em; font-family: "MS GV Caveat", var(--gv-body-font); font-size: calc(var(--cq, 1cqw) * 8.6 * var(--fit, 1)); font-weight: 500; line-height: 1.2; text-align: right; color: var(--f-ink, #1b1d20); }
 /* Until Caveat is in: the body font, smaller and italic (it is wider). */
 .ms-gv:not(.ms-gv--script) .ms-gv-face__msg { font-size: calc(var(--cq, 1cqw) * 6.6 * var(--fit, 1)); font-style: italic; }
 .ms-gv:not(.ms-gv--script) .ms-gv-face__from { font-size: calc(var(--cq, 1cqw) * 6 * var(--fit, 1)); font-style: italic; }
